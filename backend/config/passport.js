@@ -71,11 +71,7 @@ passport.use(
       clientID: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
       callbackURL: process.env.GITHUB_CALLBACK_URL,
-<<<<<<< HEAD
       scope: ["user:email"]
-=======
-      scope: ["user:email"],
->>>>>>> e3cc0f7ed6d0e8161d33570b7561094b55b62308
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
