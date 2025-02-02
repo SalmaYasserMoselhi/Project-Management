@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 function ResetPassword() {
   const [password, setPassword] = useState("");
@@ -12,23 +12,32 @@ function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const navigate = useNavigate();
-  const location = useLocation();
-
-  // Get resetToken from location state
-  const resetToken = location.state?.resetToken;
-  const email = location.state?.email;
 
   useEffect(() => {
-    if (!resetToken) {
-      setError(
-        "Invalid reset session. Please restart the password reset process."
-      );
-      setTimeout(() => {
-        navigate("/verification", { state: { email } });
-      }, 3000);
-    }
-  }, [resetToken, navigate]);
+    const verifySession = async () => {
+      try {
+        const response = await fetch('/api/v1/users/verifyResetSession', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          setError('Invalid reset session. Please restart the password reset process.');
+          setTimeout(() => {
+            navigate('/forgot-password');
+          }, 3000);
+        }
+      } catch (err) {
+        setError('Session verification failed. Please try again.');
+        setTimeout(() => {
+          navigate('/forgot-password');
+        }, 3000);
+      }
+    };
 
+    verifySession();
+  }, [navigate]);
+  
   const validatePassword = () => {
     if (password.length < 8 || !/\d/.test(password)) {
       setPasswordError(

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 function Dashboard() {
   const [user, setUser] = useState(null);
@@ -101,20 +101,58 @@ function Dashboard() {
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Your Profile</h2>
-        <div className="space-y-2">
-          <p>
-            <strong>Name:</strong> {user.firstName} {user.lastName}
-          </p>
-          <p>
-            <strong>Email:</strong> {user.email}
-          </p>
-          <p>
-            <strong>Username:</strong> {user.username}
-          </p>
+      <div className="max-w-md mx-auto">
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl">
+        {/* Header with gradient */}
+        <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600" />
+        
+        {/* Profile Content */}
+        <div className="relative px-6 pb-6">
+          {/* Avatar */}
+          <div className="absolute -top-16 left-6">
+            <div className="relative">
+              <img
+                src={user.avatar}
+                alt="Profile"
+                className="w-32 h-32 rounded-full border-4 border-white shadow-lg"
+              />
+              <button className="absolute bottom-0 right-0 p-2 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-colors duration-200">
+                {/* <Edit2 className="w-4 h-4 text-gray-600" /> */}
+              </button>
+            </div>
+          </div>
+
+          {/* User Info */}
+          <div className="pt-20">
+            <h2 className="text-2xl font-bold text-gray-800">
+              {user.firstName} {user.lastName}
+            </h2>
+            
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center text-gray-600">
+                {/* <Mail className="w-5 h-5 mr-3" /> */}
+                <span>{user.email}</span>
+              </div>
+              
+              <div className="flex items-center text-gray-600">
+                {/* <AtSign className="w-5 h-5 mr-3" /> */}
+                <span>{user.username}</span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-8 flex gap-4">
+              <button className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                Edit Profile
+              </button>
+              <button className="flex-1 border border-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-50 transition-colors duration-200">
+                View Activity
+              </button>
+            </div>
+          </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

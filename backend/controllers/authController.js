@@ -483,6 +483,35 @@ exports.verifyResetCode = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.verifyResetSession = catchAsync(async (req, res, next) => {
+  const resetToken = req.cookies.passwordResetToken;
+
+  if (!resetToken) {
+    return next(new AppError("Reset session has expired or is invalid", 400));
+  }
+
+  // Hash token from cookie
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  // Find user with matching hashed token
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetTokenExpires: { $gt: Date.now() }
+  });
+
+  if (!user) {
+    return next(new AppError("Reset session has expired or is invalid", 400));
+  }
+
+  res.status(200).json({
+    status: "success",
+    message: "Valid reset session"
+  });
+});
+
 exports.resetPassword = catchAsync(async (req, res, next) => {
   const { password, passwordConfirm } = req.body;
   const resetToken = req.cookies.passwordResetToken;
@@ -518,8 +547,11 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
 
   // Clear passwordResetToken cookie
   res.cookie("passwordResetToken", resetToken, {
-    maxAge: 10 * 60 * 1000, // 10 minutes
-    httpOnly: true
+    expires: new Date(Date.now() + 10 * 1000),
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+    path: "/"
   });
 
   // Log user in

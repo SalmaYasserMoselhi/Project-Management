@@ -10,6 +10,7 @@ router.post("/signup", authController.signup);
 router.post("/login", authController.login);
 router.post("/forgotPassword", authController.forgotPassword);
 router.post("/verifyResetCode", authController.verifyResetCode);
+router.get("/verifyResetSession", authController.verifyResetSession);
 router.patch("/resetPassword", authController.resetPassword);
 
 // Google Authentication Routes
