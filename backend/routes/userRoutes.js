@@ -24,7 +24,7 @@ router.get(
       session: false
     })(req, res, next);
   },
-  authController.googleCallback
+  authController.handleCallback
 );
 
 // Github Authentication Routes
@@ -39,7 +39,7 @@ router.get(
       session: false
     })(req, res, next);
   },
-  authController.githubCallback
+  authController.handleCallback
 );
 
 router.get("/verifyEmail/:token", authController.verifyEmail);
