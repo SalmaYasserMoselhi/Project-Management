@@ -11,7 +11,7 @@ const passport = require("passport");
 // jwt.sign(payload, secretOrPrivateKey, options)
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN,
+    expiresIn: process.env.JWT_EXPIRES_IN
   });
 };
 
@@ -25,7 +25,7 @@ const createSendToken = (user, statusCode, req, res) => {
     httpOnly: true,
     secure: false,
     sameSite: "lax",
-    path: "/",
+    path: "/"
   });
 
   user.password = undefined;
@@ -33,8 +33,8 @@ const createSendToken = (user, statusCode, req, res) => {
     status: "success",
     token,
     data: {
-      user,
-    },
+      user
+    }
   });
 };
 
@@ -60,7 +60,7 @@ const sendVerificationEmail = async (user, verificationToken) => {
   await sendEmail({
     email: user.email,
     subject: "Please verify your email address",
-    message,
+    message
   });
 };
 
@@ -74,7 +74,7 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
   // 2) Find user with matching token that hasn't expired
   const user = await User.findOne({
     emailVerificationToken: hashedToken,
-    emailVerificationExpires: { $gt: Date.now() },
+    emailVerificationExpires: { $gt: Date.now() }
   });
 
   if (!user) {
@@ -115,7 +115,7 @@ exports.signup = catchAsync(async (req, res, next) => {
     email,
     password,
     passwordConfirm,
-    emailVerified: false,
+    emailVerified: false
   });
 
   // 4) Generate verification token
@@ -135,10 +135,10 @@ exports.signup = catchAsync(async (req, res, next) => {
           firstName: newUser.firstName,
           lastName: newUser.lastName,
           email: newUser.email,
-          username: newUser.username,
+          username: newUser.username
         },
-        Workspaces: newUser.workspaces,
-      },
+        Workspaces: newUser.workspaces
+      }
     });
   } catch (err) {
     // If email sending fails, delete the user and return error
@@ -214,20 +214,20 @@ exports.googleAuth = async (req, res) => {
   if (!frontendUrl) {
     return res.status(400).json({
       status: "error",
-      message: "Frontend URL is required",
+      message: "Frontend URL is required"
     });
   }
 
   try {
     passport.authenticate("google", {
       scope: ["profile", "email"],
-      state: Buffer.from(JSON.stringify({ frontendUrl })).toString("base64"),
+      state: Buffer.from(JSON.stringify({ frontendUrl })).toString("base64")
     })(req, res);
   } catch (error) {
     console.error("Google auth error:", error);
     return res.status(500).json({
       status: "error",
-      message: "Error during Google authentication",
+      message: "Error during Google authentication"
     });
   }
 };
@@ -261,7 +261,7 @@ exports.googleCallback = async (req, res) => {
       httpOnly: true,
       secure: false,
       sameSite: "lax",
-      path: "/",
+      path: "/"
     });
 
     res.redirect(`${frontendUrl}/dashboard`);
@@ -274,20 +274,71 @@ exports.googleCallback = async (req, res) => {
   }
 };
 
+// Github Authentication
+exports.githubAuth = async (req, res) => {
+  const { frontendUrl } = req.query;
+
+  if (!frontendUrl) {
+    return res.status(400).json({
+      status: "error",
+      message: "Frontend URL is required"
+    });
+  }
+
+  try {
+    passport.authenticate("github", {
+      scope: ["user:email", "read:user"],
+      state: Buffer.from(JSON.stringify({ frontendUrl })).toString("base64")
+    })(req, res);
+  } catch (error) {
+    console.error("Github auth error:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "Error during Github authentication"
+    });
+  }
+};
+
 // Handle successful Github authentication
 exports.githubCallback = catchAsync(async (req, res) => {
-  const user = await User.findById(req.user._id).select(
-    "firstName lastName username email role status avatar emailVerified workspaces"
-  );
+  try {
+    const user = await User.findById(req.user._id).select(
+      "firstName lastName username email role status avatar emailVerified workspaces"
+    );
 
-  // If email not verified, send verification email
-  if (!user.emailVerified) {
-    const verificationToken = user.createEmailVerificationToken();
-    await user.save({ validateBeforeSave: false });
-    await sendVerificationEmail(user, verificationToken);
+    // If email not verified, send verification email
+    if (!user.emailVerified) {
+      const verificationToken = user.createEmailVerificationToken();
+      await user.save({ validateBeforeSave: false });
+      await sendVerificationEmail(user, verificationToken);
+    }
+    console.log("User data:", user);
+
+    // Get the state from Github's response
+    const { state } = req.query;
+
+    // Decode the frontendUrl from state
+    const { frontendUrl } = JSON.parse(Buffer.from(state, "base64").toString());
+
+    const token = signToken(req.user._id);
+    res.cookie("jwt", token, {
+      expires: new Date(
+        Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+      ),
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+      path: "/"
+    });
+
+    res.redirect(`${frontendUrl}/dashboard`);
+  } catch (error) {
+    const frontendUrl = req.query.state
+      ? JSON.parse(Buffer.from(req.query.state, "base64").toString())
+          .frontendUrl
+      : process.env.BASE_URL;
+    res.redirect(`${frontendUrl}/login`);
   }
-  console.log("User data:", user);
-  createSendToken(user, 200, req, res);
 });
 
 exports.protect = catchAsync(async (req, res, next) => {
@@ -372,12 +423,12 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
     await sendEmail({
       email: user.email,
       subject: "Your Password Reset Code",
-      message,
+      message
     });
 
     res.status(200).json({
       status: "success",
-      message: "Reset code sent to your email.",
+      message: "Reset code sent to your email."
     });
   } catch (err) {
     user.verificationCode = undefined;
@@ -406,7 +457,7 @@ exports.verifyResetCode = catchAsync(async (req, res, next) => {
   // 2) Find user by hashed code and check expiration
   const user = await User.findOne({
     verificationCode: hashedCode,
-    verificationCodeExpires: { $gt: Date.now() },
+    verificationCodeExpires: { $gt: Date.now() }
   });
 
   if (!user) {
@@ -423,12 +474,12 @@ exports.verifyResetCode = catchAsync(async (req, res, next) => {
     httpOnly: true,
     secure: false,
     sameSite: "lax",
-    path: "/",
+    path: "/"
   });
 
   res.status(200).json({
     status: "success",
-    message: "Code verified successfully",
+    message: "Code verified successfully"
   });
 });
 
@@ -449,7 +500,7 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   // Find user with matching hashed token
   const user = await User.findOne({
     passwordResetToken: hashedToken,
-    passwordResetTokenExpires: { $gt: Date.now() },
+    passwordResetTokenExpires: { $gt: Date.now() }
   });
 
   if (!user) {
@@ -468,7 +519,7 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   // Clear passwordResetToken cookie
   res.cookie("passwordResetToken", resetToken, {
     maxAge: 10 * 60 * 1000, // 10 minutes
-    httpOnly: true,
+    httpOnly: true
   });
 
   // Log user in
@@ -499,7 +550,7 @@ exports.logout = (req, res) => {
     httpOnly: true,
     secure: false,
     sameSite: "lax",
-    path: "/",
+    path: "/"
   });
 
   res.status(200).json({ status: "success" });

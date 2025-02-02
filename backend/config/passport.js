@@ -1,7 +1,7 @@
-const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const GithubStrategy = require('passport-github2').Strategy;
-const User = require('../models/userModel');
+const passport = require("passport");
+const GoogleStrategy = require("passport-google-oauth20").Strategy;
+const GithubStrategy = require("passport-github2").Strategy;
+const User = require("../models/userModel");
 
 // GOOGLE AUTH
 passport.use(
@@ -10,7 +10,7 @@ passport.use(
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL: process.env.GOOGLE_CALLBACK_URL, // onrender.com for production
-      scope: ['profile', 'email'],
+      scope: ["profile", "email"]
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -31,7 +31,7 @@ passport.use(
         }
 
         // 3. Create new user with Google profile info
-        const names = profile.displayName.split(' ');
+        const names = profile.displayName.split(" ");
         const firstName = names[0];
         const lastName = names[names.length - 1];
 
@@ -44,10 +44,10 @@ passport.use(
           lastName, // Add lastName from Google profile
           email: profile.emails[0].value,
           googleId: profile.id,
-          avatar: profile.photos[0].value || 'default.jpg',
+          avatar: profile.photos[0].value || "default.jpg",
           password: randomPassword,
           passwordConfirm: randomPassword,
-          username: 'temp', // temporary username just to pass validation
+          username: "temp" // temporary username just to pass validation
         });
 
         // Now update the username using the generated _id
@@ -57,7 +57,7 @@ passport.use(
 
         return done(null, user);
       } catch (err) {
-        console.error('Google Strategy Error:', err);
+        console.error("Google Strategy Error:", err);
         done(err, null);
       }
     }
@@ -71,14 +71,15 @@ passport.use(
       clientID: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
       callbackURL: process.env.GITHUB_CALLBACK_URL,
-      scope: ['user:email'],
+      scope: ["user:email"],
+      state: true
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
         console.log(profile);
         // 1. First, try to find user by githubId
         if (!profile.id) {
-          return done(new Error('No GitHub account found'), null);
+          return done(new Error("No GitHub account found"), null);
         }
 
         // Require explicit email verification
@@ -88,7 +89,7 @@ passport.use(
             : null;
 
         if (!email) {
-          return done(new Error('Email access is required'), null);
+          return done(new Error("Email access is required"), null);
         }
 
         let user = await User.findOne({ githubId: profile.id });
@@ -102,11 +103,11 @@ passport.use(
         }
 
         const names = profile.displayName
-          ? profile.displayName.split(' ')
-          : [username, ''];
+          ? profile.displayName.split(" ")
+          : [username, ""];
 
         const firstName = names[0] || username;
-        const lastName = names.length > 1 ? names[names.length - 1] : '';
+        const lastName = names.length > 1 ? names[names.length - 1] : "";
 
         const randomPassword = Math.random().toString(36);
 
@@ -118,10 +119,10 @@ passport.use(
           avatar:
             profile.photos && profile.photos.length > 0
               ? profile.photos[0].value
-              : 'default.jpg',
+              : "default.jpg",
           email,
           password: randomPassword,
-          passwordConfirm: randomPassword,
+          passwordConfirm: randomPassword
         });
 
         return done(null, user);
