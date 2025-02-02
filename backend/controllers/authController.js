@@ -232,7 +232,7 @@ exports.googleAuth = async (req, res) => {
   }
 };
 
-exports.googleCallback = async (req, res) => {
+exports.handleCallback = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select(
       "firstName lastName username email role status avatar emailVerified workspaces"
@@ -299,47 +299,6 @@ exports.githubAuth = async (req, res) => {
   }
 };
 
-// Handle successful Github authentication
-exports.githubCallback = catchAsync(async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id).select(
-      "firstName lastName username email role status avatar emailVerified workspaces"
-    );
-
-    // If email not verified, send verification email
-    if (!user.emailVerified) {
-      const verificationToken = user.createEmailVerificationToken();
-      await user.save({ validateBeforeSave: false });
-      await sendVerificationEmail(user, verificationToken);
-    }
-    console.log("User data:", user);
-
-    // Get the state from Github's response
-    const { state } = req.query;
-
-    // Decode the frontendUrl from state
-    const { frontendUrl } = JSON.parse(Buffer.from(state, "base64").toString());
-
-    const token = signToken(req.user._id);
-    res.cookie("jwt", token, {
-      expires: new Date(
-        Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
-      ),
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      path: "/"
-    });
-
-    res.redirect(`${frontendUrl}/dashboard`);
-  } catch (error) {
-    const frontendUrl = req.query.state
-      ? JSON.parse(Buffer.from(req.query.state, "base64").toString())
-          .frontendUrl
-      : process.env.BASE_URL;
-    res.redirect(`${frontendUrl}/login`);
-  }
-});
 
 exports.protect = catchAsync(async (req, res, next) => {
   //1) Getting token and check if it is there or exist
