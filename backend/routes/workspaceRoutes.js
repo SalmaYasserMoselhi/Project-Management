@@ -6,53 +6,58 @@ const router = express.Router();
 // Protect all routes after this middleware
 router.use(authController.protect);
 
-// Get user workspaces with filtering, sorting, and pagination
+// Workspace Management Routes
+// Get user's workspaces (own and member of)
 router.get('/user-workspaces', workspaceController.getUserWorkspaces);
 
-// Get all workspaces for current user
-router.get('/all', workspaceController.getAllWorkspaces);
-
-// Create new workspace
-router.post(
-  '/',
-  workspaceController.checkWorkspaceName,
-  workspaceController.createWorkspace
-);
-
-// Routes that need workspaceId
+// Get specific workspace
 router
   .route('/:workspaceId')
   .get(
-    workspaceController.checkWorkspaceAccess,
+    workspaceController.validateWorkspaceOperation,
     workspaceController.getWorkspaceById
   )
   .patch(
-    workspaceController.checkWorkspaceAccess,
-    workspaceController.checkWorkspaceAdmin,
-    workspaceController.checkWorkspaceName,
-    workspaceController.updateWorkspace
-  )
-  .delete(
-    workspaceController.checkWorkspaceAccess,
-    workspaceController.checkWorkspaceAdmin,
-    workspaceController.deleteWorkspace
+    workspaceController.validateWorkspaceOperation,
+    workspaceController.updateWorkspace // Only works for public workspace
   );
 
-// Member management routes
+// Member management routes (only for public workspace)
 router
   .route('/:workspaceId/members')
-  .post(
-    workspaceController.checkWorkspaceAccess,
-    workspaceController.checkWorkspaceAdmin,
-    workspaceController.addMember
+  .get(
+    workspaceController.validateWorkspaceOperation,
+    workspaceController.getWorkspaceMembers
   );
+
+router
+  .route('/:workspaceId/invite')
+  .post(
+    workspaceController.validateWorkspaceOperation,
+    workspaceController.inviteMembers
+  )
+  .get(
+    workspaceController.validateWorkspaceOperation,
+    workspaceController.getPendingInvitations
+  );
+
+router.delete(
+  '/:workspaceId/invite/:email',
+  workspaceController.validateWorkspaceOperation,
+  workspaceController.cancelInvitation
+);
 
 router
   .route('/:workspaceId/members/:userId')
   .delete(
-    workspaceController.checkWorkspaceAccess,
-    workspaceController.checkWorkspaceAdmin,
+    workspaceController.validateWorkspaceOperation,
     workspaceController.removeMember
   );
+
+router.post(
+  '/join/:token',
+  authController.protect,
+  workspaceController.acceptInvitation
+);
 
 module.exports = router;
