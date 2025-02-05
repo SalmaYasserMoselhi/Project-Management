@@ -59,11 +59,11 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
-    role: {
-      type: String,
-      enum: ['owner', 'admin', 'member'], // Changed to match workspace roles
-      default: 'member',
-    },
+    // role: {
+    //   type: String,
+    //   enum: ['owner', 'admin', 'member'], // Changed to match workspace roles
+    //   default: 'member',
+    // },
     password: {
       type: String,
       required: [true, 'Please provide a strong password'],
@@ -125,12 +125,6 @@ const userSchema = new mongoose.Schema(
       type: Date,
       select: false,
     },
-    workspaces: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Workspace',
-      },
-    ],
   },
   {
     timestamps: true,
@@ -144,15 +138,16 @@ userSchema.virtual('fullName').get(function () {
   return `${this.firstName} ${this.lastName}`.trim();
 });
 
-// // Virtual to get user's owned workspaces
-// userSchema.virtual('ownedWorkspaces').get(function () {
-//   return this.workspaces.filter((w) => w.role === 'owner' && w.workspace);
-// });
-
-// // Virtual to get workspaces where user is a member
-// userSchema.virtual('memberWorkspaces').get(function () {
-//   return this.workspaces.filter((w) => w.role === 'member' && w.workspace);
-// });
+// VIRTUAL POPULATE, 'Virtual Child Referencing' to get all workspaces of a user
+userSchema.virtual('workspaces', {
+  ref: 'Workspace',
+  foreignField: 'members.user', // 'members.user' is the field in Workspace model that reference to User model
+  localField: '_id', // The User's ID (used to match workspaces)
+  options: {
+    select: '_id', // Only include ID by default
+    transform: (doc) => doc._id, // Convert to just ID string
+  },
+});
 
 userSchema.pre('save', async function (next) {
   // Only run this fun if password is modified
@@ -185,45 +180,13 @@ userSchema.pre('save', function (next) {
   next();
 });
 
-userSchema.pre(/^find/, function (next) {
-  this.populate({
-    path: 'workspaces.workspace',
-    select: 'name description type settings',
-  });
-  next();
-});
-
-// Create default workspaces once the user signs up
 userSchema.pre('save', async function (next) {
-  // Check if this is a new user
   if (this.isNew) {
-    // Create the three default workspaces
-    const personalWorkspace = await Workspace.create({
-      name: 'My Workspace', // More personal name
-      description: 'Your private workspace for personal boards',
-      type: 'private',
-      createdBy: this._id,
-      members: [{ userId: this._id, role: 'owner' }],
-    });
-    this.workspaces.push(personalWorkspace._id);
-
-    publicWorkspace = await Workspace.create({
-      name: `${this.username}'s Team Space`, // Personalized team space
-      description: 'Share and collaborate on boards with your team',
-      type: 'public',
-      createdBy: this._id,
-      members: [{ userId: this._id, role: 'owner' }],
-    });
-    this.workspaces.push(publicWorkspace._id);
-
-    CollaborationWorkspace = await Workspace.create({
-      name: 'Collaboration Workspace',
-      description: 'Access boards shared by others',
-      type: 'collaboration',
-      createdBy: this._id,
-      members: [{ userId: this._id, role: 'owner' }],
-    });
-    this.workspaces.push(CollaborationWorkspace._id);
+    try {
+      await Workspace.createDefaultWorkspaces(this._id);
+    } catch (error) {
+      return next(error); // Prevent user creation if workspaces fail
+    }
   }
   next();
 });
@@ -287,41 +250,6 @@ userSchema.methods.createEmailVerificationToken = function () {
 
   return verificationToken;
 };
-
-userSchema.methods.addWorkspace = function (workspaceId, role = 'member') {
-  if (!this.workspaces.some((w) => w.workspace.equals(workspaceId))) {
-    this.workspaces.push({
-      workspace: workspaceId,
-      role,
-      joinedAt: Date.now(),
-    });
-  }
-};
-
-userSchema.methods.removeWorkspace = function (workspaceId) {
-  this.workspaces = this.workspaces.filter(
-    (w) => !w.workspace.equals(workspaceId)
-  );
-};
-
-userSchema.methods.updateWorkspaceRole = function (workspaceId, newRole) {
-  const workspace = this.workspaces.find((w) =>
-    w.workspace.equals(workspaceId)
-  );
-  if (workspace) {
-    workspace.role = newRole;
-  }
-};
-
-// Virtual to get user's owned workspaces
-userSchema.virtual('ownedWorkspaces').get(function () {
-  return this.workspaces.filter((w) => w.role === 'owner');
-});
-
-// Virtual to get workspaces where user is a member
-userSchema.virtual('memberWorkspaces').get(function () {
-  return this.workspaces.filter((w) => w.role === 'member');
-});
 
 userSchema.methods.isOnline = function () {
   return (

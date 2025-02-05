@@ -3,6 +3,9 @@ const workspaceController = require('../controllers/workspaceController.js');
 const authController = require('../controllers/authController.js');
 const router = express.Router();
 
+// Public routes (before protect middleware)
+router.get('/join/:token', workspaceController.acceptInvitation);
+
 // Protect all routes after this middleware
 router.use(authController.protect);
 
@@ -53,11 +56,5 @@ router
     workspaceController.validateWorkspaceOperation,
     workspaceController.removeMember
   );
-
-router.post(
-  '/join/:token',
-  authController.protect,
-  workspaceController.acceptInvitation
-);
 
 module.exports = router;

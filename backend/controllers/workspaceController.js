@@ -3,12 +3,13 @@ const AppError = require('../utils/appError.js');
 const catchAsync = require('../utils/catchAsync.js');
 const User = require('../models/userModel');
 const sendEmail = require('../utils/email');
+const crypto = require('crypto');
 
 exports.createWorkspace = catchAsync(async (req, res, next) => {
   const workspace = await Workspace.create({
     ...req.body,
     createdBy: req.user._id,
-    members: [{ userId: req.user._id, role: 'owner' }],
+    members: [{ user: req.user._id, role: 'owner' }],
   });
 
   res.status(201).json({
@@ -17,64 +18,63 @@ exports.createWorkspace = catchAsync(async (req, res, next) => {
   });
 });
 
-// Get user's workspaces (one of each type: private, public, collaboration)
+// Get user's workspaces
 exports.getUserWorkspaces = catchAsync(async (req, res, next) => {
-  // First get your own default workspaces
-  const ownWorkspaces = await Workspace.find({
+  // Get workspaces where user is the creator
+  const ownedWorkspaces = await Workspace.find({
     createdBy: req.user._id,
-  })
-    .populate('members.userId', 'fullName username email avatar')
-    .populate('createdBy', 'fullName username email');
-
-  // Then get workspaces where you're a member (but not the creator)
+  });
+  // Get workspaces where user is a member but not creator
   const memberWorkspaces = await Workspace.find({
-    'members.userId': req.user._id,
-    createdBy: { $ne: req.user._id }, // Not created by you
-    type: 'public', // Only public workspaces
-  })
-    .populate('members.userId', 'fullName username email avatar')
-    .populate('createdBy', 'fullName username email');
+    'members.user': req.user._id,
+    createdBy: { $ne: req.user._id },
+    type: 'public',
+  });
 
-  // Check if user has all default workspaces
-  const existingTypes = ownWorkspaces.map((w) => w.type);
-  const requiredTypes = ['private', 'public', 'collaboration'];
-  const missingTypes = requiredTypes.filter(
-    (type) => !existingTypes.includes(type)
+  // Ensure user has all default workspace types
+  const userDefaultWorkspaces = ownedWorkspaces.filter((w) =>
+    ['private', 'public', 'collaboration'].includes(w.type)
   );
 
-  if (missingTypes.length > 0) {
-    await Workspace.createDefaultWorkspaces(req.user._id);
-    // Fetch updated own workspaces
-    const updatedOwnWorkspaces = await Workspace.find({
-      createdBy: req.user._id,
-    })
-      .populate('members.userId', 'fullName username email avatar')
-      .populate('createdBy', 'fullName username email');
+  if (userDefaultWorkspaces.length < 3) {
+    // Create missing default workspaces
+    const existingTypes = userDefaultWorkspaces.map((w) => w.type);
+    const missingTypes = ['private', 'public', 'collaboration'].filter(
+      (type) => !existingTypes.includes(type)
+    );
 
-    res.status(200).json({
-      status: 'success',
-      data: {
-        ownWorkspaces: updatedOwnWorkspaces,
-        memberWorkspaces,
-      },
-    });
-  } else {
-    res.status(200).json({
-      status: 'success',
-      data: {
-        ownWorkspaces,
-        memberWorkspaces,
-      },
-    });
+    for (const type of missingTypes) {
+      const workspace = await Workspace.create({
+        name:
+          type === 'public'
+            ? `${req.user.username}'s Team Space`
+            : `${type.charAt(0).toUpperCase() + type.slice(1)} Workspace`,
+        description:
+          type === 'private'
+            ? 'Your private workspace'
+            : type === 'public'
+            ? 'Share and collaborate with your team'
+            : 'Access boards shared by others',
+        type,
+        createdBy: req.user._id,
+        members: [{ user: req.user._id, role: 'owner' }],
+      });
+      ownWorkspaces.push(workspace);
+    }
   }
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      ownedWorkspaces,
+      memberWorkspaces,
+    },
+  });
 });
 
-// Get specific workspace by ID with populated member details
+// Get specific workspace by ID
 exports.getWorkspaceById = catchAsync(async (req, res, next) => {
-  // Find workspace and populate member/creator details
-  const workspace = await Workspace.findById(req.params.workspaceId)
-    .populate('members.userId', 'fullName username email avatar')
-    .populate('createdBy', 'fullName username email');
+  const workspace = await Workspace.findById(req.params.workspaceId);
 
   // Check if workspace exists
   if (!workspace) {
@@ -109,8 +109,7 @@ exports.updateWorkspace = catchAsync(async (req, res, next) => {
       new: true,
       runValidators: true,
     }
-  ).populate('members.userId', 'fullName username email avatar');
-
+  );
   res.status(200).json({
     status: 'success',
     data: { workspace: updatedWorkspace },
@@ -130,8 +129,7 @@ exports.removeMember = catchAsync(async (req, res, next) => {
 
   // Prevent removing the workspace owner
   const isOwner = workspace.members.some(
-    (member) =>
-      member.userId.toString() === req.params.userId && member.role === 'owner'
+    (member) => member.user.equals(req.params.userId) && member.role === 'owner'
   );
 
   if (isOwner) {
@@ -140,11 +138,10 @@ exports.removeMember = catchAsync(async (req, res, next) => {
 
   // Remove member
   workspace.members = workspace.members.filter(
-    (member) => member.userId.toString() !== req.params.userId
+    (member) => !member.user.equals(req.params.userId)
   );
 
   await workspace.save();
-  await workspace.populate('members.userId', 'fullName username email avatar');
 
   res.status(200).json({
     status: 'success',
@@ -161,13 +158,6 @@ exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
     return next(new AppError('Can only view members of team workspace', 403));
   }
 
-  // Populate member details including virtuals
-  await workspace.populate({
-    path: 'members.userId',
-    select: 'firstName lastName username email fullName',
-    options: { virtuals: true },
-  });
-
   let members = workspace.members;
 
   // Search functionality
@@ -175,7 +165,7 @@ exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
     const searchRegex = new RegExp(req.query.search, 'i');
 
     members = workspace.members.filter((member) => {
-      const user = member.userId;
+      const user = member.user;
       return (
         searchRegex.test(user.fullName) ||
         searchRegex.test(user.username) ||
@@ -197,21 +187,21 @@ exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
     status: 'success',
     data: {
       members: paginatedMembers.map((member) => ({
-        userId: member.userId._id,
-        fullName: member.userId.fullName,
-        username: member.userId.username,
-        email: member.userId.email,
+        user: member.user._id,
+        fullName: member.user.fullName,
+        username: member.user.username,
+        email: member.user.email,
         role: member.role,
         joinedAt: member.joinedAt,
       })),
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        totalMembers: total,
-        hasNextPage: endIndex < total,
-        hasPrevPage: page > 1,
-        limit,
-      },
+      // pagination: {
+      //   currentPage: page,
+      //   totalPages: Math.ceil(total / limit),
+      //   totalMembers: total,
+      //   hasNextPage: endIndex < total,
+      //   hasPrevPage: page > 1,
+      //   limit,
+      // },
     },
   });
 });
@@ -230,6 +220,16 @@ exports.inviteMembers = catchAsync(async (req, res, next) => {
     );
   }
 
+  const workspaceOwner = workspace.members.find(
+    (member) => member.role === 'owner'
+  );
+
+  if (!workspaceOwner) {
+    return next(new AppError('Workspace owner not found', 400));
+  }
+
+  const workspaceOwnerUser = await User.findById(workspaceOwner.user);
+
   const { invites } = req.body;
   if (!Array.isArray(invites)) {
     return next(new AppError('Invites must be an array', 400));
@@ -245,9 +245,7 @@ exports.inviteMembers = catchAsync(async (req, res, next) => {
     const user = await User.findOne({ email });
     if (
       user &&
-      workspace.members.some(
-        (member) => member.userId.toString() === user._id.toString()
-      )
+      workspace.members.some((member) => member.user.equals(user._id))
     ) {
       failedInvites.push({ email, reason: 'Already a member' });
       continue;
@@ -268,29 +266,35 @@ exports.inviteMembers = catchAsync(async (req, res, next) => {
       role,
       req.user._id
     );
-    const inviteUrl = `${process.env.FRONTEND_URL}/workspace/join/${inviteToken}`;
+
+    // Generate the proper invitation URL using BASE_URL
+    const inviteUrl = `${process.env.BASE_URL}/workspaces/join/${inviteToken}`;
 
     try {
+      // Send email using consistent styling with auth emails
+      const message = `
+       <div style="background-color: #f6f9fc; padding: 20px; font-family: Arial, sans-serif;">
+         <div style="background-color: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 0 auto; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+           <h2 style="color: #EFC235; text-align: center; font-size: 24px; margin-bottom: 20px;">Workspace Invitation</h2>
+           <p style="color: #3a2d34; text-align: center; font-size: 16px;">You've been invited to join "${workspace.name}" workspace.</p>
+           <p style="color: #3a2d34; text-align: center; font-size: 14px;">Role: ${role}</p>
+           <div style="text-align: center; margin: 30px 0;">
+             <a href="${inviteUrl}" 
+                style="background-color: #EFC235; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+               Accept Invitation
+             </a>
+           </div>
+           <p style="color: #3a2d34; font-size: 14px; text-align: center; margin-bottom: 20px;">This invitation expires in 7 days.</p>
+           <hr style="border: none; border-top: 1px solid #e6e6e6; margin: 20px 0;">
+           <p style="color: #888; font-size: 12px; text-align: center;">If you didn't expect this invitation, you can safely ignore this email.</p>
+         </div>
+       </div>
+     `;
+
       await sendEmail({
         email,
-        subject: `Invitation to join ${workspace.name}`,
-        message: `
-          <div style="background-color: #f6f9fc; padding: 20px; font-family: Arial, sans-serif;">
-            <div style="background-color: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #333; text-align: center;">Workspace Invitation</h2>
-              <p>You've been invited to join "${workspace.name}" workspace on Beehive.</p>
-              <p>Role: ${role}</p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${inviteUrl}" 
-                   style="background-color: #0052cc; color: white; padding: 12px 30px; 
-                          text-decoration: none; border-radius: 5px;">
-                  Accept Invitation
-                </a>
-              </div>
-              <p style="color: #666; font-size: 14px;">This invitation expires in 7 days.</p>
-            </div>
-          </div>
-        `,
+        subject: `Invitation to join ${workspaceOwnerUser.username}'s ${workspace.name} workspace`,
+        message,
       });
       invitationResults.push({ email, status: 'sent' });
     } catch (error) {
@@ -321,28 +325,46 @@ exports.acceptInvitation = catchAsync(async (req, res, next) => {
   const { token } = req.params;
 
   // Verify invitation
-  const workspace = await Workspace.verifyInvitationToken(
-    token,
-    req.user.email
-  );
+  const workspace = await Workspace.verifyInvitationToken(token);
 
   if (!workspace) {
     return next(new AppError('Invalid or expired invitation', 400));
   }
 
+  const hashedToken = crypto
+    .createHash('sha256')
+    .update(req.params.token)
+    .digest('hex');
+
   // Find the invitation
   const invitation = workspace.invitations.find(
-    (inv) => inv.status === 'pending' && inv.email === req.user.email
+    (inv) => inv.status === 'pending' && inv.token === hashedToken
   );
 
-  // Add user to workspace members
-  workspace.members.push({
-    userId: req.user._id,
-    role: invitation.role,
-  });
+  if (!invitation) {
+    return next(new AppError('Invalid or expired invitation', 400));
+  }
 
-  // Update invitation status
-  invitation.status = 'accepted';
+  // Find user
+  let user = await User.findOne({ email: invitation.email });
+
+  // Check if user is already a member
+  const isAlreadyMember = workspace.members.some((member) =>
+    member.user.equals(user._id)
+  );
+
+  if (!isAlreadyMember) {
+    // Add user to workspace members
+    workspace.members.push({
+      user: user._id,
+      role: invitation.role,
+    });
+  }
+
+  // Remove the invitation after it has been accepted
+  workspace.invitations = workspace.invitations.filter(
+    (inv) => inv.token !== hashedToken
+  );
 
   await workspace.save();
 
@@ -366,11 +388,10 @@ exports.getPendingInvitations = catchAsync(async (req, res, next) => {
     );
   }
 
-  // Clean up expired invitations
+  // Clean up expired invitations and return only pending ones
   workspace.invitations = workspace.invitations.filter(
-    (inv) => inv.expiresAt > Date.now()
+    (inv) => inv.tokenExpiresAt > Date.now() && inv.status === 'pending'
   );
-  await workspace.save();
 
   res.status(200).json({
     status: 'success',
@@ -415,7 +436,7 @@ exports.validateWorkspaceOperation = catchAsync(async (req, res, next) => {
 
   // Check if user has access to workspace
   const member = workspace.members.find((member) =>
-    member.userId.equals(req.user._id)
+    member.user.equals(req.user._id)
   );
 
   if (!member) {
