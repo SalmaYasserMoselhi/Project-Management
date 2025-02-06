@@ -148,6 +148,14 @@ const boardSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    archivedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    archivedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
     starred: {
       type: Boolean,
       default: false,
@@ -455,17 +463,6 @@ boardSchema.virtual('cardsDueSoon').get(function () {
     );
   }, []);
 });
-
-boardSchema.methods.addMember = async function (userId, role = 'member') {
-  const memberExists = this.members.some(
-    (member) => member.userId.toString() === userId.toString()
-  );
-
-  if (memberExists) throw new Error('Member already exists in this board');
-
-  this.members.push({ userId, role });
-  await this.save();
-};
 
 const Board = mongoose.model('Board', boardSchema);
 module.exports = Board;

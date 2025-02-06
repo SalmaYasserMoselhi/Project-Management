@@ -8,8 +8,7 @@ const AppError = require('../utils/appError');
 
 // Create Board
 exports.createBoard = catchAsync(async (req, res, next) => {
-  const { name, description, workspace, viewPreferences, background } =
-    req.body;
+  const { workspace } = req.body;
 
   // Check workspace exists
   const workspaceDoc = await Workspace.findById(workspace).populate(
@@ -62,12 +61,8 @@ exports.createBoard = catchAsync(async (req, res, next) => {
     );
   }
 
-  const boardData = {
-    name,
-    description,
-    workspace,
-    viewPreferences,
-    background,
+  const board = await Board.create({
+    ...req.body,
     createdBy: req.user._id,
     members: [
       {
@@ -76,9 +71,7 @@ exports.createBoard = catchAsync(async (req, res, next) => {
         watchStatus: 'watching',
       },
     ],
-  };
-
-  const board = await Board.create(boardData);
+  });
 
   res.status(201).json({
     status: 'success',
@@ -312,4 +305,549 @@ exports.getPendingInvitations = catchAsync(async (req, res, next) => {
       invitations: pendingInvitations,
     },
   });
+});
+
+/**
+ * Cancel pending invitation for a board
+ * @param {string} req.params.id - Board ID
+ * @param {string} req.params.email - Invited email to cancel
+ */
+exports.cancelInvitation = catchAsync(async (req, res, next) => {
+  const board = await Board.findById(req.params.id);
+  const { email } = req.params;
+
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
+
+  // Check if requester has permission
+  const requester = board.members.find(
+    (m) => m.user.toString() === req.user._id.toString()
+  );
+
+  if (!requester || !['admin', 'owner'].includes(requester.role)) {
+    return next(
+      new AppError('Only board admins and owners can cancel invitations', 403)
+    );
+  }
+
+  // Remove the invitation
+  board.invitations = board.invitations.filter((inv) => inv.email !== email);
+
+  await board.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Invitation cancelled successfully',
+  });
+});
+
+/**
+ * Remove member from board
+ * @param {string} req.params.id - Board ID
+ * @param {string} req.params.userId - User ID to remove
+ */
+exports.removeMember = catchAsync(async (req, res, next) => {
+  const board = await Board.findById(req.params.id)
+    .populate('workspace')
+    .populate('members.user');
+
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
+
+  // Check if requester has permission
+  const requester = board.members.find(
+    (m) => m.user._id.toString() === req.user._id.toString()
+  );
+
+  if (!requester || !['admin', 'owner'].includes(requester.role)) {
+    return next(
+      new AppError('Only board admins and owners can remove members', 403)
+    );
+  }
+
+  // Check if target user exists in board
+  const targetMember = board.members.find(
+    (m) => m.user._id.toString() === req.params.userId
+  );
+
+  if (!targetMember) {
+    return next(new AppError('Member not found in board', 404));
+  }
+
+  // Prevent removing the board owner
+  if (targetMember.role === 'owner') {
+    return next(new AppError('Cannot remove board owner', 400));
+  }
+
+  // If board is in collaboration workspace and removing the only member,
+  // the board should be deleted
+  if (
+    board.workspace.type === 'collaboration' &&
+    board.members.length === 1 &&
+    board.members[0].user._id.toString() === req.params.userId
+  ) {
+    await board.remove();
+    return res.status(204).json({
+      status: 'success',
+      message: 'Board deleted as last member was removed',
+    });
+  }
+
+  // Remove the member
+  board.members = board.members.filter(
+    (m) => m.user._id.toString() !== req.params.userId
+  );
+
+  await board.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Member removed successfully',
+    data: { board },
+  });
+});
+
+/**
+ * Get all boards for the current user
+ * Includes boards where user is member and starred boards
+ */
+
+exports.getUserBoards = catchAsync(async (req, res, next) => {
+  // Get all boards where user is a member
+  const userBoards = await Board.find({
+    'members.user': req.user._id,
+    archived: false,
+  })
+    .populate({
+      path: 'workspace',
+      select: 'name type createdBy',
+    })
+    .populate({
+      path: 'members.user',
+      select: 'name email username',
+    })
+    .populate({
+      path: 'createdBy',
+      select: 'name email username',
+    })
+    .sort('-updatedAt');
+
+  // Organize boards by workspace type
+  const organizedBoards = {
+    private: [],
+    public: [],
+    collaboration: [],
+    recent: [],
+    starred: [],
+  };
+
+  // Get 5 most recently updated boards
+  const recentBoards = [...userBoards]
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 5);
+
+  // Organize boards by workspace type
+  userBoards.forEach((board) => {
+    if (board.starred) {
+      organizedBoards.starred.push(board);
+    }
+
+    if (board.workspace.type === 'private') {
+      organizedBoards.private.push(board);
+    } else if (board.workspace.type === 'public') {
+      organizedBoards.public.push(board);
+    } else if (board.workspace.type === 'collaboration') {
+      organizedBoards.collaboration.push(board);
+    }
+  });
+
+  // Add recent boards
+  organizedBoards.recent = recentBoards;
+
+  // Add summary statistics
+  const summary = {
+    totalBoards: userBoards.length,
+    totalStarred: organizedBoards.starred.length,
+    boardsByWorkspaceType: {
+      private: organizedBoards.private.length,
+      public: organizedBoards.public.length,
+      collaboration: organizedBoards.collaboration.length,
+    },
+  };
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      boards: organizedBoards,
+      summary,
+    },
+  });
+});
+
+/**
+ * Get boards for a specific workspace
+ */
+exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
+  const { workspaceId } = req.params;
+  const { search, sort = '-updatedAt' } = req.query;
+
+  // Build query
+  const query = {
+    workspace: workspaceId,
+    archived: false,
+  };
+
+  // Add search functionality
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } },
+    ];
+  }
+
+  // Get workspace to check permissions
+  const workspace = await Workspace.findById(workspaceId);
+  if (!workspace) {
+    return next(new AppError('Workspace not found', 404));
+  }
+
+  // Check if user has access to workspace
+  const isMember = workspace.members.some(
+    (member) => member.user.toString() === req.user._id.toString()
+  );
+
+  if (!isMember) {
+    return next(new AppError('You do not have access to this workspace', 403));
+  }
+
+  // Get boards with populated fields
+  const boards = await Board.find(query)
+    .populate({
+      path: 'members.user',
+      select: 'name email username',
+    })
+    .populate({
+      path: 'createdBy',
+      select: 'name email username',
+    })
+    .sort(sort);
+
+  // Calculate statistics
+  const stats = {
+    total: boards.length,
+    starred: boards.filter((board) => board.starred).length,
+    byVisibility: {
+      private: boards.filter((board) => board.visibility === 'private').length,
+      workspace: boards.filter((board) => board.visibility === 'workspace')
+        .length,
+      public: boards.filter((board) => board.visibility === 'public').length,
+    },
+  };
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      workspace: {
+        id: workspace._id,
+        name: workspace.name,
+        type: workspace.type,
+      },
+      boards,
+      stats,
+    },
+  });
+});
+
+/**
+ * Get starred boards for the current user
+ */
+exports.getStarredBoards = catchAsync(async (req, res, next) => {
+  const starredBoards = await Board.find({
+    'members.user': req.user._id,
+    starred: true,
+    archived: false,
+  })
+    .populate({
+      path: 'workspace',
+      select: 'name type',
+    })
+    .populate({
+      path: 'members.user',
+      select: 'name email username',
+    })
+    .populate({
+      path: 'createdBy',
+      select: 'name email username',
+    })
+    .sort('-updatedAt');
+
+  res.status(200).json({
+    status: 'success',
+    results: starredBoards.length,
+    data: {
+      boards: starredBoards,
+    },
+  });
+});
+
+/**
+ * Get archived boards
+ * Can be filtered by workspace if workspaceId is provided in query
+ */
+exports.getArchivedBoards = catchAsync(async (req, res, next) => {
+  const { workspaceId, search, sort = '-updatedAt' } = req.query;
+
+  // Build base query
+  const query = {
+    'members.user': req.user._id,
+    archived: true,
+  };
+
+  // Add workspace filter if provided
+  if (workspaceId) {
+    // Verify workspace exists and user has access
+    const workspace = await Workspace.findById(workspaceId);
+    if (!workspace) {
+      return next(new AppError('Workspace not found', 404));
+    }
+
+    const isMember = workspace.members.some(
+      (member) => member.user.toString() === req.user._id.toString()
+    );
+
+    if (!isMember) {
+      return next(
+        new AppError('You do not have access to this workspace', 403)
+      );
+    }
+
+    query.workspace = workspaceId;
+  }
+
+  // Add search functionality
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } },
+    ];
+  }
+
+  // Get archived boards
+  const archivedBoards = await Board.find(query)
+    .populate({
+      path: 'workspace',
+      select: 'name type createdBy',
+    })
+    .populate({
+      path: 'members.user',
+      select: 'name email username',
+    })
+    .populate({
+      path: 'createdBy',
+      select: 'name email username',
+    })
+    .sort(sort);
+
+  // Calculate statistics
+  const stats = {
+    total: archivedBoards.length,
+    byWorkspaceType: {
+      private: archivedBoards.filter(
+        (board) => board.workspace.type === 'private'
+      ).length,
+      public: archivedBoards.filter(
+        (board) => board.workspace.type === 'public'
+      ).length,
+      collaboration: archivedBoards.filter(
+        (board) => board.workspace.type === 'collaboration'
+      ).length,
+    },
+  };
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      boards: archivedBoards,
+      stats,
+    },
+  });
+});
+
+/**
+ * Archive a board
+ */
+exports.archiveBoard = catchAsync(async (req, res, next) => {
+  const board = await Board.findById(req.params.id);
+
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
+
+  // Check if user has permission to archive
+  const member = board.members.find(
+    (m) => m.user.toString() === req.user._id.toString()
+  );
+
+  if (!member || !['admin', 'owner'].includes(member.role)) {
+    return next(
+      new AppError('Only board admins and owners can archive boards', 403)
+    );
+  }
+
+  // Check if board is already archived
+  if (board.archived) {
+    return next(new AppError('Board is already archived', 400));
+  }
+
+  // Archive the board
+  board.archived = true;
+  board.archivedAt = Date.now();
+  board.archivedBy = req.user._id;
+
+  await board.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Board archived successfully',
+    data: { board },
+  });
+});
+
+/**
+ * Restore an archived board
+ */
+exports.restoreBoard = catchAsync(async (req, res, next) => {
+  const board = await Board.findById(req.params.id);
+
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
+
+  // Check if user has permission to restore
+  const member = board.members.find(
+    (m) => m.user.toString() === req.user._id.toString()
+  );
+
+  if (!member || !['admin', 'owner'].includes(member.role)) {
+    return next(
+      new AppError('Only board admins and owners can restore boards', 403)
+    );
+  }
+
+  // Check if board is not archived
+  if (!board.archived) {
+    return next(new AppError('Board is not archived', 400));
+  }
+
+  // Restore the board
+  board.archived = false;
+  board.archivedAt = undefined;
+  board.archivedBy = undefined;
+
+  await board.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Board restored successfully',
+    data: { board },
+  });
+});
+
+/**
+ * Delete an archived board permanently
+ */
+exports.deleteArchivedBoard = catchAsync(async (req, res, next) => {
+  const board = await Board.findById(req.params.id);
+
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
+
+  // Check if user has permission to delete
+  const member = board.members.find(
+    (m) => m.user.toString() === req.user._id.toString()
+  );
+
+  if (!member || !['owner', 'admin'].includes(member.role)) {
+    return next(
+      new AppError(
+        'Only board owners and admins can permanently delete boards',
+        403
+      )
+    );
+  }
+
+  // Check if board is archived
+  if (!board.archived) {
+    return next(
+      new AppError('Board must be archived before permanent deletion', 400)
+    );
+  }
+
+  // Delete the board
+  await Board.deleteOne({ _id: board._id });
+  res.status(204).json({
+    status: 'success',
+    data: null,
+  });
+});
+
+// Delete a board permanently
+exports.deleteBoard = catchAsync(async (req, res, next) => {
+  // Find board and populate workspace to check its type
+  const board = await Board.findById(req.params.id).populate({
+    path: 'workspace',
+    select: 'type createdBy',
+  });
+
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
+
+  // Check if user has permission to delete
+  const member = board.members.find(
+    (m) => m.user.toString() === req.user._id.toString()
+  );
+
+  if (!member || !['owner', 'admin'].includes(member.role)) {
+    return next(
+      new AppError(
+        'Only board owners and admins can permanently delete boards',
+        403
+      )
+    );
+  }
+
+  // Start a session for transaction
+  const session = await Board.startSession();
+
+  try {
+    await session.withTransaction(async () => {
+      // If board is in public workspace, delete all related collaboration boards
+      if (board.workspace.type === 'public') {
+        await Board.deleteMany(
+          {
+            originalBoard: board._id,
+            'workspace.type': 'collaboration',
+          },
+          { session }
+        );
+      }
+
+      // Delete the main board
+      await Board.deleteOne({ _id: board._id }, { session });
+    });
+
+    res.status(204).json({
+      status: 'success',
+      data: null,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    return next(new AppError('Error deleting board', 500));
+  } finally {
+    await session.endSession();
+  }
 });
