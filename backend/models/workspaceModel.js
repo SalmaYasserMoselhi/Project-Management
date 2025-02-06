@@ -107,6 +107,8 @@ const workspaceSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 workspaceSchema.index({ name: 1, createdBy: 1 });
@@ -229,6 +231,16 @@ workspaceSchema.pre('save', function (next) {
     });
   }
   next();
+});
+
+workspaceSchema.virtual('boards', {
+  ref: 'Board',
+  localField: '_id',
+  foreignField: 'workspace',
+  match: {
+    // Only show non-archived boards
+    archived: false,
+  },
 });
 
 const Workspace = mongoose.model('Workspace', workspaceSchema);

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 const boardSchema = new mongoose.Schema(
   {
@@ -39,16 +40,29 @@ const boardSchema = new mongoose.Schema(
         default: 'board',
       },
     },
+    visibility: {
+      type: String,
+      enum: ['private', 'workspace', 'public'],
+      default: function () {
+        // Will be set based on workspace type in pre-save middleware
+        return 'private';
+      },
+    },
     // Members Management
     members: [
       {
-        userId: {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        invitedBy: {
           type: mongoose.Schema.Types.ObjectId,
           ref: 'User',
         },
         role: {
           type: String,
-          enum: ['admin', 'member', 'owner', 'guest'],
+          enum: ['admin', 'member', 'owner'],
           default: 'member',
         },
         joinedAt: {
@@ -59,7 +73,7 @@ const boardSchema = new mongoose.Schema(
           // notification status
           type: String,
           enum: ['watching', 'tracking', 'disabled'], // watching: recieves notification for all activities, tracking: recieves notification for specific activities (his own), disabled: no notifications until he is mentioned
-          default: 'watching',
+          default: 'tracking',
         },
       },
     ],
@@ -70,18 +84,39 @@ const boardSchema = new mongoose.Schema(
         ref: 'List',
       },
     ],
-    // Board Settings
     settings: {
-      type: Object,
-      default: {
-        commentsEnabled: true,
-        selfJoin: false, // Allow workspace members to join without invitation
-        defaultLabels: true, // Create default label set when a new board is created (High Priority, Bug, etc.)
-        listLimit: null, // Maximum cards per list (null means no limit)
-        dueDateWarnings: true, // Warn users when a card is due soon
-        emailNotifications: true, // send email notifications when true, otherwise send in-app notifications only
+      commentsEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      selfJoin: {
+        type: Boolean,
+        default: false, // Only workspace members can join without invitation
+      },
+      defaultLabels: {
+        type: Boolean,
+        default: true,
+      },
+      listLimit: {
+        type: Number,
+        default: null, // null means no limit
+      },
+      dueDateWarnings: {
+        type: Boolean,
+        default: true,
+      },
+      emailNotifications: {
+        type: Boolean,
+        default: true,
       },
     },
+    labels: [
+      {
+        name: String,
+        color: String,
+        description: String,
+      },
+    ],
     // Label System
     labelGroups: [
       {
@@ -92,10 +127,16 @@ const boardSchema = new mongoose.Schema(
     ],
     labels: [
       {
-        name: String,
-        color: String,
+        name: {
+          type: String,
+          required: true,
+        },
+        color: {
+          type: String,
+          required: true,
+        },
         description: String,
-        groupId: String, // labelGroup name
+        groupId: String, // References labelGroup name
       },
     ],
     createdBy: {
@@ -128,6 +169,36 @@ const boardSchema = new mongoose.Schema(
         default: 'admin',
       },
     },
+    invitations: [
+      {
+        email: {
+          type: String,
+          required: true,
+          lowercase: true,
+        },
+        role: {
+          type: String,
+          enum: ['admin', 'member'],
+          default: 'member',
+        },
+        invitedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        token: String, // Hashed token
+        tokenExpiresAt: Date,
+        status: {
+          type: String,
+          enum: ['pending', 'expired'],
+          default: 'pending',
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     // WILL BE ADDED LATER
     activities: [
       {
@@ -158,6 +229,11 @@ const boardSchema = new mongoose.Schema(
         },
       },
     ],
+    originalBoard: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Board',
+      default: null, // null for original board, populated with ID for shared/linked board
+    },
   },
   {
     timestamps: true,
@@ -167,40 +243,199 @@ const boardSchema = new mongoose.Schema(
 );
 
 // Indexes for better query performance
-boardSchema.index({ workspace: 1 });
-boardSchema.index({ 'members.userId': 1 });
+boardSchema.index({ workspace: 1, name: 1 });
+boardSchema.index({ 'members.user': 1 });
 boardSchema.index({ createdBy: 1 });
+boardSchema.index({ 'labels.groupId': 1 });
 
-// Create default labels when a new board is created
+// Add invitation token methods
+boardSchema.methods.createInvitationToken = function (email, role, invitedBy) {
+  const inviteToken = crypto.randomBytes(32).toString('hex');
+  const hashedToken = crypto
+    .createHash('sha256')
+    .update(inviteToken)
+    .digest('hex');
+
+  this.invitations.push({
+    email,
+    role,
+    invitedBy,
+    token: hashedToken,
+    tokenExpiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+    status: 'pending',
+  });
+
+  return inviteToken;
+};
+
+boardSchema.statics.verifyInvitationToken = async function (token) {
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  const board = await this.findOne({
+    invitations: {
+      $elemMatch: {
+        token: hashedToken,
+        tokenExpiresAt: { $gt: Date.now() },
+        status: 'pending',
+      },
+    },
+  });
+
+  return board;
+};
+
+// Clean expired invitations
 boardSchema.pre('save', function (next) {
-  if (this.isNew && this.settings.defaultLabels) {
-    this.labels = [
-      {
-        name: 'High Priority',
-        color: '#ED142E',
-        description: 'Urgent tasks needing immediate attention',
-      },
-      {
-        name: 'Medium Priority',
-        color: '#fb8500',
-        description: 'Important but not urgent tasks',
-      },
-      {
-        name: 'Low Priority',
-        color: '#4BE955',
-        description: 'Tasks that can wait',
-      },
-      { name: 'Bug', color: '#e63946', description: 'Issues that need fixing' },
-      { name: 'Feature', color: '#F3B9C3', description: 'New functionality' },
-      {
-        name: 'Enhancement',
-        color: '#8F49A2',
-        description: 'Improvements to existing features',
-      },
-    ];
+  if (this.invitations && this.invitations.length > 0) {
+    this.invitations.forEach((invitation) => {
+      if (
+        invitation.tokenExpiresAt < Date.now() &&
+        invitation.status === 'pending'
+      ) {
+        invitation.status = 'expired';
+      }
+    });
   }
   next();
 });
+
+// Create default labels when a new board is created
+boardSchema.pre('save', async function (next) {
+  if (this.isNew && this.settings.defaultLabels) {
+    // Default label groups
+    const defaultGroups = [
+      {
+        name: 'Priority',
+        description: 'Task priority levels',
+        color: '#FF0000',
+      },
+      {
+        name: 'Status',
+        description: 'Task status indicators',
+        color: '#00FF00',
+      },
+    ];
+
+    // Default labels
+    const defaultLabels = [
+      {
+        name: 'High Priority',
+        color: '#FF0000',
+        description: 'Urgent tasks',
+        groupId: 'Priority',
+      },
+      {
+        name: 'Medium Priority',
+        color: '#FFA500',
+        description: 'Important tasks',
+        groupId: 'Priority',
+      },
+      {
+        name: 'Low Priority',
+        color: '#00FF00',
+        description: 'Normal tasks',
+        groupId: 'Priority',
+      },
+      {
+        name: 'In Progress',
+        color: '#0000FF',
+        description: 'Currently being worked on',
+        groupId: 'Status',
+      },
+      {
+        name: 'Blocked',
+        color: '#FF0000',
+        description: 'Cannot proceed',
+        groupId: 'Status',
+      },
+    ];
+
+    this.labelGroups = defaultGroups;
+    this.labels = defaultLabels;
+  }
+  next();
+});
+
+// Pre-save middleware for board model
+boardSchema.pre('save', async function (next) {
+  if (this.isNew || this.isModified('workspace')) {
+    try {
+      const workspace = await mongoose
+        .model('Workspace')
+        .findById(this.workspace)
+        .populate('members.user', 'name email');
+
+      if (!workspace) {
+        throw new Error('Workspace not found');
+      }
+
+      // Set visibility based on workspace type
+      switch (workspace.type) {
+        case 'private':
+          this.visibility = 'private';
+          break;
+        case 'public':
+          this.visibility = 'workspace';
+          break;
+        case 'collaboration':
+          this.visibility = 'workspace';
+          // Allow board creation in collaboration workspace if it's a linked board
+          if (this.isNew && !this.originalBoard) {
+            throw new Error('Cannot create boards in collaboration workspace');
+          }
+          break;
+        default:
+          throw new Error('Invalid workspace type');
+      }
+
+      // Skip adding workspace members for boards in collaboration workspace
+      if (workspace.type !== 'collaboration') {
+        // Add workspace members with same roles
+        const workspaceMembers = workspace.members.filter(
+          (m) =>
+            // Filter out members already in the board
+            !this.members.some(
+              (bm) => bm.user.toString() === m.user._id.toString()
+            )
+        );
+
+        // Add members with synchronized roles
+        workspaceMembers.forEach((member) => {
+          this.members.push({
+            user: member.user._id,
+            role: member.role,
+            watchStatus: member.role === 'owner' ? 'watching' : 'tracking',
+            joinedAt: new Date(),
+          });
+        });
+      }
+    } catch (error) {
+      return next(error);
+    }
+  }
+  next();
+});
+
+// Methods for label management
+boardSchema.methods.addLabelGroup = async function (groupData) {
+  this.labelGroups.push(groupData);
+  await this.save();
+  return this.labelGroups[this.labelGroups.length - 1];
+};
+
+boardSchema.methods.addLabel = async function (labelData) {
+  // Verify group exists if groupId is provided
+  if (
+    labelData.groupId &&
+    !this.labelGroups.some((g) => g.name === labelData.groupId)
+  ) {
+    throw new Error('Label group not found');
+  }
+
+  this.labels.push(labelData);
+  await this.save();
+  return this.labels[this.labels.length - 1];
+};
 
 // Virtual for counting total cards in board
 boardSchema.virtual('totalCards').get(function () {
@@ -221,9 +456,11 @@ boardSchema.virtual('cardsDueSoon').get(function () {
   }, []);
 });
 
-boardSchema.methods.addMember = async function(userId, role = 'member') {
-  const memberExists = this.members.some(member => member.userId.toString() === userId.toString());
-  
+boardSchema.methods.addMember = async function (userId, role = 'member') {
+  const memberExists = this.members.some(
+    (member) => member.userId.toString() === userId.toString()
+  );
+
   if (memberExists) throw new Error('Member already exists in this board');
 
   this.members.push({ userId, role });

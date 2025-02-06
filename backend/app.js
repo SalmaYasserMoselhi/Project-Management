@@ -18,6 +18,7 @@ const passport = require('./config/passport');
 const userRouter = require('./routes/userRoutes.js');
 const docRouter = require('./routes/docRoutes.js');
 const workspaceRouter = require('./routes/workspaceRoutes.js');
+const boardRouter = require('./routes/boardRoutes.js');
 
 const app = express();
 
@@ -30,19 +31,21 @@ app.set('trust proxy', 1);
 app.use(helmet());
 
 // CORS Configuration
-app.use(cors({
-  origin: true, // allows all origins
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  allowedHeaders: [
-    'Origin',
-    'X-Requested-With',
-    'Content-Type',
-    'Accept',
-    'Authorization',
-    'Access-Control-Allow-Credentials'
-  ]
-}));
+app.use(
+  cors({
+    origin: true, // allows all origins
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: [
+      'Origin',
+      'X-Requested-With',
+      'Content-Type',
+      'Accept',
+      'Authorization',
+      'Access-Control-Allow-Credentials',
+    ],
+  })
+);
 
 // Additional CORS headers
 app.use((req, res, next) => {
@@ -84,7 +87,7 @@ if (process.env.NODE_ENV === 'development') {
 const limiter = rateLimit({
   max: 100,
   windowMs: 60 * 60 * 1000,
-  message: 'Too many requests from this IP, please try again in an hour!'
+  message: 'Too many requests from this IP, please try again in an hour!',
 });
 app.use('/api', limiter);
 
@@ -100,8 +103,8 @@ app.use(
       secure: false,
       sameSite: 'lax',
       path: '/',
-      maxAge: process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
-    }
+      maxAge: process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000,
+    },
   })
 );
 
@@ -128,7 +131,7 @@ app.get('/', (req, res) => {
     status: 'success',
     message: 'Welcome to Beehive Community API',
     documentation: '/api/v1/docs',
-    apiPrefix: '/api/v1'
+    apiPrefix: '/api/v1',
   });
 });
 
@@ -136,12 +139,13 @@ app.get('/', (req, res) => {
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/docs', docRouter);
 app.use('/api/v1/workspaces', workspaceRouter);
+app.use('/api/v1/boards', boardRouter);
 
 // Handle undefined routes
 app.all('*', (req, res) => {
   res.status(404).json({
     status: 'error',
-    message: `Can't find ${req.originalUrl} on this server!`
+    message: `Can't find ${req.originalUrl} on this server!`,
   });
 });
 
@@ -154,7 +158,7 @@ app.use((err, req, res, next) => {
     status: err.status,
     message: err.message,
     error: err,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
   });
 });
 
