@@ -937,3 +937,112 @@ exports.getMyStarredBoards = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+exports.updateBoard = catchAsync(async (req, res, next) => {
+  // 1. Get board with only necessary member data
+  const board = await Board.findById(req.params.id).populate({
+    path: 'members.user',
+    select: '_id name email', // Only get required user fields
+  });
+
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
+
+  // 2. Check if user has permission to update
+  const member = board.members.find(
+    (m) => m.user._id.toString() === req.user._id.toString()
+  );
+
+  if (!member) {
+    return next(new AppError('You must be a board member to update it', 403));
+  }
+
+  // Only admin and owner can update board settings
+  if (!['admin', 'owner'].includes(member.role)) {
+    return next(
+      new AppError(
+        'Only board admins and owners can update board settings',
+        403
+      )
+    );
+  }
+
+  // 3. Create allowedFields based on user role
+  const allowedFields = [
+    'name',
+    'description',
+    'background',
+    'viewPreferences',
+  ];
+
+  // Additional fields for admin/owner
+  if (['admin', 'owner'].includes(member.role)) {
+    allowedFields.push('settings', 'permissions');
+  }
+
+  // Filter out unwanted fields
+  const filteredBody = {};
+  Object.keys(req.body).forEach((field) => {
+    if (allowedFields.includes(field)) {
+      filteredBody[field] = req.body[field];
+    }
+  });
+
+  // 4. If settings are being updated, merge with existing settings
+  if (filteredBody.settings) {
+    filteredBody.settings = {
+      ...board.settings,
+      ...filteredBody.settings,
+    };
+  }
+
+  // 5. If permissions are being updated, validate and merge
+  if (filteredBody.permissions) {
+    filteredBody.permissions = {
+      ...board.permissions,
+      ...filteredBody.permissions,
+    };
+
+    // Validate permission values
+    const validPermissionValues = ['admin', 'members'];
+    Object.entries(filteredBody.permissions).forEach(([key, value]) => {
+      if (!validPermissionValues.includes(value)) {
+        delete filteredBody.permissions[key];
+      }
+    });
+  }
+
+  // 6. Update the board
+  const updatedBoard = await Board.findByIdAndUpdate(
+    req.params.id,
+    filteredBody,
+    {
+      new: true,
+      runValidators: true,
+    }
+  ).populate({
+    path: 'members.user',
+    select: '_id name email',
+  });
+
+  // 7. Add activity log
+  updatedBoard.activities.push({
+    user: req.user._id,
+    action: 'updated',
+    entityType: 'board',
+    entityId: updatedBoard._id,
+    data: {
+      updatedFields: Object.keys(filteredBody),
+    },
+  });
+
+  await updatedBoard.save();
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      board: updatedBoard,
+    },
+  });
+});
