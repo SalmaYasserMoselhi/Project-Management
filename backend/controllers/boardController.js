@@ -125,96 +125,41 @@ exports.inviteMemberByEmail = catchAsync(async (req, res, next) => {
     return next(new AppError('User is already a board member', 400));
   }
 
-  // Start a session for transaction
-  const session = await Board.startSession();
-
   try {
-    await session.withTransaction(async () => {
-      // 6. Handle workspace transitions if board is in private workspace
-      if (board.workspace.type === 'private') {
-        // Find or create owner's public workspace
-        const publicWorkspace = await Workspace.findOne({
-          createdBy: board.workspace.createdBy,
-          type: 'public',
-        }).session(session);
+    // 6. Create invitation token
+    const inviteToken = board.createInvitationToken(email, role, req.user._id);
+    await board.save();
 
-        if (!publicWorkspace) {
-          throw new AppError('Public workspace not found', 404);
-        }
+    // 7. Generate invitation URL
+    const inviteUrl = `${process.env.BASE_URL}/boards/join/${inviteToken}`;
 
-        // Move board to public workspace
-        board.workspace = publicWorkspace._id;
-        board.visibility = 'workspace';
-      }
-
-      // 7. Find or create invited user's collaboration workspace
-      let collaborationWorkspace = await Workspace.findOne({
-        createdBy: invitedUser._id,
-        type: 'collaboration',
-      }).session(session);
-
-      if (!collaborationWorkspace) {
-        collaborationWorkspace = await Workspace.create(
-          [
-            {
-              name: `${invitedUser.name}'s Collaboration Workspace`,
-              type: 'collaboration',
-              createdBy: invitedUser._id,
-              members: [{ user: invitedUser._id, role: 'owner' }],
-            },
-          ],
-          { session }
-        );
-        collaborationWorkspace = collaborationWorkspace[0];
-      }
-
-      // 8. Add board reference to collaboration workspace
-      if (!collaborationWorkspace.boards) {
-        collaborationWorkspace.boards = [];
-      }
-      collaborationWorkspace.boards.push(board._id);
-      await collaborationWorkspace.save({ session });
-
-      // 9. Create invitation token
-      const inviteToken = board.createInvitationToken(
-        email,
-        role,
-        req.user._id
-      );
-
-      await board.save({ session });
-
-      // 10. Generate invitation URL
-      const inviteUrl = `${process.env.BASE_URL}/boards/join/${inviteToken}`;
-
-      // 11. Send invitation email
-      const message = `
-        <div style="background-color: #f6f9fc; padding: 20px; font-family: Arial, sans-serif;">
-          <div style="background-color: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 0 auto; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-            <h2 style="color: #EFC235; text-align: center; font-size: 24px; margin-bottom: 20px;">Board Invitation</h2>
-            <p style="color: #3a2d34; text-align: center; font-size: 16px;">You've been invited to join "${board.name}" board.</p>
-            <p style="color: #3a2d34; text-align: center; font-size: 14px;">Role: ${role}</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${inviteUrl}" 
-                 style="background-color: #EFC235; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                Accept Invitation
-              </a>
-            </div>
-            <p style="color: #3a2d34; text-align: center; font-size: 14px;">
-              Once accepted, you'll find this board in your collaboration workspace.
-            </p>
-            <p style="color: #3a2d34; font-size: 14px; text-align: center; margin-bottom: 20px;">This invitation expires in 7 days.</p>
-            <hr style="border: none; border-top: 1px solid #e6e6e6; margin: 20px 0;">
-            <p style="color: #888; font-size: 12px; text-align: center;">If you didn't expect this invitation, you can safely ignore this email.</p>
+    // 8. Send invitation email
+    const message = `
+      <div style="background-color: #f6f9fc; padding: 20px; font-family: Arial, sans-serif;">
+        <div style="background-color: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 0 auto; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+          <h2 style="color: #EFC235; text-align: center; font-size: 24px; margin-bottom: 20px;">Board Invitation</h2>
+          <p style="color: #3a2d34; text-align: center; font-size: 16px;">You've been invited to join "${board.name}" board.</p>
+          <p style="color: #3a2d34; text-align: center; font-size: 14px;">Role: ${role}</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${inviteUrl}" 
+               style="background-color: #EFC235; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+              Accept Invitation
+            </a>
           </div>
+          <p style="color: #3a2d34; text-align: center; font-size: 14px;">
+            Once accepted, you'll find this board in your collaboration workspace.
+          </p>
+          <p style="color: #3a2d34; font-size: 14px; text-align: center; margin-bottom: 20px;">This invitation expires in 7 days.</p>
+          <hr style="border: none; border-top: 1px solid #e6e6e6; margin: 20px 0;">
+          <p style="color: #888; font-size: 12px; text-align: center;">If you didn't expect this invitation, you can safely ignore this email.</p>
         </div>
-      `;
+      </div>
+    `;
 
-      await sendEmail({
-        email,
-        subject: `Invitation to join ${board.name} board`,
-        message,
-      });
+    await sendEmail({
+      email,
+      subject: `Invitation to join ${board.name} board`,
+      message,
     });
 
     res.status(200).json({
@@ -222,10 +167,9 @@ exports.inviteMemberByEmail = catchAsync(async (req, res, next) => {
       message: 'Invitation sent successfully',
     });
   } catch (error) {
-    await session.abortTransaction();
-    return next(new AppError('Error processing invitation', 500));
-  } finally {
-    await session.endSession();
+    return next(
+      new AppError('Error processing invitation: ' + error.message, 500)
+    );
   }
 });
 
@@ -264,64 +208,79 @@ exports.acceptInvitation = catchAsync(async (req, res, next) => {
     return next(new AppError('User not found', 404));
   }
 
-  const session = await Board.startSession();
-
   try {
-    await session.withTransaction(async () => {
-      // 4. Find user's collaboration workspace
-      let collaborationWorkspace = await Workspace.findOne({
-        createdBy: user._id,
+    // 4. Find or create collaboration workspace
+    let collaborationWorkspace = await Workspace.findOne({
+      createdBy: user._id,
+      type: 'collaboration',
+    });
+
+    if (!collaborationWorkspace) {
+      // Create new collaboration workspace
+      collaborationWorkspace = new Workspace({
+        name: `${user.name}'s Collaboration Workspace`,
         type: 'collaboration',
-      }).session(session);
-
-      // Create collaboration workspace if it doesn't exist
-      if (!collaborationWorkspace) {
-        collaborationWorkspace = await Workspace.create(
-          [
-            {
-              name: `${user.name}'s Collaboration Workspace`,
-              type: 'collaboration',
-              createdBy: user._id,
-              members: [{ user: user._id, role: 'owner' }],
-            },
-          ],
-          { session }
-        );
-        collaborationWorkspace = collaborationWorkspace[0];
+        createdBy: user._id,
+        members: [{ user: user._id, role: 'owner' }],
+        boards: [board._id],
+      });
+      await collaborationWorkspace.save();
+    } else {
+      // Update existing workspace
+      // Initialize boards array if it doesn't exist
+      if (!collaborationWorkspace.boards) {
+        collaborationWorkspace.boards = [];
       }
 
-      // 5. Add board to user's collaboration workspace if not already added
-      if (!collaborationWorkspace.boards.includes(board._id)) {
+      // Add board if not already present
+      const boardExists = collaborationWorkspace.boards.some(
+        (existingBoard) => existingBoard.toString() === board._id.toString()
+      );
+
+      if (!boardExists) {
         collaborationWorkspace.boards.push(board._id);
-        await collaborationWorkspace.save({ session });
+        await Workspace.findByIdAndUpdate(
+          collaborationWorkspace._id,
+          { $addToSet: { boards: board._id } },
+          { new: true }
+        );
       }
+    }
 
-      // 6. Add user to board members
+    // 5. Add user to board members if not already a member
+    const isMember = board.members.some(
+      (m) => m.user.toString() === user._id.toString()
+    );
+
+    if (!isMember) {
       board.members.push({
         user: user._id,
         role: invitation.role,
         watchStatus: 'tracking',
         invitedBy: invitation.invitedBy,
       });
+    }
 
-      // 7. Remove used invitation
-      board.invitations = board.invitations.filter(
-        (inv) => inv.token !== hashedToken
-      );
+    // 6. Remove used invitation
+    board.invitations = board.invitations.filter(
+      (inv) => inv.token !== hashedToken
+    );
 
-      await board.save({ session });
-    });
+    await board.save();
 
     res.status(200).json({
       status: 'success',
       message: 'Successfully joined board',
-      data: { board },
+      data: {
+        board,
+        workspace: collaborationWorkspace,
+      },
     });
   } catch (error) {
-    await session.abortTransaction();
-    return next(new AppError('Error accepting invitation', 500));
-  } finally {
-    await session.endSession();
+    console.error('Invitation acceptance error:', error);
+    return next(
+      new AppError(`Error accepting invitation: ${error.message}`, 500)
+    );
   }
 });
 

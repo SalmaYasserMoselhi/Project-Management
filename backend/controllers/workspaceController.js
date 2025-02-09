@@ -4,6 +4,7 @@ const catchAsync = require('../utils/catchAsync.js');
 const User = require('../models/userModel');
 const sendEmail = require('../utils/email');
 const crypto = require('crypto');
+const Board = require('../models/boardModel');
 
 exports.createWorkspace = catchAsync(async (req, res, next) => {
   const workspace = await Workspace.create({
@@ -23,42 +24,35 @@ exports.getUserWorkspaces = catchAsync(async (req, res, next) => {
   // Get workspaces where user is the creator
   const ownedWorkspaces = await Workspace.find({
     createdBy: req.user._id,
-  }).populate('boards');
-  // .populate({
-  //   path: 'boards',
-  //   match: { archived: false },
-  //   populate: [
-  //     {
-  //       path: 'members.user',
-  //       select: 'name email',
-  //     },
-  //     {
-  //       path: 'createdBy',
-  //       select: 'name email',
-  //     },
-  //   ],
-  // });
+  }).populate('boards', '_id');
 
   // Get workspaces where user is a member but not creator
   const memberWorkspaces = await Workspace.find({
     'members.user': req.user._id,
     createdBy: { $ne: req.user._id },
-    type: 'public',
-  }).populate('boards');
-  // .populate({
-  //   path: 'boards',
-  //   match: { archived: false },
-  //   populate: [
-  //     {
-  //       path: 'members.user',
-  //       select: 'name email',
-  //     },
-  //     {
-  //       path: 'createdBy',
-  //       select: 'name email',
-  //     },
-  //   ],
-  // });
+    type: 'public'
+  }).populate('boards', '_id');
+
+  // Get all board IDs from public and private workspaces
+  const existingBoardIds = [
+    ...ownedWorkspaces.filter(w => w.type !== 'collaboration'),
+    ...memberWorkspaces
+  ].reduce((acc, workspace) => {
+    return [...acc, ...(workspace.boards || []).map(board => board._id.toString())];
+  }, []);
+
+  // For collaboration workspace, get only board IDs where user is a member AND board is not in other workspaces
+  const collaborationWorkspace = ownedWorkspaces.find(w => w.type === 'collaboration');
+  if (collaborationWorkspace) {
+    const sharedBoardIds = await Board.find({
+      'members.user': req.user._id,
+      'workspace': { $ne: collaborationWorkspace._id },
+      '_id': { $nin: existingBoardIds },
+      archived: false
+    }).select('_id');
+
+    collaborationWorkspace.boards = sharedBoardIds.map(board => board._id);
+  }
 
   // Ensure user has all default workspace types
   const userDefaultWorkspaces = ownedWorkspaces.filter((w) =>
@@ -66,7 +60,6 @@ exports.getUserWorkspaces = catchAsync(async (req, res, next) => {
   );
 
   if (userDefaultWorkspaces.length < 3) {
-    // Create missing default workspaces
     const existingTypes = userDefaultWorkspaces.map((w) => w.type);
     const missingTypes = ['private', 'public', 'collaboration'].filter(
       (type) => !existingTypes.includes(type)
@@ -88,7 +81,7 @@ exports.getUserWorkspaces = catchAsync(async (req, res, next) => {
         createdBy: req.user._id,
         members: [{ user: req.user._id, role: 'owner' }],
       });
-      ownWorkspaces.push(workspace);
+      ownedWorkspaces.push(workspace);
     }
   }
 
