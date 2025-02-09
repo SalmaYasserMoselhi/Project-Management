@@ -561,13 +561,14 @@ exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
 });
 
 /**
- * Get starred boards for the current user
+ * Get archived boards
+ * Can be filtered by workspace if workspaceId is provided in query
  */
-exports.getStarredBoards = catchAsync(async (req, res, next) => {
-  const starredBoards = await Board.find({
+exports.getArchivedBoards = catchAsync(async (req, res, next) => {
+  const archivedBoards = await Board.find({
     'members.user': req.user._id,
-    starred: true,
-    archived: false,
+    archived: true,
+    archivedBy: req.user._id,
   })
     .populate({
       path: 'workspace',
@@ -581,74 +582,7 @@ exports.getStarredBoards = catchAsync(async (req, res, next) => {
       path: 'createdBy',
       select: 'name email username',
     })
-    .sort('-updatedAt');
-
-  res.status(200).json({
-    status: 'success',
-    results: starredBoards.length,
-    data: {
-      boards: starredBoards,
-    },
-  });
-});
-
-/**
- * Get archived boards
- * Can be filtered by workspace if workspaceId is provided in query
- */
-exports.getArchivedBoards = catchAsync(async (req, res, next) => {
-  const { workspaceId, search, sort = '-updatedAt' } = req.query;
-
-  // Build base query
-  const query = {
-    'members.user': req.user._id,
-    archived: true,
-  };
-
-  // Add workspace filter if provided
-  if (workspaceId) {
-    // Verify workspace exists and user has access
-    const workspace = await Workspace.findById(workspaceId);
-    if (!workspace) {
-      return next(new AppError('Workspace not found', 404));
-    }
-
-    const isMember = workspace.members.some(
-      (member) => member.user.toString() === req.user._id.toString()
-    );
-
-    if (!isMember) {
-      return next(
-        new AppError('You do not have access to this workspace', 403)
-      );
-    }
-
-    query.workspace = workspaceId;
-  }
-
-  // Add search functionality
-  if (search) {
-    query.$or = [
-      { name: { $regex: search, $options: 'i' } },
-      { description: { $regex: search, $options: 'i' } },
-    ];
-  }
-
-  // Get archived boards
-  const archivedBoards = await Board.find(query)
-    .populate({
-      path: 'workspace',
-      select: 'name type createdBy',
-    })
-    .populate({
-      path: 'members.user',
-      select: 'name email username',
-    })
-    .populate({
-      path: 'createdBy',
-      select: 'name email username',
-    })
-    .sort(sort);
+    .sort('-archivedAt');
 
   // Calculate statistics
   const stats = {
@@ -664,6 +598,12 @@ exports.getArchivedBoards = catchAsync(async (req, res, next) => {
         (board) => board.workspace.type === 'collaboration'
       ).length,
     },
+    recentlyArchived: archivedBoards.filter((board) => {
+      const daysSinceArchived = Math.floor(
+        (Date.now() - board.archivedAt) / (1000 * 60 * 60 * 24)
+      );
+      return daysSinceArchived <= 30; // Boards archived in last 30 days
+    }).length,
   };
 
   res.status(200).json({
@@ -685,15 +625,13 @@ exports.archiveBoard = catchAsync(async (req, res, next) => {
     return next(new AppError('Board not found', 404));
   }
 
-  // Check if user has permission to archive
-  const member = board.members.find(
-    (m) => m.user.toString() === req.user._id.toString()
+  // Check if user is a member of the board (any role allowed)
+  const isMember = board.members.some(
+    (member) => member.user.toString() === req.user._id.toString()
   );
 
-  if (!member || !['admin', 'owner'].includes(member.role)) {
-    return next(
-      new AppError('Only board admins and owners can archive boards', 403)
-    );
+  if (!isMember) {
+    return next(new AppError('You must be a board member to archive it', 403));
   }
 
   // Check if board is already archived
@@ -725,15 +663,13 @@ exports.restoreBoard = catchAsync(async (req, res, next) => {
     return next(new AppError('Board not found', 404));
   }
 
-  // Check if user has permission to restore
-  const member = board.members.find(
-    (m) => m.user.toString() === req.user._id.toString()
+  // Check if user is a member of the board (any role allowed)
+  const isMember = board.members.some(
+    (member) => member.user.toString() === req.user._id.toString()
   );
 
-  if (!member || !['admin', 'owner'].includes(member.role)) {
-    return next(
-      new AppError('Only board admins and owners can restore boards', 403)
-    );
+  if (!isMember) {
+    return next(new AppError('You must be a board member to restore it', 403));
   }
 
   // Check if board is not archived
@@ -758,41 +694,41 @@ exports.restoreBoard = catchAsync(async (req, res, next) => {
 /**
  * Delete an archived board permanently
  */
-exports.deleteArchivedBoard = catchAsync(async (req, res, next) => {
-  const board = await Board.findById(req.params.id);
+// exports.deleteArchivedBoard = catchAsync(async (req, res, next) => {
+//   const board = await Board.findById(req.params.id);
 
-  if (!board) {
-    return next(new AppError('Board not found', 404));
-  }
+//   if (!board) {
+//     return next(new AppError('Board not found', 404));
+//   }
 
-  // Check if user has permission to delete
-  const member = board.members.find(
-    (m) => m.user.toString() === req.user._id.toString()
-  );
+//   // Check if user has permission to delete
+//   const member = board.members.find(
+//     (m) => m.user.toString() === req.user._id.toString()
+//   );
 
-  if (!member || !['owner', 'admin'].includes(member.role)) {
-    return next(
-      new AppError(
-        'Only board owners and admins can permanently delete boards',
-        403
-      )
-    );
-  }
+//   if (!member || !['owner', 'admin'].includes(member.role)) {
+//     return next(
+//       new AppError(
+//         'Only board owners and admins can permanently delete boards',
+//         403
+//       )
+//     );
+//   }
 
-  // Check if board is archived
-  if (!board.archived) {
-    return next(
-      new AppError('Board must be archived before permanent deletion', 400)
-    );
-  }
+//   // Check if board is archived
+//   if (!board.archived) {
+//     return next(
+//       new AppError('Board must be archived before permanent deletion', 400)
+//     );
+//   }
 
-  // Delete the board
-  await Board.deleteOne({ _id: board._id });
-  res.status(204).json({
-    status: 'success',
-    data: null,
-  });
-});
+//   // Delete the board
+//   await Board.deleteOne({ _id: board._id });
+//   res.status(204).json({
+//     status: 'success',
+//     data: null,
+//   });
+// });
 
 // Delete a board permanently
 exports.deleteBoard = catchAsync(async (req, res, next) => {
@@ -850,4 +786,129 @@ exports.deleteBoard = catchAsync(async (req, res, next) => {
   } finally {
     await session.endSession();
   }
+});
+
+/**
+ * Star a board
+ * @route PATCH /api/boards/:id/star
+ */
+exports.starBoard = catchAsync(async (req, res, next) => {
+  const board = await Board.findById(req.params.id);
+
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
+
+  // Check if user is a member of the board
+  const isMember = board.members.some(
+    (member) => member.user.toString() === req.user._id.toString()
+  );
+
+  if (!isMember) {
+    return next(new AppError('You must be a board member to star it', 403));
+  }
+
+  // Check if board is already starred
+  if (board.starred) {
+    return next(new AppError('Board is already starred', 400));
+  }
+
+  // Star the board
+  board.starred = true;
+  await board.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Board starred successfully',
+    data: {
+      board,
+    },
+  });
+});
+
+/**
+ * Remove star from a board
+ * @route PATCH /api/boards/:id/unstar
+ */
+exports.unstarBoard = catchAsync(async (req, res, next) => {
+  const board = await Board.findById(req.params.id);
+
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
+
+  // Check if user is a member of the board
+  const isMember = board.members.some(
+    (member) => member.user.toString() === req.user._id.toString()
+  );
+
+  if (!isMember) {
+    return next(new AppError('You must be a board member to unstar it', 403));
+  }
+
+  // Check if board is not starred
+  if (!board.starred) {
+    return next(new AppError('Board is not starred', 400));
+  }
+
+  // Remove star from the board
+  board.starred = false;
+  await board.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Board unstarred successfully',
+    data: {
+      board,
+    },
+  });
+});
+
+/**
+ * Get boards starred by current user
+ * @route GET /api/boards/me/starred
+ * @access Private
+ */
+exports.getMyStarredBoards = catchAsync(async (req, res, next) => {
+  const starredBoards = await Board.find({
+    'members.user': req.user._id,
+    starred: true,
+    archived: false,
+  })
+    .populate({
+      path: 'workspace',
+      select: 'name type',
+    })
+    .populate({
+      path: 'members.user',
+      select: 'name email username',
+    })
+    .populate({
+      path: 'createdBy',
+      select: 'name email username',
+    })
+    .sort('-updatedAt');
+
+  // Calculate some statistics
+  const stats = {
+    total: starredBoards.length,
+    byWorkspaceType: {
+      private: starredBoards.filter(
+        (board) => board.workspace.type === 'private'
+      ).length,
+      public: starredBoards.filter((board) => board.workspace.type === 'public')
+        .length,
+      collaboration: starredBoards.filter(
+        (board) => board.workspace.type === 'collaboration'
+      ).length,
+    },
+  };
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      boards: starredBoards,
+      stats,
+    },
+  });
 });

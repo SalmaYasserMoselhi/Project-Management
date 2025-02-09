@@ -24,16 +24,19 @@ router.get(
   '/workspaces/:workspaceId/boards',
   boardController.getWorkspaceBoards
 );
-router.get('/user-boards-starred', boardController.getStarredBoards);
 
 router.get('/user-boards/archived', boardController.getArchivedBoards);
 router.patch('/user-boards/:id/archive', boardController.archiveBoard);
 router.patch('/user-boards/:id/restore', boardController.restoreBoard);
-router.delete(
-  '/user-boards/:id/permanent',
-  boardController.deleteArchivedBoard
-);
+// router.delete(
+//   '/user-boards/:id/permanent',
+//   boardController.deleteArchivedBoard
+// );
 
 router.delete('/user-boards/:id', boardController.deleteBoard);
+
+router.patch('/user-boards/:id/star', boardController.starBoard);
+router.patch('/user-boards/:id/unstar', boardController.unstarBoard);
+router.get('/starred', boardController.getMyStarredBoards);
 
 module.exports = router;
