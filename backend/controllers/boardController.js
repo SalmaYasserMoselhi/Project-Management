@@ -716,45 +716,6 @@ exports.restoreBoard = catchAsync(async (req, res, next) => {
   });
 });
 
-/**
- * Delete an archived board permanently
- */
-// exports.deleteArchivedBoard = catchAsync(async (req, res, next) => {
-//   const board = await Board.findById(req.params.id);
-
-//   if (!board) {
-//     return next(new AppError('Board not found', 404));
-//   }
-
-//   // Check if user has permission to delete
-//   const member = board.members.find(
-//     (m) => m.user.toString() === req.user._id.toString()
-//   );
-
-//   if (!member || !['owner', 'admin'].includes(member.role)) {
-//     return next(
-//       new AppError(
-//         'Only board owners and admins can permanently delete boards',
-//         403
-//       )
-//     );
-//   }
-
-//   // Check if board is archived
-//   if (!board.archived) {
-//     return next(
-//       new AppError('Board must be archived before permanent deletion', 400)
-//     );
-//   }
-
-//   // Delete the board
-//   await Board.deleteOne({ _id: board._id });
-//   res.status(204).json({
-//     status: 'success',
-//     data: null,
-//   });
-// });
-
 // Delete a board permanently
 exports.deleteBoard = catchAsync(async (req, res, next) => {
   // Find board and populate workspace to check its type

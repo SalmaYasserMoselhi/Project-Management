@@ -40,14 +40,6 @@ const boardSchema = new mongoose.Schema(
         default: 'board',
       },
     },
-    visibility: {
-      type: String,
-      enum: ['private', 'workspace', 'public'],
-      default: function () {
-        // Will be set based on workspace type in pre-save middleware
-        return 'private';
-      },
-    },
     // Members Management
     members: [
       {
@@ -93,10 +85,6 @@ const boardSchema = new mongoose.Schema(
         type: Boolean,
         default: false, // Only workspace members can join without invitation
       },
-      // defaultLabels: {
-      //   type: Boolean,
-      //   default: true,
-      // },
       listLimit: {
         type: Number,
         default: null, // null means no limit
@@ -110,35 +98,6 @@ const boardSchema = new mongoose.Schema(
         default: true,
       },
     },
-    // labels: [
-    //   {
-    //     name: String,
-    //     color: String,
-    //     description: String,
-    //   },
-    // ],
-    // Label System
-    // labelGroups: [
-    //   {
-    //     name: String,
-    //     description: String,
-    //     color: String,
-    //   },
-    // ],
-    // labels: [
-    //   {
-    //     name: {
-    //       type: String,
-    //       required: true,
-    //     },
-    //     color: {
-    //       type: String,
-    //       required: true,
-    //     },
-    //     description: String,
-    //     groupId: String, // References labelGroup name
-    //   },
-    // ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -237,11 +196,6 @@ const boardSchema = new mongoose.Schema(
         },
       },
     ],
-    // originalBoard: {
-    //   type: mongoose.Schema.Types.ObjectId,
-    //   ref: 'Board',
-    //   default: null, // null for original board, populated with ID for shared/linked board
-    // },
   },
   {
     timestamps: true,
@@ -254,7 +208,6 @@ const boardSchema = new mongoose.Schema(
 boardSchema.index({ workspace: 1, name: 1 });
 boardSchema.index({ 'members.user': 1 });
 boardSchema.index({ createdBy: 1 });
-// boardSchema.index({ 'labels.groupId': 1 });
 
 // Add invitation token methods
 boardSchema.methods.createInvitationToken = function (email, role, invitedBy) {
@@ -307,64 +260,6 @@ boardSchema.pre('save', function (next) {
   next();
 });
 
-// Create default labels when a new board is created
-// boardSchema.pre('save', async function (next) {
-//   if (this.isNew && this.settings.defaultLabels) {
-//     // Default label groups
-//     const defaultGroups = [
-//       {
-//         name: 'Priority',
-//         description: 'Task priority levels',
-//         color: '#FF0000',
-//       },
-//       {
-//         name: 'Status',
-//         description: 'Task status indicators',
-//         color: '#00FF00',
-//       },
-//     ];
-
-//     // Default labels
-//     const defaultLabels = [
-//       {
-//         name: 'High Priority',
-//         color: '#FF0000',
-//         description: 'Urgent tasks',
-//         groupId: 'Priority',
-//       },
-//       {
-//         name: 'Medium Priority',
-//         color: '#FFA500',
-//         description: 'Important tasks',
-//         groupId: 'Priority',
-//       },
-//       {
-//         name: 'Low Priority',
-//         color: '#00FF00',
-//         description: 'Normal tasks',
-//         groupId: 'Priority',
-//       },
-//       {
-//         name: 'In Progress',
-//         color: '#0000FF',
-//         description: 'Currently being worked on',
-//         groupId: 'Status',
-//       },
-//       {
-//         name: 'Blocked',
-//         color: '#FF0000',
-//         description: 'Cannot proceed',
-//         groupId: 'Status',
-//       },
-//     ];
-
-//     this.labelGroups = defaultGroups;
-//     this.labels = defaultLabels;
-//   }
-//   next();
-// });
-
-// Pre-save middleware for board model
 boardSchema.pre('save', async function (next) {
   if (this.isNew || this.isModified('workspace')) {
     try {
@@ -377,26 +272,6 @@ boardSchema.pre('save', async function (next) {
         throw new Error('Workspace not found');
       }
 
-      // Set visibility based on workspace type
-      switch (workspace.type) {
-        case 'private':
-          this.visibility = 'private';
-          break;
-        case 'public':
-          this.visibility = 'workspace';
-          break;
-        case 'collaboration':
-          this.visibility = 'workspace';
-          // Allow board creation in collaboration workspace if it's a linked board
-          if (this.isNew && !this.originalBoard) {
-            throw new Error('Cannot create boards in collaboration workspace');
-          }
-          break;
-        default:
-          throw new Error('Invalid workspace type');
-      }
-
-      // Skip adding workspace members for boards in collaboration workspace
       if (workspace.type !== 'collaboration') {
         // Add workspace members with same roles
         const workspaceMembers = workspace.members.filter(
@@ -412,7 +287,7 @@ boardSchema.pre('save', async function (next) {
           this.members.push({
             user: member.user._id,
             role: member.role,
-            watchStatus: member.role === 'owner' ? 'watching' : 'tracking',
+            // watchStatus: member.role === 'owner' ? 'watching' : 'tracking',
             joinedAt: new Date(),
           });
         });
@@ -424,28 +299,6 @@ boardSchema.pre('save', async function (next) {
   next();
 });
 
-// // Methods for label management
-// boardSchema.methods.addLabelGroup = async function (groupData) {
-//   this.labelGroups.push(groupData);
-//   await this.save();
-//   return this.labelGroups[this.labelGroups.length - 1];
-// };
-
-// boardSchema.methods.addLabel = async function (labelData) {
-//   // Verify group exists if groupId is provided
-//   if (
-//     labelData.groupId &&
-//     !this.labelGroups.some((g) => g.name === labelData.groupId)
-//   ) {
-//     throw new Error('Label group not found');
-//   }
-
-//   this.labels.push(labelData);
-//   await this.save();
-//   return this.labels[this.labels.length - 1];
-// };
-
-// Virtual for counting total cards in board
 boardSchema.virtual('totalCards').get(function () {
   return this.lists.reduce((count, list) => count + list.cards.length, 0);
 });
@@ -464,62 +317,5 @@ boardSchema.virtual('cardsDueSoon').get(function () {
   }, []);
 });
 
-// // Add to boardSchema.pre('save')
-// boardSchema.pre('save', async function (next) {
-//   // If this is a change to an original board
-//   if (!this.originalBoard && this.isModified()) {
-//     try {
-//       // Find all linked collaboration boards
-//       const linkedBoards = await this.constructor.find({
-//         originalBoard: this._id,
-//       });
-
-//       // Update all linked boards with the changes
-//       const updatePromises = linkedBoards.map(async (linkedBoard) => {
-//         // Copy relevant fields that should be synced
-//         linkedBoard.name = this.name;
-//         linkedBoard.description = this.description;
-//         linkedBoard.background = this.background;
-//         linkedBoard.viewPreferences = this.viewPreferences;
-//         linkedBoard.settings = this.settings;
-//         linkedBoard.lists = this.lists;
-
-//         // Don't trigger sync on linked board save
-//         linkedBoard._skipSync = true;
-//         await linkedBoard.save();
-//       });
-
-//       await Promise.all(updatePromises);
-//     } catch (error) {
-//       return next(error);
-//     }
-//   }
-//   next();
-// });
-
-// // Add method to sync specific changes
-// boardSchema.methods.syncChanges = async function (changes) {
-//   if (this._skipSync) return; // Prevent infinite loops
-
-//   if (this.originalBoard) {
-//     // This is a linked board, sync changes to original
-//     const originalBoard = await this.constructor.findById(this.originalBoard);
-//     if (originalBoard) {
-//       Object.assign(originalBoard, changes);
-//       await originalBoard.save();
-//     }
-//   } else {
-//     // This is an original board, sync changes to linked boards
-//     const linkedBoards = await this.constructor.find({
-//       originalBoard: this._id,
-//     });
-//     const updatePromises = linkedBoards.map(async (linkedBoard) => {
-//       Object.assign(linkedBoard, changes);
-//       linkedBoard._skipSync = true;
-//       await linkedBoard.save();
-//     });
-//     await Promise.all(updatePromises);
-//   }
-// };
 const Board = mongoose.model('Board', boardSchema);
 module.exports = Board;
