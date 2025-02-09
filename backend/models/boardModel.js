@@ -261,34 +261,40 @@ boardSchema.pre('save', function (next) {
 });
 
 boardSchema.pre('save', async function (next) {
+  // Only run this hook if the board is new or if the workspace field was modified
   if (this.isNew || this.isModified('workspace')) {
     try {
+      // Find the workspace this board belongs to and populate member details
       const workspace = await mongoose
         .model('Workspace')
         .findById(this.workspace)
         .populate('members.user', 'name email');
 
+      // If workspace doesn't exist, throw an error
       if (!workspace) {
         throw new Error('Workspace not found');
       }
 
+      // Only proceed if workspace is NOT of type 'collaboration'
+      // This is because collaboration workspaces handle members differently
       if (workspace.type !== 'collaboration') {
-        // Add workspace members with same roles
+        // Filter workspace members to get only those who aren't already board members
+        // This prevents duplicate member entries when synchronizing
         const workspaceMembers = workspace.members.filter(
           (m) =>
-            // Filter out members already in the board
             !this.members.some(
               (bm) => bm.user.toString() === m.user._id.toString()
             )
         );
 
-        // Add members with synchronized roles
+        // Add each filtered workspace member to the board
+        // This ensures that all workspace members have access to the board
+        // with their respective workspace roles
         workspaceMembers.forEach((member) => {
           this.members.push({
-            user: member.user._id,
-            role: member.role,
-            // watchStatus: member.role === 'owner' ? 'watching' : 'tracking',
-            joinedAt: new Date(),
+            user: member.user._id, // The user's ID
+            role: member.role, // Maintain the same role as in workspace
+            joinedAt: new Date(), // Set current timestamp as join date
           });
         });
       }
