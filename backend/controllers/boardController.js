@@ -126,6 +126,24 @@ exports.inviteMemberByEmail = catchAsync(async (req, res, next) => {
   }
 
   try {
+    // 5. If board is in private workspace, move it to owner's public workspace
+    if (board.workspace.type === 'private') {
+      // Find owner's public workspace
+      const ownerPublicWorkspace = await Workspace.findOne({
+        createdBy: board.createdBy._id,
+        type: 'public',
+      });
+
+      if (!ownerPublicWorkspace) {
+        return next(new AppError("Owner's public workspace not found", 404));
+      }
+
+      // Move board to public workspace
+      board.workspace = ownerPublicWorkspace._id;
+      board.visibility = 'workspace';
+      await board.save();
+    }
+
     // 6. Create invitation token
     const inviteToken = board.createInvitationToken(email, role, req.user._id);
     await board.save();
