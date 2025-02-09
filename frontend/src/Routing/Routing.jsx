@@ -6,6 +6,7 @@ import ForgetPassword from "../Auth/ForgetPassword";
 import Verification from "../Auth/Verification";
 import ResetPassword from "../Auth/ResetPassword";
 import Dashboard from "../Dashboard/Dashboard";
+import MainBoard from "../Board/mainBoard";
 
 function Routing() {
   return (
@@ -17,6 +18,7 @@ function Routing() {
         <Route path="/verification" element={<Verification />} />
         <Route path="/resetpassword" element={<ResetPassword />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/mainboard" element={<MainBoard/>} />
       </Routes>
     </div>
   );
