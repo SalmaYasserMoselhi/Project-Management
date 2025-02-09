@@ -93,10 +93,10 @@ const boardSchema = new mongoose.Schema(
         type: Boolean,
         default: false, // Only workspace members can join without invitation
       },
-      defaultLabels: {
-        type: Boolean,
-        default: true,
-      },
+      // defaultLabels: {
+      //   type: Boolean,
+      //   default: true,
+      // },
       listLimit: {
         type: Number,
         default: null, // null means no limit
@@ -110,35 +110,35 @@ const boardSchema = new mongoose.Schema(
         default: true,
       },
     },
-    labels: [
-      {
-        name: String,
-        color: String,
-        description: String,
-      },
-    ],
+    // labels: [
+    //   {
+    //     name: String,
+    //     color: String,
+    //     description: String,
+    //   },
+    // ],
     // Label System
-    labelGroups: [
-      {
-        name: String,
-        description: String,
-        color: String,
-      },
-    ],
-    labels: [
-      {
-        name: {
-          type: String,
-          required: true,
-        },
-        color: {
-          type: String,
-          required: true,
-        },
-        description: String,
-        groupId: String, // References labelGroup name
-      },
-    ],
+    // labelGroups: [
+    //   {
+    //     name: String,
+    //     description: String,
+    //     color: String,
+    //   },
+    // ],
+    // labels: [
+    //   {
+    //     name: {
+    //       type: String,
+    //       required: true,
+    //     },
+    //     color: {
+    //       type: String,
+    //       required: true,
+    //     },
+    //     description: String,
+    //     groupId: String, // References labelGroup name
+    //   },
+    // ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -254,7 +254,7 @@ const boardSchema = new mongoose.Schema(
 boardSchema.index({ workspace: 1, name: 1 });
 boardSchema.index({ 'members.user': 1 });
 boardSchema.index({ createdBy: 1 });
-boardSchema.index({ 'labels.groupId': 1 });
+// boardSchema.index({ 'labels.groupId': 1 });
 
 // Add invitation token methods
 boardSchema.methods.createInvitationToken = function (email, role, invitedBy) {
@@ -308,61 +308,61 @@ boardSchema.pre('save', function (next) {
 });
 
 // Create default labels when a new board is created
-boardSchema.pre('save', async function (next) {
-  if (this.isNew && this.settings.defaultLabels) {
-    // Default label groups
-    const defaultGroups = [
-      {
-        name: 'Priority',
-        description: 'Task priority levels',
-        color: '#FF0000',
-      },
-      {
-        name: 'Status',
-        description: 'Task status indicators',
-        color: '#00FF00',
-      },
-    ];
+// boardSchema.pre('save', async function (next) {
+//   if (this.isNew && this.settings.defaultLabels) {
+//     // Default label groups
+//     const defaultGroups = [
+//       {
+//         name: 'Priority',
+//         description: 'Task priority levels',
+//         color: '#FF0000',
+//       },
+//       {
+//         name: 'Status',
+//         description: 'Task status indicators',
+//         color: '#00FF00',
+//       },
+//     ];
 
-    // Default labels
-    const defaultLabels = [
-      {
-        name: 'High Priority',
-        color: '#FF0000',
-        description: 'Urgent tasks',
-        groupId: 'Priority',
-      },
-      {
-        name: 'Medium Priority',
-        color: '#FFA500',
-        description: 'Important tasks',
-        groupId: 'Priority',
-      },
-      {
-        name: 'Low Priority',
-        color: '#00FF00',
-        description: 'Normal tasks',
-        groupId: 'Priority',
-      },
-      {
-        name: 'In Progress',
-        color: '#0000FF',
-        description: 'Currently being worked on',
-        groupId: 'Status',
-      },
-      {
-        name: 'Blocked',
-        color: '#FF0000',
-        description: 'Cannot proceed',
-        groupId: 'Status',
-      },
-    ];
+//     // Default labels
+//     const defaultLabels = [
+//       {
+//         name: 'High Priority',
+//         color: '#FF0000',
+//         description: 'Urgent tasks',
+//         groupId: 'Priority',
+//       },
+//       {
+//         name: 'Medium Priority',
+//         color: '#FFA500',
+//         description: 'Important tasks',
+//         groupId: 'Priority',
+//       },
+//       {
+//         name: 'Low Priority',
+//         color: '#00FF00',
+//         description: 'Normal tasks',
+//         groupId: 'Priority',
+//       },
+//       {
+//         name: 'In Progress',
+//         color: '#0000FF',
+//         description: 'Currently being worked on',
+//         groupId: 'Status',
+//       },
+//       {
+//         name: 'Blocked',
+//         color: '#FF0000',
+//         description: 'Cannot proceed',
+//         groupId: 'Status',
+//       },
+//     ];
 
-    this.labelGroups = defaultGroups;
-    this.labels = defaultLabels;
-  }
-  next();
-});
+//     this.labelGroups = defaultGroups;
+//     this.labels = defaultLabels;
+//   }
+//   next();
+// });
 
 // Pre-save middleware for board model
 boardSchema.pre('save', async function (next) {
@@ -431,19 +431,19 @@ boardSchema.methods.addLabelGroup = async function (groupData) {
   return this.labelGroups[this.labelGroups.length - 1];
 };
 
-boardSchema.methods.addLabel = async function (labelData) {
-  // Verify group exists if groupId is provided
-  if (
-    labelData.groupId &&
-    !this.labelGroups.some((g) => g.name === labelData.groupId)
-  ) {
-    throw new Error('Label group not found');
-  }
+// boardSchema.methods.addLabel = async function (labelData) {
+//   // Verify group exists if groupId is provided
+//   if (
+//     labelData.groupId &&
+//     !this.labelGroups.some((g) => g.name === labelData.groupId)
+//   ) {
+//     throw new Error('Label group not found');
+//   }
 
-  this.labels.push(labelData);
-  await this.save();
-  return this.labels[this.labels.length - 1];
-};
+//   this.labels.push(labelData);
+//   await this.save();
+//   return this.labels[this.labels.length - 1];
+// };
 
 // Virtual for counting total cards in board
 boardSchema.virtual('totalCards').get(function () {

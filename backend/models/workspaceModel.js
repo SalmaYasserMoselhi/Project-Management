@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto'); // Add this at the top
-const catchAsync = require('../utils/catchAsync');
-const User = require('./userModel');
+
 
 const workspaceSchema = new mongoose.Schema(
   {
@@ -115,13 +114,28 @@ workspaceSchema.index({ name: 1, createdBy: 1 });
 workspaceSchema.index({ 'members.user': 1 });
 workspaceSchema.index({ 'invitations.email': 1, 'invitations.token': 1 });
 
-workspaceSchema.pre(/^find/, function (next) {
-  this.populate({
-    path: 'createdBy',
-    select: 'firstName lastName username email',
-  });
-  next();
+// VIRTUAL POPULATE, 'Virtual Child Referencing' to get all boards of a workspace
+workspaceSchema.virtual('boards', {
+  ref: 'Board', // Reference to the Board model
+  foreignField: 'workspace', // 'workspace' is the field in board model that reference to Workspace model
+  localField: '_id', // The Workspace's ID (used to match boards)
+  options: {
+    select: '_id', // Only include ID by default
+    transform: (doc) => doc._id, // Convert to just ID string
+  },
+  match: {
+    // Only show non-archived boards
+    archived: false,
+  },
 });
+
+// workspaceSchema.pre(/^find/, function (next) {
+//   this.populate({
+//     path: 'createdBy',
+//     select: 'firstName lastName username email',
+//   });
+//   next();
+// });
 
 // Middleware to prevent deletion of default workspaces
 workspaceSchema.pre('remove', async function (next) {
@@ -231,16 +245,6 @@ workspaceSchema.pre('save', function (next) {
     });
   }
   next();
-});
-
-workspaceSchema.virtual('boards', {
-  ref: 'Board',
-  localField: '_id',
-  foreignField: 'workspace',
-  match: {
-    // Only show non-archived boards
-    archived: false,
-  },
 });
 
 const Workspace = mongoose.model('Workspace', workspaceSchema);

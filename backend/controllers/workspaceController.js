@@ -23,40 +23,42 @@ exports.getUserWorkspaces = catchAsync(async (req, res, next) => {
   // Get workspaces where user is the creator
   const ownedWorkspaces = await Workspace.find({
     createdBy: req.user._id,
-  }).populate({
-    path: 'boards',
-    match: { archived: false },
-    populate: [
-      {
-        path: 'members.user',
-        select: 'name email',
-      },
-      {
-        path: 'createdBy',
-        select: 'name email',
-      },
-    ],
-  });
+  }).populate('boards');
+  // .populate({
+  //   path: 'boards',
+  //   match: { archived: false },
+  //   populate: [
+  //     {
+  //       path: 'members.user',
+  //       select: 'name email',
+  //     },
+  //     {
+  //       path: 'createdBy',
+  //       select: 'name email',
+  //     },
+  //   ],
+  // });
 
   // Get workspaces where user is a member but not creator
   const memberWorkspaces = await Workspace.find({
     'members.user': req.user._id,
     createdBy: { $ne: req.user._id },
     type: 'public',
-  }).populate({
-    path: 'boards',
-    match: { archived: false },
-    populate: [
-      {
-        path: 'members.user',
-        select: 'name email',
-      },
-      {
-        path: 'createdBy',
-        select: 'name email',
-      },
-    ],
-  });
+  }).populate('boards');
+  // .populate({
+  //   path: 'boards',
+  //   match: { archived: false },
+  //   populate: [
+  //     {
+  //       path: 'members.user',
+  //       select: 'name email',
+  //     },
+  //     {
+  //       path: 'createdBy',
+  //       select: 'name email',
+  //     },
+  //   ],
+  // });
 
   // Ensure user has all default workspace types
   const userDefaultWorkspaces = ownedWorkspaces.filter((w) =>
