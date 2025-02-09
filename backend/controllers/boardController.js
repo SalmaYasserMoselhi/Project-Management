@@ -126,6 +126,24 @@ exports.inviteMemberByEmail = catchAsync(async (req, res, next) => {
   }
 
   try {
+    // 5. If board is in private workspace, move it to owner's public workspace
+    if (board.workspace.type === 'private') {
+      // Find owner's public workspace
+      const ownerPublicWorkspace = await Workspace.findOne({
+        createdBy: board.createdBy._id,
+        type: 'public',
+      });
+
+      if (!ownerPublicWorkspace) {
+        return next(new AppError("Owner's public workspace not found", 404));
+      }
+
+      // Move board to public workspace
+      board.workspace = ownerPublicWorkspace._id;
+      board.visibility = 'workspace';
+      await board.save();
+    }
+
     // 6. Create invitation token
     const inviteToken = board.createInvitationToken(email, role, req.user._id);
     await board.save();
@@ -698,45 +716,6 @@ exports.restoreBoard = catchAsync(async (req, res, next) => {
   });
 });
 
-/**
- * Delete an archived board permanently
- */
-// exports.deleteArchivedBoard = catchAsync(async (req, res, next) => {
-//   const board = await Board.findById(req.params.id);
-
-//   if (!board) {
-//     return next(new AppError('Board not found', 404));
-//   }
-
-//   // Check if user has permission to delete
-//   const member = board.members.find(
-//     (m) => m.user.toString() === req.user._id.toString()
-//   );
-
-//   if (!member || !['owner', 'admin'].includes(member.role)) {
-//     return next(
-//       new AppError(
-//         'Only board owners and admins can permanently delete boards',
-//         403
-//       )
-//     );
-//   }
-
-//   // Check if board is archived
-//   if (!board.archived) {
-//     return next(
-//       new AppError('Board must be archived before permanent deletion', 400)
-//     );
-//   }
-
-//   // Delete the board
-//   await Board.deleteOne({ _id: board._id });
-//   res.status(204).json({
-//     status: 'success',
-//     data: null,
-//   });
-// });
-
 // Delete a board permanently
 exports.deleteBoard = catchAsync(async (req, res, next) => {
   // Find board and populate workspace to check its type
@@ -916,6 +895,115 @@ exports.getMyStarredBoards = catchAsync(async (req, res, next) => {
     data: {
       boards: starredBoards,
       stats,
+    },
+  });
+});
+
+exports.updateBoard = catchAsync(async (req, res, next) => {
+  // 1. Get board with only necessary member data
+  const board = await Board.findById(req.params.id).populate({
+    path: 'members.user',
+    select: '_id name email', // Only get required user fields
+  });
+
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
+
+  // 2. Check if user has permission to update
+  const member = board.members.find(
+    (m) => m.user._id.toString() === req.user._id.toString()
+  );
+
+  if (!member) {
+    return next(new AppError('You must be a board member to update it', 403));
+  }
+
+  // Only admin and owner can update board settings
+  if (!['admin', 'owner'].includes(member.role)) {
+    return next(
+      new AppError(
+        'Only board admins and owners can update board settings',
+        403
+      )
+    );
+  }
+
+  // 3. Create allowedFields based on user role
+  const allowedFields = [
+    'name',
+    'description',
+    'background',
+    'viewPreferences',
+  ];
+
+  // Additional fields for admin/owner
+  if (['admin', 'owner'].includes(member.role)) {
+    allowedFields.push('settings', 'permissions');
+  }
+
+  // Filter out unwanted fields
+  const filteredBody = {};
+  Object.keys(req.body).forEach((field) => {
+    if (allowedFields.includes(field)) {
+      filteredBody[field] = req.body[field];
+    }
+  });
+
+  // 4. If settings are being updated, merge with existing settings
+  if (filteredBody.settings) {
+    filteredBody.settings = {
+      ...board.settings,
+      ...filteredBody.settings,
+    };
+  }
+
+  // 5. If permissions are being updated, validate and merge
+  if (filteredBody.permissions) {
+    filteredBody.permissions = {
+      ...board.permissions,
+      ...filteredBody.permissions,
+    };
+
+    // Validate permission values
+    const validPermissionValues = ['admin', 'members'];
+    Object.entries(filteredBody.permissions).forEach(([key, value]) => {
+      if (!validPermissionValues.includes(value)) {
+        delete filteredBody.permissions[key];
+      }
+    });
+  }
+
+  // 6. Update the board
+  const updatedBoard = await Board.findByIdAndUpdate(
+    req.params.id,
+    filteredBody,
+    {
+      new: true,
+      runValidators: true,
+    }
+  ).populate({
+    path: 'members.user',
+    select: '_id name email',
+  });
+
+  // 7. Add activity log
+  updatedBoard.activities.push({
+    user: req.user._id,
+    action: 'updated',
+    entityType: 'board',
+    entityId: updatedBoard._id,
+    data: {
+      updatedFields: Object.keys(filteredBody),
+    },
+  });
+
+  await updatedBoard.save();
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      board: updatedBoard,
     },
   });
 });

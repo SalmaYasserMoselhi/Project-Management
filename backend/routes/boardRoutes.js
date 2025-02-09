@@ -33,6 +33,8 @@ router.patch('/user-boards/:id/restore', boardController.restoreBoard);
 //   boardController.deleteArchivedBoard
 // );
 
+router.patch('/user-boards/:id', boardController.updateBoard);
+
 router.delete('/user-boards/:id', boardController.deleteBoard);
 
 router.patch('/user-boards/:id/star', boardController.starBoard);
