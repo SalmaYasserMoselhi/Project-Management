@@ -237,11 +237,11 @@ const boardSchema = new mongoose.Schema(
         },
       },
     ],
-    originalBoard: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Board',
-      default: null, // null for original board, populated with ID for shared/linked board
-    },
+    // originalBoard: {
+    //   type: mongoose.Schema.Types.ObjectId,
+    //   ref: 'Board',
+    //   default: null, // null for original board, populated with ID for shared/linked board
+    // },
   },
   {
     timestamps: true,
@@ -424,12 +424,12 @@ boardSchema.pre('save', async function (next) {
   next();
 });
 
-// Methods for label management
-boardSchema.methods.addLabelGroup = async function (groupData) {
-  this.labelGroups.push(groupData);
-  await this.save();
-  return this.labelGroups[this.labelGroups.length - 1];
-};
+// // Methods for label management
+// boardSchema.methods.addLabelGroup = async function (groupData) {
+//   this.labelGroups.push(groupData);
+//   await this.save();
+//   return this.labelGroups[this.labelGroups.length - 1];
+// };
 
 // boardSchema.methods.addLabel = async function (labelData) {
 //   // Verify group exists if groupId is provided
@@ -464,5 +464,62 @@ boardSchema.virtual('cardsDueSoon').get(function () {
   }, []);
 });
 
+// // Add to boardSchema.pre('save')
+// boardSchema.pre('save', async function (next) {
+//   // If this is a change to an original board
+//   if (!this.originalBoard && this.isModified()) {
+//     try {
+//       // Find all linked collaboration boards
+//       const linkedBoards = await this.constructor.find({
+//         originalBoard: this._id,
+//       });
+
+//       // Update all linked boards with the changes
+//       const updatePromises = linkedBoards.map(async (linkedBoard) => {
+//         // Copy relevant fields that should be synced
+//         linkedBoard.name = this.name;
+//         linkedBoard.description = this.description;
+//         linkedBoard.background = this.background;
+//         linkedBoard.viewPreferences = this.viewPreferences;
+//         linkedBoard.settings = this.settings;
+//         linkedBoard.lists = this.lists;
+
+//         // Don't trigger sync on linked board save
+//         linkedBoard._skipSync = true;
+//         await linkedBoard.save();
+//       });
+
+//       await Promise.all(updatePromises);
+//     } catch (error) {
+//       return next(error);
+//     }
+//   }
+//   next();
+// });
+
+// // Add method to sync specific changes
+// boardSchema.methods.syncChanges = async function (changes) {
+//   if (this._skipSync) return; // Prevent infinite loops
+
+//   if (this.originalBoard) {
+//     // This is a linked board, sync changes to original
+//     const originalBoard = await this.constructor.findById(this.originalBoard);
+//     if (originalBoard) {
+//       Object.assign(originalBoard, changes);
+//       await originalBoard.save();
+//     }
+//   } else {
+//     // This is an original board, sync changes to linked boards
+//     const linkedBoards = await this.constructor.find({
+//       originalBoard: this._id,
+//     });
+//     const updatePromises = linkedBoards.map(async (linkedBoard) => {
+//       Object.assign(linkedBoard, changes);
+//       linkedBoard._skipSync = true;
+//       await linkedBoard.save();
+//     });
+//     await Promise.all(updatePromises);
+//   }
+// };
 const Board = mongoose.model('Board', boardSchema);
 module.exports = Board;
