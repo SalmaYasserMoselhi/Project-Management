@@ -438,10 +438,8 @@ exports.removeMember = catchAsync(async (req, res, next) => {
  * Get all boards for the current user
  * Includes boards where user is member and starred boards
  */
-
 exports.getUserBoards = catchAsync(async (req, res, next) => {
-  // Get all boards where user is a member
-  const userBoards = await Board.find({
+  let userBoards = await Board.find({
     'members.user': req.user._id,
     archived: false,
   })
@@ -449,15 +447,22 @@ exports.getUserBoards = catchAsync(async (req, res, next) => {
       path: 'workspace',
       select: 'name type createdBy',
     })
-    .populate({
-      path: 'members.user',
-      select: 'name email username',
-    })
-    .populate({
-      path: 'createdBy',
-      select: 'name email username',
-    })
-    .sort('-updatedAt');
+    .populate(
+     'members.user', '_id'
+    )
+    .populate('createdBy', 'id')
+    .sort('-updatedAt')
+    .lean(); // Add lean() to get plain objects
+
+  // Clean up populated user data
+  // userBoards = userBoards.map(board => {
+  //   board.members = board.members.map(member => ({
+  //     ...member,
+  //     user: { _id: member.user._id }
+  //   }));
+  //   board.createdBy = { _id: board.createdBy._id };
+  //   return board;
+  // });
 
   // Organize boards by workspace type
   const organizedBoards = {
