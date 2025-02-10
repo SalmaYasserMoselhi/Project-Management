@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto'); // Add this at the top
-
-
+const User = require('./userModel');
 const workspaceSchema = new mongoose.Schema(
   {
     name: {
@@ -151,7 +150,8 @@ workspaceSchema.pre('remove', async function (next) {
 });
 
 // Static method to create default workspaces for a new user
-workspaceSchema.statics.createDefaultWorkspaces = async function (userId) {
+workspaceSchema.statics.createDefaultWorkspaces = async function (userId, username) {
+
   try {
     const workspaces = await this.create([
       {
@@ -162,7 +162,7 @@ workspaceSchema.statics.createDefaultWorkspaces = async function (userId) {
         members: [{ user: userId, role: 'owner' }],
       },
       {
-        name: `Team/Public Space`, // Personalized team space
+        name: `${username}'s workspace`, // Personalized team space
         description: 'Share and collaborate on boards with your team',
         type: 'public',
         createdBy: userId,

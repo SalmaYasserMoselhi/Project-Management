@@ -183,7 +183,7 @@ userSchema.pre('save', function (next) {
 userSchema.pre('save', async function (next) {
   if (this.isNew) {
     try {
-      await Workspace.createDefaultWorkspaces(this._id);
+      await Workspace.createDefaultWorkspaces(this._id, this.username);
     } catch (error) {
       return next(error); // Prevent user creation if workspaces fail
     }

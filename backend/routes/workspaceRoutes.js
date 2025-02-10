@@ -12,6 +12,7 @@ router.use(authController.protect);
 // Workspace Management Routes
 // Get user's workspaces (own and member of)
 router.get('/user-workspaces', workspaceController.getUserWorkspaces);
+router.get('/public-member', workspaceController.getPublicAndMemberWorkspaces);
 
 // Get specific workspace
 router
