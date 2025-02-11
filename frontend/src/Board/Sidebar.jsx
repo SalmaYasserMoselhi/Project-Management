@@ -113,6 +113,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import DashboardIcon from "../assets/Dashboard.png";
+import WorkspaceIcon from "../assets/workspace.png";
+import CollaborationIcon from "../assets/collabration.png";
+import PrivateIcon from "../assets/private.png";
+import CalendarIcon from "../assets/calender.png";
+import SettingsIcon from "../assets/setting.png";
+import AddIcon from "../assets/add.png";
+import DropDownIcon from "../assets/drop-down.png";
+import LogoIcon from "../assets/Logo.png";
+
 // eslint-disable-next-line react/prop-types
 const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
   const [activeItem, setActiveItem] = useState("Dashboard");
@@ -120,32 +130,32 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
 
   const sidebarItems = [
     {
-      icon: "src/assets/Dashboard.png",
+      icon: DashboardIcon,
       title: "Dashboard",
       path: "main",
     },
     {
-      icon: "src/assets/workspace.png",
+      icon: WorkspaceIcon,
       title: "Workspace",
       hasAdd: true,
       hasDropdown: true,
       path: "workspace",
     },
     {
-      icon: "src/assets/collabration.png",
+      icon: CollaborationIcon,
       title: "Collaboration",
       hasDropdown: true,
       path: "collaboration",
     },
     {
-      icon: "src/assets/private.png",
+      icon: PrivateIcon,
       title: "Private",
       hasAdd: true,
       hasDropdown: true,
       path: "private",
     },
-    { icon: "src/assets/calender.png", title: "Calendar", path: "calendar" },
-    { icon: "src/assets/setting.png", title: "Settings", path: "setting" },
+    { icon: CalendarIcon, title: "Calendar", path: "calendar" },
+    { icon: SettingsIcon, title: "Settings", path: "setting" },
   ];
 
   const handleItemClick = (title, path) => {
@@ -183,7 +193,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
         }}
       >
         <img
-          src="src/assets/Logo.png"
+          src={LogoIcon}
           alt="Logo"
           className={`h-9 w-18 min-w-[32px] transition-transform duration-300 ${
             !isSidebarOpen && "scale-125"
@@ -230,7 +240,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
               <div className="flex items-center gap-2 ml-2">
                 {item.hasAdd && (
                   <img
-                    src="src/assets/add.png"
+                    src={AddIcon}
                     alt="Add"
                     className={`h-4 w-4 ${
                       activeItem === item.title
@@ -241,7 +251,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
                 )}
                 {item.hasDropdown && (
                   <img
-                    src="src/assets/drop-down.png"
+                    src={DropDownIcon}
                     alt="Dropdown"
                     className={`h-5 w-5 ${
                       activeItem === item.title
