@@ -9,7 +9,11 @@ function Login() {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [oauthLoading, setOAuthLoading] = useState(false);
+  const [oauthLoading, setOAuthLoading] = useState({
+    loading: false,
+    error: null,
+    activeProvider: null,
+  });
 
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -49,19 +53,18 @@ function Login() {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
       });
-  
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.message || "Login failed");
       }
-  
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.data.user));
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.data.user));
       window.location.href = "/dashboard";
-      
     } catch (error) {
       setErrorMessage(error.message || "Login failed. Please try again.");
     } finally {
@@ -71,17 +74,21 @@ function Login() {
 
   const handleOAuthLogin = async (provider) => {
     try {
-      setOAuthLoading(true);
+      setOAuthLoading({
+        loading: true,
+        error: null,
+        activeProvider: provider,
+      });
       setErrorMessage("");
       // Get the current frontend URL dynamically
       const frontendUrl = window.location.origin;
       window.location.href = `${API_BASE_URL}/users/auth/${provider}?frontendUrl=${frontendUrl}`;
     } catch (error) {
-      setErrorMessage(
-        "Authentication failed. Please try again.",
-        error.message
-      );
-      setOAuthLoading(false);
+      setOAuthLoading({
+        loading: false,
+        error: error.message || "Authentication failed. Please try again.",
+        activeProvider: null,
+      });
     }
   };
 
@@ -166,33 +173,69 @@ function Login() {
                 <hr className="flex-1 border-t border-gray-300" />
               </div>
             </div>
+            {/* Social Buttons */}
             <div className="mt-6 space-y-3">
               <button
                 onClick={() => handleOAuthLogin("google")}
-                disabled={oauthLoading}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:border-2 focus:border-[#4D2D61] disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={oauthLoading.loading}
+                className={`w-full border h-12 p-3 rounded flex items-center justify-center transition-all duration-300 ${
+                  oauthLoading.loading &&
+                  oauthLoading.activeProvider === "google"
+                    ? "bg-gray-100 border-gray-300 opacity-75 cursor-not-allowed"
+                    : "bg-white border-gray-300 hover:border-[#4D2D61] hover:bg-gray-50"
+                }`}
               >
-                <img
-                  src="src/assets/icons8-google-48.png"
-                  alt="Google"
-                  className="w-5 h-5"
-                />
-                {oauthLoading ? "Connecting..." : "Continue with Google"}
+                {oauthLoading.loading &&
+                oauthLoading.activeProvider === "google" ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#4D2D61] mr-3"></div>
+                    <span className="text-gray-600"> Connecting...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <img
+                      src="src/assets/icons8-google-48.png"
+                      alt="Google"
+                      className="h-5 w-5 mr-3"
+                    />
+                    <span className="text-gray-700">Continue with Google</span>
+                  </div>
+                )}
               </button>
 
               <button
                 onClick={() => handleOAuthLogin("github")}
-                disabled={oauthLoading}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:border-2 focus:border-[#4D2D61] disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={oauthLoading.loading}
+                className={`w-full border h-12 p-3 rounded flex items-center justify-center transition-all duration-300 ${
+                  oauthLoading.loading &&
+                  oauthLoading.activeProvider === "github"
+                    ? "bg-gray-100 border-gray-300 opacity-75 cursor-not-allowed"
+                    : "bg-white border-gray-300 hover:border-[#4D2D61] hover:bg-gray-50"
+                }`}
               >
-                <img
-                  src="src/assets/icons8-github-90.png"
-                  alt="Github"
-                  className="w-5 h-5"
-                />
-                {oauthLoading ? "Connecting..." : "Continue with Github"}
+                {oauthLoading.loading &&
+                oauthLoading.activeProvider === "github" ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#4D2D61] mr-3"></div>
+                    <span className="text-gray-600">Connecting...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <img
+                      src="src/assets/icons8-github-90.png"
+                      alt="GitHub"
+                      className="h-5 w-5 mr-3"
+                    />
+                    <span className="text-gray-700">Continue with GitHub</span>
+                  </div>
+                )}
               </button>
             </div>
+            {oauthLoading.error && (
+              <div className="mt-3 p-3 text-red-600 bg-red-50 rounded-lg border border-red-100 text-sm">
+                ⚠️ {oauthLoading.error}
+              </div>
+            )}
           </div>
           {/* Sign Up Link */}
           <div className="mt-8 text-center text-sm">

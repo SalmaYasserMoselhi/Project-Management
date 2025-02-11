@@ -12,13 +12,14 @@ function Routing() {
   return (
     <div className="px-4 sm:px-[5vw] md:px-[7vw] 1g:px-[9vw]">
       <Routes>
+        <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgetpassword" element={<ForgetPassword />} />
         <Route path="/verification" element={<Verification />} />
         <Route path="/resetpassword" element={<ResetPassword />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/mainboard" element={<MainBoard/>} />
+        <Route path="/mainboard" element={<MainBoard />} />
       </Routes>
     </div>
   );
