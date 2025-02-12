@@ -5,6 +5,7 @@ const User = require('../models/userModel');
 const sendEmail = require('../utils/email');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
+const { createDefaultLists } = require('../controllers/listController');
 
 // Helper function to format board response
 const formatBoardResponse = (board, userId) => ({
@@ -24,7 +25,14 @@ const formatBoardResponse = (board, userId) => ({
   isStarred: board.starred,
   lastActivity: board.updatedAt,
   viewPreferences: board.viewPreferences,
-  lists: board.lists || [],
+  lists: board.lists.map((list) => ({
+    id: list._id,
+    name: list.name,
+    position: list.position,
+    cardLimit: list.cardLimit,
+    archived: list.archived,
+    // cards: list.cards || [],
+  })),
   settings: board.settings,
 });
 
@@ -89,10 +97,22 @@ exports.createBoard = catchAsync(async (req, res, next) => {
     ],
   });
 
-  const populatedBoard = await Board.findById(board._id).populate(
-    'workspace',
-    'name type'
-  );
+  // Create default lists and wait for them to complete
+  const defaultLists = await createDefaultLists(board._id, req.user._id);
+
+  // Get the fully populated board with its lists
+  const populatedBoard = await Board.findById(board._id)
+    .populate('workspace', 'name type')
+    .populate({
+      path: 'lists',
+      select: 'name position archived',
+      match: { archived: false },
+      options: { sort: { position: 1 } },
+    });
+
+  if (!populatedBoard) {
+    return next(new AppError('Error retrieving board after creation', 500));
+  }
 
   res.status(201).json({
     status: 'success',
