@@ -44,6 +44,7 @@ import { useState } from 'react';
 import '../index.css';
 import Header from './Header';
 import Sidebar from './Sidebar';
+import ProjectInfo from './ProjectInfo';
 
 const MainBoard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -53,7 +54,7 @@ const MainBoard = () => {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[#f5f5f5] flex w-[198vh]">
       <Sidebar 
         isSidebarOpen={isSidebarOpen} 
         toggleSidebar={handleToggle}
@@ -63,13 +64,61 @@ const MainBoard = () => {
         isSidebarOpen={isSidebarOpen}
         toggleSidebar={handleToggle}
       />
-
-      <main className={`transition-all duration-300 ${
-        isSidebarOpen ? "md:ml-64" : "md:ml-24"
-      } mt-20 p-6 min-h-[calc(100vh-5rem)]`}>
-      </main>
+ 
+ <main
+  className={`w-[80vw] transition-all duration-300  ${
+    isSidebarOpen ? "md:ml-45" : "md:ml-6  w-[90vw]"
+  } mt-18 p-6 min-h-[calc(100vh-5rem)]`}
+>
+  <ProjectInfo />
+</main>
     </div>
   );
 };
 
 export default MainBoard;
+
+
+// import { useState } from 'react';
+// import '../index.css';
+// import Header from './Header';
+// import Sidebar from './Sidebar';
+// import ProjectInfo from './ProjectInfo';
+
+// const MainBoard = () => {
+//   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+//   const handleToggle = () => {
+//     setIsSidebarOpen(!isSidebarOpen);
+//   };
+
+//   return (
+//     <div className="min-h-screen bg-[#f5f5f5] flex">
+//       {/* Sidebar stays on the left */}
+//       <Sidebar 
+//         isSidebarOpen={isSidebarOpen} 
+//         toggleSidebar={handleToggle}
+//       />
+      
+//       {/* Container for header and main content */}
+//       <div className="flex flex-col flex-1">
+//         <Header 
+//           isSidebarOpen={isSidebarOpen}
+//           toggleSidebar={handleToggle}
+//         />
+ 
+//         {/* Main takes full width of its container */}
+//         <main className="w-full transition-all duration-300 mt-17 p-6 min-h-[calc(100vh-5rem)]">
+//           <ProjectInfo />
+//         </main>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default MainBoard;
+
+
+
+
+
