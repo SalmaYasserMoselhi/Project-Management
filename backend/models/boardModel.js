@@ -260,42 +260,48 @@ boardSchema.pre('save', function (next) {
   next();
 });
 
+// In boardModel.js - Update the pre-save middleware
 boardSchema.pre('save', async function (next) {
-  // Only run this hook if the board is new or if the workspace field was modified
+  // First, deduplicate existing members based on user ID
+  const uniqueMembers = new Map();
+  this.members.forEach((member) => {
+    const userId = member.user.toString();
+    if (!uniqueMembers.has(userId)) {
+      uniqueMembers.set(userId, member);
+    }
+  });
+  this.members = Array.from(uniqueMembers.values());
+
+  // Only run workspace sync if the board is new or workspace changed
   if (this.isNew || this.isModified('workspace')) {
     try {
-      // Find the workspace this board belongs to and populate member details
       const workspace = await mongoose
         .model('Workspace')
         .findById(this.workspace)
         .populate('members.user', 'name email');
 
-      // If workspace doesn't exist, throw an error
       if (!workspace) {
         throw new Error('Workspace not found');
       }
 
       // Only proceed if workspace is NOT of type 'collaboration'
-      // This is because collaboration workspaces handle members differently
       if (workspace.type !== 'collaboration') {
-        // Filter workspace members to get only those who aren't already board members
-        // This prevents duplicate member entries when synchronizing
-        const workspaceMembers = workspace.members.filter(
-          (m) =>
-            !this.members.some(
-              (bm) => bm.user.toString() === m.user._id.toString()
-            )
+        // Get existing member IDs after deduplication
+        const existingMemberIds = new Set(
+          this.members.map((m) => m.user.toString())
         );
 
-        // Add each filtered workspace member to the board
-        // This ensures that all workspace members have access to the board
-        // with their respective workspace roles
-        workspaceMembers.forEach((member) => {
-          this.members.push({
-            user: member.user._id, // The user's ID
-            role: member.role, // Maintain the same role as in workspace
-            joinedAt: new Date(), // Set current timestamp as join date
-          });
+        // Only add new workspace members
+        workspace.members.forEach((wsM) => {
+          const wsUserId = wsM.user._id.toString();
+          if (!existingMemberIds.has(wsUserId)) {
+            this.members.push({
+              user: wsM.user._id,
+              role: wsM.role,
+              joinedAt: new Date(),
+              watchStatus: 'tracking',
+            });
+          }
         });
       }
     } catch (error) {
@@ -305,6 +311,7 @@ boardSchema.pre('save', async function (next) {
   next();
 });
 
+// Virtual for getting total number of cards
 boardSchema.virtual('totalCards').get(function () {
   return this.lists.reduce((count, list) => count + list.cards.length, 0);
 });
