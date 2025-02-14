@@ -19,6 +19,7 @@ const userRouter = require('./routes/userRoutes.js');
 const docRouter = require('./routes/docRoutes.js');
 const workspaceRouter = require('./routes/workspaceRoutes.js');
 const boardRouter = require('./routes/boardRoutes.js');
+const cardRouter = require('./routes/cardRoutes.js');
 const listRoutes = require('./routes/listRoutes.js');
 
 const app = express();
@@ -141,6 +142,7 @@ app.use('/api/v1/users', userRouter);
 app.use('/api/v1/docs', docRouter);
 app.use('/api/v1/workspaces', workspaceRouter);
 app.use('/api/v1/boards', boardRouter);
+app.use('/api/v1/cards', cardRouter);
 app.use('/api/v1/lists', listRoutes);
 
 // Handle undefined routes

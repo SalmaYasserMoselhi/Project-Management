@@ -967,3 +967,57 @@ exports.getMyStarredBoards = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+exports.getBoardMembers = catchAsync(async (req, res, next) => {
+  const { id: boardId } = req.params;
+
+  const board = await Board.findById(boardId)
+    .populate({
+      path: 'members.user',
+      select: 'name email username',
+    })
+    .select('members');
+
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
+
+  // Check if requesting user is a member
+  const isMember = board.members.some(
+    (member) => member.user._id.toString() === req.user._id.toString()
+  );
+
+  if (!isMember) {
+    return next(
+      new AppError('You must be a board member to view members', 403)
+    );
+  }
+
+  // Format members data
+  const members = board.members.map((member) => ({
+    id: member.user._id,
+    name: member.user.name,
+    email: member.user.email,
+    username: member.user.username,
+    role: member.role,
+    watchStatus: member.watchStatus,
+    joinedAt: member.joinedAt,
+  }));
+
+  const stats = {
+    total: members.length,
+    byRole: {
+      owner: members.filter((m) => m.role === 'owner').length,
+      admin: members.filter((m) => m.role === 'admin').length,
+      member: members.filter((m) => m.role === 'member').length,
+    },
+  };
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      members,
+      stats,
+    },
+  });
+});

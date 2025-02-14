@@ -28,12 +28,6 @@ const listSchema = new mongoose.Schema(
       type: Number,
       default: null, // null means no limit
     },
-    cards: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Card',
-      },
-    ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -61,11 +55,24 @@ const listSchema = new mongoose.Schema(
 // Indexes for better query performance
 listSchema.index({ board: 1, position: 1 });
 listSchema.index({ createdBy: 1 });
-listSchema.index({ board: 1, name: 1 }, { unique: true }); // Enforces unique names per board
+// Compound unique index for board and name
+listSchema.index(
+  { board: 1, name: 1 },
+  {
+    unique: true,
+    name: 'boardNameUnique',
+  }
+);
+// Add this after your schema definition
+listSchema.virtual('cards', {
+  ref: 'Card',
+  localField: '_id',
+  foreignField: 'list',
+});
 
-// Virtual for getting total number of cards
+// Then modify your totalCards virtual to handle the case when cards aren't populated
 listSchema.virtual('totalCards').get(function () {
-  return this.cards.length;
+  return this.cards ? this.cards.length : 0;
 });
 
 // Pre-save middleware to handle position for non-archived lists
