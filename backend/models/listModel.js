@@ -61,7 +61,14 @@ const listSchema = new mongoose.Schema(
 // Indexes for better query performance
 listSchema.index({ board: 1, position: 1 });
 listSchema.index({ createdBy: 1 });
-listSchema.index({ board: 1, name: 1 }, { unique: true }); // Enforces unique names per board
+// Compound unique index for board and name
+listSchema.index(
+  { board: 1, name: 1 },
+  {
+    unique: true,
+    name: 'boardNameUnique',
+  }
+);
 
 // Virtual for getting total number of cards
 listSchema.virtual('totalCards').get(function () {
