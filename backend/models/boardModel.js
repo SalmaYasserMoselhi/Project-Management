@@ -330,5 +330,58 @@ boardSchema.virtual('cardsDueSoon').get(function () {
   }, []);
 });
 
+boardSchema.methods.syncMemberToCards = async function (newMember) {
+  try {
+    // Find all cards associated with this board
+    const cards = await mongoose.model('Card').find({ boardId: this._id });
+
+    // Add the new member to each card
+    const updatePromises = cards.map((card) => {
+      return mongoose.model('Card').findByIdAndUpdate(
+        card._id,
+        {
+          $addToSet: {
+            members: {
+              user: newMember.user,
+              assignedBy: newMember.invitedBy || this.createdBy,
+              assignedAt: new Date(),
+              role: newMember.role === 'admin' ? 'responsible' : 'observer',
+            },
+          },
+        },
+        { new: true }
+      );
+    });
+
+    await Promise.all(updatePromises);
+  } catch (error) {
+    console.error('Error syncing member to cards:', error);
+    throw error;
+  }
+};
+
+// Use this in your board member addition logic
+boardSchema.pre('save', async function (next) {
+  if (this.isModified('members')) {
+    const newMembers = this.members.filter((member) => {
+      return !this._originalMembers?.some(
+        (original) => original.user.toString() === member.user.toString()
+      );
+    });
+
+    for (const newMember of newMembers) {
+      await this.syncMemberToCards(newMember);
+    }
+  }
+  next();
+});
+
+// Store original members before modification
+boardSchema.pre('save', function (next) {
+  if (this.isModified('members')) {
+    this._originalMembers = [...this.members];
+  }
+  next();
+});
 const Board = mongoose.model('Board', boardSchema);
 module.exports = Board;

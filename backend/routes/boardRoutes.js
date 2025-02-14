@@ -37,10 +37,5 @@ router.patch('/user-boards/:id', boardController.updateBoard);
 
 router.delete('/user-boards/:id', boardController.deleteBoard);
 
-router.patch('/user-boards/:id/star', boardController.starBoard);
-router.patch('/user-boards/:id/unstar', boardController.unstarBoard);
-router.get('/starred', boardController.getMyStarredBoards);
-
 router.get('/user-boards/:id/members', boardController.getBoardMembers);
-
 module.exports = router;

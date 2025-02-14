@@ -35,7 +35,6 @@ const handleDuplicateNameError = (error) => {
   return error;
 };
 
-// Create default lists for a new board
 exports.createDefaultLists = async (boardId, userId) => {
   const defaultLists = [
     { name: 'To Do', position: 0 },
