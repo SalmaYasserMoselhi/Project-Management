@@ -16,6 +16,7 @@ const boardSchema = new mongoose.Schema(
       maxlength: [500, 'Description cannot exceed 500 characters'],
     },
     workspace: {
+      // Reference to the parent workspace
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Workspace',
       required: [true, 'Board must belong to a workspace'],
@@ -67,13 +68,6 @@ const boardSchema = new mongoose.Schema(
           enum: ['watching', 'tracking', 'disabled'], // watching: recieves notification for all activities, tracking: recieves notification for specific activities (his own), disabled: no notifications until he is mentioned
           default: 'tracking',
         },
-      },
-    ],
-    // Lists Reference
-    lists: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'List',
       },
     ],
     settings: {
@@ -208,6 +202,15 @@ const boardSchema = new mongoose.Schema(
 boardSchema.index({ workspace: 1, name: 1 });
 boardSchema.index({ 'members.user': 1 });
 boardSchema.index({ createdBy: 1 });
+
+// Virtual Referencing to List Model
+boardSchema.virtual('lists', {
+  ref: 'List',
+  foreignField: 'board',
+  localField: '_id',
+  match: { archived: false },
+  options: { sort: { position: 1 } },
+});
 
 // Add invitation token methods
 boardSchema.methods.createInvitationToken = function (email, role, invitedBy) {

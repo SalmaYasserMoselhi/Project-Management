@@ -6,56 +6,46 @@ const cardSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Card title is required'],
       trim: true,
-      maxLength: 512,
+      maxLength: [512, 'Title cannot exceed 512 characters'],
     },
     description: {
       type: String,
       default: '',
-      maxLength: 16384,
+      maxLength: [16384, 'Description cannot exceed 16384 characters'],
     },
     // Position of card within its list
     position: {
       type: Number,
       required: true,
-      index: true, // Add index for sorting efficiency
-      default: 0,
     },
     cover: {
-      type: {
-        type: String,
-        enum: ['color', 'image'],
-        default: 'color',
-      },
-      value: {
-        type: String,
-        default: '#3179ba', // Default color
-      }, // URL for image or color code
-    },
-    status: {
       type: String,
-      enum: ['completed', 'overdue', 'active'],
-      default: 'active',
-      index: true, // Add index for filtering
+      default: '#ffffff', // Default color
     },
     dueDate: {
-      date: {
+      startDate: {
         type: Date,
         default: Date.now,
       },
+      endDate: Date,
       reminder: Boolean,
-      completed: Boolean,
+    },
+    state: {
+      current: {
+        type: String,
+        enum: ['active', 'completed', 'overdue'],
+        default: 'active',
+      },
       completedAt: Date,
       completedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
       },
-      reminders: [
-        {
-          // Add multiple reminders support
-          type: Date,
-          notified: Boolean,
-        },
-      ],
+      overdueAt: Date,
+      lastStateChange: {
+        type: Date,
+        default: Date.now,
+      },
     },
     members: [
       {
@@ -73,51 +63,25 @@ const cardSchema = new mongoose.Schema(
           type: Date,
           default: Date.now,
         },
-        role: {
-          type: String,
-          enum: ['responsible', 'observer'],
-          default: 'responsible',
-        },
-      },
-    ],
-
-    watches: [
-      {
-        user: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'User',
-        },
-        isWatching: {
-          type: Boolean,
-          default: true,
-        },
-        addedAt: {
-          type: Date,
-          default: Date.now,
-        },
       },
     ],
     labels: [
       {
-        name: String,
-        color: String,
-        createdBy: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'User',
-        },
-      },
-    ],
-    customFields: [
-      {
-        name: String,
-        type: {
+        name: {
           type: String,
-          enum: ['text', 'number', 'date', 'checkbox', 'select'],
+          required: [true, 'Label name is required'],
+          trim: true,
         },
-        value: mongoose.Schema.Types.Mixed,
-        options: [String], // For select type fields
-        required: Boolean,
-        position: Number,
+        color: {
+          type: String,
+          required: [true, 'Label color is required'],
+          validate: {
+            validator: function (v) {
+              return /^#[0-9A-F]{6}$/i.test(v);
+            },
+            message: 'Invalid color code',
+          },
+        },
       },
     ],
     subtasks: [
@@ -131,19 +95,16 @@ const cardSchema = new mongoose.Schema(
           type: Boolean,
           default: false,
         },
-        dueDate: {
-          type: Date,
-          default: Date.now,
-        },
-        assignedTo: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'User',
-          default: null,
-        },
         position: {
           type: Number,
           required: true,
         },
+        assignedTo: {
+          // Reference to the assigned user for the subtask
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        dueDate: Date,
         completedAt: Date,
         completedBy: {
           type: mongoose.Schema.Types.ObjectId,
@@ -152,6 +113,7 @@ const cardSchema = new mongoose.Schema(
         createdBy: {
           type: mongoose.Schema.Types.ObjectId,
           ref: 'User',
+          required: true,
         },
         createdAt: {
           type: Date,
@@ -159,83 +121,6 @@ const cardSchema = new mongoose.Schema(
         },
       },
     ],
-    attachments: [
-      {
-        name: String,
-        url: String,
-        type: String,
-        size: Number,
-        uploadedBy: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'User',
-        },
-        metadata: {
-          width: Number, // For images
-          height: Number, // For images
-          duration: Number, // For videos/audio
-          thumbnailUrl: String,
-        },
-      },
-    ],
-
-    // Array of comments
-    comments: [
-      {
-        text: {
-          // Comment text
-          type: String,
-          required: true,
-        },
-        author: {
-          // Comment author
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'User',
-          required: true,
-        },
-        parentId: {
-          type: mongoose.Schema.Types.ObjectId,
-          default: null, // null means it's a top-level comment
-        },
-        mentions: [
-          {
-            // User mentions in comment
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User',
-          },
-        ],
-        attachments: [
-          {
-            // Files attached to comment
-            name: String, // Attachment name
-            url: String, // Attachment URL
-            type: String, // Attachment type
-          },
-        ],
-        edited: {
-          // Edit tracking
-          isEdited: Boolean, // Whether comment was edited
-          editedAt: Date, // Last edit timestamp
-        },
-        createdAt: {
-          // Comment creation timestamp
-          type: Date,
-          default: Date.now,
-        },
-        reactions: [
-          {
-            // Add reactions support
-            emoji: String,
-            users: [
-              {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: 'User',
-              },
-            ],
-          },
-        ],
-      },
-    ],
-
     activity: [
       {
         action: {
@@ -244,13 +129,19 @@ const cardSchema = new mongoose.Schema(
             'created',
             'updated',
             'moved',
-            'archived',
-            'commented',
-            'attachment_added',
-            'checklist_updated',
-            'member_added',
+            'deleted',
             'label_added',
-            'completed',
+            'label_updated',
+            'label_removed',
+            'date_updated',
+            'subtask_added',
+            'member_added',
+            'member_removed',
+            'status_changed',
+            'commented',
+            'updated_comment',
+            'deleted_comment',
+            'replied_comment',
           ],
         },
         userId: {
@@ -269,12 +160,8 @@ const cardSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
-    boardId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Board',
-      required: true,
-    },
-    listId: {
+    list: {
+      // Reference to the parent list
       type: mongoose.Schema.Types.ObjectId,
       ref: 'List',
       required: true,
@@ -282,7 +169,15 @@ const cardSchema = new mongoose.Schema(
     lastActivity: {
       type: Date,
       default: Date.now,
-      index: true, // Add index for sorting
+    },
+    archived: {
+      type: Boolean,
+      default: false,
+    },
+    archivedAt: Date,
+    archivedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
     },
   },
   {
@@ -292,46 +187,74 @@ const cardSchema = new mongoose.Schema(
   }
 );
 
-// Middleware to update lastActivity timestamp before saving
-cardSchema.pre('save', function (next) {
-  this.lastActivity = new Date(); // Update last activity timestamp
-  next(); // Continue with save operation
+// Indexes
+cardSchema.index({ boardId: 1, list: 1, position: 1 });
+cardSchema.index({ boardId: 1, 'members.user': 1 });
+cardSchema.index(
+  { 'dueDate.startDate': 1, 'dueDate.endDate': 1 },
+  { sparse: true }
+);
+cardSchema.index({ 'state.current': 1 });
+cardSchema.index({ 'state.lastStateChange': 1 });
+
+// Virtual for comments
+cardSchema.virtual('comments', {
+  ref: 'Comment',
+  localField: '_id',
+  foreignField: 'entityId',
+  match: { entityType: 'card' },
 });
 
-// Middleware to sync card members with board members
+// Virtual for subtasks completion percentage
+cardSchema.virtual('subtasksCompletion').get(function () {
+  if (!this.subtasks || this.subtasks.length === 0) return 0;
+  const completedSubtasks = this.subtasks.filter(
+    (subtask) => subtask.isCompleted
+  ).length;
+  return Math.round((completedSubtasks / this.subtasks.length) * 100);
+});
+
+// Middleware to check for state based on dueDate
 cardSchema.pre('save', async function (next) {
-  if (this.isNew || this.isModified('boardId')) {
-    try {
-      const board = await mongoose
-        .model('Board')
-        .findById(this.boardId)
-        .populate('members.user');
+  if (this.dueDate?.endDate) {
+    const now = new Date();
+    const endDate = new Date(this.dueDate.endDate);
 
-      if (!board) {
-        return next(new Error('Board not found'));
-      }
-
-      // Get existing member IDs
-      const existingMemberIds = new Set(
-        this.members.map((m) => m.user.toString())
-      );
-
-      // Add any board members that aren't already on the card
-      board.members.forEach((boardMember) => {
-        const boardUserId = boardMember.user._id.toString();
-        if (!existingMemberIds.has(boardUserId)) {
-          this.members.push({
-            user: boardMember.user._id,
-            assignedBy: this.createdBy, // Use card creator as assigner
-            assignedAt: new Date(),
-            role: boardMember.role === 'admin' ? 'responsible' : 'observer',
-          });
-        }
-      });
-    } catch (error) {
-      return next(error);
+    // If end date is in the future and state is overdue, change to active
+    if (endDate > now && this.state.current === 'overdue') {
+      this.state.current = 'active';
+      this.state.lastStateChange = now;
+      this.state.overdueAt = undefined;
+    }
+    // If end date is in the past and state is active, change to overdue
+    else if (endDate < now && this.state.current === 'active') {
+      this.state.current = 'overdue';
+      this.state.overdueAt = now;
+      this.state.lastStateChange = now;
     }
   }
+  next();
+});
+
+// Middleware to handle state changes
+cardSchema.pre('save', function (next) {
+  if (this.isModified('state.current')) {
+    const now = new Date();
+    this.state.lastStateChange = now;
+
+    // Set appropriate timestamps based on state
+    if (this.state.current === 'completed') {
+      this.state.completedAt = now;
+    } else if (this.state.current === 'overdue') {
+      this.state.overdueAt = now;
+    }
+  }
+  next();
+});
+
+// Middleware to update lastActivity
+cardSchema.pre('save', function (next) {
+  this.lastActivity = new Date();
   next();
 });
 
@@ -341,7 +264,7 @@ cardSchema.pre('save', async function (next) {
     try {
       // Find the highest position in the target list
       const lastCard = await this.constructor
-        .findOne({ listId: this.listId })
+        .findOne({ list: this.list })
         .sort('-position');
 
       // Set position to be last in the list
@@ -353,12 +276,59 @@ cardSchema.pre('save', async function (next) {
   next();
 });
 
-// Add middleware to manage subtask positions
-cardSchema.pre('save', function (next) {
+// Add this middleware to handle subtask assignment and card member updates
+cardSchema.pre('save', async function (next) {
+  // Check if subtasks array has changed
   if (this.isModified('subtasks')) {
-    // Ensure subtasks are ordered
-    this.subtasks.sort((a, b) => a.position - b.position);
+    const uniqueMembers = new Set();
+
+    // Get all current card members
+    this.members.forEach((member) => uniqueMembers.add(member.user.toString()));
+
+    // Check each subtask for assigned members that need to be added to card
+    for (const subtask of this.subtasks) {
+      if (
+        subtask.assignedTo &&
+        !uniqueMembers.has(subtask.assignedTo.toString())
+      ) {
+        // Add new member to card members
+        this.members.push({
+          user: subtask.assignedTo,
+          assignedBy: this.modifiedBy || this.createdBy, // Assuming modifiedBy is tracked somewhere
+          assignedAt: new Date(),
+        });
+        uniqueMembers.add(subtask.assignedTo.toString());
+      }
+    }
+
+    // Check if all subtasks are completed
+    if (
+      this.subtasks.length > 0 &&
+      this.subtasks.every((task) => task.isCompleted)
+    ) {
+      if (this.state.current !== 'completed') {
+        this.state.current = 'completed';
+        this.state.completedAt = new Date();
+        this.state.completedBy = this.modifiedBy || this.createdBy;
+        this.state.lastStateChange = new Date();
+      }
+    } else if (
+      this.state.current === 'completed' &&
+      this.subtasks.some((task) => !task.isCompleted)
+    ) {
+      // If card was completed but now some subtasks are incomplete
+      if (
+        this.dueDate?.endDate &&
+        new Date(this.dueDate.endDate) < new Date()
+      ) {
+        this.state.current = 'overdue';
+      } else {
+        this.state.current = 'active';
+      }
+      this.state.lastStateChange = new Date();
+    }
   }
   next();
 });
+
 module.exports = mongoose.model('Card', cardSchema);

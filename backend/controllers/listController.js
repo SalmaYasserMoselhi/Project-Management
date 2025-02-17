@@ -125,10 +125,10 @@ exports.updateList = catchAsync(async (req, res, next) => {
 
 // Get all lists for a board
 exports.getBoardLists = catchAsync(async (req, res, next) => {
-  const { boardId } = req.params;
+  const boardId = req.params.boardId;
 
   // Check board access
-  const { board, member } = await checkBoardAccess(boardId, req.user._id);
+  await checkBoardAccess(boardId, req.user._id);
 
   // Get all non-archived lists
   let lists = await List.find({

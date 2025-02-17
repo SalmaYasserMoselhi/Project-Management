@@ -4,6 +4,10 @@ const authController = require('../controllers/authController');
 
 const router = express.Router();
 
+router.use(authController.protect);
+
+
+
 router.get('/join/:token', boardController.acceptInvitation); // Changed from accept-invitation to join
 router.use(authController.protect);
 
@@ -28,10 +32,6 @@ router.get(
 router.get('/user-boards/archived', boardController.getArchivedBoards);
 router.patch('/user-boards/:id/archive', boardController.archiveBoard);
 router.patch('/user-boards/:id/restore', boardController.restoreBoard);
-// router.delete(
-//   '/user-boards/:id/permanent',
-//   boardController.deleteArchivedBoard
-// );
 
 router.patch('/user-boards/:id', boardController.updateBoard);
 

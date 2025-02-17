@@ -96,7 +96,7 @@ exports.createBoard = catchAsync(async (req, res, next) => {
 
   const workspaceDoc = await Workspace.findById(workspace).select(
     'name type createdBy members'
-  ); رب
+  );
 
   if (!workspaceDoc) {
     return next(new AppError('Workspace not found', 404));

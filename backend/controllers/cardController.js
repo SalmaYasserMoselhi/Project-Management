@@ -4,223 +4,203 @@ const Board = require('../models/boardModel');
 const List = require('../models/listModel');
 const AppError = require('../utils/appError');
 
-// Helper function to format card response
-const formatCardResponse = (card) => ({
-  id: card._id,
-  title: card.title,
-  description: card.description,
-  position: card.position,
-  cover: card.cover,
-  status: card.status,
-  dueDate: card.dueDate,
-  members: card.members,
-  watches: card.watches,
-  labels: card.labels,
-  customFields: card.customFields,
-  checklists: card.checklists,
-  attachments: card.attachments,
-  comments: card.comments,
-  activity: card.activity,
-  lastActivity: card.lastActivity,
-  createdAt: card.createdAt,
-  updatedAt: card.updatedAt,
-});
-
-// Create Card
-exports.createCard = catchAsync(async (req, res, next) => {
-  const { listId } = req.body;
-
-  // First, verify the list exists and get its board
+// Helper function to validate list and board access
+const validateListAccess = async (listId, userId) => {
+  // Verify list exists
   const list = await List.findById(listId);
   if (!list) {
-    return next(new AppError('List not found', 404));
+    throw new AppError('List not found', 404);
   }
 
-  // First, verify the board exists and get its members
+  // Verify board exists
   const board = await Board.findById(list.board);
-
   if (!board) {
-    return next(new AppError('Board not found', 404));
+    throw new AppError('Board not found', 404);
   }
 
+  // Verify user is a board member
   const isMember = board.members.some(
-    (member) => member.user.toString() === req.user._id.toString()
+    (member) => member.user.toString() === userId.toString()
   );
   if (!isMember) {
-    return next(
-      new AppError('You must be a board member to create cards', 403)
+    throw new AppError(
+      'You must be a board member to perform this action',
+      403
     );
   }
 
-  // Check if list has a card limit
-  if (list.cardLimit) {
-    const currentCardCount = await Card.countDocuments({ listId });
-    if (currentCardCount >= list.cardLimit) {
-      return next(new AppError('List card limit reached', 400));
-    }
-  }
+  return { list, board };
+};
 
+// Helper function to check list card limit
+const checkListCardLimit = async (listId) => {
+  const list = await List.findById(listId).populate('cards');
+
+  // Check if list has a card limit and if the limit has been reached
+  if (list.cardLimit && list.cards.length >= list.cardLimit) {
+    throw new AppError('List card limit reached', 400);
+  }
+};
+
+// Helper function to manage card positions
+const manageCardPosition = async (listId, position = null) => {
+  const lastCard = await Card.findOne({
+    list: listId,
+  }).sort('-position');
+
+  return position !== null ? position : lastCard ? lastCard.position + 1 : 0;
+};
+
+// Helper function to log card activity
+const logCardActivity = (card, action, userId, data = {}) => {
+  card.activity.push({
+    action,
+    userId,
+    data,
+    timestamp: new Date(),
+  });
+};
+
+// Helper function to manage positions when moving/copying cards
+const recalculatePositions = async (
+  listId,
+  startPosition,
+  increment = true
+) => {
+  // Update positions of cards after the insertion/removal point
+  await Card.updateMany(
+    {
+      list: listId,
+      position: { [increment ? '$gte' : '$gt']: startPosition },
+    },
+    { $inc: { position: increment ? 1 : -1 } }
+  );
+};
+
+// Create Card
+exports.createCard = catchAsync(async (req, res, next) => {
+  const listId = req.body.list;
+
+  // Validate access and check limits
+  await validateListAccess(listId, req.user._id);
+  await checkListCardLimit(listId);
+
+  // Get position
+  const cardPosition = await manageCardPosition(listId);
+
+  // Create card
   const card = await Card.create({
     ...req.body,
-    boardId: list.board,
+    list: listId,
+    position: cardPosition,
     createdBy: req.user._id,
     members: [
       {
         user: req.user._id,
-        role: 'responsible',
         assignedBy: req.user._id,
         assignedAt: new Date(),
       },
     ],
   });
 
-  // Add creation to activity
-  card.activity.push({
-    action: 'created',
-    userId: req.user._id,
-    data: { title: req.body.title },
-  });
-
+  // Log activity
+  logCardActivity(card, 'created', req.user._id, { title: card.title });
   await card.save();
-
-  // Fetch the populated card for response
-  const populatedCard = await Card.findById(card._id)
-    .populate('members.user', 'email firstName lastName')
-    .populate('createdBy', 'email firstName lastName');
 
   res.status(201).json({
     status: 'success',
     data: {
-      card: formatCardResponse(populatedCard),
+      card,
     },
   });
 });
 
 // Get Single Card
 exports.getCard = catchAsync(async (req, res, next) => {
-  const card = await Card.findById(req.params.cardId)
-    .populate('members.user', 'email firstName lastName')
-    .populate('comments.author', 'email firstName lastName')
-    .populate('comments.mentions', 'email firstName lastName')
-    .populate('comments.reactions.users', 'email firstName lastName')
-    .populate('activity.userId', 'email firstName lastName');
+  const card = await Card.findById(req.params.cardId);
 
   if (!card) {
-    return next(new AppError('No card found with that ID', 404));
+    return next(new AppError('Card not found', 404));
   }
 
-  // Organize comments into a hierarchical structure
-  const commentMap = new Map();
-  const topLevelComments = [];
-
-  // First pass: Create a map of all comments
-  card.comments.forEach((comment) => {
-    const commentObj = comment.toObject();
-    commentObj.replies = [];
-    commentMap.set(comment._id.toString(), commentObj);
-  });
-
-  // Second pass: Organize into hierarchy
-  card.comments.forEach((comment) => {
-    const commentId = comment._id.toString();
-    const commentObj = commentMap.get(commentId);
-
-    if (comment.parentId) {
-      // This is a reply - add it to parent's replies
-      const parentComment = commentMap.get(comment.parentId.toString());
-      if (parentComment) {
-        parentComment.replies.push(commentObj);
-      }
-    } else {
-      // This is a top-level comment
-      topLevelComments.push(commentObj);
-    }
-  });
-
-  // Sort comments and replies by creation date
-  const sortByDate = (a, b) => new Date(a.createdAt) - new Date(b.createdAt);
-
-  topLevelComments.sort(sortByDate);
-  topLevelComments.forEach((comment) => {
-    comment.replies.sort(sortByDate);
-  });
-
-  // Create the formatted response with organized comments
-  const formattedCard = {
-    ...formatCardResponse(card.toObject()),
-    comments: topLevelComments, // Replace flat comments with hierarchical structure
-  };
+  // Validate access
+  await validateListAccess(card.list._id, req.user._id);
 
   res.status(200).json({
     status: 'success',
     data: {
-      card: formattedCard,
+      card,
     },
   });
 });
 
 // Update Card
 exports.updateCard = catchAsync(async (req, res, next) => {
+  const { cardId } = req.params;
   const updateData = { ...req.body };
-  delete updateData.createdBy; // Prevent modification of creator
 
-  const card = await Card.findById(req.params.cardId);
-
+  // Find card first to validate access
+  const card = await Card.findById(cardId);
   if (!card) {
-    return next(new AppError('No card found with that ID', 404));
+    return next(new AppError('Card not found', 404));
   }
 
-  // Record changes in activity
+  // Validate access
+  await validateListAccess(card.list, req.user._id);
+
+  // Prevent modification of critical fields
+  delete updateData.createdBy;
+  delete updateData.list;
+  delete updateData.position;
+
+  // Track what's being updated
   const changes = {};
-  for (const [key, value] of Object.entries(updateData)) {
-    if (card[key] !== value) {
-      changes[key] = {
-        from: card[key],
-        to: value,
-      };
+  Object.keys(updateData).forEach((key) => {
+    changes[key] = {
+      from: card[key],
+      to: updateData[key],
+    };
+  });
+
+  // Log activity
+  logCardActivity(card, 'updated', req.user._id, {
+    changes,
+    updatedFields: Object.keys(updateData),
+  });
+
+  // Update card with everything including the new activity
+  const updatedCard = await Card.findByIdAndUpdate(
+    cardId,
+    {
+      ...updateData,
+      activity: card.activity, // Include our newly logged activity
+    },
+    {
+      new: true,
+      runValidators: true,
     }
-  }
-
-  if (Object.keys(changes).length > 0) {
-    card.activity.push({
-      action: 'updated',
-      userId: req.user._id,
-      data: changes,
-      timestamp: new Date(),
-    });
-  }
-
-  // Update the card
-  Object.assign(card, updateData);
-  await card.save();
+  );
+  await updatedCard.save();
 
   res.status(200).json({
     status: 'success',
-    data: {
-      card,
-    },
+    data: { card: updatedCard },
   });
 });
 
 // Delete card
 exports.deleteCard = catchAsync(async (req, res, next) => {
-  const card = await Card.findById(req.params.cardId);
+  const { cardId } = req.params;
+
+  const card = await Card.findById(cardId);
   if (!card) {
     return next(new AppError('Card not found', 404));
   }
 
-  // Check board membership and permissions
-  const board = await Board.findById(card.boardId);
-  const member = board.members.find(
-    (m) => m.user.toString() === req.user._id.toString()
-  );
-  if (!member || !['admin', 'owner'].includes(member.role)) {
-    return next(
-      new AppError('Only board admins and owners can delete cards', 403)
-    );
-  }
+  // Validate access with admin check
+  await validateListAccess(card.list, req.user._id);
 
-  await Card.findByIdAndDelete(card._id);
+  await card.deleteOne();
 
   res.status(204).json({
     status: 'success',
@@ -228,431 +208,427 @@ exports.deleteCard = catchAsync(async (req, res, next) => {
   });
 });
 
-// Add Comment
-exports.addComment = catchAsync(async (req, res, next) => {
-  const { text, mentions = [], attachments = [] } = req.body;
-
-  if (!text) {
-    return next(new AppError('Comment text is required', 400));
-  }
-
-  const card = await Card.findById(req.params.cardId);
-
-  if (!card) {
-    return next(new AppError('No card found with that ID', 404));
-  }
-
-  card.comments.push({
-    text,
-    author: req.user._id,
-    mentions,
-    attachments,
-    edited: {
-      isEdited: false,
-    },
-    createdAt: new Date(),
-  });
-
-  // Record comment activity
-  card.activity.push({
-    action: 'commented',
-    userId: req.user._id,
-    data: {
-      commentId: card.comments[card.comments.length - 1]._id,
-    },
-  });
-
-  await card.save();
-
-  res.status(200).json({
-    status: 'success',
-    data: {
-      card,
-    },
-  });
-});
-
-// Update comment
-exports.updateComment = catchAsync(async (req, res, next) => {
-  const { cardId, commentId } = req.params;
-  const { text, mentions = [] } = req.body;
-
-  if (!text) {
-    return next(new AppError('Comment text is required', 400));
-  }
+// Toggle card completion status
+exports.toggleCard = catchAsync(async (req, res, next) => {
+  const { cardId } = req.params;
 
   const card = await Card.findById(cardId);
   if (!card) {
     return next(new AppError('Card not found', 404));
   }
 
-  const comment = card.comments.id(commentId);
-  if (!comment) {
-    return next(new AppError('Comment not found', 404));
-  }
+  // Validate access
+  await validateListAccess(card.list, req.user._id);
 
-  // Check if user is the comment author
-  if (comment.author.toString() !== req.user._id.toString()) {
-    return next(new AppError('You can only edit your own comments', 403));
-  }
+  const currentState = card.state.current;
+  const now = new Date();
 
-  // Update comment
-  comment.text = text;
-  comment.mentions = mentions;
-  comment.edited = {
-    isEdited: true,
-    editedAt: new Date(),
-  };
-
-  // Add to activity log
-  card.activity.push({
-    action: 'updated',
-    userId: req.user._id,
-    data: {
-      type: 'comment_edited',
-      commentId: comment._id,
-    },
-  });
-
-  await card.save();
-
-  // Fetch updated card with populated fields
-  const populatedCard = await Card.findById(cardId)
-    .populate('comments.author', 'email firstName lastName')
-    .populate('comments.mentions', 'email firstName lastName');
-
-  const updatedComment = populatedCard.comments.id(commentId);
-
-  res.status(200).json({
-    status: 'success',
-    data: {
-      comment: updatedComment,
-    },
-  });
-});
-
-// Delete comment
-exports.deleteComment = catchAsync(async (req, res, next) => {
-  const { cardId, commentId } = req.params;
-
-  const card = await Card.findById(cardId);
-  if (!card) {
-    return next(new AppError('Card not found', 404));
-  }
-
-  const comment = card.comments.id(commentId);
-  if (!comment) {
-    return next(new AppError('Comment not found', 404));
-  }
-
-  // Check if user is the comment author or board admin
-  const board = await Board.findById(card.boardId);
-  const member = board.members.find(
-    (m) => m.user.toString() === req.user._id.toString()
-  );
-  const isAdmin = member && ['admin', 'owner'].includes(member.role);
-
-  if (comment.author.toString() !== req.user._id.toString() && !isAdmin) {
-    return next(new AppError('You can only delete your own comments', 403));
-  }
-
-  comment.deleteOne({ _id: commentId });
-
-  // Add to activity log
-  card.activity.push({
-    action: 'updated',
-    userId: req.user._id,
-    data: {
-      type: 'comment_deleted',
-    },
-  });
-
-  await card.save();
-
-  res.status(204).json({
-    status: 'success',
-    data: null,
-  });
-});
-
-// Add reply to comment
-exports.replyToComment = catchAsync(async (req, res, next) => {
-  const { cardId, commentId } = req.params;
-  const { text, mentions = [] } = req.body;
-
-  const card = await Card.findById(cardId);
-  if (!card) {
-    return next(new AppError('Card not found', 404));
-  }
-
-  const parentComment = card.comments.id(commentId);
-  if (!parentComment) {
-    return next(new AppError('Parent comment not found', 404));
-  }
-
-  const reply = {
-    text,
-    author: req.user._id,
-    parentId: commentId,
-    mentions,
-    edited: {
-      isEdited: false,
-    },
-    createdAt: new Date(),
-  };
-
-  card.comments.push(reply);
-
-  // Add to activity log
-  card.activity.push({
-    action: 'commented',
-    userId: req.user._id,
-    data: {
-      type: 'comment_reply',
-      parentCommentId: commentId,
-    },
-  });
-
-  await card.save();
-
-  // Fetch updated card with populated fields
-  const populatedCard = await Card.findById(cardId)
-    .populate('comments.author', 'email firstName lastName')
-    .populate('comments.mentions', 'email firstName lastName');
-
-  const newReply = populatedCard.comments[populatedCard.comments.length - 1];
-
-  res.status(201).json({
-    status: 'success',
-    data: {
-      comment: newReply,
-    },
-  });
-});
-
-// Add reaction to comment
-exports.addCommentReaction = catchAsync(async (req, res, next) => {
-  const { cardId, commentId } = req.params;
-  const { emoji } = req.body;
-
-  if (!emoji) {
-    return next(new AppError('Emoji is required', 400));
-  }
-
-  const card = await Card.findById(cardId);
-  if (!card) {
-    return next(new AppError('Card not found', 404));
-  }
-
-  const comment = card.comments.id(commentId);
-  if (!comment) {
-    return next(new AppError('Comment not found', 404));
-  }
-
-  // Find existing reaction with same emoji
-  let reaction = comment.reactions.find((r) => r.emoji === emoji);
-
-  if (reaction) {
-    // Toggle user's reaction
-    const userIndex = reaction.users.indexOf(req.user._id);
-    if (userIndex > -1) {
-      reaction.users.splice(userIndex, 1);
-      if (reaction.users.length === 0) {
-        comment.reactions = comment.reactions.filter((r) => r.emoji !== emoji);
-      }
+  // Toggle completion status
+  if (currentState === 'completed') {
+    // Check for overdue status when uncompleting
+    if (card.dueDate?.endDate && new Date(card.dueDate.endDate) < now) {
+      card.state.current = 'overdue';
+      card.state.overdueAt = now;
     } else {
-      reaction.users.push(req.user._id);
+      card.state.current = 'active';
     }
+    // Clear completion data
+    card.state.completedAt = undefined;
+    card.state.completedBy = undefined;
   } else {
-    // Add new reaction
-    comment.reactions.push({
-      emoji,
-      users: [req.user._id],
-    });
+    card.state.current = 'completed';
+    card.state.completedAt = now;
+    card.state.completedBy = req.user._id;
+    card.state.overdueAt = undefined;
   }
+
+  // Update lastStateChange
+  card.state.lastStateChange = now;
+
+  // Log the state change activity
+  logCardActivity(card, 'status_changed', req.user._id, {
+    from: currentState,
+    to: card.state.current,
+    ...(card.state.current === 'completed' && { completedBy: req.user._id }),
+    timestamp: now,
+  });
 
   await card.save();
 
-  // Fetch updated card with populated fields
-  const populatedCard = await Card.findById(cardId)
-    .populate('comments.author', 'email firstName lastName')
-    .populate('comments.reactions.users', 'email firstName lastName');
-
-  const updatedComment = populatedCard.comments.id(commentId);
+  // Return updated card with populated fields
+  const updatedCard = await Card.findById(cardId);
 
   res.status(200).json({
     status: 'success',
     data: {
-      comment: updatedComment,
+      card: updatedCard,
     },
   });
 });
 
-// Get all comments with their replies
-exports.getCommentThread = catchAsync(async (req, res, next) => {
+// Move card
+exports.moveCard = catchAsync(async (req, res, next) => {
   const { cardId } = req.params;
+  const { listId, position } = req.body;
 
-  const card = await Card.findById(cardId)
-    .populate('comments.author', 'email firstName lastName')
-    .populate('comments.mentions', 'email firstName lastName')
-    .populate('comments.reactions.users', 'email firstName lastName')
-    .select('comments');
+  // Validate provided data
+  if (!listId || position === undefined) {
+    return next(new AppError('List ID and position are required', 400));
+  }
 
+  // Get card and validate its existence
+  const card = await Card.findById(cardId);
   if (!card) {
     return next(new AppError('Card not found', 404));
   }
 
-  // Organize comments into a hierarchical structure
-  const commentMap = new Map();
-  const topLevelComments = [];
+  // Validate source and destination list access
+  await validateListAccess(card.list, req.user._id);
+  await validateListAccess(listId, req.user._id);
 
-  // First pass: Create a map of all comments
-  card.comments.forEach((comment) => {
-    const commentObj = comment.toObject();
-    commentObj.replies = [];
-    commentMap.set(comment._id.toString(), commentObj);
-  });
+  // Check destination list card limit
+  await checkListCardLimit(listId);
 
-  // Second pass: Organize into hierarchy
-  card.comments.forEach((comment) => {
-    const commentId = comment._id.toString();
-    const commentObj = commentMap.get(commentId);
+  // Store old values for activity log
+  const oldList = card.list;
+  const oldPosition = card.position;
 
-    if (comment.parentId) {
-      // This is a reply - add it to parent's replies
-      const parentComment = commentMap.get(comment.parentId.toString());
-      if (parentComment) {
-        parentComment.replies.push(commentObj);
-      }
-    } else {
-      // This is a top-level comment
-      topLevelComments.push(commentObj);
-    }
-  });
+  // If moving to a different list
+  if (oldList.toString() !== listId) {
+    // Decrease positions in old list
+    await recalculatePositions(oldList, oldPosition, false);
+  }
 
-  // Sort comments and replies by creation date
-  const sortByDate = (a, b) => new Date(a.createdAt) - new Date(b.createdAt);
+  // Increase positions in new list
+  await recalculatePositions(listId, position, true);
 
-  topLevelComments.sort(sortByDate);
-  topLevelComments.forEach((comment) => {
-    comment.replies.sort(sortByDate);
-  });
+  // Update card
+  card.list = listId;
+  card.position = position;
 
-  res.status(200).json({
-    status: 'success',
-    data: {
-      comments: topLevelComments,
+  // Log activity
+  logCardActivity(card, 'moved', req.user._id, {
+    from: {
+      list: oldList,
+      position: oldPosition,
+    },
+    to: {
+      list: listId,
+      position,
     },
   });
-});
 
-// Get card comments
-exports.getCardComments = catchAsync(async (req, res, next) => {
-  const { cardId } = req.params;
+  await card.save();
 
-  const card = await Card.findById(cardId)
-    .populate({
-      path: 'comments',
-      populate: [
-        {
-          path: 'author',
-          select: 'email firstName lastName',
-        },
-        {
-          path: 'mentions',
-          select: 'email firstName lastName',
-        },
-      ],
-    })
-    .select('comments');
-
-  if (!card) {
-    return next(new AppError('Card not found', 404));
-  }
-
-  // Organize comments into hierarchical structure
-  const commentMap = new Map();
-  const topLevelComments = [];
-
-  // First pass: Create map of all comments
-  card.comments.forEach((comment) => {
-    const commentObj = comment.toObject();
-    commentObj.replies = [];
-    commentMap.set(comment._id.toString(), commentObj);
-  });
-
-  // Second pass: Organize into hierarchy
-  card.comments.forEach((comment) => {
-    const commentId = comment._id.toString();
-    const commentObj = commentMap.get(commentId);
-
-    if (comment.parentId) {
-      // This is a reply - add it to parent's replies
-      const parentComment = commentMap.get(comment.parentId.toString());
-      if (parentComment) {
-        parentComment.replies.push(commentObj);
-      }
-    } else {
-      // This is a top-level comment
-      topLevelComments.push(commentObj);
-    }
-  });
-
-  // Sort comments and replies by creation date (newest first)
-  const sortByDate = (a, b) => new Date(b.createdAt) - new Date(a.createdAt);
-
-  topLevelComments.sort(sortByDate);
-  topLevelComments.forEach((comment) => {
-    comment.replies.sort(sortByDate);
-  });
+  // Get updated card with populated fields
+  const updatedCard = await Card.findById(cardId);
 
   res.status(200).json({
     status: 'success',
-    results: card.comments.length,
     data: {
-      comments: topLevelComments,
+      card: updatedCard,
     },
   });
 });
 
 // Update due date
 exports.updateDueDate = catchAsync(async (req, res, next) => {
-  let { date, reminder = false } = req.body;
-  date = new Date(date);
-  const card = await Card.findById(req.params.cardId);
+  const { cardId } = req.params;
+  const { startDate, endDate } = req.body;
+
+  const card = await Card.findById(cardId);
   if (!card) {
     return next(new AppError('Card not found', 404));
   }
 
-  // Check board membership
-  const board = await Board.findById(card.boardId);
-  if (
-    !board.members.some((m) => m.user.toString() === req.user._id.toString())
-  ) {
-    return next(
-      new AppError('You must be a board member to update due date', 403)
-    );
+  // Validate access
+  await validateListAccess(card.list, req.user._id);
+
+  const dueDate = card.dueDate;
+  if (!dueDate) {
+    return next(new AppError('Card does not have a due date', 400));
   }
 
-  card.dueDate = {
-    date: new Date(date),
-    reminder,
-    completed: false,
+  // Store old values for activity log
+  const oldDueDate = {
+    startDate: dueDate.startDate,
+    endDate: dueDate.endDate,
   };
 
-  // Add activity
-  card.activity.push({
-    action: 'updated',
-    userId: req.user._id,
-    data: { field: 'dueDate', value: date },
+  // Update dueDate
+  if (startDate) dueDate.startDate = startDate;
+  if (endDate) dueDate.endDate = endDate;
+
+  // Log activity
+  logCardActivity(card, 'date_updated', req.user._id, {
+    dueDate: {
+      from: oldDueDate,
+      to: { startDate: dueDate.startDate, endDate: dueDate.endDate },
+    },
+  });
+  await card.save();
+
+  res.status(200).json({
+    status: 'success',
+    data: { card },
+  });
+});
+
+// Add label to card
+exports.addLabel = catchAsync(async (req, res, next) => {
+  const { cardId } = req.params;
+  const { name, color } = req.body;
+
+  if (!name || !color) {
+    return next(new AppError('Label name and color are required', 400));
+  }
+
+  const card = await Card.findById(cardId);
+  if (!card) {
+    return next(new AppError('Card not found', 404));
+  }
+
+  // Validate access
+  await validateListAccess(card.list, req.user._id);
+
+  // Add new label
+  card.labels.push({
+    name,
+    color,
+    createdBy: req.user._id,
+  });
+
+  // Log activity
+  logCardActivity(card, 'label_added', req.user._id, {
+    label: { name, color },
   });
 
   await card.save();
 
   res.status(200).json({
     status: 'success',
+    data: { card },
+  });
+});
+
+exports.updateLabel = catchAsync(async (req, res, next) => {
+  const { cardId, labelId } = req.params;
+  const { name, color } = req.body;
+
+  const card = await Card.findById(cardId);
+  if (!card) {
+    return next(new AppError('Card not found', 404));
+  }
+
+  // Validate access
+  await validateListAccess(card.list, req.user._id);
+
+  // Find the label
+  const label = card.labels.id(labelId);
+  if (!label) {
+    return next(new AppError('Label not found', 404));
+  }
+
+  // Store old values for activity log
+  const oldLabel = {
+    name: label.name,
+    color: label.color,
+  };
+
+  // Update label
+  if (name) label.name = name;
+  if (color) label.color = color;
+
+  // Log activity
+  logCardActivity(card, 'label_updated', req.user._id, {
+    label: {
+      from: oldLabel,
+      to: { name: label.name, color: label.color },
+    },
+  });
+  await card.save();
+
+  res.status(200).json({
+    status: 'success',
+    data: { card },
+  });
+});
+
+// Remove label from card
+exports.removeLabel = catchAsync(async (req, res, next) => {
+  const { cardId, labelId } = req.params;
+
+  const card = await Card.findById(cardId);
+  if (!card) {
+    return next(new AppError('Card not found', 404));
+  }
+
+  // Validate access
+  await validateListAccess(card.list, req.user._id);
+
+  const labelIndex = card.labels.findIndex(
+    (label) => label._id.toString() === labelId
+  );
+
+  if (labelIndex === -1) {
+    return next(new AppError('Label not found', 404));
+  }
+
+  const removedLabel = card.labels[labelIndex];
+  card.labels.splice(labelIndex, 1);
+
+  // Log activity
+  logCardActivity(card, 'label_removed', req.user._id, {
+    label: {
+      name: removedLabel.name,
+      color: removedLabel.color,
+    },
+  });
+
+  await card.save();
+
+  res.status(200).json({
+    status: 'success',
+    data: { card },
+  });
+});
+
+// Add member to card
+exports.addMember = catchAsync(async (req, res, next) => {
+  const { cardId } = req.params;
+  const { userId } = req.body;
+
+  const card = await Card.findById(cardId);
+  if (!card) {
+    return next(new AppError('Card not found', 404));
+  }
+
+  // Validate access and get board info
+  const { board } = await validateListAccess(card.list, req.user._id);
+
+  // Check if user is a board member
+  const isBoardMember = board.members.some(
+    (member) => member.user.toString() === userId.toString()
+  );
+  if (!isBoardMember) {
+    return next(new AppError('User must be a board member first', 400));
+  }
+
+  // Check if user is already a card member
+  const isCardMember = card.members.some(
+    (member) => member.user.toString() === userId.toString()
+  );
+  if (isCardMember) {
+    return next(new AppError('User is already a card member', 400));
+  }
+
+  card.members.push({
+    user: userId,
+    assignedBy: req.user._id,
+    assignedAt: new Date(),
+  });
+
+  // Log activity
+  logCardActivity(card, 'member_added', req.user._id, {
+    memberId: userId,
+    assignedBy: req.user._id,
+  });
+
+  await card.save();
+
+  // Get updated card with populated fields
+  const updatedCard = await Card.findById(cardId)
+    .populate('members.user', 'email firstName lastName avatar username')
+    .populate('members.assignedBy', 'email firstName lastName');
+
+  const members = updatedCard.members.map((member) => ({
+    id: member.user._id,
+    user: member.user,
+    assignedBy: member.assignedBy,
+    assignedAt: member.assignedAt,
+  }));
+
+  res.status(200).json({
+    status: 'success',
     data: {
-      card: formatCardResponse(card),
+      members,
+      total: members.length,
+    },
+  });
+});
+
+// Remove member from card
+exports.removeMember = catchAsync(async (req, res, next) => {
+  const { cardId, userId } = req.params;
+
+  const card = await Card.findById(cardId);
+  if (!card) {
+    return next(new AppError('Card not found', 404));
+  }
+
+  // Validate access
+  await validateListAccess(card.list, req.user._id);
+
+  // Check if user exists in card members
+  const memberIndex = card.members.findIndex(
+    (member) => member.user.toString() === userId.toString()
+  );
+
+  if (memberIndex === -1) {
+    return next(new AppError('User is not a card member', 404));
+  }
+
+  // Store removed member for activity log
+  const removedMember = card.members[memberIndex];
+
+  // Remove member
+  card.members.splice(memberIndex, 1);
+
+  // Log activity
+  logCardActivity(card, 'member_removed', req.user._id, {
+    memberId: userId,
+    removedBy: req.user._id,
+    previouslyAssignedBy: removedMember.assignedBy,
+  });
+
+  await card.save();
+
+  res.status(204).json({
+    status: 'success',
+    data: null,
+  });
+});
+
+// Get card members
+exports.getCardMembers = catchAsync(async (req, res, next) => {
+  const { cardId } = req.params;
+
+  const card = await Card.findById(cardId);
+  if (!card) {
+    return next(new AppError('Card not found', 404));
+  }
+
+  // Validate access
+  await validateListAccess(card.list, req.user._id);
+
+  // Get populated members
+  const populatedCard = await Card.findById(cardId)
+    .populate('members.user', 'email firstName lastName avatar username')
+    .populate('members.assignedBy', 'email firstName lastName')
+    .select('members');
+
+  const members = populatedCard.members.map((member) => ({
+    id: member.user._id,
+    user: member.user,
+    assignedBy: member.assignedBy,
+    assignedAt: member.assignedAt,
+  }));
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      members,
+      total: members.length,
     },
   });
 });
@@ -667,9 +643,18 @@ exports.addSubtask = catchAsync(async (req, res, next) => {
     return next(new AppError('Card not found', 404));
   }
 
+  const list = await List.findById(card.list);
+  if (!list) {
+    throw new AppError('List not found', 404);
+  }
+
+  const board = await Board.findById(list.board);
+  if (!board) {
+    throw new AppError('Board not found', 404);
+  }
+
   // Verify assigned user is a board member if provided
   if (assignedTo) {
-    const board = await Board.findById(card.boardId);
     const isMember = board.members.some(
       (member) => member.user.toString() === assignedTo.toString()
     );
@@ -689,25 +674,21 @@ exports.addSubtask = catchAsync(async (req, res, next) => {
 
   card.subtasks.push(subtask);
 
-  // Add to activity log
-  card.activity.push({
-    action: 'updated',
-    userId: req.user._id,
-    data: {
-      type: 'subtask_added',
+  // Log activity
+  logCardActivity(card, 'subtask_added', req.user._id, {
+    subtask: {
       title,
     },
   });
-
   await card.save();
 
   // Fetch the updated card with populated fields
   const populatedCard = await Card.findById(cardId).populate({
     path: 'subtasks',
     populate: [
-      { path: 'assignedTo', select: 'email firstName lastName' },
-      { path: 'completedBy', select: 'email firstName lastName' },
-      { path: 'createdBy', select: 'email firstName lastName' },
+      { path: 'assignedTo', select: 'avatar email firstName lastName' },
+      { path: 'completedBy', select: 'avatar email firstName lastName' },
+      { path: 'createdBy', select: 'avatar email firstName lastName' },
     ],
   });
 
@@ -726,10 +707,20 @@ exports.updateSubtask = catchAsync(async (req, res, next) => {
   const { cardId, subtaskId } = req.params;
   const updates = req.body;
 
-  const card = await Card.findById(cardId).populate('boardId');
+  const card = await Card.findById(cardId);
 
   if (!card) {
     return next(new AppError('Card not found', 404));
+  }
+
+  const list = await List.findById(card.list);
+  if (!list) {
+    throw new AppError('List not found', 404);
+  }
+
+  const board = await Board.findById(list.board);
+  if (!board) {
+    throw new AppError('Board not found', 404);
   }
 
   const subtask = card.subtasks.id(subtaskId);
@@ -739,7 +730,7 @@ exports.updateSubtask = catchAsync(async (req, res, next) => {
 
   // Check if assigned user is being updated and is a board member
   if (updates.assignedTo) {
-    const isAssignedUserMember = card.boardId.members.some(
+    const isAssignedUserMember = board.members.some(
       (member) => member.user.toString() === updates.assignedTo.toString()
     );
     if (!isAssignedUserMember) {
@@ -795,12 +786,27 @@ exports.toggleSubtask = catchAsync(async (req, res, next) => {
     subtask.completedBy = undefined;
   }
 
+  // Check if all subtasks are completed or not
+  const allSubtasksCompleted = card.subtasks.every((task) => task.isCompleted);
+
+  // Update card state based on subtasks completion
+  if (!allSubtasksCompleted && card.state.current === 'completed') {
+    // If any subtask is incomplete, clear card completion
+    card.state.current = 'active';
+    card.state.completedAt = undefined;
+    card.state.completedBy = undefined;
+    card.state.lastStateChange = new Date();
+  } else if (allSubtasksCompleted && card.state.current === 'active') {
+    // If all subtasks are completed, mark card as completed
+    card.state.current = 'completed';
+    card.state.completedAt = new Date();
+    card.state.completedBy = req.user._id;
+    card.state.lastStateChange = new Date();
+  }
+
   await card.save();
 
-  const populatedCard = await Card.findById(cardId)
-    .populate('subtasks.assignedTo', 'email firstName lastName')
-    .populate('subtasks.completedBy', 'email firstName lastName')
-    .populate('subtasks.createdBy', 'email firstName lastName');
+  const populatedCard = await Card.findById(cardId);
 
   const updatedSubtask = populatedCard.subtasks.id(subtaskId);
 
@@ -889,7 +895,7 @@ exports.getCardSubtasks = catchAsync(async (req, res, next) => {
 
 // Get all cards in a list
 exports.getListCards = catchAsync(async (req, res, next) => {
-  const { listId } = req.params;
+  const listId = req.params.list;
 
   // Verify list exists
   const list = await List.findById(listId);
@@ -911,7 +917,7 @@ exports.getListCards = catchAsync(async (req, res, next) => {
   }
 
   // Get all cards in the list
-  const cards = await Card.find({ listId })
+  const cards = await Card.find({ list })
     .sort('position')
     .populate('members.user', 'email firstName lastName')
     .populate('createdBy', 'email firstName lastName')

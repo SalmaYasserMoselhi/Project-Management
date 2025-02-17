@@ -10,6 +10,7 @@ const listSchema = new mongoose.Schema(
       maxlength: [50, 'Name cannot exceed 50 characters'],
     },
     board: {
+      // Reference to the parent board
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Board',
       required: [true, 'List must belong to a board'],
@@ -63,11 +64,12 @@ listSchema.index(
     name: 'boardNameUnique',
   }
 );
-// Add this after your schema definition
+
+// Virtual Child Referencing to Card Model
 listSchema.virtual('cards', {
   ref: 'Card',
-  localField: '_id',
   foreignField: 'list',
+  localField: '_id',
 });
 
 // Then modify your totalCards virtual to handle the case when cards aren't populated
