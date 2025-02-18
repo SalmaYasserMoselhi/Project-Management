@@ -1,4 +1,6 @@
 /* @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap'); */
+@import url('https://fonts.googleapis.com/css2?family=Delicious+Handrawn&family=Lobster&display=swap');
+ 
 @import "tailwindcss";
 @tailwind base;
 @tailwind components;
@@ -23,4 +25,7 @@
     box-shadow: 0 12px 32px rgba(0,0,0,0.08);
   }
  
-  
+  .logo {
+    font-family: "Delicious Handrawn", serif;
+  font-weight: 400;
+  }
