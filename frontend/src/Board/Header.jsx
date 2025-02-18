@@ -127,7 +127,7 @@ const Header = ({ isSidebarOpen, toggleSidebar }) => {
                       </svg>
                       Profile Settings
                     </a>
-                    <a
+                    {/* <a
                       href="#security"
                       className="flex items-center px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-100 gap-2 transition-colors"
                     >
@@ -145,8 +145,8 @@ const Header = ({ isSidebarOpen, toggleSidebar }) => {
                         />
                       </svg>
                       Security
-                    </a>
-                    <a
+                    </a> */}
+                    {/* <a
                       href="#team"
                       className="flex items-center px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-100 gap-2 transition-colors"
                     >
@@ -164,7 +164,7 @@ const Header = ({ isSidebarOpen, toggleSidebar }) => {
                         />
                       </svg>
                       Team Members
-                    </a>
+                    </a> */}
                   </div>
 
                   {/* Logout */}
