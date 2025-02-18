@@ -150,8 +150,10 @@ workspaceSchema.pre('remove', async function (next) {
 });
 
 // Static method to create default workspaces for a new user
-workspaceSchema.statics.createDefaultWorkspaces = async function (userId, username) {
-
+workspaceSchema.statics.createDefaultWorkspaces = async function (
+  userId,
+  username
+) {
   try {
     const workspaces = await this.create([
       {

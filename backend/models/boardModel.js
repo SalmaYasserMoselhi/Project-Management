@@ -16,6 +16,7 @@ const boardSchema = new mongoose.Schema(
       maxlength: [500, 'Description cannot exceed 500 characters'],
     },
     workspace: {
+      // Reference to the parent workspace
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Workspace',
       required: [true, 'Board must belong to a workspace'],
@@ -67,13 +68,6 @@ const boardSchema = new mongoose.Schema(
           enum: ['watching', 'tracking', 'disabled'], // watching: recieves notification for all activities, tracking: recieves notification for specific activities (his own), disabled: no notifications until he is mentioned
           default: 'tracking',
         },
-      },
-    ],
-    // Lists Reference
-    lists: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'List',
       },
     ],
     settings: {
@@ -209,6 +203,15 @@ boardSchema.index({ workspace: 1, name: 1 });
 boardSchema.index({ 'members.user': 1 });
 boardSchema.index({ createdBy: 1 });
 
+// Virtual Referencing to List Model
+boardSchema.virtual('lists', {
+  ref: 'List',
+  foreignField: 'board',
+  localField: '_id',
+  match: { archived: false },
+  options: { sort: { position: 1 } },
+});
+
 // Add invitation token methods
 boardSchema.methods.createInvitationToken = function (email, role, invitedBy) {
   const inviteToken = crypto.randomBytes(32).toString('hex');
@@ -330,5 +333,58 @@ boardSchema.virtual('cardsDueSoon').get(function () {
   }, []);
 });
 
+boardSchema.methods.syncMemberToCards = async function (newMember) {
+  try {
+    // Find all cards associated with this board
+    const cards = await mongoose.model('Card').find({ boardId: this._id });
+
+    // Add the new member to each card
+    const updatePromises = cards.map((card) => {
+      return mongoose.model('Card').findByIdAndUpdate(
+        card._id,
+        {
+          $addToSet: {
+            members: {
+              user: newMember.user,
+              assignedBy: newMember.invitedBy || this.createdBy,
+              assignedAt: new Date(),
+              role: newMember.role === 'admin' ? 'responsible' : 'observer',
+            },
+          },
+        },
+        { new: true }
+      );
+    });
+
+    await Promise.all(updatePromises);
+  } catch (error) {
+    console.error('Error syncing member to cards:', error);
+    throw error;
+  }
+};
+
+// Use this in your board member addition logic
+boardSchema.pre('save', async function (next) {
+  if (this.isModified('members')) {
+    const newMembers = this.members.filter((member) => {
+      return !this._originalMembers?.some(
+        (original) => original.user.toString() === member.user.toString()
+      );
+    });
+
+    for (const newMember of newMembers) {
+      await this.syncMemberToCards(newMember);
+    }
+  }
+  next();
+});
+
+// Store original members before modification
+boardSchema.pre('save', function (next) {
+  if (this.isModified('members')) {
+    this._originalMembers = [...this.members];
+  }
+  next();
+});
 const Board = mongoose.model('Board', boardSchema);
 module.exports = Board;

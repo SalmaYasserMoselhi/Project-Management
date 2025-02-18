@@ -21,7 +21,7 @@ const checkBoardAccess = async (boardId, userId) => {
     );
   }
 
-  return { board, member };
+  // return { board, member };
 };
 
 // Helper function to handle duplicate key errors
@@ -35,37 +35,32 @@ const handleDuplicateNameError = (error) => {
   return error;
 };
 
-// Create default lists for a new board
 exports.createDefaultLists = async (boardId, userId) => {
-  try {
-    const defaultLists = [
-      { name: 'To Do', position: 0 },
-      { name: 'In Progress', position: 1 },
-      { name: 'Done', position: 2 },
-    ];
+  const defaultLists = [
+    { name: 'To Do', position: 0 },
+    { name: 'In Progress', position: 1 },
+    { name: 'Done', position: 2 },
+  ];
 
-    const lists = await Promise.all(
-      defaultLists.map((list) =>
-        List.create({
-          ...list,
-          board: boardId,
-          createdBy: userId,
-        })
-      )
-    );
-
-    // Update board with list references
-    await Board.findByIdAndUpdate(
-      boardId,
-      { $set: { lists: lists.map((list) => list._id) } },
-      { new: true }
-    );
-
-    return lists;
-  } catch (error) {
-    console.error('Error creating default lists:', error);
-    throw error;
+  // Create lists sequentially to ensure proper position ordering
+  const lists = [];
+  for (const listData of defaultLists) {
+    const list = await List.create({
+      ...listData,
+      board: boardId,
+      createdBy: userId,
+    });
+    lists.push(list);
   }
+
+  // Update board with list references
+  await Board.findByIdAndUpdate(
+    boardId,
+    { $set: { lists: lists.map((list) => list._id) } },
+    { new: true }
+  );
+
+  return lists;
 };
 
 // Create a new list
@@ -73,7 +68,7 @@ exports.createList = catchAsync(async (req, res, next) => {
   const { board: boardId } = req.body;
 
   // Check board access
-  const { board, member } = await checkBoardAccess(boardId, req.user._id);
+  await checkBoardAccess(boardId, req.user._id);
 
   try {
     // Create the list
@@ -130,7 +125,7 @@ exports.updateList = catchAsync(async (req, res, next) => {
 
 // Get all lists for a board
 exports.getBoardLists = catchAsync(async (req, res, next) => {
-  const { boardId } = req.params;
+  const boardId = req.params.boardId;
 
   // Check board access
   await checkBoardAccess(boardId, req.user._id);
@@ -217,49 +212,49 @@ exports.getArchivedLists = catchAsync(async (req, res, next) => {
 
 // Archive list
 exports.archiveList = catchAsync(async (req, res, next) => {
-    const { id } = req.params;
-  
-    const list = await List.findById(id);
-    if (!list) {
-      return next(new AppError('List not found', 404));
-    }
-  
-    // Check if list is already archived
-    if (list.archived) {
-      return next(new AppError('List is already archived', 400));
-    }
-  
-    // Check board access
-    await checkBoardAccess(list.board, req.user._id);
-  
-    // Get current position before archiving
-    const currentPosition = list.position;
-  
-    // Archive the list
-    await list.archive(req.user._id);
-  
-    // Update positions of remaining lists
-    await List.updateMany(
-      { 
-        board: list.board,
-        archived: false,
-        position: { $gt: currentPosition }
-      },
-      { $inc: { position: -1 } }
-    );
-  
-    // Get all remaining lists to send back updated positions
-    const remainingLists = await List.find({
+  const { id } = req.params;
+
+  const list = await List.findById(id);
+  if (!list) {
+    return next(new AppError('List not found', 404));
+  }
+
+  // Check if list is already archived
+  if (list.archived) {
+    return next(new AppError('List is already archived', 400));
+  }
+
+  // Check board access
+  await checkBoardAccess(list.board, req.user._id);
+
+  // Get current position before archiving
+  const currentPosition = list.position;
+
+  // Archive the list
+  await list.archive(req.user._id);
+
+  // Update positions of remaining lists
+  await List.updateMany(
+    {
       board: list.board,
-      archived: false
-    }).sort('position');
-  
-    res.status(200).json({
-      status: 'success',
-      message: 'List archived successfully',
-      data: { lists: remainingLists }
-    });
+      archived: false,
+      position: { $gt: currentPosition },
+    },
+    { $inc: { position: -1 } }
+  );
+
+  // Get all remaining lists to send back updated positions
+  const remainingLists = await List.find({
+    board: list.board,
+    archived: false,
+  }).sort('position');
+
+  res.status(200).json({
+    status: 'success',
+    message: 'List archived successfully',
+    data: { lists: remainingLists },
   });
+});
 
 // Restore list
 exports.restoreList = catchAsync(async (req, res, next) => {
