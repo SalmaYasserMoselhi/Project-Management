@@ -1,124 +1,65 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import {
+  setPassword,
+  setConfirmPassword,
+  validatePassword,
+  validateConfirmPassword,
+  validateForm,
+  resetState,
+  resetPasswordThunk,
+  verifyResetSession,
+} from "../features/Slice/authSlice/resetPasswordSlice";
 
 function ResetPassword() {
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [confirmPasswordError, setConfirmPasswordError] = useState("");
-  const [isFormValid, setIsFormValid] = useState(false);
-
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  const dispatch = useDispatch();
   const navigate = useNavigate();
+  const {
+    password,
+    confirmPassword,
+    passwordError,
+    confirmPasswordError,
+    isFormValid,
+    error,
+    loading,
+    successMessage,
+    verifyLoading,
+    verifyError,
+  } = useSelector((state) => state.resetPassword);
 
   useEffect(() => {
-    const verifySession = async () => {
-      try {
-        const response = await fetch('/api/v1/users/verifyResetSession', {
-          method: 'GET',
-          credentials: 'include'
-        });
-        
-        if (!response.ok) {
-          setError('Invalid reset session. Please restart the password reset process.');
-          setTimeout(() => {
-            navigate('/forgot-password');
-          }, 3000);
-        }
-      } catch (err) {
-        setError('Session verification failed. Please try again.');
+    dispatch(verifyResetSession())
+      .unwrap()
+      .catch(() => {
         setTimeout(() => {
-          navigate('/forgot-password');
+          navigate("/forgot-password");
         }, 3000);
-      }
+      });
+
+    return () => {
+      dispatch(resetState());
     };
-
-    verifySession();
-  }, [navigate]);
-  
-  const validatePassword = () => {
-    if (password.length < 8 || !/\d/.test(password)) {
-      setPasswordError(
-        "Password must be at least 8 characters long and contain both letters and numbers."
-      );
-      setIsFormValid(false);
-    } else {
-      setPasswordError("");
-      validateForm();
-    }
-  };
-
-  const validateConfirmPassword = () => {
-    if (confirmPassword !== password) {
-      setConfirmPasswordError("Passwords do not match");
-      setIsFormValid(false);
-    } else {
-      setConfirmPasswordError("");
-      validateForm();
-    }
-  };
-
-  const validateForm = () => {
-    if (
-      password.length >= 8 &&
-      /\d/.test(password) &&
-      confirmPassword === password
-    ) {
-      setIsFormValid(true);
-    } else {
-      setIsFormValid(false);
-    }
-  };
+  }, [dispatch, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    validatePassword();
-    validateConfirmPassword();
+    dispatch(validatePassword());
+    dispatch(validateConfirmPassword());
+    dispatch(validateForm());
 
     if (!isFormValid) return;
 
     try {
-      setLoading(true);
-      setError("");
+      await dispatch(
+        resetPasswordThunk({ password, confirmPassword })
+      ).unwrap();
 
-      const response = await fetch("/api/v1/users/resetPassword", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include", // Important for cookies
-        body: JSON.stringify({
-          password,
-          passwordConfirm: confirmPassword,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Password reset failed");
-      }
-
-      if (data.status === "success") {
-        setSuccessMessage("Password reset successful!");
-        // Reset form
-        setPassword("");
-        setConfirmPassword("");
-
-        // Short delay before redirecting to login
-        setTimeout(() => {
-          navigate("/login");
-        }, 2000);
-      }
-    } catch (error) {
-      setError(
-        error.response?.data?.message ||
-          "Password reset failed. Please try again."
-      );
-    } finally {
-      setLoading(false);
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -142,9 +83,9 @@ function ResetPassword() {
               Create a new password for your account
             </p>
 
-            {error && (
+            {(error || verifyError) && (
               <div className="mb-4 p-3 text-red-500 bg-red-50 rounded-lg">
-                {error}
+                {error || verifyError}
               </div>
             )}
 
@@ -160,8 +101,11 @@ function ResetPassword() {
                   type="password"
                   value={password}
                   autoComplete="new-password"
-                  onChange={(e) => setPassword(e.target.value)}
-                  onBlur={validatePassword}
+                  onChange={(e) => dispatch(setPassword(e.target.value))}
+                  onBlur={() => {
+                    dispatch(validatePassword());
+                    dispatch(validateForm());
+                  }}
                   placeholder="Password"
                   className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:border-2 ${
                     passwordError
@@ -175,8 +119,7 @@ function ResetPassword() {
                     passwordError ? "text-red-500" : "text-gray-500"
                   }`}
                 >
-                  {passwordError ||
-                    "Password must be at least 8 characters long and contain both letters and numbers."}
+                  {passwordError}
                 </p>
               </div>
 
@@ -185,11 +128,14 @@ function ResetPassword() {
                   type="password"
                   value={confirmPassword}
                   autoComplete="new-password"
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  onBlur={validateConfirmPassword}
+                  onChange={(e) => dispatch(setConfirmPassword(e.target.value))}
+                  onBlur={() => {
+                    dispatch(validateConfirmPassword());
+                    dispatch(validateForm());
+                  }}
                   placeholder="Confirm Password"
                   className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:border-2 ${
-                    passwordError
+                    confirmPasswordError
                       ? "border-red-500 focus:border-red-500"
                       : "border-gray-300 focus:border-[#4D2D61]"
                   }`}
@@ -200,7 +146,7 @@ function ResetPassword() {
                     confirmPasswordError ? "text-red-500" : "text-gray-500"
                   }`}
                 >
-                  {confirmPasswordError || "Passwords must match."}
+                  {confirmPasswordError}
                 </p>
               </div>
 
@@ -209,7 +155,7 @@ function ResetPassword() {
                 className={`w-full py-2 px-4 rounded-md bg-[#4D2D61] hover:bg-[#57356A] text-white ${
                   isFormValid ? "" : "cursor-not-allowed"
                 }`}
-                disabled={!isFormValid || loading}
+                disabled={!isFormValid || loading || verifyLoading}
               >
                 {loading ? "Resetting password..." : "Reset password"}
               </button>

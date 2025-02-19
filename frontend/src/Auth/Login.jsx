@@ -1,94 +1,91 @@
-import "react";
-import { useState } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import {
+  setEmail,
+  setPassword,
+  setEmailError,
+  setPasswordError,
+  setErrorMessage,
+  setOAuthLoading,
+  resetErrors,
+  loginUser,
+} from "../features/Slice/authSlice/loginSlice";
+import { useNavigate } from "react-router-dom";
+
 const API_BASE_URL = "/api/v1";
 
+const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [emailError, setEmailError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [oauthLoading, setOAuthLoading] = useState({
-    loading: false,
-    error: null,
-    activeProvider: null,
-  });
-
-  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const {
+    email,
+    password,
+    errorMessage,
+    emailError,
+    passwordError,
+    loading,
+    oauthLoading,
+  } = useSelector((state) => state.login);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Reset errors
-    setEmailError("");
-    setPasswordError("");
-    setErrorMessage("");
+    dispatch(resetErrors());
 
-    // Validate inputs
     let valid = true;
+
     if (!email) {
-      setEmailError("Email is required.");
+      dispatch(setEmailError("Email is required."));
       valid = false;
     } else if (!validateEmail(email)) {
-      setEmailError("Please enter a valid email address.");
+      dispatch(setEmailError("Please enter a valid email address."));
       valid = false;
     }
 
     if (!password) {
-      setPasswordError("Password is required.");
+      dispatch(setPasswordError("Password is required."));
       valid = false;
     } else if (password.length < 8) {
-      setPasswordError("Password must be at least 8 characters long.");
+      dispatch(
+        setPasswordError("Password must be at least 8 characters long.")
+      );
       valid = false;
     }
 
     if (!valid) return;
 
     try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/users/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ email, password }),
-      });
+      const resultAction = await dispatch(loginUser({ email, password }));
+      console.log("resultAction:", resultAction);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Login failed");
+      if (loginUser.fulfilled.match(resultAction)) {
+        navigate("/dashboard");
       }
-
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.data.user));
-      window.location.href = "/dashboard";
     } catch (error) {
-      setErrorMessage(error.message || "Login failed. Please try again.");
-    } finally {
-      setLoading(false);
+      console.error(error);
     }
   };
 
   const handleOAuthLogin = async (provider) => {
     try {
-      setOAuthLoading({
-        loading: true,
-        error: null,
-        activeProvider: provider,
-      });
-      setErrorMessage("");
-      // Get the current frontend URL dynamically
+      dispatch(
+        setOAuthLoading({
+          loading: true,
+          error: null,
+          activeProvider: provider,
+        })
+      );
+      dispatch(setErrorMessage(""));
       const frontendUrl = window.location.origin;
       window.location.href = `${API_BASE_URL}/users/auth/${provider}?frontendUrl=${frontendUrl}`;
     } catch (error) {
-      setOAuthLoading({
-        loading: false,
-        error: error.message || "Authentication failed. Please try again.",
-        activeProvider: null,
-      });
+      dispatch(
+        setOAuthLoading({
+          loading: false,
+          error: error.message || "Authentication failed. Please try again.",
+          activeProvider: null,
+        })
+      );
     }
   };
 
@@ -119,7 +116,7 @@ function Login() {
                   type="email"
                   value={email}
                   autoComplete="username"
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => dispatch(setEmail(e.target.value))}
                   placeholder="E-mail"
                   className={`w-full px-4 py-2 border ${
                     emailError ? "border-red-500" : "border-gray-300"
@@ -136,7 +133,7 @@ function Login() {
                   type="password"
                   value={password}
                   autoComplete="current-password"
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => dispatch(setPassword(e.target.value))}
                   placeholder="Password"
                   className={`w-full px-4 py-2 border ${
                     passwordError ? "border-red-500" : "border-gray-300"
