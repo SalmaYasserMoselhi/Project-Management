@@ -161,8 +161,8 @@
 
 import { useState } from "react";
 import "../index.css";
-import Header from "../Board/Header";
-import Sidebar from "../Board/Sidebar";
+import Header from "../Components/Header";
+import Sidebar from "../Components/Sidebar";
 import { Outlet } from "react-router-dom";
 
 const Dashboard = () => {
