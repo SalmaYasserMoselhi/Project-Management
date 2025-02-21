@@ -1,5 +1,3 @@
-
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -11,8 +9,8 @@ import CalendarIcon from "../assets/calender.png";
 import SettingsIcon from "../assets/setting.png";
 import AddIcon from "../assets/add.png";
 import DropDownIcon from "../assets/drop-down.png";
-import LogoIcon from "../assets/Logo.png";
-import CloseIcon from "../assets/closee.png"; // Import the close icon
+import Logo from "../assets/Logo.png";
+import { ChevronsLeft, ChevronsRight } from "lucide-react";
 
 // eslint-disable-next-line react/prop-types
 const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
@@ -52,7 +50,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
   const handleItemClick = (title, path) => {
     setActiveItem(title);
     navigate(`/dashboard/${path}`);
-   
+
     if (window.innerWidth < 768) {
       toggleSidebar();
     }
@@ -61,66 +59,27 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
   return (
     <div
       className={`fixed left-0 top-0 bottom-0 bg-white shadow-lg p-4 flex flex-col border-r border-gray-200 font-[Nunito] transition-all duration-300 z-50 ${
-        isSidebarOpen ? "w-64" : "w-24"
+        isSidebarOpen ? "w-60" : "w-24"
       }`}
     >
       {/* Logo and Close Button Section */}
-      <div className="flex items-center justify-between mb-10 mt-2">
-        <div
-          className={`flex items-center gap-0.5 overflow-hidden ${
-            isSidebarOpen ? "ml-2" : "justify-center"
-          }`}
-        >
-          <img
-            src={LogoIcon}
-            alt="Logo"
-            className={`h-9 w-18 min-w-[32px] transition-transform duration-300 font-[Nunito] ${
-              !isSidebarOpen && "scale-125"
-            }`}
-          />
-          {isSidebarOpen && (
-            <h1 className="logo text-4xl font-bold text-[#4D2D61] -mt-1 -ms-3">
-              urora
-            </h1>
-          )}
-        </div>
-
-        {/* Close Button  */}
-        {isSidebarOpen && (
-          <button
-            onClick={toggleSidebar}
-            className="p-2 hover:bg-purple-50 rounded-full transition-colors duration-200 -mt-10 "
-          >
-            <img
-              src={CloseIcon}
-              alt="Close"
-              className="h-5 w-5 filter brightness-0"
-              style={{
-                filter:
-                  "brightness(0) saturate(100%) invert(18%) sepia(23%) saturate(1234%) hue-rotate(244deg) brightness(93%) contrast(88%)",
-              }} 
-            />
-          </button>
-        )}
-      </div>
-
-      {/* Toggle Button  */}
-      {!isSidebarOpen && (
+      <div className="relative flex items-center justify-start w-full mb-8 mt-2">
+        <img
+          src={Logo}
+          alt="Logo"
+          className="h-10 transition-all duration-300"
+        />
         <button
           onClick={toggleSidebar}
-          className="p-2 hover:bg-purple-50 rounded-full transition-colors duration-200 mb-4 flex justify-center"
+          className="absolute top-0 right-0 p-2 hover:bg-gray-100 transition-colors duration-200"
         >
-          <img
-            src={CloseIcon}
-            alt="Toggle Sidebar"
-            className="h-5 w-5 filter brightness-0"
-            style={{
-              filter:
-                "brightness(0) saturate(100%) invert(18%) sepia(23%) saturate(1234%) hue-rotate(244deg) brightness(93%) contrast(88%)",
-            }} 
-          />
+          {isSidebarOpen ? (
+            <ChevronsLeft size={20} />
+          ) : (
+            <ChevronsRight size={20} />
+          )}
         </button>
-      )}
+      </div>
 
       {/* Navigation Items */}
       <nav className="space-y-2">
