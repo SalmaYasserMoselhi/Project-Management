@@ -6,6 +6,7 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  Area,
 } from "recharts";
 import { MoreHorizontal, Clock } from "lucide-react";
 
@@ -29,9 +30,10 @@ const styles = `
 }
 `;
 
-function Dashboard() {
+function Main() {
   const [selectedDate, setSelectedDate] = useState(new Date().getDate());
   const [selectedMonth, setSelectedMonth] = useState("");
+  const [initialScrollDone, setInitialScrollDone] = useState(false);
 
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth();
@@ -72,14 +74,32 @@ function Dashboard() {
   useEffect(() => {
     setSelectedMonth(monthNames[currentMonth]);
 
-    const todayElement = document.getElementById(`date-${currentDay}`);
-    if (todayElement) {
-      todayElement.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+    // نتحقق ما إذا كان هذا أول تحميل للمكون
+    if (!initialScrollDone) {
+      const todayElement = document.getElementById(`date-${currentDay}`);
+      if (todayElement) {
+        todayElement.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+      setInitialScrollDone(true);
     }
-  }, [currentMonth, currentDay, monthNames]);
+  }, [currentMonth, currentDay, monthNames, initialScrollDone]);
+
+  // eslint-disable-next-line react/prop-types
+  const CustomTooltip = ({ active, payload }) => {
+    // eslint-disable-next-line react/prop-types
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-gray-800 text-white text-sm rounded-lg px-3 py-1 shadow-md">
+          {/*eslint-disable-next-line react/prop-types*/}
+          {payload[0].value}
+        </div>
+      );
+    }
+    return null;
+  };
 
   const events = [
     {
@@ -89,6 +109,7 @@ function Dashboard() {
 
       date: 12,
     },
+
     {
       id: 2,
       title: "UI Design",
@@ -115,7 +136,28 @@ function Dashboard() {
       title: " task-3",
       time: "11:00am - 11:30pm",
 
-      date: 2,
+      date: 21,
+    },
+    {
+      id: 6,
+      title: "UI Motion",
+      time: "10:00am - 12:00pm",
+
+      date: 21,
+    },
+    {
+      id: 7,
+      title: "UI Motion",
+      time: "10:00am - 12:00pm",
+
+      date: 21,
+    },
+    {
+      id: 8,
+      title: "UI Motion",
+      time: "10:00am - 12:00pm",
+
+      date: 21,
     },
   ];
 
@@ -123,71 +165,71 @@ function Dashboard() {
     { name: "Task name", time: "20 hrs ago" },
     { name: "Task name", time: "5 hrs ago" },
     { name: "Task name", time: "1 day ago" },
+    { name: "Task name", time: "20 hrs ago" },
+    { name: "Task name", time: "20 hrs ago" },
+    { name: "Task name", time: "20 hrs ago" },
+    { name: "Task name", time: "20 hrs ago" },
   ];
   const filteredEvents = events.filter((event) => event.date === selectedDate);
 
   return (
-    <div className="p-4 md:p-8 bg-white min-h-screen font-sans">
+    <div className=" bg-white min-h-screen font-sans">
       <style>{styles}</style>
 
-      <div className="mb-6">
-        <h1 className="text-xl md:text-2xl text-[#4D2D61] font-semibold">
-          Dashboard
-        </h1>
-      </div>
-
-      <div className="flex flex-col space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+      <div className="flex flex-col space-y-6 ">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 md:gap-6">
           {/* High Priority Tasks */}
-          <div className="bg-gray-50 rounded-2xl shadow-sm p-4 md:p-6 border border-purple-200">
+          <div className="lg:col-span-3 bg-gray-50 rounded-2xl shadow-sm p-4 md:p-6 border border-purple-200  ">
             <h2 className="text-lg font-semibold mb-4 text-[#57356A]">
               High priority tasks
             </h2>
-
-            {tasks.map((task, index) => (
-              <div
-                key={index}
-                className="mb-4 bg-white border border-white rounded-lg p-4 last:mb-0 shadow-sm"
-              >
-                <span className="block font-medium text-[#725483] mb-2">
-                  {task.name}
-                </span>
-
-                <div className="flex items-center space-x-3 text-sm text-gray-500 mb-3">
-                  <span className="bg-red-100 text-red-500 text-xs font-semibold px-2 py-1 rounded-lg">
-                    High Priority
+            <div className="space-y-3 overflow-auto no-scrollbar h-[350px]">
+              {tasks.map((task, index) => (
+                <div
+                  key={index}
+                  className="mb-3 bg-white border border-white rounded-lg p-3 last:mb-0 shadow-sm h-[115px]"
+                >
+                  <span className="block font-medium text-[#725483] mb-1">
+                    {task.name}
                   </span>
-                  <div className="flex items-center text-xs  px-2 py-1 rounded-lg bg-gray-100">
-                    <Clock className="w-4 h-4 mr-1" />
-                    {task.time}
-                  </div>
-                </div>
 
-                <div className="border-t border-gray-200 my-2"></div>
-
-                <div className="flex -space-x-1 mt-2">
-                  {["K", "R", "U"].map((initial, i) => (
-                    <div
-                      key={i}
-                      className="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold border-2 border-white"
-                    >
-                      {initial}
+                  <div className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
+                    <span className="bg-red-100 text-red-500 text-xs font-semibold px-2 py-1 rounded-lg">
+                      High Priority
+                    </span>
+                    <div className="flex items-center text-xs px-2 py-1 rounded-lg bg-gray-100">
+                      <Clock className="w-3.5 h-3.5 mr-1" />{" "}
+                      {/* تصغير الأيقونة قليلاً */}
+                      {task.time}
                     </div>
-                  ))}
-                  <div className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold border-2 border-white">
-                    +2
+                  </div>
+
+                  <div className="border-t border-gray-200 my-1"></div>
+
+                  <div className="flex -space-x-0.5 mt-2">
+                    {["K", "R", "U"].map((initial, i) => (
+                      <div
+                        key={i}
+                        className="w-5 h-5 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold border-2 border-white"
+                      >
+                        {initial}
+                      </div>
+                    ))}
+                    <div className="w-5 h-5 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold border-2 border-white">
+                      +2
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
           {/* Deadlines */}
-          <div className="bg-gray-50 rounded-2xl shadow-sm p-4 md:p-6 border border-purple-200">
+          <div className=" lg:col-span-3 bg-gray-50 rounded-2xl shadow-sm p-4 md:p-6 border border-purple-200">
             <h2 className="text-lg font-semibold  text-[#57356A] mb-4">
               Deadlines
             </h2>
-            <div className="mb-8 bg-white border border-white rounded-lg p-4 last:mb-0 shadow-sm">
-              <h3 className="text-lg font-semibold text-[#725483] mb-5">
+            <div className="mb-8 bg-white border border-white rounded-lg p-3 last:mb-0 shadow-sm h-36">
+              <h3 className="text-lg font-semibold text-[#725483] mb-3">
                 {selectedMonth}
               </h3>
               <div className="relative text-[#725483]">
@@ -216,9 +258,9 @@ function Dashboard() {
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 overflow-auto no-scrollbar h-[180px]">
               {filteredEvents.map((event) => (
-                <div key={event.id} className="relative group">
+                <div key={event.id} className="relative group ">
                   <div className="absolute left-3 top-0 bottom-0 w-1  rounded-full bg-[#57356A]" />
                   <div className="pl-4 md:pl-6">
                     <div className="flex justify-between items-start bg-white p-4 rounded-lg shadow-sm hover:bg-gray-50 transition-colors">
@@ -245,18 +287,23 @@ function Dashboard() {
           </div>
 
           {/* Total Tasks Chart */}
-          <div className="bg-gray-50 rounded-2xl shadow-sm p-4 md:p-6 border border-purple-200">
-            <div className="flex justify-between items-center mb-6">
+          <div className=" lg:col-span-6 bg-gray-50 rounded-2xl shadow-sm p-4 md:p-6 border border-purple-200">
+            <div className="flex justify-between items-center mb-30">
               <h2 className="text-lg font-semibold  text-[#57356A]">
                 Total Tasks
               </h2>
-              <select className="text-sm border rounded-lg px-2 md:px-3 py-1 bg-gray-50">
+              <select className="text-sm border rounded-lg px-2 md:px-3 py-1 bg-gray-50 ">
                 <option>Weekly</option>
+                <option>Monthly</option>
+                <option>Yearly</option>
               </select>
             </div>
-            <div className="h-48 md:h-52">
+            <div className="h-48 md:h-52 flex flex-col  justify-end ">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data}>
+                <LineChart
+                  data={data}
+                  margin={{ top: 10, right: 0, left: -10, bottom: 0 }}
+                >
                   <XAxis
                     dataKey="name"
                     axisLine={false}
@@ -267,8 +314,31 @@ function Dashboard() {
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 12 }}
+                    domain={[0, "dataMax + 10"]}
+                    ticks={[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
                   />
-                  <Tooltip />
+                  <Tooltip
+                    content={<CustomTooltip />}
+                    cursor={{ strokeDasharray: "3 3" }}
+                  />
+                  <defs>
+                    <linearGradient
+                      id="colorGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="0%" stopColor="#4D2D61" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#4D2D61" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <Area
+                    type="monotone"
+                    dataKey="tasks"
+                    stroke={false}
+                    fill="url(#colorGradient)"
+                  />
                   <Line
                     type="monotone"
                     dataKey="tasks"
@@ -297,7 +367,6 @@ function Dashboard() {
                   <th className="text-left py-3 px-4">Activity</th>
                   <th className="text-left py-3 px-4">Date</th>
                   <th className="text-left py-3 px-4">Time</th>
-                  <th className="text-left py-3 px-4">Status</th>
                 </tr>
               </thead>
               <tbody className="text-sm">
@@ -338,19 +407,6 @@ function Dashboard() {
                     <td className="py-4 px-4">Regular text column</td>
                     <td className="py-4 px-4">{item.date}</td>
                     <td className="py-4 px-4">{item.time}</td>
-                    <td className="py-4 px-4">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs ${
-                          item.status === "Active"
-                            ? "text-green-700 bg-green-50"
-                            : item.status === "In progress"
-                            ? "text-purple-700 bg-purple-50"
-                            : "text-red-700 bg-red-50"
-                        }`}
-                      >
-                        {item.status}
-                      </span>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -362,4 +418,4 @@ function Dashboard() {
   );
 }
 
-export default Dashboard;
+export default Main;
