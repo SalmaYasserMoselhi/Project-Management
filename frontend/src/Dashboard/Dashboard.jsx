@@ -178,8 +178,8 @@ const Dashboard = () => {
 
       <Header isSidebarOpen={isSidebarOpen} toggleSidebar={handleToggle} />
       <main
-        className={`w-fit transition-all duration-300  ${
-          isSidebarOpen ? "md:ml-28 mr:0 p-6" : "md:ml-0.3 pr-6 pt-6 w-[90vw]"
+        className={`w-full transition-all duration-300  ${
+          isSidebarOpen ? "md:ml-28 mr:0 p-6" : "md:ml-0.3 pr-6 pt-6 w-[90%]"
         } mt-18 min-h-[calc(100vh-5rem)]`}
       >
         <Outlet />
