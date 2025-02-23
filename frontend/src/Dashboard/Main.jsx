@@ -192,24 +192,24 @@ function Main() {
     <div className=" bg-white min-h-screen font-sans ">
       <style>{styles}</style>
 
-      <div className="flex flex-col space-y-6 ">
+      <div className="flex flex-col space-y-6  mx-auto ">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 md:gap-6">
           {/* High Priority Tasks */}
           <div className="lg:col-span-3 bg-gray-50 rounded-2xl shadow-sm p-4 md:p-6 border border-purple-200  ">
             <h2 className="text-lg font-semibold mb-4 text-[#57356A]">
               High priority tasks
             </h2>
-            <div className="space-y-3 overflow-auto no-scrollbar h-[350px]">
+            <div className="space-y-3 overflow-auto no-scrollbar h-[350px] md:h-[400px]">
               {tasks.map((task, index) => (
                 <div
                   key={index}
-                  className="mb-3 bg-white border border-white rounded-lg p-3 last:mb-0 shadow-sm h-[115px]"
+                  className="mb-3 bg-white border border-white rounded-lg p-3 last:mb-0 shadow-sm "
                 >
                   <span className="block font-medium text-[#725483] mb-1">
                     {task.name}
                   </span>
 
-                  <div className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
+                  <div className="flex flex-wrap gap-2 text-sm text-gray-500 mb-2">
                     <span className="bg-red-100 text-red-500 text-xs font-semibold px-2 py-1 rounded-lg">
                       High Priority
                     </span>
@@ -244,7 +244,7 @@ function Main() {
             <h2 className="text-lg font-semibold  text-[#57356A] mb-4">
               Deadlines
             </h2>
-            <div className="mb-8 bg-white border border-white rounded-lg p-3 last:mb-0 shadow-sm h-36">
+            <div className="mb-8 bg-white border border-white rounded-lg p-3 last:mb-0 shadow-sm">
               <h3 className="text-lg font-semibold text-[#725483] mb-3">
                 {selectedMonth}
               </h3>
@@ -256,17 +256,19 @@ function Main() {
                         key={item.date}
                         id={`date-${item.date}`}
                         onClick={() => setSelectedDate(item.date)}
-                        className={`flex flex-col items-center min-w-[32px] md:min-w-[40px] transition-all
+                        className={`flex flex-col items-center min-w-[28px] md:min-w-[40px] transition-all
                           ${
                             selectedDate === item.date
                               ? "bg-purple-100 rounded-lg px-2 md:px-3 py-1"
                               : "hover:bg-gray-50 px-2 md:px-3 py-1"
                           }`}
                       >
-                        <span className="text-sm font-bold text-[#725483]">
+                        <span className="text-xs  md:text-sm font-bold text-[#725483]">
                           {item.day}
                         </span>
-                        <span className="font-bold  mt-3">{item.date}</span>
+                        <span className="font-bold mt-2 md:mt-3 text-sm md:text-base">
+                          {item.date}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -274,7 +276,7 @@ function Main() {
               </div>
             </div>
 
-            <div className="space-y-3 overflow-auto no-scrollbar h-[180px]">
+            <div className="space-y-3 overflow-auto no-scrollbar h-[180px] md:h-[250px]">
               {filteredEvents.map((event) => (
                 <div key={event.id} className="relative group ">
                   <div className="absolute left-3 top-0 bottom-0 w-1  rounded-full bg-[#57356A]" />
@@ -304,7 +306,7 @@ function Main() {
 
           {/* Total Tasks Chart */}
           <div className="lg:col-span-6 bg-gray-50 rounded-2xl shadow-sm p-4 md:p-6 border border-purple-200">
-            <div className="flex justify-between items-center  mb-30">
+            <div className="flex justify-between items-center  mb-4">
               <h2 className="text-lg font-semibold text-[#57356A]">
                 Total Tasks
               </h2>
@@ -314,32 +316,33 @@ function Main() {
                 <option>Yearly</option>
               </select>
             </div>
-            <div className="h-70 md:h-52">
+            <div className="h-[200px] md:h-[300px] lg:h-[350px]">
               <Chart
                 options={chartOptions}
                 series={chartSeries}
                 type="area"
                 height="100%"
+                width="100%"
               />
             </div>
           </div>
         </div>
 
         {/* Activity Log */}
-        <div className="bg-gray-50 rounded-2xl shadow-sm p-4 md:p-6 border border-purple-200">
+        <div className="bg-gray-50 rounded-2xl shadow-sm p-4 md:p-6 border border-purple-200 overflow-x-auto">
           <h2 className="text-lg font-semibold  text-[#57356A] mb-4">
             Activity Log
           </h2>
-          <div className="min-w-[768px]">
+          <div className="min-w-full">
             <table className="w-full">
               <thead>
                 <tr className="text-sm text-gray-500">
-                  <th className="text-left py-3 px-4">Num</th>
-                  <th className="text-left py-3 px-4">Name</th>
-                  <th className="text-left py-3 px-4">Projects</th>
-                  <th className="text-left py-3 px-4">Activity</th>
-                  <th className="text-left py-3 px-4">Date</th>
-                  <th className="text-left py-3 px-4">Time</th>
+                  <th className="text-left py-3 px-2 md:px-4">Num</th>
+                  <th className="text-left py-3 px-2 md:px-4">Name</th>
+                  <th className="text-left py-3 px-2 md:px-4">Projects</th>
+                  <th className="text-left py-3 px-2 md:px-4">Activity</th>
+                  <th className="text-left py-3 px-2 md:px-4">Date</th>
+                  <th className="text-left py-3 px-2 md:px-4">Time</th>
                 </tr>
               </thead>
               <tbody className="text-sm">

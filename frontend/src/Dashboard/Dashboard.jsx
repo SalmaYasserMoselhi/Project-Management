@@ -173,7 +173,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#ffffff] flex w-[185vh]">
+    <div className="min-h-screen bg-[#ffffff] flex  w-[184vh]">
       <Sidebar isSidebarOpen={isSidebarOpen} toggleSidebar={handleToggle} />
 
       <Header isSidebarOpen={isSidebarOpen} toggleSidebar={handleToggle} />

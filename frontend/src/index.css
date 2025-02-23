@@ -8,9 +8,7 @@
     transform: rotate(360deg);
   }
 }
-body {
-  overflow-x: hidden;
-}
+
 .animate-spin {
   animation: spin 1s linear infinite;
 }
