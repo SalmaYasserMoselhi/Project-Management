@@ -1,14 +1,6 @@
 import { useState, useEffect } from "react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Area,
-} from "recharts";
 import { MoreHorizontal, Clock } from "lucide-react";
+import Chart from "react-apexcharts";
 
 const data = [
   { name: "Mon", tasks: 20 },
@@ -74,7 +66,6 @@ function Main() {
   useEffect(() => {
     setSelectedMonth(monthNames[currentMonth]);
 
-    // نتحقق ما إذا كان هذا أول تحميل للمكون
     if (!initialScrollDone) {
       const todayElement = document.getElementById(`date-${currentDay}`);
       if (todayElement) {
@@ -86,20 +77,6 @@ function Main() {
       setInitialScrollDone(true);
     }
   }, [currentMonth, currentDay, monthNames, initialScrollDone]);
-
-  // eslint-disable-next-line react/prop-types
-  const CustomTooltip = ({ active, payload }) => {
-    // eslint-disable-next-line react/prop-types
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-gray-800 text-white text-sm rounded-lg px-3 py-1 shadow-md">
-          {/*eslint-disable-next-line react/prop-types*/}
-          {payload[0].value}
-        </div>
-      );
-    }
-    return null;
-  };
 
   const events = [
     {
@@ -172,28 +149,67 @@ function Main() {
   ];
   const filteredEvents = events.filter((event) => event.date === selectedDate);
 
+  const chartOptions = {
+    chart: {
+      type: "area",
+      toolbar: { show: false },
+      zoom: { enabled: false },
+    },
+    grid: { show: false },
+    xaxis: {
+      categories: data.map((item) => item.name), // الأيام
+      labels: { style: { fontSize: "12px" } },
+    },
+    yaxis: {
+      min: 0,
+      max: 60, // حددي أكبر قيمة مناسبة
+      tickAmount: 6,
+      labels: { style: { fontSize: "12px" } },
+    },
+    tooltip: {
+      theme: "light",
+    },
+    colors: ["#4D2D61"],
+    stroke: {
+      curve: "smooth",
+      width: 2,
+      colors: ["#4D2D61"],
+    },
+    fill: {
+      type: "gradient",
+      gradient: {
+        shadeIntensity: 0.5, // درجة كثافة التدرج
+        opacityFrom: 0.6, // جعل بداية التدرج أغمق
+        opacityTo: 0.1, // تقليل الشفافية عند النهاية
+        stops: [0, 100],
+      },
+    },
+  };
+
+  const chartSeries = [{ name: "Tasks", data: data.map((item) => item.tasks) }];
+
   return (
-    <div className=" bg-white min-h-screen font-sans">
+    <div className=" bg-white min-h-screen font-sans ">
       <style>{styles}</style>
 
-      <div className="flex flex-col space-y-6 ">
+      <div className="flex flex-col space-y-6  mx-auto ">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 md:gap-6">
           {/* High Priority Tasks */}
           <div className="lg:col-span-3 bg-gray-50 rounded-2xl shadow-sm p-4 md:p-6 border border-purple-200  ">
             <h2 className="text-lg font-semibold mb-4 text-[#57356A]">
               High priority tasks
             </h2>
-            <div className="space-y-3 overflow-auto no-scrollbar h-[350px]">
+            <div className="space-y-3 overflow-auto no-scrollbar h-[350px] md:h-[400px]">
               {tasks.map((task, index) => (
                 <div
                   key={index}
-                  className="mb-3 bg-white border border-white rounded-lg p-3 last:mb-0 shadow-sm h-[115px]"
+                  className="mb-3 bg-white border border-white rounded-lg p-3 last:mb-0 shadow-sm "
                 >
                   <span className="block font-medium text-[#725483] mb-1">
                     {task.name}
                   </span>
 
-                  <div className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
+                  <div className="flex flex-wrap gap-2 text-sm text-gray-500 mb-2">
                     <span className="bg-red-100 text-red-500 text-xs font-semibold px-2 py-1 rounded-lg">
                       High Priority
                     </span>
@@ -228,7 +244,7 @@ function Main() {
             <h2 className="text-lg font-semibold  text-[#57356A] mb-4">
               Deadlines
             </h2>
-            <div className="mb-8 bg-white border border-white rounded-lg p-3 last:mb-0 shadow-sm h-36">
+            <div className="mb-8 bg-white border border-white rounded-lg p-3 last:mb-0 shadow-sm">
               <h3 className="text-lg font-semibold text-[#725483] mb-3">
                 {selectedMonth}
               </h3>
@@ -240,17 +256,19 @@ function Main() {
                         key={item.date}
                         id={`date-${item.date}`}
                         onClick={() => setSelectedDate(item.date)}
-                        className={`flex flex-col items-center min-w-[32px] md:min-w-[40px] transition-all
+                        className={`flex flex-col items-center min-w-[28px] md:min-w-[40px] transition-all
                           ${
                             selectedDate === item.date
                               ? "bg-purple-100 rounded-lg px-2 md:px-3 py-1"
                               : "hover:bg-gray-50 px-2 md:px-3 py-1"
                           }`}
                       >
-                        <span className="text-sm font-bold text-[#725483]">
+                        <span className="text-xs  md:text-sm font-bold text-[#725483]">
                           {item.day}
                         </span>
-                        <span className="font-bold  mt-3">{item.date}</span>
+                        <span className="font-bold mt-2 md:mt-3 text-sm md:text-base">
+                          {item.date}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -258,7 +276,7 @@ function Main() {
               </div>
             </div>
 
-            <div className="space-y-3 overflow-auto no-scrollbar h-[180px]">
+            <div className="space-y-3 overflow-auto no-scrollbar h-[180px] md:h-[250px]">
               {filteredEvents.map((event) => (
                 <div key={event.id} className="relative group ">
                   <div className="absolute left-3 top-0 bottom-0 w-1  rounded-full bg-[#57356A]" />
@@ -287,86 +305,44 @@ function Main() {
           </div>
 
           {/* Total Tasks Chart */}
-          <div className=" lg:col-span-6 bg-gray-50 rounded-2xl shadow-sm p-4 md:p-6 border border-purple-200">
-            <div className="flex justify-between items-center mb-30">
-              <h2 className="text-lg font-semibold  text-[#57356A]">
+          <div className="lg:col-span-6 bg-gray-50 rounded-2xl shadow-sm p-4 md:p-6 border border-purple-200">
+            <div className="flex justify-between items-center  mb-4">
+              <h2 className="text-lg font-semibold text-[#57356A]">
                 Total Tasks
               </h2>
-              <select className="text-sm border rounded-lg px-2 md:px-3 py-1 bg-gray-50 ">
+              <select className="text-sm text-center border rounded-lg px-2 md:px-3 py-1 bg-gray-50">
                 <option>Weekly</option>
                 <option>Monthly</option>
                 <option>Yearly</option>
               </select>
             </div>
-            <div className="h-48 md:h-52 flex flex-col  justify-end ">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={data}
-                  margin={{ top: 10, right: 0, left: -10, bottom: 0 }}
-                >
-                  <XAxis
-                    dataKey="name"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12 }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12 }}
-                    domain={[0, "dataMax + 10"]}
-                    ticks={[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
-                  />
-                  <Tooltip
-                    content={<CustomTooltip />}
-                    cursor={{ strokeDasharray: "3 3" }}
-                  />
-                  <defs>
-                    <linearGradient
-                      id="colorGradient"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop offset="0%" stopColor="#4D2D61" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#4D2D61" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <Area
-                    type="monotone"
-                    dataKey="tasks"
-                    stroke={false}
-                    fill="url(#colorGradient)"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="tasks"
-                    stroke="#4D2D61"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+            <div className="h-[200px] md:h-[300px] lg:h-[350px]">
+              <Chart
+                options={chartOptions}
+                series={chartSeries}
+                type="area"
+                height="100%"
+                width="100%"
+              />
             </div>
           </div>
         </div>
 
         {/* Activity Log */}
-        <div className="bg-gray-50 rounded-2xl shadow-sm p-4 md:p-6 border border-purple-200">
+        <div className="bg-gray-50 rounded-2xl shadow-sm p-4 md:p-6 border border-purple-200 overflow-x-auto">
           <h2 className="text-lg font-semibold  text-[#57356A] mb-4">
             Activity Log
           </h2>
-          <div className="min-w-[768px]">
+          <div className="min-w-full max-h-[300px] overflow-y-auto no-scrollbar">
             <table className="w-full">
               <thead>
                 <tr className="text-sm text-gray-500">
-                  <th className="text-left py-3 px-4">Num</th>
-                  <th className="text-left py-3 px-4">Name</th>
-                  <th className="text-left py-3 px-4">Projects</th>
-                  <th className="text-left py-3 px-4">Activity</th>
-                  <th className="text-left py-3 px-4">Date</th>
-                  <th className="text-left py-3 px-4">Time</th>
+                  <th className="text-left py-3 px-2 md:px-4">Num</th>
+                  <th className="text-left py-3 px-2 md:px-4">Name</th>
+                  <th className="text-left py-3 px-2 md:px-4">Projects</th>
+                  <th className="text-left py-3 px-2 md:px-4">Activity</th>
+                  <th className="text-left py-3 px-2 md:px-4">Date</th>
+                  <th className="text-left py-3 px-2 md:px-4">Time</th>
                 </tr>
               </thead>
               <tbody className="text-sm">
@@ -391,6 +367,20 @@ function Main() {
                     date: "March 6, 2018",
                     time: "08:20 pm",
                     status: "In progress",
+                  },
+                  {
+                    name: "Cameron Williamson",
+                    project: "Trekverse",
+                    date: "March 6, 2018",
+                    time: "08:20 pm",
+                    status: "Completed",
+                  },
+                  {
+                    name: "Cameron Williamson",
+                    project: "Trekverse",
+                    date: "March 6, 2018",
+                    time: "08:20 pm",
+                    status: "Completed",
                   },
                   {
                     name: "Cameron Williamson",

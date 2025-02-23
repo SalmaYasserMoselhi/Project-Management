@@ -173,14 +173,14 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#ffffff] flex w-[185vh]">
+    <div className="min-h-screen bg-[#ffffff] flex  w-[184vh]">
       <Sidebar isSidebarOpen={isSidebarOpen} toggleSidebar={handleToggle} />
 
       <Header isSidebarOpen={isSidebarOpen} toggleSidebar={handleToggle} />
       <main
-        className={`w-fit transition-all duration-300  ${
-          isSidebarOpen ? "md:ml-28 mr:0 p-6" : "md:ml-0.3 pr-6 pt-6 w-[90vw]"
-        } mt-18 min-h-[calc(100vh-5rem)]`}
+        className={`w-full transition-all duration-300  ${
+          isSidebarOpen ? "md:ml-28 mr:0 p-6" : "md:ml-0.3 pr-6 pt-6 w-[90%]"
+        } mt-18 min-h-[calc(100vh-5rem)] pb-4`}
       >
         <Outlet />
       </main>
