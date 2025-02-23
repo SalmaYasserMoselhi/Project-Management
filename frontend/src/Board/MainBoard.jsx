@@ -45,6 +45,7 @@ import '../index.css';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import ProjectInfo from './ProjectInfo';
+import Board from './Board';
 
 const MainBoard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -52,14 +53,14 @@ const MainBoard = () => {
   const handleToggle = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
-
+ 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] flex w-[198vh]">
-      <Sidebar 
+    <div className="min-h-screen bg-[#f5f5f5] flex w-[250vh]">
+       <Sidebar 
         isSidebarOpen={isSidebarOpen} 
         toggleSidebar={handleToggle}
-      />
-      
+      /> 
+       
       <Header 
         isSidebarOpen={isSidebarOpen}
         toggleSidebar={handleToggle}
@@ -67,10 +68,11 @@ const MainBoard = () => {
  
  <main
   className={`w-[80vw] transition-all duration-300  ${
-    isSidebarOpen ? "md:ml-45" : "md:ml-6  w-[90vw]"
+    isSidebarOpen ? "md:ml-45" : "md:ml-6  w-[100vw]"
   } mt-18 p-6 min-h-[calc(100vh-5rem)]`}
 >
   <ProjectInfo />
+  <Board/>
 </main>
     </div>
   );

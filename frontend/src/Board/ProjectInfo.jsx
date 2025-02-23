@@ -56,15 +56,15 @@ const ProjectInfo = () => {
           Fintech app development provides more freedom to banking and other
           financial institutions.
         </p>
-        <div className="mt-4">
+        {/* <div className="mt-4">
           <div className="w-full bg-gray-200 h-2 rounded-full mt-1">
             <div
               className="bg-[#4D2D61] h-2 rounded-full"
               style={{ width: "75%" }}
             ></div>
           </div>
-        </div>
-        <div className="text-sm text-gray-600 mt-1">91 hours</div>
+        </div> */}
+        {/* <div className="text-sm text-gray-600 mt-1">91 hours</div> */}
       </div>
     );
   };
