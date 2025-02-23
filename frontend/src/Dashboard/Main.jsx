@@ -333,7 +333,7 @@ function Main() {
           <h2 className="text-lg font-semibold  text-[#57356A] mb-4">
             Activity Log
           </h2>
-          <div className="min-w-full">
+          <div className="min-w-full max-h-[300px] overflow-y-auto no-scrollbar">
             <table className="w-full">
               <thead>
                 <tr className="text-sm text-gray-500">
@@ -367,6 +367,20 @@ function Main() {
                     date: "March 6, 2018",
                     time: "08:20 pm",
                     status: "In progress",
+                  },
+                  {
+                    name: "Cameron Williamson",
+                    project: "Trekverse",
+                    date: "March 6, 2018",
+                    time: "08:20 pm",
+                    status: "Completed",
+                  },
+                  {
+                    name: "Cameron Williamson",
+                    project: "Trekverse",
+                    date: "March 6, 2018",
+                    time: "08:20 pm",
+                    status: "Completed",
                   },
                   {
                     name: "Cameron Williamson",
