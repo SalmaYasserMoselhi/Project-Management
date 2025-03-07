@@ -59,11 +59,6 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
-    // role: {
-    //   type: String,
-    //   enum: ['owner', 'admin', 'member'], // Changed to match workspace roles
-    //   default: 'member',
-    // },
     password: {
       type: String,
       required: [true, 'Please provide a strong password'],

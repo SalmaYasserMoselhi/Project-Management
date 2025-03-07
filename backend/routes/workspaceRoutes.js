@@ -3,58 +3,65 @@ const workspaceController = require('../controllers/workspaceController.js');
 const authController = require('../controllers/authController.js');
 const router = express.Router();
 
-// Public routes (before protect middleware)
+// Public routes
 router.get('/join/:token', workspaceController.acceptInvitation);
 
 // Protect all routes after this middleware
 router.use(authController.protect);
 
-// Workspace Management Routes
-// Get user's workspaces (own and member of)
+// General workspace routes
 router.get('/user-workspaces', workspaceController.getUserWorkspaces);
 router.get('/public-member', workspaceController.getPublicAndMemberWorkspaces);
 
-// Get specific workspace
+// Workspace specific routes
 router
   .route('/:workspaceId')
   .get(
-    workspaceController.validateWorkspaceOperation,
+    workspaceController.checkWorkspacePermission('view_workspace'),
     workspaceController.getWorkspaceById
   )
   .patch(
-    workspaceController.validateWorkspaceOperation,
-    workspaceController.updateWorkspace // Only works for public workspace
+    workspaceController.checkWorkspacePermission('manage_workspace'),
+    workspaceController.checkPublicWorkspace,
+    workspaceController.updateWorkspace
   );
 
-// Member management routes (only for public workspace)
+// Member management (public workspace only)
 router
   .route('/:workspaceId/members')
   .get(
-    workspaceController.validateWorkspaceOperation,
+    workspaceController.checkWorkspacePermission('view_members'),
+    workspaceController.checkPublicWorkspace,
     workspaceController.getWorkspaceMembers
   );
 
+// Invitation management
 router
   .route('/:workspaceId/invite')
   .post(
-    workspaceController.validateWorkspaceOperation,
+    workspaceController.checkWorkspacePermission('invite_members'),
+    workspaceController.checkPublicWorkspace,
     workspaceController.inviteMembers
   )
   .get(
-    workspaceController.validateWorkspaceOperation,
+    workspaceController.checkWorkspacePermission('manage_members'),
+    workspaceController.checkPublicWorkspace,
     workspaceController.getPendingInvitations
   );
 
 router.delete(
   '/:workspaceId/invite/:email',
-  workspaceController.validateWorkspaceOperation,
+  workspaceController.checkWorkspacePermission('manage_members'),
+  workspaceController.checkPublicWorkspace,
   workspaceController.cancelInvitation
 );
 
+// Member role management
 router
   .route('/:workspaceId/members/:userId')
   .delete(
-    workspaceController.validateWorkspaceOperation,
+    workspaceController.checkWorkspacePermission('manage_roles'),
+    workspaceController.checkPublicWorkspace,
     workspaceController.removeMember
   );
 
