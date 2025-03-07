@@ -5,18 +5,18 @@ import Signup from "../Auth/Signup";
 import ForgetPassword from "../Auth/ForgetPassword";
 import Verification from "../Auth/Verification";
 import ResetPassword from "../Auth/ResetPassword";
-import Dashboard from "../Dashboard/Dashboard";
+import Dashboard from "../Main/Dashboard";
 import MainBoard from "../Board/mainBoard";
-import Workspace from "../Dashboard/Workspace";
-import Collaboration from "../Dashboard/Collaboration";
-import Private from "../Dashboard/Private";
-import Calender from "../Dashboard/Calender";
-import Setting from "../Dashboard/Setting";
-import Main from "../Dashboard/Main";
+import Workspace from "../Main/Workspace";
+import Collaboration from "../Main/Collaboration";
+import Private from "../Main/Private";
+import Calender from "../Main/Calender";
+import Setting from "../Main/Setting";
+import Main from "../Main/Main";
 
 function Routing() {
   return (
-    <div className="px-4 sm:px-[5vw] md:px-[7vw] 1g:px-[9vw]">
+    <div className="w-full h-full">
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
@@ -26,9 +26,9 @@ function Routing() {
         <Route path="/resetpassword" element={<ResetPassword />} />
         <Route path="/mainboard" element={<MainBoard />} />
 
-        <Route path="/dashboard/*" element={<Dashboard />}>
-          <Route index element={<Navigate to="main" />} />
-          <Route path="main" element={<Main />} />
+        <Route path="/main/*" element={<Main />}>
+          <Route index element={<Navigate to="dashboard" />} />
+          <Route path="dashboard" element={<Dashboard />} />
           <Route path="workspace" element={<Workspace />} />
           <Route path="collaboration" element={<Collaboration />} />
           <Route path="private" element={<Private />} />
