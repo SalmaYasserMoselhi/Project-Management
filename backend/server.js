@@ -9,7 +9,6 @@ const dotenv = require('dotenv');
 
 dotenv.config({ path: './.env' });
 const app = require('./app');
-const setupSocketServer = require('./socketServer.js');
 
 const DB = process.env.DATABASE.replace(
   '<PASSWORD>',
@@ -35,7 +34,6 @@ const port = process.env.PORT || 3001;
 const server = app.listen(port, () => {
   console.log(`App running on port ${port}...`);
 });
-setupSocketServer(server);
 
 // process.on("unhandledRejection", (err) => {
 //   console.log("UNHANDLED REJECTION! 💥 Shutting down...");
