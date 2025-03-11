@@ -21,14 +21,14 @@ const MainBoard = () => {
         toggleSidebar={handleToggle}
       /> 
        
-      <Header 
+      {/* <Header 
         isSidebarOpen={isSidebarOpen}
         toggleSidebar={handleToggle}
-      />
+      /> */}
  
  <main
-  className={`w-[80vw] transition-all duration-300  ${
-    isSidebarOpen ? "md:ml-40" : "md:ml-3  w-[90vw]"
+  className={`w-[100vw] transition-all duration-300  ${
+    isSidebarOpen ? "md:ml-62" : "md:ml-3  w-[200vw]"
   } mt-18 p-6 min-h-[calc(90vh-5rem)]`}
 >
   <ProjectInfo />

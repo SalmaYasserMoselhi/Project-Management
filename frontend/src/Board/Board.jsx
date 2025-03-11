@@ -16,7 +16,7 @@ const Board = () => {
   ];
 
   return (
-    <div className="p-1 min-h-screen font-[Nunito] mt-7 flex flex-col items-center -ml-4">
+    <div className="p-1 min-h-screen font-[Nunito] mt-7 flex flex-col items-center -ml-3">
       {/* Board Wrapper with Border (Left, Top, Bottom) */}
       <div className="border-l-2 border-t-2 border-b-2 border-[#C7C7C7] p-4 rounded-xl w-full max-w-6xl">
         {/* Header Section */}

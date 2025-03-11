@@ -3,7 +3,7 @@
 
 const ProjectInfo = () => {
     return (
-      <div className="bg-white p-6 rounded-2xl shadow-md w-full font-[Nunito] -ml-3">
+      <div className="bg-white p-6 rounded-2xl shadow-md w-full font-[Nunito]  -mt-15 -ml-2">
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-2xl font-semibold flex items-center gap-2">
