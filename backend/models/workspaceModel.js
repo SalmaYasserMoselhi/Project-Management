@@ -40,21 +40,31 @@ const workspaceSchema = new mongoose.Schema(
         permissions: {
           type: [String],
           default: function () {
-            {
-              switch (this.role) {
-                case 'owner':
-                  return [
-                    'create',
-                    'read',
-                    'update',
-                    'delete',
-                    'manage-members',
-                  ];
-                case 'admin':
-                  return ['create', 'read', 'update', 'delete'];
-                default:
-                  return ['read'];
-              }
+            switch (this.role) {
+              case 'owner':
+                return [
+                  'manage_workspace', // Can modify workspace settings
+                  'manage_members', // Can add/remove members
+                  'manage_roles', // Can change member roles
+                  'create_boards', // Can create new boards
+                  'delete_boards', // Can delete boards
+                  'invite_members', // Can invite new members
+                  'view_members', // Can view member list
+                  'manage_settings', // Can change workspace settings
+                ];
+              case 'admin':
+                return [
+                  'create_boards', // Can create new boards
+                  'delete_own_boards', // Can delete boards they created
+                  'invite_members', // Can invite new members
+                  'view_members', // Can view member list
+                  'manage_settings', // Can change general settings
+                ];
+              default:
+                return [
+                  'view_workspace', // Can view workspace
+                  'view_boards', // Can view boards in workspace
+                ];
             }
           },
         },
@@ -64,6 +74,34 @@ const workspaceSchema = new mongoose.Schema(
         },
       },
     ],
+    settings: {
+      // Critical Settings (Owner Only)
+      inviteRestriction: {
+        type: String,
+        enum: ['owner', 'admin'],
+        default: 'owner',
+      },
+      boardCreation: {
+        type: String,
+        enum: ['owner', 'admin'],
+        default: 'owner',
+      },
+
+      // General Settings (Owner & Admin)
+      defaultView: {
+        type: String,
+        enum: ['board', 'calendar', 'timeline'],
+        default: 'board',
+      },
+      cardCoverEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      notificationsEnabled: {
+        type: Boolean,
+        default: true,
+      },
+    },
     invitations: [
       {
         email: {
@@ -94,14 +132,6 @@ const workspaceSchema = new mongoose.Schema(
         },
       },
     ],
-    settings: {
-      type: Object,
-      default: {
-        defaultView: 'board',
-        cardCoverEnabled: true,
-        notificationsEnabled: true,
-      },
-    },
   },
   {
     timestamps: true,
@@ -112,6 +142,30 @@ const workspaceSchema = new mongoose.Schema(
 workspaceSchema.index({ name: 1, createdBy: 1 });
 workspaceSchema.index({ 'members.user': 1 });
 workspaceSchema.index({ 'invitations.email': 1, 'invitations.token': 1 });
+
+// Method to check if a user has a specific permission
+workspaceSchema.methods.hasPermission = function (userId, permission) {
+  const member = this.members.find(
+    (m) => m.user.toString() === userId.toString()
+  );
+  return member && member.permissions.includes(permission);
+};
+
+// Method to check if a user is an owner or admin
+workspaceSchema.methods.isOwnerOrAdmin = function (userId) {
+  const member = this.members.find(
+    (m) => m.user.toString() === userId.toString()
+  );
+  return member && ['owner', 'admin'].includes(member.role);
+};
+
+// Method to get member's role
+workspaceSchema.methods.getMemberRole = function (userId) {
+  const member = this.members.find(
+    (m) => m.user.toString() === userId.toString()
+  );
+  return member ? member.role : null;
+};
 
 // VIRTUAL POPULATE, 'Virtual Child Referencing' to get all boards of a workspace
 workspaceSchema.virtual('boards', {
@@ -126,27 +180,6 @@ workspaceSchema.virtual('boards', {
     // Only show non-archived boards
     archived: false,
   },
-});
-
-// workspaceSchema.pre(/^find/, function (next) {
-//   this.populate({
-//     path: 'createdBy',
-//     select: 'firstName lastName username email',
-//   });
-//   next();
-// });
-
-// Middleware to prevent deletion of default workspaces
-workspaceSchema.pre('remove', async function (next) {
-  if (
-    ['private', 'public', 'collaboration'].includes(this.type) &&
-    this.members.some(
-      (m) => m.user.equals(this.createdBy) && m.role === 'owner'
-    )
-  ) {
-    throw new Error('Cannot delete default workspace');
-  }
-  next();
 });
 
 // Static method to create default workspaces for a new user

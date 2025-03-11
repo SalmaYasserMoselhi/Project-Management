@@ -62,10 +62,10 @@ const loginSlice = createSlice({
   initialState,
   reducers: {
     setEmail: (state, action) => {
-      state.email = action.payload;
+      state.form.email = action.payload;
     },
     setPassword: (state, action) => {
-      state.password = action.payload;
+      state.form.password = action.payload;
     },
     setEmailError: (state, action) => {
       state.emailError = action.payload;

@@ -6,6 +6,89 @@ const sendEmail = require('../utils/email');
 const crypto = require('crypto');
 const Board = require('../models/boardModel');
 
+// Helper function for essential workspace population
+const populateWorkspace = async (workspaceId) => {
+  return await Workspace.findById(workspaceId)
+    .populate({
+      path: 'members.user',
+      select: 'username email avatar', // Only essential user info
+    })
+    .populate({
+      path: 'createdBy',
+      select: 'username email', // Basic creator info
+    })
+    .populate({
+      path: 'boards',
+      select: 'name description', // Basic board info
+      match: { archived: false }, // Only non-archived boards
+    });
+};
+
+// Helper function to format member data
+const formatMemberData = (member) => ({
+  _id: member._id,
+  user: {
+    _id: member.user._id,
+    username: member.user.username,
+    email: member.user.email,
+    avatar: member.user.avatar,
+  },
+  role: member.role,
+  permissions: member.permissions,
+  joinedAt: member.joinedAt,
+});
+
+// Middleware for checking workspace permissions
+exports.checkWorkspacePermission = (permission) => {
+  return catchAsync(async (req, res, next) => {
+    const workspace = await Workspace.findById(req.params.workspaceId);
+
+    if (!workspace) {
+      return next(new AppError('Workspace not found', 404));
+    }
+
+    // Check if user has access to workspace
+    const member = workspace.members.find((member) =>
+      member.user.equals(req.user._id)
+    );
+
+    if (!member) {
+      return next(
+        new AppError('You do not have access to this workspace', 403)
+      );
+    }
+
+    // Special validations for workspace types
+    if (
+      (workspace.type === 'private' || workspace.type === 'collaboration') &&
+      !workspace.createdBy.equals(req.user._id)
+    ) {
+      return next(new AppError('You cannot modify this workspace', 403));
+    }
+
+    if (!workspace.hasPermission(req.user._id, permission)) {
+      return next(
+        new AppError('You do not have permission to perform this action', 403)
+      );
+    }
+
+    // Attach workspace and user role to request
+    req.workspace = workspace;
+    req.userRole = member.role;
+    next();
+  });
+};
+
+// Middleware to check if workspace is public
+exports.checkPublicWorkspace = catchAsync(async (req, res, next) => {
+  if (req.workspace.type !== 'public') {
+    return next(
+      new AppError('This action is only allowed for team workspaces', 400)
+    );
+  }
+  next();
+});
+
 exports.getPublicAndMemberWorkspaces = catchAsync(async (req, res, next) => {
   const workspaces = await Workspace.find({
     $and: [
@@ -162,28 +245,141 @@ exports.getWorkspaceById = catchAsync(async (req, res, next) => {
 // Update workspace details (only for public workspace)
 exports.updateWorkspace = catchAsync(async (req, res, next) => {
   const workspace = req.workspace;
+  const { settings, memberUpdates } = req.body;
+  const userRole = workspace.getMemberRole(req.user._id);
 
-  // Only public workspaces can be modified
-  if (workspace.type !== 'public') {
-    return next(new AppError('Only team workspace can be modified', 400));
+  let updateData = {};
+  let memberUpdateResults = [];
+
+  // Handle Settings Updates
+  if (settings) {
+    // Critical settings (owner only)
+    if (settings.inviteRestriction || settings.boardCreation) {
+      if (userRole !== 'owner') {
+        return next(
+          new AppError('Only workspace owner can modify critical settings', 403)
+        );
+      }
+    }
+
+    // General settings (owner & admin)
+    if (
+      settings.defaultView ||
+      settings.cardCoverEnabled ||
+      settings.notificationsEnabled ||
+      settings.maxBoardsPerWorkspace
+    ) {
+      if (!workspace.isOwnerOrAdmin(req.user._id)) {
+        return next(
+          new AppError(
+            'Only workspace owners and admins can modify general settings',
+            403
+          )
+        );
+      }
+    }
+
+    updateData.settings = { ...workspace.settings, ...settings };
   }
 
-  // Update only allowed fields
-  const updatedWorkspace = await Workspace.findByIdAndUpdate(
-    req.params.workspaceId,
-    {
-      name: req.body.name,
-      description: req.body.description,
-      settings: req.body.settings,
-    },
-    {
-      new: true,
-      runValidators: true,
+  // Handle Member Role Updates
+  if (memberUpdates) {
+    if (!Array.isArray(memberUpdates)) {
+      return next(new AppError('memberUpdates must be an array', 400));
     }
-  );
+
+    for (const update of memberUpdates) {
+      const { userId, role } = update;
+
+      if (!['admin', 'member'].includes(role)) {
+        memberUpdateResults.push({
+          userId,
+          success: false,
+          message: 'Invalid role. Role must be either admin or member',
+        });
+        continue;
+      }
+
+      const targetMember = workspace.members.find(
+        (member) => member.user.toString() === userId
+      );
+
+      if (!targetMember) {
+        memberUpdateResults.push({
+          userId,
+          success: false,
+          message: 'Member not found',
+        });
+        continue;
+      }
+
+      if (targetMember.role === 'owner') {
+        memberUpdateResults.push({
+          userId,
+          success: false,
+          message: "Cannot change workspace owner's role",
+        });
+        continue;
+      }
+
+      if (role === 'admin' && userRole !== 'owner') {
+        memberUpdateResults.push({
+          userId,
+          success: false,
+          message: 'Only workspace owner can promote to admin',
+        });
+        continue;
+      }
+
+      // Update member's role and permissions
+      targetMember.role = role;
+      targetMember.permissions =
+        role === 'admin'
+          ? [
+              'create_boards',
+              'delete_own_boards',
+              'invite_members',
+              'view_members',
+              'manage_settings',
+            ]
+          : ['view_workspace', 'view_own_boards'];
+
+      memberUpdateResults.push({
+        userId,
+        success: true,
+        role,
+        permissions: targetMember.permissions,
+      });
+    }
+  }
+
+  // Save all updates
+  if (Object.keys(updateData).length > 0 || memberUpdateResults.length > 0) {
+    if (Object.keys(updateData).length > 0) {
+      workspace.set(updateData);
+    }
+    await workspace.save();
+  }
+
+  // Get populated workspace after updates
+  const populatedWorkspace = await populateWorkspace(workspace._id);
+
   res.status(200).json({
     status: 'success',
-    data: { workspace: updatedWorkspace },
+    data: {
+      workspace: {
+        _id: populatedWorkspace._id,
+        name: populatedWorkspace.name,
+        type: populatedWorkspace.type,
+        settings: populatedWorkspace.settings,
+        members: populatedWorkspace.members.map(formatMemberData),
+        boards: populatedWorkspace.boards,
+        createdBy: {
+          _id: populatedWorkspace.createdBy._id,
+          username: populatedWorkspace.createdBy.username,
+        },
+      },
+    },
   });
 });
 
@@ -222,57 +418,31 @@ exports.removeMember = catchAsync(async (req, res, next) => {
 
 // Get members of a public workspace only
 exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
-  const workspace = req.workspace;
+  const workspace = await Workspace.findById(req.workspace._id)
+    .populate('members.user', 'username email avatar')
+    .select('members');
 
-  // Only allow for public workspace
-  if (workspace.type !== 'public') {
-    return next(new AppError('Can only view members of team workspace', 403));
+  if (!workspace) {
+    return next(new AppError('Workspace not found', 404));
   }
 
-  let members = workspace.members;
+  const members = workspace.members.map(formatMemberData);
 
-  // Search functionality
-  if (req.query.search) {
-    const searchRegex = new RegExp(req.query.search, 'i');
-
-    members = workspace.members.filter((member) => {
-      const user = member.user;
-      return (
-        searchRegex.test(user.fullName) ||
-        searchRegex.test(user.username) ||
-        searchRegex.test(user.email)
-      );
-    });
-  }
-
-  // Pagination
-  const page = parseInt(req.query.page, 10) || 1;
-  const limit = parseInt(req.query.limit, 10) || 10;
-  const startIndex = (page - 1) * limit;
-  const endIndex = page * limit;
-  const total = members.length;
-
-  const paginatedMembers = members.slice(startIndex, endIndex);
+  // Add useful stats
+  const memberStats = {
+    total: members.length,
+    byRole: {
+      owner: members.filter((m) => m.role === 'owner').length,
+      admin: members.filter((m) => m.role === 'admin').length,
+      member: members.filter((m) => m.role === 'member').length,
+    },
+  };
 
   res.status(200).json({
     status: 'success',
     data: {
-      members: paginatedMembers.map((member) => ({
-        user: member.user._id,
-        fullName: member.user.fullName,
-        username: member.user.username,
-        email: member.user.email,
-        role: member.role,
-        joinedAt: member.joinedAt,
-      })),
-      // pagination: {
-      //   currentPage: page,
-      //   totalPages: Math.ceil(total / limit),
-      //   totalMembers: total,
-      //   hasNextPage: endIndex < total,
-      //   hasPrevPage: page > 1,
-      //   limit,
-      // },
+      members,
+      stats: memberStats,
     },
   });
 });
@@ -291,14 +461,29 @@ exports.inviteMembers = catchAsync(async (req, res, next) => {
     );
   }
 
+  // Check if user has permission to invite
+  if (!workspace.hasPermission(req.user._id, 'invite_members')) {
+    return next(
+      new AppError('You do not have permission to invite members', 403)
+    );
+  }
+
+  // Check invite restriction setting
+  const userRole = workspace.getMemberRole(req.user._id);
+  if (
+    workspace.settings.inviteRestriction === 'owner' &&
+    userRole !== 'owner'
+  ) {
+    return next(new AppError('Only workspace owner can send invitations', 403));
+  }
+
+  // Get workspace owner
   const workspaceOwner = workspace.members.find(
     (member) => member.role === 'owner'
   );
-
   if (!workspaceOwner) {
-    return next(new AppError('Workspace owner not found', 400));
+    return next(new AppError('Workspace owner not found', 404));
   }
-
   const workspaceOwnerUser = await User.findById(workspaceOwner.user);
 
   const { invites } = req.body;
@@ -311,6 +496,12 @@ exports.inviteMembers = catchAsync(async (req, res, next) => {
 
   for (const invite of invites) {
     const { email, role = 'member' } = invite;
+
+    // Only owners can invite admins
+    if (role === 'admin' && userRole !== 'owner') {
+      failedInvites.push({ email, reason: 'Only owners can invite admins' });
+      continue;
+    }
 
     // Check if user exists and is already a member
     const user = await User.findOne({ email });
@@ -369,7 +560,7 @@ exports.inviteMembers = catchAsync(async (req, res, next) => {
       });
       invitationResults.push({ email, status: 'sent' });
     } catch (error) {
-      failedInvites.push({ email, reason: 'Email sending failed' });
+      failedInvites.push({ email, reason: error.message });
       // Remove failed invitation
       workspace.invitations = workspace.invitations.filter(
         (inv) => inv.email !== email
@@ -496,34 +687,4 @@ exports.cancelInvitation = catchAsync(async (req, res, next) => {
     status: 'success',
     message: 'Invitation cancelled',
   });
-});
-
-/**
- * Validate workspace operations MIDDLEWARE
- * Checks access rights and workspace type restrictions
- */
-exports.validateWorkspaceOperation = catchAsync(async (req, res, next) => {
-  const workspace = await Workspace.findById(req.params.workspaceId);
-
-  // Check if user has access to workspace
-  const member = workspace.members.find((member) =>
-    member.user.equals(req.user._id)
-  );
-
-  if (!member) {
-    return next(new AppError('You do not have access to this workspace', 403));
-  }
-
-  // Special validations for workspace types
-  if (
-    (workspace.type === 'private' || workspace.type === 'collaboration') &&
-    !workspace.createdBy.equals(req.user._id)
-  ) {
-    return next(new AppError('You cannot modify this workspace', 403));
-  }
-
-  // Attach workspace and user role to request
-  req.workspace = workspace;
-  req.userRole = member.role;
-  next();
 });

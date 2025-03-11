@@ -250,7 +250,7 @@ exports.handleCallback = async (req, res) => {
       path: '/',
     });
 
-    res.redirect(`${frontendUrl}/dashboard`);
+    res.redirect(`${frontendUrl}/main`);
   } catch (error) {
     const frontendUrl = req.query.state
       ? JSON.parse(Buffer.from(req.query.state, 'base64').toString())
