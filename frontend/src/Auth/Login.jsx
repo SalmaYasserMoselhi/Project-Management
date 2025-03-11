@@ -17,15 +17,10 @@ const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 function Login() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const {
-    email,
-    password,
-    errorMessage,
-    emailError,
-    passwordError,
-    loading,
-    oauthLoading,
-  } = useSelector((state) => state.login);
+  const { email, password } = useSelector((state) => state.login.form);
+
+  const { errorMessage, emailError, passwordError, loading, oauthLoading } =
+    useSelector((state) => state.login);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -56,10 +51,8 @@ function Login() {
 
     try {
       const resultAction = await dispatch(loginUser({ email, password }));
-      console.log("resultAction:", resultAction);
-
       if (loginUser.fulfilled.match(resultAction)) {
-        navigate("/dashboard");
+        navigate("/main");
       }
     } catch (error) {
       console.error(error);

@@ -3,7 +3,7 @@ import Routing from "./Routing/Routing";
 
 function App() {
   return (
-    <div>
+    <div className="w-full h-screen overflow-hidden">
       <Routing />
     </div>
   );
