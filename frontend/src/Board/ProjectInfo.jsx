@@ -3,7 +3,7 @@
 
 const ProjectInfo = () => {
     return (
-      <div className="bg-white p-6 rounded-2xl shadow-md w-full font-[Nunito]">
+      <div className="bg-white p-6 rounded-2xl shadow-md w-full font-[Nunito] -ml-3">
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-2xl font-semibold flex items-center gap-2">
@@ -26,29 +26,16 @@ const ProjectInfo = () => {
           <div className="flex items-center gap-2 justify-end">
           
             <div className="flex -space-x-2">
-            <img
-                src="src/assets/Avatar1.png"
+             <img
+                src="src\assets\share.png"
                 alt="User 1"
                 className="w-8 h-8 rounded-full border-2 border-white"
               />
               <img
-                src="src/assets/Avatar2.png"
+                src="src\assets\Vector.png"
                 alt="User 2"
-                className="w-8 h-8 rounded-full border-2 border-white"
-              />
-              <img
-                src="src/assets/Avatar3.png"
-                alt="User 3"
-                className="w-8 h-8 rounded-full border-2 border-white"
-              />
-              <span className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-full border-2 border-white text-sm font-medium">
-                +5
-              </span>
-              <img
-                src="src/assets/Add Button.png"
-                alt="Add"
-                className="w-8 h-8 ms-4 rounded-full border-2 border-white bg-gray-200 cursor-pointer"
-              />
+                className="w-[18px] h-[4px] rounded-full border-2 border-white"
+              />             
             </div>
           </div>
         </div>
