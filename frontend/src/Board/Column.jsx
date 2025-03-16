@@ -40,6 +40,7 @@ const Column = ({ title, count, className }) => {
         />
       </button>
     </div>
+    // 
   );
 };
 
