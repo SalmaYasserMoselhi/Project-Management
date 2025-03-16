@@ -17,6 +17,10 @@
 // import notificationIcon from "../assets/notification.png";
 // import Avatar from "../assets/defaultAvatar.png";
 // import LogoF from "../assets/LogoF.png";
+<<<<<<< HEAD
+=======
+// import LogoS from "../assets/Logo.png";
+>>>>>>> 5575001b4f47289ac90dde3f035de8578ffcfab8
 
 // import {
 //   ChevronDown,
@@ -84,6 +88,7 @@
 //       }`}
 //     >
 //       {/* Logo and Close Button Section */}
+<<<<<<< HEAD
 //       <div className="relative flex items-center w-full mb-6 mt-2">
 //         {isSidebarOpen && (
 //           <img
@@ -113,6 +118,44 @@
 //       {/* Only render the user workspace section if user data is available */}
 //       {user && (
 //         <div className="mb-4">
+=======
+//       <div className="relative flex items-center w-full mb-4 mt-1">
+//         {isSidebarOpen ? (
+//           <img
+//             src={LogoF}
+//             alt="Logo"
+//             className="h-10 transition-all duration-300"
+//           />
+//         ) : (
+//           <div className="flex justify-center w-full">
+//             <img
+//               src={LogoS}
+//               alt="Small Logo"
+//               className="h-6 w-6 transition-all duration-300"
+//             />
+//           </div>
+//         )}
+
+//         {/* Floating Toggle Button */}
+//         <button
+//           onClick={() => dispatch(toggleSidebar())}
+//           className={`absolute ${
+//             isSidebarOpen ? "right-0" : "-right-8"
+//           } top-1/2 -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full bg-[#57356A] text-white transition-all duration-300 shadow-lg hover:bg-[#65437A] z-10`}
+//         >
+//           {isSidebarOpen ? (
+//             <ChevronLeft size={18} />
+//           ) : (
+//             <ChevronRight size={18} />
+//           )}
+//         </button>
+//       </div>
+//       <hr className="border-t border-[#BBBBBB80] opacity-50 mb-3" />
+
+//       {/* Only render the user workspace section if user data is available */}
+//       {user && (
+//         <div className="mb-3">
+>>>>>>> 5575001b4f47289ac90dde3f035de8578ffcfab8
 //           {isSidebarOpen ? (
 //             <div
 //               className="flex items-center justify-between cursor-pointer px-2 py-1 rounded-md hover:bg-[#6A3B82]"
@@ -143,6 +186,7 @@
 //             </div>
 //           )}
 
+<<<<<<< HEAD
 //           {/* Dropdown menu */}
 //           {isSidebarOpen && isWorkspaceOpen && (
 //             <div className="mt-2 space-y-2 pl-3">
@@ -171,6 +215,76 @@
 //       )}
 
 //       <hr className="border-t border-[#BBBBBB80] opacity-50 mb-4" />
+=======
+//           {/* Dropdown menu
+//           {isSidebarOpen && isWorkspaceOpen && (
+
+//           )} */}
+
+//           <div className="mt-2 space-y-2">
+//             {/* Notifications */}
+//             <div
+//               className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+//                 activeItem === "Notifications"
+//                   ? "bg-[#4D2D61] text-white"
+//                   : "text-gray-900 hover:bg-[#6A3B82]"
+//               } ${isSidebarOpen ? "w-full" : "w-14 justify-center"}`}
+//               onClick={(e) => {
+//                 e.preventDefault();
+//                 handleItemClick("Notifications", "notifications");
+//               }}
+//             >
+//               <div className="flex items-center gap-3">
+//                 <img
+//                   src={notificationIcon}
+//                   alt="Notifications"
+//                   className={`h-6 w-6 filter brightness-0 invert ${
+//                     activeItem === "Notifications"
+//                       ? "filter brightness-0 invert"
+//                       : "filter brightness-0"
+//                   }`}
+//                 />
+//                 {isSidebarOpen && (
+//                   <span className="text-sm font-medium text-white">
+//                     Notifications
+//                   </span>
+//                 )}
+//               </div>
+//             </div>
+
+//             {/* Chat */}
+//             <div
+//               className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+//                 activeItem === "Chat"
+//                   ? "bg-[#4D2D61] text-white"
+//                   : "text-gray-900 hover:bg-[#6A3B82]"
+//               } ${isSidebarOpen ? "w-full" : "w-14 justify-center"}`}
+//               onClick={(e) => {
+//                 e.preventDefault();
+//                 handleItemClick("Chat", "chat");
+//               }}
+//             >
+//               <div className="flex items-center gap-3">
+//                 <img
+//                   src={chatIcon || "/placeholder.svg"}
+//                   alt="Chat"
+//                   className={`h-6 w-6 filter brightness-0 invert ${
+//                     activeItem === "Chat"
+//                       ? "filter brightness-0 invert"
+//                       : "filter brightness-0"
+//                   }`}
+//                 />
+//                 {isSidebarOpen && (
+//                   <span className="text-sm font-medium text-white">Chat</span>
+//                 )}
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+//       )}
+
+//       <hr className="border-t border-[#BBBBBB80] opacity-50 mb-3" />
+>>>>>>> 5575001b4f47289ac90dde3f035de8578ffcfab8
 //       {/* Navigation Items */}
 //       <nav className="space-y-2">
 //         {sidebarItems.map((item) => (
@@ -257,8 +371,14 @@
 
 // export default Sidebar;
 
+<<<<<<< HEAD
 
 import { useEffect } from "react";
+=======
+"use client";
+
+import { useEffect, useState } from "react";
+>>>>>>> 5575001b4f47289ac90dde3f035de8578ffcfab8
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
@@ -276,18 +396,14 @@ import chatIcon from "../assets/chat.png";
 import notificationIcon from "../assets/notification.png";
 import Avatar from "../assets/defaultAvatar.png";
 import LogoF from "../assets/LogoF.png";
+import LogoS from "../assets/Logo.png";
 
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsUpDown,
-  Plus,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsUpDown, X } from "lucide-react";
 
 const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(false);
 
   // Get state from Redux store
   const { activeItem, isWorkspaceOpen } = useSelector(
@@ -297,6 +413,17 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
 
   useEffect(() => {
     dispatch(fetchUserData());
+
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+
+    return () => {
+      window.removeEventListener("resize", checkMobile);
+    };
   }, [dispatch]);
 
   const sidebarItems = [
@@ -308,22 +435,14 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
     {
       icon: WorkspaceIcon,
       title: "Workspace",
-      hasAdd: true,
-      hasDropdown: true,
-      path: "workspace",
     },
     {
       icon: CollaborationIcon,
       title: "Collaboration",
-      hasDropdown: true,
-      path: "collaboration",
     },
     {
       icon: PrivateIcon,
       title: "Private",
-      hasAdd: true,
-      hasDropdown: true,
-      path: "private",
     },
   ];
 
@@ -331,26 +450,49 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
     dispatch(setActiveItem(title));
     navigate(`/main/${path}`);
 
-    if (window.innerWidth < 768) {
+    if (isMobile) {
       dispatch(toggleSidebar());
     }
   };
 
   return (
     <div
+<<<<<<< HEAD
       className={`fixed left-0 top-0 bottom-0 bg-[#4D2D61] shadow-lg p-4 flex flex-col border-r border-gray-200 font-[Nunito] transition-all duration-300 z-50 ${
         isSidebarOpen ? "w-64" : "w-16"
       }`}
+=======
+      className={`fixed left-0 top-0 bottom-0 bg-[#4D2D61] shadow-lg p-4 flex flex-col border-r border-gray-200 font-[Nunito] transition-all duration-300 z-50 
+        ${isSidebarOpen ? "w-60" : "w-20"}
+        ${
+          isMobile
+            ? isSidebarOpen
+              ? "translate-x-0"
+              : "-translate-x-full"
+            : "translate-x-0"
+        }
+        ${isMobile && "bg-opacity-95 backdrop-blur-sm"}
+      `}
+>>>>>>> 5575001b4f47289ac90dde3f035de8578ffcfab8
     >
       {/* Logo and Close Button Section */}
-      <div className="relative flex items-center w-full mb-6 mt-2">
-        {isSidebarOpen && (
+      <div className="relative flex items-center w-full mb-4 mt-1">
+        {isSidebarOpen ? (
           <img
-            src={LogoF || "/placeholder.svg"}
+            src={LogoF}
             alt="Logo"
-            className="h-12 transition-all duration-300"
+            className="h-10 transition-all duration-300"
           />
+        ) : (
+          <div className="flex justify-center w-full">
+            <img
+              src={LogoS}
+              alt="Small Logo"
+              className="h-8 w-10 transition-all duration-300"
+            />
+          </div>
         )}
+<<<<<<< HEAD
         <button
           onClick={toggleSidebar}
           className={`flex items-center justify-center w-8 h-8 rounded-full bg-[#57356A] text-white transition-all duration-300 shadow-lg ${
@@ -366,12 +508,40 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
           )}
         </button>
       </div>
+=======
+>>>>>>> 5575001b4f47289ac90dde3f035de8578ffcfab8
 
-      <hr className="border-t border-[#BBBBBB80] opacity-50 mb-4" />
+        {/* Close button for mobile */}
+        {isMobile && isSidebarOpen && (
+          <button
+            onClick={() => dispatch(toggleSidebar())}
+            className="ml-auto p-1 rounded-full bg-white text-[#57356A]"
+          >
+            <X size={18} />
+          </button>
+        )}
+
+        {/* Toggle button for desktop */}
+        {!isMobile && (
+          <button
+            onClick={() => dispatch(toggleSidebar())}
+            className={`absolute ${
+              isSidebarOpen ? "right-0" : "-right-8"
+            } top-1/2 -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full bg-white text-[#57356A] transition-all duration-300 shadow-lg hover:bg-[#65437A] hover:text-white z-10`}
+          >
+            {isSidebarOpen ? (
+              <ChevronLeft size={18} />
+            ) : (
+              <ChevronRight size={18} />
+            )}
+          </button>
+        )}
+      </div>
+      <hr className="border-t border-[#BBBBBB80] opacity-50 mb-3" />
 
       {/* Only render the user workspace section if user data is available */}
       {user && (
-        <div className="mb-4">
+        <div className="mb-3">
           {isSidebarOpen ? (
             <div
               className="flex items-center justify-between cursor-pointer px-2 py-1 rounded-md hover:bg-[#6A3B82]"
@@ -402,36 +572,74 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
             </div>
           )}
 
-          {/* Dropdown menu */}
-          {isSidebarOpen && isWorkspaceOpen && (
-            <div className="mt-2 space-y-2 pl-3">
-              {/* Notifications */}
-              <div className="flex items-center space-x-2 cursor-pointer py-1 text-white hover:text-gray-300">
+          <div className="mt-2 space-y-2">
+            {/* Notifications */}
+            <div
+              className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+                activeItem === "Notifications"
+                  ? "bg-[#4D2D61] text-white"
+                  : "text-gray-900 hover:bg-[#6A3B82]"
+              } ${isSidebarOpen ? "w-full" : "w-14 justify-center"}`}
+              onClick={(e) => {
+                e.preventDefault();
+                handleItemClick("Notifications", "notifications");
+              }}
+            >
+              <div className="flex items-center gap-3">
                 <img
-                  src={notificationIcon || "/placeholder.svg"}
+                  src={notificationIcon}
                   alt="Notifications"
-                  className="h-5 w-5"
+                  className={`h-5 w-5 filter brightness-0 invert ${
+                    activeItem === "Notifications"
+                      ? "filter brightness-0 invert"
+                      : "filter brightness-0"
+                  }`}
                 />
-                <span className="text-sm">Notifications</span>
-              </div>
-
-              {/* Chat */}
-              <div className="flex items-center space-x-2 cursor-pointer py-1 text-white hover:text-gray-300">
-                <img
-                  src={chatIcon || "/placeholder.svg"}
-                  alt="Chat"
-                  className="h-5 w-5"
-                />
-                <span className="text-sm">Chat</span>
+                {isSidebarOpen && (
+                  <span className="text-sm font-medium text-white">
+                    Notifications
+                  </span>
+                )}
               </div>
             </div>
-          )}
+
+            {/* Chat */}
+            <div
+              className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+                activeItem === "Chat"
+                  ? "bg-[#4D2D61] text-white"
+                  : "text-gray-900 hover:bg-[#6A3B82]"
+              } ${isSidebarOpen ? "w-full" : "w-14 justify-center"}`}
+              onClick={(e) => {
+                e.preventDefault();
+                handleItemClick("Chat", "chat");
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <img
+                  src={chatIcon}
+                  alt="Chat"
+                  className={`h-5 w-5 filter brightness-0 invert ${
+                    activeItem === "Chat"
+                      ? "filter brightness-0 invert"
+                      : "filter brightness-0"
+                  }`}
+                />
+                {isSidebarOpen && (
+                  <span className="text-sm font-medium text-white">Chat</span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      <hr className="border-t border-[#BBBBBB80] opacity-50 mb-4" />
+      <hr className="border-t border-[#BBBBBB80] opacity-50 mb-3" />
       {/* Navigation Items */}
-      <nav className="space-y-2">
+      <nav
+        className="space-y-2 overflow-y-auto"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
         {sidebarItems.map((item) => (
           <div
             key={item.title}
@@ -447,7 +655,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
           >
             <div className="flex items-center gap-3">
               <img
-                src={item.icon || "/placeholder.svg"}
+                src={item.icon}
                 alt={`${item.title} icon`}
                 className={`h-6 w-6 filter brightness-0 invert ${
                   activeItem === item.title
@@ -461,15 +669,6 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
                 </span>
               )}
             </div>
-
-            {isSidebarOpen && (item.hasAdd || item.hasDropdown) && (
-              <div className="flex items-center gap-2 ml-2">
-                {item.hasAdd && <Plus className="h-4 w-4 text-white" />}
-                {item.hasDropdown && (
-                  <ChevronDown className="h-5 w-5 text-white" />
-                )}
-              </div>
-            )}
           </div>
         ))}
       </nav>

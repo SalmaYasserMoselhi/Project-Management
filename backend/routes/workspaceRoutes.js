@@ -27,13 +27,14 @@ router
   );
 
 // Member management (public workspace only)
-router
-  .route('/:workspaceId/members')
-  .get(
-    workspaceController.checkWorkspacePermission('view_members'),
-    workspaceController.checkPublicWorkspace,
-    workspaceController.getWorkspaceMembers
-  );
+router.route('/:workspaceId/members').get(
+  workspaceController.checkWorkspacePermission('view_members', {
+    path: 'members.user',
+    select: 'username email avatar',
+  }),
+  workspaceController.checkPublicWorkspace,
+  workspaceController.getWorkspaceMembers
+);
 
 // Invitation management
 router
@@ -60,7 +61,7 @@ router.delete(
 router
   .route('/:workspaceId/members/:userId')
   .delete(
-    workspaceController.checkWorkspacePermission('manage_roles'),
+    workspaceController.checkWorkspacePermission('manage_members'),
     workspaceController.checkPublicWorkspace,
     workspaceController.removeMember
   );

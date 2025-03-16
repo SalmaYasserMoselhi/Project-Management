@@ -5,24 +5,9 @@ const User = require('../models/userModel');
 const sendEmail = require('../utils/email');
 const crypto = require('crypto');
 const Board = require('../models/boardModel');
-
-// Helper function for essential workspace population
-const populateWorkspace = async (workspaceId) => {
-  return await Workspace.findById(workspaceId)
-    .populate({
-      path: 'members.user',
-      select: 'username email avatar', // Only essential user info
-    })
-    .populate({
-      path: 'createdBy',
-      select: 'username email', // Basic creator info
-    })
-    .populate({
-      path: 'boards',
-      select: 'name description', // Basic board info
-      match: { archived: false }, // Only non-archived boards
-    });
-};
+const permissionService = require('../utils/permissionService');
+const activityService = require('../utils/activityService');
+const invitationService = require('../utils/invitationService');
 
 // Helper function to format member data
 const formatMemberData = (member) => ({
@@ -38,44 +23,58 @@ const formatMemberData = (member) => ({
   joinedAt: member.joinedAt,
 });
 
-// Middleware for checking workspace permissions
-exports.checkWorkspacePermission = (permission) => {
+// Helper function to get workspace and verify access
+const getWorkspace = async (workspaceId, userId) => {
+  const workspace = await Workspace.findById(workspaceId);
+
+  if (!workspace) {
+    throw new AppError('Workspace not found', 404);
+  }
+
+  // Verify user is a workspace member
+  const isMember = workspace.members.some(
+    (member) => member.user.toString() === userId.toString()
+  );
+
+  if (!isMember) {
+    throw new AppError(
+      'You must be a workspace member to access this workspace',
+      403
+    );
+  }
+
+  return workspace;
+};
+
+// Middleware for checking workspace permissions with optional population
+exports.checkWorkspacePermission = (permission, populateOptions = null) => {
   return catchAsync(async (req, res, next) => {
-    const workspace = await Workspace.findById(req.params.workspaceId);
+    let query = Workspace.findById(req.params.workspaceId);
+
+    // Apply population if specified
+    if (populateOptions) {
+      query = query.populate(populateOptions);
+    }
+
+    const workspace = await query;
 
     if (!workspace) {
       return next(new AppError('Workspace not found', 404));
     }
-
-    // Check if user has access to workspace
-    const member = workspace.members.find((member) =>
-      member.user.equals(req.user._id)
-    );
-
-    if (!member) {
-      return next(
-        new AppError('You do not have access to this workspace', 403)
+    try {
+      // Use permissionService to verify workspace permission
+      permissionService.verifyWorkspacePermission(
+        workspace,
+        req.user._id,
+        permission
       );
-    }
 
-    // Special validations for workspace types
-    if (
-      (workspace.type === 'private' || workspace.type === 'collaboration') &&
-      !workspace.createdBy.equals(req.user._id)
-    ) {
-      return next(new AppError('You cannot modify this workspace', 403));
+      // Attach workspace to request for later use
+      req.workspace = workspace;
+      next();
+    } catch (error) {
+      return next(error);
     }
-
-    if (!workspace.hasPermission(req.user._id, permission)) {
-      return next(
-        new AppError('You do not have permission to perform this action', 403)
-      );
-    }
-
-    // Attach workspace and user role to request
-    req.workspace = workspace;
-    req.userRole = member.role;
-    next();
   });
 };
 
@@ -120,8 +119,6 @@ exports.getPublicAndMemberWorkspaces = catchAsync(async (req, res, next) => {
       boards: workspace.boards,
       memberCount: workspace.members.length,
       userRole: userMembership ? userMembership.role : null,
-      // isMember: !!userMembership,
-      // members: workspace.members,
     };
   });
 
@@ -139,6 +136,17 @@ exports.createWorkspace = catchAsync(async (req, res, next) => {
     createdBy: req.user._id,
     members: [{ user: req.user._id, role: 'owner' }],
   });
+
+  // Log activity
+  await activityService.logWorkspaceActivity(
+    workspace,
+    req.user._id,
+    'workspace_created',
+    {
+      name: workspace.name,
+      type: workspace.type,
+    }
+  );
 
   res.status(201).json({
     status: 'success',
@@ -213,6 +221,19 @@ exports.getUserWorkspaces = catchAsync(async (req, res, next) => {
         createdBy: req.user._id,
         members: [{ user: req.user._id, role: 'owner' }],
       });
+
+      // Log activity for each new workspace
+      await activityService.logWorkspaceActivity(
+        workspace,
+        req.user._id,
+        'workspace_created',
+        {
+          name: workspace.name,
+          type: workspace.type,
+          auto_created: true,
+        }
+      );
+
       ownedWorkspaces.push(workspace);
     }
   }
@@ -228,31 +249,35 @@ exports.getUserWorkspaces = catchAsync(async (req, res, next) => {
 
 // Get specific workspace by ID
 exports.getWorkspaceById = catchAsync(async (req, res, next) => {
-  const workspace = await Workspace.findById(req.params.workspaceId);
-
-  // Check if workspace exists
-  if (!workspace) {
-    return next(new AppError('Workspace not found', 404));
-  }
-
   // Send response
   res.status(200).json({
     status: 'success',
-    data: { workspace },
+    data: { workspace: req.workspace },
   });
 });
 
 // Update workspace details (only for public workspace)
 exports.updateWorkspace = catchAsync(async (req, res, next) => {
   const workspace = req.workspace;
-  const { settings, memberUpdates } = req.body;
   const userRole = workspace.getMemberRole(req.user._id);
+  const { settings, members, ...basicFields } = req.body;
 
   let updateData = {};
-  let memberUpdateResults = [];
+
+  // Handle basic properties (name, description, etc.)
+  if (Object.keys(basicFields).length > 0) {
+    const allowedBasicFields = ['name', 'description'];
+    allowedBasicFields.forEach((field) => {
+      if (basicFields[field] !== undefined) {
+        updateData[field] = basicFields[field];
+      }
+    });
+  }
 
   // Handle Settings Updates
   if (settings) {
+    updateData.settings = { ...workspace.settings };
+
     // Critical settings (owner only)
     if (settings.inviteRestriction || settings.boardCreation) {
       if (userRole !== 'owner') {
@@ -260,125 +285,158 @@ exports.updateWorkspace = catchAsync(async (req, res, next) => {
           new AppError('Only workspace owner can modify critical settings', 403)
         );
       }
+
+      if (settings.inviteRestriction)
+        updateData.settings.inviteRestriction = settings.inviteRestriction;
+      if (settings.boardCreation)
+        updateData.settings.boardCreation = settings.boardCreation;
     }
 
     // General settings (owner & admin)
-    if (
-      settings.defaultView ||
-      settings.cardCoverEnabled ||
-      settings.notificationsEnabled ||
-      settings.maxBoardsPerWorkspace
-    ) {
-      if (!workspace.isOwnerOrAdmin(req.user._id)) {
-        return next(
-          new AppError(
-            'Only workspace owners and admins can modify general settings',
-            403
-          )
-        );
-      }
-    }
-
-    updateData.settings = { ...workspace.settings, ...settings };
-  }
-
-  // Handle Member Role Updates
-  if (memberUpdates) {
-    if (!Array.isArray(memberUpdates)) {
-      return next(new AppError('memberUpdates must be an array', 400));
-    }
-
-    for (const update of memberUpdates) {
-      const { userId, role } = update;
-
-      if (!['admin', 'member'].includes(role)) {
-        memberUpdateResults.push({
-          userId,
-          success: false,
-          message: 'Invalid role. Role must be either admin or member',
-        });
-        continue;
-      }
-
-      const targetMember = workspace.members.find(
-        (member) => member.user.toString() === userId
+    const generalSettings = ['defaultView', 'notificationsEnabled'];
+    if (generalSettings.some((field) => settings[field] !== undefined)) {
+      permissionService.verifyWorkspacePermission(
+        workspace,
+        req.user._id,
+        'manage_settings'
       );
 
-      if (!targetMember) {
-        memberUpdateResults.push({
-          userId,
-          success: false,
-          message: 'Member not found',
-        });
-        continue;
-      }
-
-      if (targetMember.role === 'owner') {
-        memberUpdateResults.push({
-          userId,
-          success: false,
-          message: "Cannot change workspace owner's role",
-        });
-        continue;
-      }
-
-      if (role === 'admin' && userRole !== 'owner') {
-        memberUpdateResults.push({
-          userId,
-          success: false,
-          message: 'Only workspace owner can promote to admin',
-        });
-        continue;
-      }
-
-      // Update member's role and permissions
-      targetMember.role = role;
-      targetMember.permissions =
-        role === 'admin'
-          ? [
-              'create_boards',
-              'delete_own_boards',
-              'invite_members',
-              'view_members',
-              'manage_settings',
-            ]
-          : ['view_workspace', 'view_own_boards'];
-
-      memberUpdateResults.push({
-        userId,
-        success: true,
-        role,
-        permissions: targetMember.permissions,
+      generalSettings.forEach((field) => {
+        if (settings[field] !== undefined) {
+          updateData.settings[field] = settings[field];
+        }
       });
     }
   }
 
-  // Save all updates
-  if (Object.keys(updateData).length > 0 || memberUpdateResults.length > 0) {
-    if (Object.keys(updateData).length > 0) {
-      workspace.set(updateData);
+  // Log activities for basic fields and settings
+  if (Object.keys(updateData).length > 0) {
+    if (settings) {
+      await activityService.logWorkspaceActivity(
+        workspace,
+        req.user._id,
+        'workspace_settings_updated',
+        {
+          updatedFields: Object.keys(settings),
+        }
+      );
     }
-    await workspace.save();
+
+    if (Object.keys(basicFields).length > 0) {
+      await activityService.logWorkspaceActivity(
+        workspace,
+        req.user._id,
+        'workspace_updated',
+        {
+          updatedFields: Object.keys(basicFields),
+        }
+      );
+    }
   }
 
-  // Get populated workspace after updates
-  const populatedWorkspace = await populateWorkspace(workspace._id);
+  // Handle Member Role Updates
+  if (members && Array.isArray(members)) {
+    for (const update of members) {
+      const { user: userId, role } = update;
+
+      if (!['admin', 'member'].includes(role)) {
+        return next(new AppError('Invalid role. Must be admin or member', 400));
+      }
+
+      const targetMember = workspace.members.find(
+        (m) => m.user.toString() === userId
+      );
+      if (!targetMember) {
+        return next(new AppError('Member not found', 404));
+      }
+
+      if (targetMember.role === 'owner') {
+        return next(new AppError("Cannot change workspace owner's role", 400));
+      }
+
+      const currentUserRole = workspace.getMemberRole(req.user._id);
+      // Save the previous role before any changes
+      const previousRole = targetMember.role;
+
+      // Handle promotion to admin (only owner can do this)
+      if (role === 'admin' && previousRole === 'member') {
+        if (currentUserRole !== 'owner') {
+          return next(
+            new AppError('Only workspace owner can promote to admin', 403)
+          );
+        }
+      }
+
+      // Handle demotion from admin (only owner can do this)
+      if (role === 'member' && previousRole === 'admin') {
+        if (currentUserRole !== 'owner') {
+          return next(
+            new AppError('Only workspace owner can demote an admin', 403)
+          );
+        }
+      }
+
+      // Calculate new permissions based on the role
+      let newPermissions;
+      switch (role) {
+        case 'admin':
+          newPermissions = [
+            'manage_members',
+            'create_boards',
+            'delete_own_boards',
+            'invite_members',
+            'view_members',
+            'manage_settings',
+          ];
+          break;
+        case 'member':
+          newPermissions = [
+            'view_workspace',
+            'view_own_boards',
+            'view_members',
+          ];
+          break;
+        default:
+          newPermissions = targetMember.permissions;
+      }
+
+      // Use update operator for member updates
+      await Workspace.updateOne(
+        { _id: workspace._id, 'members.user': userId },
+        {
+          $set: {
+            'members.$.role': role,
+            'members.$.permissions': newPermissions,
+          },
+        }
+      );
+
+      // Use previously saved role in the activity log
+      await activityService.logWorkspaceActivity(
+        workspace,
+        req.user._id,
+        'member_role_updated',
+        {
+          targetUser: userId,
+          from: previousRole,
+          to: role,
+        }
+      );
+    }
+  }
+
+  // Update workspace with basic fields and settings
+  if (Object.keys(updateData).length > 0) {
+    await Workspace.updateOne({ _id: workspace._id }, { $set: updateData });
+  }
+
+  // ALWAYS get the latest workspace data after any updates
+  const UpdatedWorkspace = await Workspace.findById(workspace._id);
 
   res.status(200).json({
     status: 'success',
     data: {
-      workspace: {
-        _id: populatedWorkspace._id,
-        name: populatedWorkspace.name,
-        type: populatedWorkspace.type,
-        settings: populatedWorkspace.settings,
-        members: populatedWorkspace.members.map(formatMemberData),
-        boards: populatedWorkspace.boards,
-        createdBy: {
-          _id: populatedWorkspace.createdBy._id,
-          username: populatedWorkspace.createdBy.username,
-        },
-      },
+      workspace: UpdatedWorkspace,
     },
   });
 });
@@ -386,45 +444,58 @@ exports.updateWorkspace = catchAsync(async (req, res, next) => {
 // Remove member from public workspace
 exports.removeMember = catchAsync(async (req, res, next) => {
   const workspace = req.workspace;
+  const targetUserId = req.params.userId;
 
-  // Verify this is a public workspace
-  if (workspace.type !== 'public') {
-    return next(
-      new AppError('Members can only be removed from team workspace', 400)
-    );
+  // Get the target member's role
+  const targetMemberRole = workspace.getMemberRole(targetUserId);
+
+  if (!targetMemberRole) {
+    return next(new AppError('Member not found', 404));
   }
 
   // Prevent removing the workspace owner
-  const isOwner = workspace.members.some(
-    (member) => member.user.equals(req.params.userId) && member.role === 'owner'
-  );
-
-  if (isOwner) {
+  if (targetMemberRole === 'owner') {
     return next(new AppError('Cannot remove workspace owner', 400));
   }
 
+  // Admin can only remove regular members, not other admins
+  const currentUserRole = workspace.getMemberRole(req.user._id);
+  if (currentUserRole === 'admin' && targetMemberRole === 'admin') {
+    return next(new AppError('Admins cannot remove other admins', 403));
+  }
+
+  // Store member info for activity log
+  const memberInfo = {
+    user: targetUserId,
+    role: targetMemberRole,
+  };
+
   // Remove member
   workspace.members = workspace.members.filter(
-    (member) => !member.user.equals(req.params.userId)
+    (member) => !member.user.equals(targetUserId)
   );
 
+  // Log activity
+  await activityService.logWorkspaceActivity(
+    workspace,
+    req.user._id,
+    'member_removed',
+    {
+      member: memberInfo,
+      removedBy: req.user._id,
+    }
+  );
   await workspace.save();
 
-  res.status(200).json({
+  res.status(204).json({
     status: 'success',
-    data: { workspace },
+    data: null,
   });
 });
 
 // Get members of a public workspace only
 exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
-  const workspace = await Workspace.findById(req.workspace._id)
-    .populate('members.user', 'username email avatar')
-    .select('members');
-
-  if (!workspace) {
-    return next(new AppError('Workspace not found', 404));
-  }
+  const workspace = req.workspace;
 
   const members = workspace.members.map(formatMemberData);
 
@@ -447,29 +518,12 @@ exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
   });
 });
 
-/**
- * Invite multiple members to a workspace
- * @param {string} req.params.workspaceId - Workspace ID
- * @param {Array} req.body.invites - Array of {email, role} objects
- */
+// Invite multiple members to a workspace
 exports.inviteMembers = catchAsync(async (req, res, next) => {
   const workspace = req.workspace;
-
-  if (workspace.type !== 'public') {
-    return next(
-      new AppError('Members can only be invited to team workspace', 400)
-    );
-  }
-
-  // Check if user has permission to invite
-  if (!workspace.hasPermission(req.user._id, 'invite_members')) {
-    return next(
-      new AppError('You do not have permission to invite members', 403)
-    );
-  }
+  const userRole = workspace.getMemberRole(req.user._id);
 
   // Check invite restriction setting
-  const userRole = workspace.getMemberRole(req.user._id);
   if (
     workspace.settings.inviteRestriction === 'owner' &&
     userRole !== 'owner'
@@ -477,40 +531,38 @@ exports.inviteMembers = catchAsync(async (req, res, next) => {
     return next(new AppError('Only workspace owner can send invitations', 403));
   }
 
-  // Get workspace owner
-  const workspaceOwner = workspace.members.find(
-    (member) => member.role === 'owner'
-  );
-  if (!workspaceOwner) {
-    return next(new AppError('Workspace owner not found', 404));
-  }
-  const workspaceOwnerUser = await User.findById(workspaceOwner.user);
+  // Support both single invitation and bulk invitations
+  const invitesArray = req.body.invites || [
+    {
+      email: req.body.email,
+      role: req.body.role || 'member',
+    },
+  ];
 
-  const { invites } = req.body;
-  if (!Array.isArray(invites)) {
-    return next(new AppError('Invites must be an array', 400));
-  }
-
-  const invitationResults = [];
-  const failedInvites = [];
-
-  for (const invite of invites) {
+  // Validate invites before processing
+  for (const invite of invitesArray) {
     const { email, role = 'member' } = invite;
 
     // Only owners can invite admins
     if (role === 'admin' && userRole !== 'owner') {
-      failedInvites.push({ email, reason: 'Only owners can invite admins' });
-      continue;
+      return next(new AppError('Only owners can invite admins', 403));
     }
 
-    // Check if user exists and is already a member
-    const user = await User.findOne({ email });
-    if (
-      user &&
-      workspace.members.some((member) => member.user.equals(user._id))
-    ) {
-      failedInvites.push({ email, reason: 'Already a member' });
-      continue;
+    // Check if user exists
+    const user = await User.findOne({ email: invite.email });
+    if (!user) {
+      return next(
+        new AppError(`User with email ${invite.email} does not exist`, 404)
+      );
+    }
+
+    if (workspace.members.some((member) => member.user.equals(user._id))) {
+      return next(
+        new AppError(
+          `User with email ${email} is already a workspace member`,
+          400
+        )
+      );
     }
 
     // Check for existing pending invitation
@@ -518,90 +570,73 @@ exports.inviteMembers = catchAsync(async (req, res, next) => {
       (inv) => inv.email === email && inv.status === 'pending'
     );
     if (existingInvitation) {
-      failedInvites.push({ email, reason: 'Invitation already sent' });
-      continue;
-    }
-
-    // Create invitation token
-    const inviteToken = workspace.createInvitationToken(
-      email,
-      role,
-      req.user._id
-    );
-
-    // Generate the proper invitation URL using BASE_URL
-    const inviteUrl = `${process.env.BASE_URL}/workspaces/join/${inviteToken}`;
-
-    try {
-      // Send email using consistent styling with auth emails
-      const message = `
-       <div style="background-color: #f6f9fc; padding: 20px; font-family: Arial, sans-serif;">
-         <div style="background-color: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 0 auto; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-           <h2 style="color: #EFC235; text-align: center; font-size: 24px; margin-bottom: 20px;">Workspace Invitation</h2>
-           <p style="color: #3a2d34; text-align: center; font-size: 16px;">You've been invited to join "${workspace.name}" workspace.</p>
-           <p style="color: #3a2d34; text-align: center; font-size: 14px;">Role: ${role}</p>
-           <div style="text-align: center; margin: 30px 0;">
-             <a href="${inviteUrl}" 
-                style="background-color: #EFC235; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-               Accept Invitation
-             </a>
-           </div>
-           <p style="color: #3a2d34; font-size: 14px; text-align: center; margin-bottom: 20px;">This invitation expires in 7 days.</p>
-           <hr style="border: none; border-top: 1px solid #e6e6e6; margin: 20px 0;">
-           <p style="color: #888; font-size: 12px; text-align: center;">If you didn't expect this invitation, you can safely ignore this email.</p>
-         </div>
-       </div>
-     `;
-
-      await sendEmail({
-        email,
-        subject: `Invitation to join ${workspaceOwnerUser.username}'s ${workspace.name} workspace`,
-        message,
-      });
-      invitationResults.push({ email, status: 'sent' });
-    } catch (error) {
-      failedInvites.push({ email, reason: error.message });
-      // Remove failed invitation
-      workspace.invitations = workspace.invitations.filter(
-        (inv) => inv.email !== email
-      );
+      return next(new AppError(`Invitation already sent to ${email}`, 400));
     }
   }
 
-  await workspace.save();
+  try {
+    // Process bulk invitations using the invitationService
+    const invitationResults = await invitationService.processBulkInvitations(
+      workspace,
+      invitesArray,
+      req.user._id,
+      'workspace',
+      process.env.BASE_URL
+    );
 
-  res.status(200).json({
-    status: 'success',
-    data: {
-      successful: invitationResults,
-      failed: failedInvites,
-    },
-  });
+    // Log activity for each successful invitation
+    for (const invitation of invitationResults) {
+      await activityService.logWorkspaceActivity(
+        workspace,
+        req.user._id,
+        'invitation_sent',
+        {
+          email: invitation.email,
+          role: invitation.role,
+        }
+      );
+    }
+
+    // Save the workspace to ensure invitations are stored
+    await workspace.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: `Successfully sent ${invitationResults.length} invitation(s)`,
+      data: {
+        invitationResults,
+      },
+    });
+  } catch (error) {
+    return next(
+      new AppError('Error sending invitations: ' + error.message, 500)
+    );
+  }
 });
 
-/**
- * Accept workspace invitation
- * @param {string} req.params.token - Invitation token
- */
+// Accept workspace invitation
 exports.acceptInvitation = catchAsync(async (req, res, next) => {
   const { token } = req.params;
 
-  // Verify invitation
-  const workspace = await Workspace.verifyInvitationToken(token);
+  // Find workspace by token
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  const workspace = await Workspace.findOne({
+    invitations: {
+      $elemMatch: {
+        token: hashedToken,
+        status: 'pending',
+        tokenExpiresAt: { $gt: Date.now() },
+      },
+    },
+  });
 
   if (!workspace) {
     return next(new AppError('Invalid or expired invitation', 400));
   }
 
-  const hashedToken = crypto
-    .createHash('sha256')
-    .update(req.params.token)
-    .digest('hex');
-
-  // Find the invitation
-  const invitation = workspace.invitations.find(
-    (inv) => inv.status === 'pending' && inv.token === hashedToken
-  );
+  // Use invitationService to verify token
+  const invitation = invitationService.verifyInvitationToken(workspace, token);
 
   if (!invitation) {
     return next(new AppError('Invalid or expired invitation', 400));
@@ -609,79 +644,91 @@ exports.acceptInvitation = catchAsync(async (req, res, next) => {
 
   // Find user
   let user = await User.findOne({ email: invitation.email });
-
-  // Check if user is already a member
-  const isAlreadyMember = workspace.members.some((member) =>
-    member.user.equals(user._id)
-  );
-
-  if (!isAlreadyMember) {
-    // Add user to workspace members
-    workspace.members.push({
-      user: user._id,
-      role: invitation.role,
-    });
+  if (!user) {
+    return next(new AppError('User not found', 404));
   }
 
-  // Remove the invitation after it has been accepted
-  workspace.invitations = workspace.invitations.filter(
-    (inv) => inv.token !== hashedToken
-  );
+  try {
+    // Use invitationService to accept the invitation
+    await invitationService.acceptInvitation(workspace, invitation, user, {
+      entityType: 'workspace',
+    });
 
-  await workspace.save();
+    // Log activity
+    await activityService.logWorkspaceActivity(
+      workspace,
+      invitation.invitedBy,
+      'member_added',
+      {
+        user: user._id,
+        role: invitation.role,
+        invited: true,
+      }
+    );
 
-  res.status(200).json({
-    status: 'success',
-    message: 'Successfully joined workspace',
-    data: { workspace },
-  });
+    res.status(200).json({
+      status: 'success',
+      message: 'Successfully joined workspace',
+      data: {
+        workspace,
+      },
+    });
+  } catch (error) {
+    return next(
+      new AppError(`Error accepting invitation: ${error.message}`, 500)
+    );
+  }
 });
 
-/**
- * Get pending invitations for a workspace
- * @param {string} req.params.workspaceId - Workspace ID
- */
+// Get pending invitations for a workspace
 exports.getPendingInvitations = catchAsync(async (req, res, next) => {
   const workspace = req.workspace;
 
-  if (workspace.type !== 'public') {
-    return next(
-      new AppError('Can only view invitations for team workspace', 400)
-    );
-  }
+  // Clean up expired invitations using invitationService
+  invitationService.cleanExpiredInvitations(workspace);
 
-  // Clean up expired invitations and return only pending ones
-  workspace.invitations = workspace.invitations.filter(
-    (inv) => inv.tokenExpiresAt > Date.now() && inv.status === 'pending'
+  // Get only pending invitations
+  const pendingInvitations = workspace.invitations.filter(
+    (inv) => inv.status === 'pending' && inv.tokenExpiresAt > Date.now()
   );
 
   res.status(200).json({
     status: 'success',
     data: {
-      invitations: workspace.invitations,
+      invitations: pendingInvitations,
     },
   });
 });
 
-/**
- * Cancel pending invitation
- * @param {string} req.params.workspaceId - Workspace ID
- * @param {string} req.params.email - Invited email to cancel
- */
+// Cancel pending invitation
 exports.cancelInvitation = catchAsync(async (req, res, next) => {
   const workspace = req.workspace;
   const { email } = req.params;
 
-  if (workspace.type !== 'public') {
-    return next(
-      new AppError('Can only manage invitations for team workspace', 400)
-    );
-  }
-
-  workspace.invitations = workspace.invitations.filter(
-    (inv) => inv.email !== email
+  // Find invitation to be cancelled
+  const invitation = workspace.invitations.find(
+    (inv) => inv.email === email && inv.status === 'pending'
   );
-  await workspace.save();
+
+  if (invitation) {
+    // Use invitationService to cancel invitation
+    const cancelled = invitationService.cancelInvitation(workspace, email);
+
+    if (cancelled) {
+      // Log activity
+      await activityService.logWorkspaceActivity(
+        workspace,
+        req.user._id,
+        'invitation_cancelled',
+        {
+          email,
+          role: invitation.role,
+        }
+      );
+
+      await workspace.save();
+    }
+  }
 
   res.status(200).json({
     status: 'success',
