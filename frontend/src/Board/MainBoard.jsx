@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import "../index.css";
-import Header from "../Components/Header";
 import Sidebar from "../Components/Sidebar";
 import ProjectInfo from "./ProjectInfo";
-import Board from "./Board"
+import Board from "./Board";
 
 const MainBoard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -13,32 +12,30 @@ const MainBoard = () => {
   const handleToggle = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
- 
+
   return (
-    <div className="min-h-screen bg-[#f5f5f5] flex w-[195vh] ">
-       <Sidebar 
+    <div className="min-h-screen bg-[#f5f5f5] flex flex-col md:flex-row w-full">
+      <Sidebar 
         isSidebarOpen={isSidebarOpen} 
         toggleSidebar={handleToggle}
       /> 
-       
-      {/* <Header 
-        isSidebarOpen={isSidebarOpen}
-        toggleSidebar={handleToggle}
-      /> */}
- 
- <main
-  className={`w-[100vw] transition-all duration-300  ${
-    isSidebarOpen ? "md:ml-62" : "md:ml-3  w-[200vw]"
-  } mt-18 p-6 min-h-[calc(90vh-5rem)]`}
->
-  <ProjectInfo />
-  <Board/>
-</main>
+
+      <main
+  className={`flex-1 transition-all duration-300 ${
+    isSidebarOpen ? "md:ml-62" : "md:ml-20"
+  }  p-6 overflow-y-auto`}
+  style={{ maxHeight: '100vh' }} 
+      >
+      {/* <main
+  className={`flex-1 transition-all duration-300 pt-16 p-6 overflow-y-auto`}  // Added pt-16 for top spacing
+  style={{ maxHeight: '100vh' }}  // Optional: ensures content fits screen height
+> */}
+
+        <ProjectInfo />
+        <Board />
+      </main>
     </div>
   );
 };
 
 export default MainBoard;
-
-
-
