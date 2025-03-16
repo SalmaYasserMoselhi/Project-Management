@@ -1,4 +1,5 @@
 import { useSelector, useDispatch } from "react-redux";
+import { useState } from "react";
 import {
   setEmail,
   setPassword,
@@ -21,9 +22,11 @@ function Login() {
 
   const { errorMessage, emailError, passwordError, loading, oauthLoading } =
     useSelector((state) => state.login);
+  const [activeButton, setActiveButton] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setActiveButton("signin");
 
     dispatch(resetErrors());
 
@@ -47,20 +50,27 @@ function Login() {
       valid = false;
     }
 
-    if (!valid) return;
+    if (!valid) {
+      setActiveButton(null);
+      return;
+    }
 
     try {
       const resultAction = await dispatch(loginUser({ email, password }));
       if (loginUser.fulfilled.match(resultAction)) {
         navigate("/main");
+      } else {
+        setActiveButton(null);
       }
     } catch (error) {
       console.error(error);
+      setActiveButton(null);
     }
   };
 
   const handleOAuthLogin = async (provider) => {
     try {
+      setActiveButton(provider);
       dispatch(
         setOAuthLoading({
           loading: true,
@@ -79,8 +89,12 @@ function Login() {
           activeProvider: null,
         })
       );
+      setActiveButton(null);
     }
   };
+
+  const isButtonDisabled = (buttonName) =>
+    activeButton !== null && activeButton !== buttonName;
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-6">
@@ -113,8 +127,8 @@ function Login() {
                   placeholder="E-mail"
                   className={`w-full px-4 py-2 border ${
                     emailError ? "border-red-500" : "border-gray-300"
-                  } rounded-md focus:outline-none focus:ring-2 focus:border-[#4D2D61] focus:border-2`}
-                  required
+                  } rounded-md`}
+                  disabled={isButtonDisabled("signin")}
                 />
                 {emailError && (
                   <p className="text-red-500 text-sm mt-1">{emailError}</p>
@@ -130,8 +144,8 @@ function Login() {
                   placeholder="Password"
                   className={`w-full px-4 py-2 border ${
                     passwordError ? "border-red-500" : "border-gray-300"
-                  } rounded-md focus:outline-none focus:ring-2 focus:border-[#4D2D61] focus:border-2`}
-                  required
+                  } rounded-md`}
+                  disabled={isButtonDisabled("signin")}
                 />
                 {passwordError && (
                   <p className="text-red-500 text-sm mt-1">{passwordError}</p>
@@ -141,18 +155,26 @@ function Login() {
               <div className="flex items-center justify-start">
                 <a
                   href="/forgetpassword"
-                  className="text-sm text-[#4D2D61] hover:text-[#57356A]"
+                  className={`text-sm text-[#4D2D61] hover:text-[#57356A] ${
+                    isButtonDisabled("signin")
+                      ? "pointer-events-none opacity-50"
+                      : ""
+                  }`}
                 >
                   Forgot password ?
                 </a>
               </div>
 
               <button
-                disabled={loading}
+                disabled={loading || isButtonDisabled("signin")}
                 type="submit"
-                className="w-full bg-[#4D2D61] text-white py-2 px-4 rounded-md hover:bg-[#57356A] focus:outline-none focus:ring-2 focus:ring-[#57356A] focus:ring-offset-2"
+                className={`w-full bg-[#4D2D61] text-white py-2 px-4 rounded-md ${
+                  isButtonDisabled("signin")
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:bg-[#57356A]"
+                }`}
               >
-                {loading ? "Loading..." : "Sign in"}
+                Sign in
               </button>
             </form>
 
@@ -167,58 +189,36 @@ function Login() {
             <div className="mt-6 space-y-3">
               <button
                 onClick={() => handleOAuthLogin("google")}
-                disabled={oauthLoading.loading}
-                className={`w-full border h-12 p-3 rounded flex items-center justify-center transition-all duration-300 ${
-                  oauthLoading.loading &&
-                  oauthLoading.activeProvider === "google"
-                    ? "bg-gray-100 border-gray-300 opacity-75 cursor-not-allowed"
-                    : "bg-white border-gray-300 hover:border-[#4D2D61] hover:bg-gray-50"
+                disabled={isButtonDisabled("google")}
+                className={`w-full border p-3 rounded flex items-center justify-center ${
+                  isButtonDisabled("google")
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:bg-gray-50"
                 }`}
               >
-                {oauthLoading.loading &&
-                oauthLoading.activeProvider === "google" ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#4D2D61] mr-3"></div>
-                    <span className="text-gray-600"> Connecting...</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center">
-                    <img
-                      src="src/assets/icons8-google-48.png"
-                      alt="Google"
-                      className="h-5 w-5 mr-3"
-                    />
-                    <span className="text-gray-700">Continue with Google</span>
-                  </div>
-                )}
+                <img
+                  src="src/assets/icons8-google-48.png"
+                  alt="Google"
+                  className="h-5 w-5 mr-3"
+                />
+                <span className="text-gray-700">Continue with Google</span>
               </button>
 
               <button
                 onClick={() => handleOAuthLogin("github")}
-                disabled={oauthLoading.loading}
-                className={`w-full border h-12 p-3 rounded flex items-center justify-center transition-all duration-300 ${
-                  oauthLoading.loading &&
-                  oauthLoading.activeProvider === "github"
-                    ? "bg-gray-100 border-gray-300 opacity-75 cursor-not-allowed"
-                    : "bg-white border-gray-300 hover:border-[#4D2D61] hover:bg-gray-50"
+                disabled={isButtonDisabled("github")}
+                className={`w-full border p-3 rounded flex items-center justify-center ${
+                  isButtonDisabled("github")
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:bg-gray-50"
                 }`}
               >
-                {oauthLoading.loading &&
-                oauthLoading.activeProvider === "github" ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#4D2D61] mr-3"></div>
-                    <span className="text-gray-600">Connecting...</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center">
-                    <img
-                      src="src/assets/icons8-github-90.png"
-                      alt="GitHub"
-                      className="h-5 w-5 mr-3"
-                    />
-                    <span className="text-gray-700">Continue with GitHub</span>
-                  </div>
-                )}
+                <img
+                  src="src/assets/icons8-github-90.png"
+                  alt="GitHub"
+                  className="h-5 w-5 mr-3"
+                />
+                <span className="text-gray-700">Continue with GitHub</span>
               </button>
             </div>
             {oauthLoading.error && (
@@ -232,7 +232,9 @@ function Login() {
             <span>Don&apos;t have an account ? </span>
             <a
               href="/signup"
-              className="text-[#4D2D61] hover:text-[#57356A] font-medium"
+              className={`text-[#4D2D61] hover:text-[#57356A] font-medium ${
+                activeButton !== null ? "pointer-events-none opacity-50" : ""
+              }`}
             >
               Create one
             </a>

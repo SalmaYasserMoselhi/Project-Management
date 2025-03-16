@@ -1,7 +1,11 @@
 import { useState, useEffect } from "react";
-import { MoreHorizontal, Clock } from "lucide-react";
+import { MoreHorizontal, Clock, Menu } from "lucide-react";
 import Chart from "react-apexcharts";
 import Breadcrumb from "../Components/Breadcrumb";
+import { useDispatch } from "react-redux";
+import { toggleSidebar } from "../features/Slice/ComponentSlice/sidebarSlice";
+import CustomDropdown from "../Components/CustomDropdown";
+
 const data = [
   { name: "Mon", tasks: 20 },
   { name: "Tue", tasks: 35 },
@@ -23,9 +27,25 @@ const styles = `
 `;
 
 function Dashboard() {
+  const dispatch = useDispatch();
   const [selectedDate, setSelectedDate] = useState(new Date().getDate());
   const [selectedMonth, setSelectedMonth] = useState("");
   const [initialScrollDone, setInitialScrollDone] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+
+    return () => {
+      window.removeEventListener("resize", checkMobile);
+    };
+  }, []);
 
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth();
@@ -83,57 +103,48 @@ function Dashboard() {
       id: 1,
       title: "UI Motion",
       time: "10:00am - 12:00pm",
-
       date: 12,
     },
-
     {
       id: 2,
       title: "UI Design",
       time: "12:00pm - 01:00pm",
-
       date: 4,
     },
     {
       id: 3,
       title: " task-1",
       time: "10:00am - 12:00pm",
-
       date: 12,
     },
     {
       id: 4,
       title: " task-2",
       time: "11:00am - 11:30pm",
-
       date: 18,
     },
     {
       id: 5,
       title: " task-3",
       time: "11:00am - 11:30pm",
-
       date: 21,
     },
     {
       id: 6,
       title: "UI Motion",
       time: "10:00am - 12:00pm",
-
       date: 21,
     },
     {
       id: 7,
       title: "UI Motion",
       time: "10:00am - 12:00pm",
-
       date: 21,
     },
     {
       id: 8,
       title: "UI Motion",
       time: "10:00am - 12:00pm",
-
       date: 21,
     },
   ];
@@ -178,9 +189,9 @@ function Dashboard() {
     fill: {
       type: "gradient",
       gradient: {
-        shadeIntensity: 0.5, // درجة كثافة التدرج
-        opacityFrom: 0.6, // جعل بداية التدرج أغمق
-        opacityTo: 0.1, // تقليل الشفافية عند النهاية
+        shadeIntensity: 0.5,
+        opacityFrom: 0.6,
+        opacityTo: 0.1,
         stops: [0, 100],
       },
     },
@@ -191,7 +202,16 @@ function Dashboard() {
   return (
     <div className="bg-white min-h-screen">
       <style>{styles}</style>
-      <div className="p-3 md:p-4">
+      <div className="p-3 md:p-4 flex items-center">
+        {isMobile && (
+          <button
+            onClick={() => dispatch(toggleSidebar())}
+            className="mr-2 p-1 rounded-md"
+            aria-label="Toggle sidebar"
+          >
+            <Menu size={24} className="text-[#57356A]" />
+          </button>
+        )}
         <Breadcrumb />
       </div>
 
@@ -199,10 +219,10 @@ function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3 md:gap-4">
           {/* High Priority Tasks */}
           <div className="lg:col-span-3 bg-gray-50 rounded-xl shadow-sm p-3 md:p-4 border border-purple-200">
-            <h2 className="text-lg font-semibold mb-3 text-[#57356A]">
+            <h2 className="text-lg font-semibold mb-2 text-[#57356A]">
               High priority tasks
             </h2>
-            <div className="space-y-3 overflow-auto no-scrollbar h-[330px] md:h-[370px]">
+            <div className="space-y-1 overflow-auto no-scrollbar h-[350px] md:h-[390px]">
               {tasks.map((task, index) => (
                 <div
                   key={index}
@@ -279,7 +299,7 @@ function Dashboard() {
               </div>
             </div>
 
-            <div className="space-y-2.5 overflow-auto no-scrollbar h-[170px] md:h-[230px]">
+            <div className="space-y-1 overflow-auto no-scrollbar h-[190px] md:h-[230px] ">
               {filteredEvents.map((event) => (
                 <div key={event.id} className="relative group">
                   <div className="absolute left-3 top-0 bottom-0 w-1 rounded-full bg-[#57356A]" />
@@ -313,13 +333,10 @@ function Dashboard() {
               <h2 className="text-lg font-semibold text-[#57356A]">
                 Total Tasks
               </h2>
-              <select className="text-sm text-center border rounded-lg px-2 py-1 bg-gray-50">
-                <option>Weekly</option>
-                <option>Monthly</option>
-                <option>Yearly</option>
-              </select>
+
+              <CustomDropdown />
             </div>
-            <div className="h-[190px] md:h-[280px] lg:h-[330px]">
+            <div className="h-[190px] md:h-[280px] lg:h-[385px]">
               <Chart
                 options={{
                   ...chartOptions,
@@ -350,9 +367,8 @@ function Dashboard() {
             <table className="w-full">
               <thead>
                 <tr className="text-sm text-gray-500">
-                  <th className="text-left py-2.5 px-2 md:px-3">Num</th>
-                  <th className="text-left py-2.5 px-2 md:px-3">Name</th>
-                  <th className="text-left py-2.5 px-2 md:px-3">Projects</th>
+                  <th className="text-left py-2.5 px-2 md:px-3">Member</th>
+                  <th className="text-left py-2.5 px-2 md:px-3">Board</th>
                   <th className="text-left py-2.5 px-2 md:px-3">Activity</th>
                   <th className="text-left py-2.5 px-2 md:px-3">Date</th>
                   <th className="text-left py-2.5 px-2 md:px-3">Time</th>
@@ -361,73 +377,63 @@ function Dashboard() {
               <tbody className="text-sm">
                 {[
                   {
-                    name: "Jane Cooper",
-                    project: "Google Backlight",
+                    member: "Jane Cooper",
+                    board: "Google Backlight",
                     date: "August 24, 2013",
                     time: "02:30 pm",
-                    status: "Active",
                   },
                   {
-                    name: "Esther Howard",
-                    project: "repeater.space",
+                    member: "Esther Howard",
+                    board: "repeater.space",
                     date: "May 29, 2017",
                     time: "04:02 am",
-                    status: "Active",
                   },
                   {
-                    name: "Cameron Williamson",
+                    member: "Cameron Williamson",
+                    board: "Trekverse",
+                    date: "March 6, 2018",
+                    time: "08:20 pm",
+                  },
+                  {
+                    member: "Cameron Williamson",
+                    board: "Trekverse",
+                    date: "March 6, 2018",
+                    time: "08:20 pm",
+                  },
+                  {
+                    member: "Cameron Williamson",
+                    board: "Trekverse",
+                    date: "March 6, 2018",
+                    time: "08:20 pm",
+                  },
+                  {
+                    member: "Cameron Williamson",
+                    board: "Trekverse",
+                    date: "March 6, 2018",
+                    time: "08:20 pm",
+                  },
+                  {
+                    member: "Cameron Williamson",
+                    board: "Trekverse",
+                    date: "March 6, 2018",
+                    time: "08:20 pm",
+                  },
+                  {
+                    member: "Cameron Williamson",
                     project: "Trekverse",
                     date: "March 6, 2018",
                     time: "08:20 pm",
-                    status: "In progress",
                   },
                   {
-                    name: "Cameron Williamson",
-                    project: "Trekverse",
+                    member: "Cameron Williamson",
+                    board: "Trekverse",
                     date: "March 6, 2018",
                     time: "08:20 pm",
-                    status: "Completed",
-                  },
-                  {
-                    name: "Cameron Williamson",
-                    project: "Trekverse",
-                    date: "March 6, 2018",
-                    time: "08:20 pm",
-                    status: "Completed",
-                  },
-                  {
-                    name: "Cameron Williamson",
-                    project: "Trekverse",
-                    date: "March 6, 2018",
-                    time: "08:20 pm",
-                    status: "Completed",
-                  },
-                  {
-                    name: "Cameron Williamson",
-                    project: "Trekverse",
-                    date: "March 6, 2018",
-                    time: "08:20 pm",
-                    status: "Completed",
-                  },
-                  {
-                    name: "Cameron Williamson",
-                    project: "Trekverse",
-                    date: "March 6, 2018",
-                    time: "08:20 pm",
-                    status: "Completed",
-                  },
-                  {
-                    name: "Cameron Williamson",
-                    project: "Trekverse",
-                    date: "March 6, 2018",
-                    time: "08:20 pm",
-                    status: "Completed",
                   },
                 ].map((item, index) => (
                   <tr key={index} className="border-t border-gray-100">
-                    <td className="py-2 px-2">{index + 1}</td>
-                    <td className="py-2 px-2">{item.name}</td>
-                    <td className="py-2 px-2">{item.project}</td>
+                    <td className="py-2 px-2">{item.member}</td>
+                    <td className="py-2 px-2">{item.board}</td>
                     <td className="py-2 px-2">Regular text column</td>
                     <td className="py-2 px-2">{item.date}</td>
                     <td className="py-2 px-2">{item.time}</td>

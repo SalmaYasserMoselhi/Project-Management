@@ -11,8 +11,10 @@ export const store = configureStore({
     forgotPassword: forgotPasswordReducer,
     resetPassword: resetPasswordReducer,
     user: userReducer,
+
     sidebar: sidebarReducer,
   },
+  devTools: true,
 });
 
 export default store;

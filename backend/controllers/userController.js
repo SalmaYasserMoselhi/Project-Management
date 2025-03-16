@@ -1,23 +1,23 @@
-const multer = require("multer"); // to upload user image
-const sharp = require("sharp"); // to resize user image
-const AppError = require("./../utils/appError");
-const catchAsync = require("./../utils/catchAsync");
-const userModel = require("./../models/userModel");
-const User = require("./../models/userModel");
+const multer = require('multer'); // to upload user image
+const sharp = require('sharp'); // to resize user image
+const AppError = require('./../utils/appError');
+const catchAsync = require('./../utils/catchAsync');
+const userModel = require('./../models/userModel');
+const User = require('./../models/userModel');
 
 const multerStorage = multer.memoryStorage();
 const multerFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith("image")) {
+  if (file.mimetype.startsWith('image')) {
     cb(null, true);
   } else {
-    cb(new AppError("Not an image! Please upload only images.", 400), false);
+    cb(new AppError('Not an image! Please upload only images.', 400), false);
   }
 };
 const upload = multer({
   storage: multerStorage,
   fileFilter: multerFilter,
 });
-exports.uploadUserPhoto = upload.single("photo");
+exports.uploadUserPhoto = upload.single('photo');
 exports.resizeUserPhoto = catchAsync(async (req, res, next) => {
   if (!req.file) return next();
 
@@ -25,7 +25,7 @@ exports.resizeUserPhoto = catchAsync(async (req, res, next) => {
 
   await sharp(req.file.buffer)
     .resize(500, 500)
-    .toFormat("jpeg")
+    .toFormat('jpeg')
     .jpeg({ quality: 90 })
     .toFile(`public/img/users/${req.file.filename}`);
 
@@ -45,7 +45,7 @@ const filterObj = (obj, ...allowFields) => {
 exports.getAllUsers = catchAsync(async (req, res, next) => {
   const users = await User.find();
   res.status(200).json({
-    status: "success",
+    status: 'success',
     results: users.length,
     data: {
       users,
@@ -55,10 +55,10 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
 exports.getUser = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.params.id);
   if (!user) {
-    return next(new AppError("No user found with that ID", 404));
+    return next(new AppError('No user found with that ID', 404));
   }
   res.status(200).json({
-    status: "success",
+    status: 'success',
     data: {
       user,
     },
@@ -67,7 +67,7 @@ exports.getUser = catchAsync(async (req, res, next) => {
 exports.createUser = catchAsync(async (req, res, next) => {
   const newUser = await User.create(req.body);
   res.status(201).json({
-    status: "success",
+    status: 'success',
     data: {
       user: newUser,
     },
@@ -81,10 +81,10 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     runValidators: true,
   });
   if (!user) {
-    return next(new AppError("No user found with this ID", 404));
+    return next(new AppError('No user found with this ID', 404));
   }
   res.status(200).json({
-    status: "success",
+    status: 'success',
     data: {
       user,
     },
@@ -93,10 +93,10 @@ exports.updateUser = catchAsync(async (req, res, next) => {
 exports.deleteUser = catchAsync(async (req, res, next) => {
   const user = await User.findByIdAndDelete(req.params.id);
   if (!user) {
-    return next(new AppError("No user found with ID", 404));
+    return next(new AppError('No user found with ID', 404));
   }
   res.status(204).json({
-    status: "success",
+    status: 'success',
     data: null,
   });
 });
@@ -105,17 +105,17 @@ exports.deleteMe = catchAsync(async (req, res, next) => {
   await User.findByIdAndUpdate(req.user.id, { active: false });
 
   res.status(204).json({
-    status: "success",
+    status: 'success',
     data: null,
   });
 });
 exports.updateMe = catchAsync(async (req, res, next) => {
   // 1) Create error if user POSTs password data
   if (req.body.password || req.body.passwordConfirm) {
-    return next(new AppError("This route not for updating password", 400));
+    return next(new AppError('This route not for updating password', 400));
   }
   // 2) Filtered out unwanted fields names that are not allowed to be updated
-  const filteredBody = filterObj(req.body, "name", "email");
+  const filteredBody = filterObj(req.body, 'name', 'email');
   if (req.file) filteredBody.photo = req.file.filename;
 
   // 3) Update user document
@@ -124,7 +124,7 @@ exports.updateMe = catchAsync(async (req, res, next) => {
     runValidators: true,
   });
   res.status(200).json({
-    status: "success",
+    status: 'success',
     data: {
       user: updatedUser,
     },
@@ -134,3 +134,64 @@ exports.getMe = (req, res, next) => {
   req.params.id = req.user.id;
   next();
 };
+
+exports.searchUsers = catchAsync(async (req, res, next) => {
+  const {
+    query,
+    firstName,
+    lastName,
+    username,
+    email,
+    sort,
+    limit = 10,
+    page = 1,
+  } = req.query;
+
+  let searchQuery = {};
+
+  if (query) {
+    searchQuery = {
+      $or: [
+        { firstName: { $regex: query, $options: 'i' } },
+        { lastName: { $regex: query, $options: 'i' } },
+        { email: { $regex: query, $options: 'i' } },
+        { username: { $regex: query, $options: 'i' } },
+      ],
+    };
+  } else {
+    if (firstName) searchQuery.name = { $regex: name, $options: 'i' };
+    if (lastName) searchQuery.name = { $regex: name, $options: 'i' };
+    if (email) searchQuery.email = { $regex: email, $options: 'i' };
+    if (username) searchQuery.username = { $regex: username, $options: 'i' };
+  }
+
+  if (req.query.active === undefined) {
+    searchQuery.active = { $ne: false };
+  } else if (req.query.active === 'false') {
+    searchQuery.active = false;
+  } else if (req.query.active === 'true') {
+    searchQuery.active = true;
+  }
+
+  let userQuery = User.find(searchQuery);
+
+  if (sort) {
+    const sortBy = sort.split(',').join(' ');
+    userQuery = userQuery.sort(sortBy);
+  } else {
+    userQuery = userQuery.sort('-createdAt');
+  }
+
+  const skip = (page - 1) * limit;
+  userQuery = userQuery.skip(skip).limit(Number(limit));
+
+  const users = await userQuery;
+
+  res.status(200).json({
+    status: 'success',
+    results: users.length,
+    data: {
+      users,
+    },
+  });
+});

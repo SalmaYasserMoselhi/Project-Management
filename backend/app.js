@@ -21,7 +21,8 @@ const workspaceRouter = require('./routes/workspaceRoutes.js');
 const boardRouter = require('./routes/boardRoutes.js');
 const cardRouter = require('./routes/cardRoutes.js');
 const listRouter = require('./routes/listRoutes.js');
-
+const conversationRouter = require('./routes/conversationRoutes.js');
+const messageRouter = require('./routes/messageRoutes.js');
 const app = express();
 
 // 1) Global Middlewares
@@ -144,6 +145,8 @@ app.use('/api/v1/workspaces', workspaceRouter);
 app.use('/api/v1/boards', boardRouter);
 app.use('/api/v1/cards', cardRouter);
 app.use('/api/v1/lists', listRouter);
+app.use('/api/v1/conversations', conversationRouter);
+app.use('/api/v1/message', messageRouter);
 
 // Handle undefined routes
 app.all('*', (req, res) => {
