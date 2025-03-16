@@ -26,10 +26,7 @@ const MainBoard = () => {
   }  p-6 overflow-y-auto`}
   style={{ maxHeight: '100vh' }} 
       >
-      {/* <main
-  className={`flex-1 transition-all duration-300 pt-16 p-6 overflow-y-auto`}  // Added pt-16 for top spacing
-  style={{ maxHeight: '100vh' }}  // Optional: ensures content fits screen height
-> */}
+
 
         <ProjectInfo />
         <Board />
