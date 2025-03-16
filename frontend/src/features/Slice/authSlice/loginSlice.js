@@ -1,5 +1,4 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import Cookies from "js-cookie";
 
 const API_BASE_URL = "/api/v1";
 const initialState = {
@@ -35,17 +34,6 @@ export const loginUser = createAsyncThunk(
       }
 
       const data = await response.json();
-
-      Cookies.set("token", data.token, {
-        expires: 7,
-        secure: true,
-        sameSite: "strict",
-      });
-      Cookies.set("user", JSON.stringify(data.data.user), {
-        expires: 7,
-        secure: true,
-        sameSite: "strict",
-      });
 
       return data;
     } catch (error) {
