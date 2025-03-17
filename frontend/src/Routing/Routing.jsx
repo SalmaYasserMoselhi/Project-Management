@@ -7,11 +7,8 @@ import Verification from "../Auth/Verification";
 import ResetPassword from "../Auth/ResetPassword";
 import Dashboard from "../Main/Dashboard";
 import MainBoard from "../Board/mainBoard";
-import Workspace from "../Main/Workspace";
-import Collaboration from "../Main/Collaboration";
-import Private from "../Main/Private";
-import Calender from "../Main/Calender";
-import Setting from "../Main/Setting";
+
+import Notifications from "../Main/Notifications";
 import Main from "../Main/Main";
 
 function Routing() {
@@ -29,11 +26,7 @@ function Routing() {
         <Route path="/main/*" element={<Main />}>
           <Route index element={<Navigate to="dashboard" />} />
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="workspace" element={<Workspace />} />
-          <Route path="collaboration" element={<Collaboration />} />
-          <Route path="private" element={<Private />} />
-          <Route path="calendar" element={<Calender />} />
-          <Route path="setting" element={<Setting />} />
+          <Route path="notifications" element={<Notifications />} />
         </Route>
       </Routes>
     </div>

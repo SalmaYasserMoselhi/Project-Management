@@ -2,10 +2,28 @@ const crypto = require('crypto');
 const Board = require('../models/boardModel');
 const Workspace = require('../models/workspaceModel');
 const User = require('../models/userModel');
-const sendEmail = require('../utils/email');
+const List = require('../models/listModel');
+const Card = require('../models/cardModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
+const permissionService = require('../utils/permissionService');
+const activityService = require('../utils/activityService');
+const invitationService = require('../utils/invitationService');
 const { createDefaultLists } = require('../controllers/listController');
+
+// Helper function to format member data
+const formatMemberData = (member) => ({
+  _id: member._id,
+  user: {
+    _id: member.user._id,
+    username: member.user.username,
+    email: member.user.email,
+    avatar: member.user.avatar,
+  },
+  role: member.role,
+  permissions: member.permissions,
+  joinedAt: member.joinedAt,
+});
 
 // Helper function to format board response
 const formatBoardResponse = (board, userId) => ({
@@ -13,79 +31,67 @@ const formatBoardResponse = (board, userId) => ({
   name: board.name,
   description: board.description,
   background: board.background,
-  workspace: {
-    id: board.workspace._id,
-    name: board.workspace.name,
-    type: board.workspace.type,
-  },
-  userRole:
-    board.members.find((m) => m.user.toString() === userId.toString())?.role ||
-    'member',
-  memberCount: board.members.length,
+  workspace: board.workspace,
+  createdBy: board.createdBy,
+  memberCount: board.members ? board.members.length : 0,
   isStarred: board.starred,
   lastActivity: board.updatedAt,
   viewPreferences: board.viewPreferences,
-  lists: board.lists.map((list) => ({
-    id: list._id,
-    name: list.name,
-    position: list.position,
-    cardLimit: list.cardLimit,
-    archived: list.archived,
-    // cards: list.cards || [],
-  })),
+  // lists: Array.isArray(board.lists)
+  //   ? board.lists.map((list) => ({
+  //       id: list._id,
+  //       name: list.name,
+  //       position: list.position,
+  //       cardLimit: list.cardLimit || null,
+  //       archived: list.archived || false,
+  //     }))
+  //   : [],
   settings: board.settings,
+  activities: board.activities,
 });
 
-exports.getBoardMembers = catchAsync(async (req, res, next) => {
-  const { id: boardId } = req.params;
+// Middleware for checking board permissions with optional population
+exports.checkBoardPermission = (permission, populateOptions = null) => {
+  return catchAsync(async (req, res, next) => {
+    let query = Board.findById(req.params.id);
 
-  const board = await Board.findById(boardId)
-    .populate({
-      path: 'members.user',
-      select: 'name email username',
-    })
-    .select('members');
+    // Apply population if specified
+    if (populateOptions) {
+      query = query.populate(populateOptions);
+    }
 
-  if (!board) {
-    return next(new AppError('Board not found', 404));
-  }
+    const board = await query;
 
-  // Check if requesting user is a member
-  const isMember = board.members.some(
-    (member) => member.user._id.toString() === req.user._id.toString()
-  );
+    if (!board) {
+      return next(new AppError('Board not found', 404));
+    }
 
-  if (!isMember) {
-    return next(
-      new AppError('You must be a board member to view members', 403)
-    );
-  }
+    try {
+      // Use permissionService to verify board permission
+      permissionService.verifyPermission(board, req.user._id, permission);
 
-  // Format members data
-  const members = board.members.map((member) => ({
-    id: member.user._id,
-    name: member.user.name,
-    email: member.user.email,
-    username: member.user.username,
-    role: member.role,
-    watchStatus: member.watchStatus,
-    joinedAt: member.joinedAt,
-  }));
+      // Attach board to request for later use
+      req.board = board;
+      next();
+    } catch (error) {
+      return next(error);
+    }
+  });
+};
 
-  const stats = {
-    total: members.length,
-    byRole: {
-      owner: members.filter((m) => m.role === 'owner').length,
-      admin: members.filter((m) => m.role === 'admin').length,
-      member: members.filter((m) => m.role === 'member').length,
-    },
-  };
+// Get board by ID
+exports.getBoardById = catchAsync(async (req, res, next) => {
+  const board = req.board;
+
+  // Fetch lists if they're not already populated
+  const populatedBoard = !board.lists
+    ? await Board.findById(board._id).populate('lists')
+    : board;
 
   res.status(200).json({
     status: 'success',
     data: {
-      members,
-      stats,
+      board: formatBoardResponse(populatedBoard, req.user._id),
     },
   });
 });
@@ -94,149 +100,391 @@ exports.getBoardMembers = catchAsync(async (req, res, next) => {
 exports.createBoard = catchAsync(async (req, res, next) => {
   const { workspace } = req.body;
 
-  const workspaceDoc = await Workspace.findById(workspace).select(
-    'name type createdBy members'
-  );
-
+  const workspaceDoc = await Workspace.findById(workspace);
   if (!workspaceDoc) {
     return next(new AppError('Workspace not found', 404));
   }
 
+  if (workspaceDoc.type === 'collaboration') {
+    return next(
+      new AppError(
+        'Cannot create boards in collaboration workspace. This workspace is only for boards shared with you.',
+        403
+      )
+    );
+  }
+
+  // Verify user is a workspace member
   const userWorkspaceMember = workspaceDoc.members.find(
     (member) => member.user.toString() === req.user._id.toString()
   );
-
   if (!userWorkspaceMember) {
     return next(new AppError('You are not a member of this workspace', 403));
   }
 
-  // Check permissions based on workspace type
-  if (workspaceDoc.type === 'private') {
-    const isWorkspaceOwner =
-      workspaceDoc.createdBy.toString() === req.user._id.toString();
-    const hasOwnerRole = userWorkspaceMember.role === 'owner';
+  const hasPermission = permissionService.hasWorkspacePermission(
+    workspaceDoc,
+    req.user._id,
+    'create_boards'
+  );
 
-    if (!isWorkspaceOwner && !hasOwnerRole) {
-      return next(
-        new AppError(
-          'Only workspace owner can create boards in private workspace',
-          403
-        )
-      );
-    }
-  } else if (workspaceDoc.type === 'public') {
-    if (!['owner', 'admin'].includes(userWorkspaceMember.role)) {
-      return next(
-        new AppError(
-          'Only workspace owner and admins can create boards in public workspace',
-          403
-        )
-      );
-    }
-  } else if (workspaceDoc.type === 'collaboration') {
+  if (!hasPermission) {
     return next(
-      new AppError('Cannot create boards in collaboration workspace', 403)
+      new AppError(
+        'You do not have permission to create boards in this workspace',
+        403
+      )
     );
   }
 
-  const board = await Board.create({
-    ...req.body,
-    createdBy: req.user._id,
-    members: [
-      {
-        user: req.user._id,
-        role: 'owner',
-        watchStatus: 'watching',
-      },
-    ],
-  });
+  // Create board and default lists inside a try-catch block to handle cleanup on error
+  let board;
+  let defaultLists = [];
 
-  // Create default lists and wait for them to complete
-  const defaultLists = await createDefaultLists(board._id, req.user._id);
-
-  // Get the fully populated board with its lists
-  const populatedBoard = await Board.findById(board._id)
-    .populate('workspace', 'name type')
-    .populate({
-      path: 'lists',
-      select: 'name position archived',
-      match: { archived: false },
-      options: { sort: { position: 1 } },
+  try {
+    // Create the board
+    board = await Board.create({
+      ...req.body,
+      createdBy: req.user._id,
+      members: [
+        {
+          user: req.user._id,
+          role: 'owner',
+        },
+      ],
     });
 
-  if (!populatedBoard) {
-    return next(new AppError('Error retrieving board after creation', 500));
+    // Create default lists
+    defaultLists = await createDefaultLists(board._id, req.user._id);
+
+    // Log board creation activity
+    await activityService.logWorkspaceActivity(
+      workspaceDoc,
+      req.user._id,
+      'board_created',
+      {
+        board: {
+          name: board.name,
+        },
+      }
+    );
+
+    // Get the fully populated board with its lists
+    const populatedBoard = await Board.findById(board._id)
+      .populate('workspace', 'name type')
+      .populate({
+        path: 'lists',
+        select: 'name position archived',
+        match: { archived: false },
+        options: { sort: { position: 1 } },
+      });
+
+    if (!populatedBoard) {
+      throw new Error('Error retrieving board after creation');
+    }
+
+    res.status(201).json({
+      status: 'success',
+      data: {
+        board: formatBoardResponse(populatedBoard, req.user._id),
+      },
+    });
+  } catch (error) {
+    // If board was created but we hit an error later, clean up
+    if (board) {
+      // Delete any created lists
+      if (defaultLists.length > 0) {
+        await List.deleteMany({ board: board._id });
+      }
+
+      // Delete the board itself
+      await Board.findByIdAndDelete(board._id);
+
+      // Remove board reference from workspace if it was added
+      await Workspace.updateMany(
+        { boards: board._id },
+        { $pull: { boards: board._id } }
+      );
+    }
+
+    // Pass the error to the global error handler
+    return next(error);
+  }
+});
+
+exports.updateBoard = catchAsync(async (req, res, next) => {
+  const board = req.board;
+  const userRole = board.members.find(
+    (m) => m.user.toString() === req.user._id.toString()
+  )?.role;
+
+  const { settings, members, ...basicFields } = req.body;
+
+  let updateData = {};
+
+  // Handle basic properties (name, description, etc.)
+  if (Object.keys(basicFields).length > 0) {
+    const allowedBasicFields = ['name', 'description'];
+    allowedBasicFields.forEach((field) => {
+      if (basicFields[field] !== undefined) {
+        updateData[field] = basicFields[field];
+      }
+    });
   }
 
-  res.status(201).json({
+  // Handle Settings Updates
+  if (settings) {
+    updateData.settings = { ...board.settings };
+
+    // Critical settings (owner only)
+    if (
+      settings.general &&
+      (settings.general.memberListCreation || settings.general.memberInvitation)
+    ) {
+      if (userRole !== 'owner') {
+        return next(
+          new AppError('Only board owner can modify critical settings', 403)
+        );
+      }
+
+      if (settings.general.memberListCreation)
+        updateData.settings.general.memberListCreation =
+          settings.general.memberListCreation;
+      if (settings.general.memberInvitation)
+        updateData.settings.general.memberInvitation =
+          settings.general.memberInvitation;
+    }
+
+    // General settings (owner & admin)
+    const generalSettings = [
+      'cardEditing',
+      'cardMoving',
+    ];
+    if (
+      generalSettings.some(
+        (field) => settings.general && settings.general[field] !== undefined
+      )
+    ) {
+      if (!['owner', 'admin'].includes(userRole)) {
+        return next(
+          new AppError(
+            'Only owners and admins can modify general settings',
+            403
+          )
+        );
+      }
+
+      generalSettings.forEach((field) => {
+        if (settings.general && settings.general[field] !== undefined) {
+          updateData.settings.general[field] = settings.general[field];
+        }
+      });
+    }
+  }
+
+  // Log activities for basic fields and settings
+  if (Object.keys(updateData).length > 0) {
+    if (settings) {
+      await activityService.logBoardActivity(
+        board,
+        req.user._id,
+        'settings_updated',
+        {
+          updatedFields: settings.general ? Object.keys(settings.general) : [],
+        }
+      );
+    }
+
+    if (Object.keys(basicFields).length > 0) {
+      await activityService.logBoardActivity(
+        board,
+        req.user._id,
+        'board_updated',
+        {
+          updatedFields: Object.keys(basicFields),
+        }
+      );
+    }
+  }
+
+  // Handle Member Role Updates (similar to workspace)
+  if (members && Array.isArray(members)) {
+    for (const update of members) {
+      const { user: userId, role } = update;
+
+      if (!['admin', 'member'].includes(role)) {
+        return next(new AppError('Invalid role. Must be admin or member', 400));
+      }
+
+      const targetMember = board.members.find(
+        (m) => m.user.toString() === userId
+      );
+
+      if (!targetMember) {
+        return next(new AppError('Member not found', 404));
+      }
+
+      if (targetMember.role === 'owner') {
+        return next(new AppError("Cannot change board owner's role", 400));
+      }
+
+      // Save the previous role before any changes
+      const previousRole = targetMember.role;
+
+      // Handle promotion to admin (only owner can do this)
+      if (role === 'admin' && previousRole === 'member') {
+        if (userRole !== 'owner') {
+          return next(
+            new AppError('Only board owner can promote to admin', 403)
+          );
+        }
+      }
+
+      // Handle demotion from admin (only owner can do this)
+      if (role === 'member' && previousRole === 'admin') {
+        if (userRole !== 'owner') {
+          return next(
+            new AppError('Only board owner can demote an admin', 403)
+          );
+        }
+      }
+
+      // Calculate new permissions based on the role
+      let newPermissions;
+      switch (role) {
+        case 'admin':
+          newPermissions = [
+            'manage_board',
+            'archive_board',
+            'manage_members',
+            'create_lists',
+            'edit_lists',
+            'archive_lists',
+            'create_cards',
+            'edit_cards',
+            'move_cards',
+            'delete_cards',
+            'assign_members',
+            'create_labels',
+            'comment',
+            'view_board',
+          ];
+          break;
+        case 'member':
+          newPermissions = [
+            'view_board',
+            'create_cards',
+            'edit_own_cards',
+            'move_own_cards',
+            'comment',
+          ];
+          break;
+        default:
+          newPermissions = targetMember.permissions;
+      }
+
+      // Use update operator for member updates
+      await Board.updateOne(
+        { _id: board._id, 'members.user': userId },
+        {
+          $set: {
+            'members.$.role': role,
+            'members.$.permissions': newPermissions,
+          },
+        }
+      );
+
+      // Log activity with previously saved role
+      await activityService.logBoardActivity(
+        board,
+        req.user._id,
+        'member_role_updated',
+        {
+          targetUser: userId,
+          from: previousRole,
+          to: role,
+        }
+      );
+    }
+  }
+
+  // Update board with basic fields and settings
+  if (Object.keys(updateData).length > 0) {
+    await Board.updateOne({ _id: board._id }, { $set: updateData });
+  }
+
+  // ALWAYS get the latest board data after any updates
+  const updatedBoard = await Board.findById(board._id)
+    .populate('workspace', 'name type')
+    .populate('lists');
+
+  res.status(200).json({
     status: 'success',
     data: {
-      board: formatBoardResponse(populatedBoard, req.user._id),
+      board: formatBoardResponse(updatedBoard, req.user._id),
     },
   });
 });
 
-/**
- * Get all boards for the current user
- * Includes boards where user is member, recent and starred boards
- */
-exports.getUserBoards = catchAsync(async (req, res, next) => {
-  let userBoards = await Board.find({
-    'members.user': req.user._id,
-    archived: false,
-  })
-    .populate('workspace', 'name type createdBy')
-    .select(
-      'name description background workspace members lists starred updatedAt viewPreferences settings'
-    )
-    .lean();
+// Delete a board permanently
+exports.deleteBoard = catchAsync(async (req, res, next) => {
+  const board = req.board;
 
-  const organizedBoards = {
-    private: [],
-    public: [],
-    collaboration: [],
-    recent: [],
-    starred: [],
-  };
+  // Get the workspace for activity logging
+  const workspace = await Workspace.findById(board.workspace);
+  if (!workspace) {
+    return next(new AppError('Workspace not found', 404));
+  }
 
-  userBoards.forEach((board) => {
-    const formattedBoard = formatBoardResponse(board, req.user._id);
+  try {
+    // Find all lists associated with this board
+    const lists = await List.find({ board: board._id });
 
-    if (board.workspace.createdBy.toString() === req.user._id.toString()) {
-      if (board.workspace.type === 'private') {
-        organizedBoards.private.push(formattedBoard);
-      } else if (board.workspace.type === 'public') {
-        organizedBoards.public.push(formattedBoard);
+    // For each list, delete all its cards
+    for (const list of lists) {
+      await Card.deleteMany({ list: list._id });
+    }
+
+    // Delete all lists
+    await List.deleteMany({ board: board._id });
+
+    // Remove board reference from workspace
+    await Workspace.updateMany(
+      { boards: board._id },
+      { $pull: { boards: board._id } }
+    );
+
+    // If workspace is public, remove board from all collaboration workspaces
+    if (workspace.type === 'public') {
+      await Workspace.updateMany(
+        { type: 'collaboration' },
+        { $pull: { boards: board._id } }
+      );
+    }
+
+    // Delete the board itself
+    await Board.deleteOne({ _id: board._id });
+
+    // Log activity
+    await activityService.logWorkspaceActivity(
+      workspace,
+      req.user._id,
+      'board_removed',
+      {
+        board: {
+          name: board.name,
+          id: board._id,
+        },
       }
-    } else {
-      organizedBoards.collaboration.push(formattedBoard);
-    }
+    );
 
-    if (board.starred) {
-      organizedBoards.starred.push(formattedBoard);
-    }
-  });
-
-  // Add recent boards
-  organizedBoards.recent = [...userBoards]
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, 5)
-    .map((board) => formatBoardResponse(board, req.user._id));
-
-  const summary = {
-    totalBoards: userBoards.length,
-    totalStarred: organizedBoards.starred.length,
-    byWorkspace: {
-      private: organizedBoards.private.length,
-      public: organizedBoards.public.length,
-      collaboration: organizedBoards.collaboration.length,
-    },
-  };
-
-  res.status(200).json({
-    status: 'success',
-    data: { boards: organizedBoards, summary },
-  });
+    res.status(204).json({
+      status: 'success',
+      data: null,
+    });
+  } catch (error) {
+    return next(new AppError(`Error deleting board: ${error.message}`, 500));
+  }
 });
 
 // Get boards for a specific workspace
@@ -335,248 +583,128 @@ exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.updateBoard = catchAsync(async (req, res, next) => {
-  const board = await Board.findById(req.params.id).populate(
-    'workspace',
-    'name type'
-  );
+exports.getBoardMembers = catchAsync(async (req, res, next) => {
+  const board = req.board;
 
-  if (!board) {
-    return next(new AppError('Board not found', 404));
-  }
+  const members = board.members.map(formatMemberData);
 
-  const member = board.members.find(
-    (m) => m.user.toString() === req.user._id.toString()
-  );
-
-  if (!member) {
-    return next(new AppError('You must be a board member to update it', 403));
-  }
-
-  if (!['admin', 'owner'].includes(member.role)) {
-    return next(
-      new AppError(
-        'Only board admins and owners can update board settings',
-        403
-      )
-    );
-  }
-
-  const allowedFields = [
-    'name',
-    'description',
-    'background',
-    'viewPreferences',
-  ];
-
-  if (['admin', 'owner'].includes(member.role)) {
-    allowedFields.push('settings', 'permissions');
-  }
-
-  const filteredBody = {};
-  Object.keys(req.body).forEach((field) => {
-    if (allowedFields.includes(field)) {
-      filteredBody[field] = req.body[field];
-    }
-  });
-
-  if (filteredBody.settings) {
-    filteredBody.settings = {
-      ...board.settings,
-      ...filteredBody.settings,
-    };
-  }
-
-  if (filteredBody.permissions) {
-    filteredBody.permissions = {
-      ...board.permissions,
-      ...filteredBody.permissions,
-    };
-
-    const validPermissionValues = ['admin', 'members'];
-    Object.entries(filteredBody.permissions).forEach(([key, value]) => {
-      if (!validPermissionValues.includes(value)) {
-        delete filteredBody.permissions[key];
-      }
-    });
-  }
-
-  const updatedBoard = await Board.findByIdAndUpdate(
-    req.params.id,
-    filteredBody,
-    { new: true, runValidators: true }
-  ).populate('workspace', 'name type');
-
-  updatedBoard.activities.push({
-    user: req.user._id,
-    action: 'updated',
-    entityType: 'board',
-    entityId: updatedBoard._id,
-    data: {
-      updatedFields: Object.keys(filteredBody),
+  // Add useful stats
+  const memberStats = {
+    total: members.length,
+    byRole: {
+      owner: members.filter((m) => m.role === 'owner').length,
+      admin: members.filter((m) => m.role === 'admin').length,
+      member: members.filter((m) => m.role === 'member').length,
     },
-  });
-
-  await updatedBoard.save();
+  };
 
   res.status(200).json({
     status: 'success',
     data: {
-      board: formatBoardResponse(updatedBoard, req.user._id),
+      members,
+      stats: memberStats,
     },
   });
 });
 
-// Delete a board permanently
-exports.deleteBoard = catchAsync(async (req, res, next) => {
-  // Find board and populate necessary fields
-  const board = await Board.findById(req.params.id).populate({
-    path: 'workspace',
-    select: 'type boards',
-  });
-
-  if (!board) {
-    return next(new AppError('Board not found', 404));
-  }
-
-  // Check if user has permission to delete
-  const member = board.members.find(
+// Invite a new member to the board by email
+exports.inviteMembers = catchAsync(async (req, res, next) => {
+  const board = req.board;
+  const userRole = board.members.find(
     (m) => m.user.toString() === req.user._id.toString()
-  );
+  ).role;
 
-  if (!member || !['owner', 'admin'].includes(member.role)) {
-    return next(
-      new AppError(
-        'Only board owners and admins can permanently delete boards',
-        403
-      )
-    );
-  }
+  // Support both single invitation and bulk invitations
+  const invitesArray = req.body.invites || [
+    {
+      email: req.body.email,
+      role: req.body.role || 'member',
+    },
+  ];
 
-  try {
-    // 1. Remove board reference from workspace
-    await Workspace.updateMany(
-      { boards: board._id },
-      { $pull: { boards: board._id } }
-    );
+  // Validate invites before processing
+  for (const invite of invitesArray) {
+    const { email, role = 'member' } = invite;
 
-    // 2. If workspace is public, remove board from all collaboration workspaces
-    if (board.workspace.type === 'public') {
-      await Workspace.updateMany(
-        { type: 'collaboration' },
-        { $pull: { boards: board._id } }
+    // Only owners can invite admins
+    if (role === 'admin' && userRole !== 'owner') {
+      return next(new AppError('Only owners can invite admins', 403));
+    }
+
+    // Check if user exists
+    const user = await User.findOne({ email: invite.email });
+    if (!user) {
+      return next(
+        new AppError(`User with email ${invite.email} does not exist`, 404)
       );
     }
 
-    // 3. Delete the board itself
-    await Board.deleteOne({ _id: board._id });
+    if (board.members.some((member) => member.user.equals(user._id))) {
+      return next(
+        new AppError(`User with email ${email} is already a board member`, 400)
+      );
+    }
 
-    res.status(204).json({
-      status: 'success',
-      data: null,
-    });
-  } catch (error) {
-    return next(new AppError(`Error deleting board: ${error.message}`, 500));
-  }
-});
-
-exports.inviteMemberByEmail = catchAsync(async (req, res, next) => {
-  const { email, role = 'member' } = req.body;
-  const boardId = req.params.id;
-
-  if (!['admin', 'member'].includes(role)) {
-    return next(new AppError('Invalid role. Must be admin or member', 400));
-  }
-
-  const board = await Board.findById(boardId)
-    .populate('workspace', 'name type createdBy')
-    .select('+members +invitations');
-
-  if (!board) {
-    return next(new AppError('Board not found', 404));
-  }
-
-  const requester = board.members.find(
-    (m) => m.user.toString() === req.user._id.toString()
-  );
-
-  if (!requester || !['admin', 'owner'].includes(requester.role)) {
-    return next(
-      new AppError('Only board admins and owners can invite members', 403)
+    // Check for existing pending invitation
+    const existingInvitation = board.invitations.find(
+      (inv) => inv.email === email && inv.status === 'pending'
     );
-  }
-
-  const invitedUser = await User.findOne({ email }).select('_id email');
-  if (!invitedUser) {
-    return next(new AppError('User with this email does not exist', 404));
-  }
-
-  if (
-    board.members.some((m) => m.user.toString() === invitedUser._id.toString())
-  ) {
-    return next(new AppError('User is already a board member', 400));
+    if (existingInvitation) {
+      return next(new AppError(`Invitation already sent to ${email}`, 400));
+    }
   }
 
   try {
-    const inviteToken = board.createInvitationToken(email, role, req.user._id);
-    await board.save();
-
-    const inviteUrl = `${process.env.BASE_URL}/boards/join/${inviteToken}`;
-
-    const message = `
-      <div style="background-color: #f6f9fc; padding: 20px; font-family: Arial, sans-serif;">
-        <div style="background-color: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 0 auto; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-          <h2 style="color: #EFC235; text-align: center; font-size: 24px; margin-bottom: 20px;">Board Invitation</h2>
-          <p style="color: #3a2d34; text-align: center; font-size: 16px;">You've been invited to join "${board.name}" board.</p>
-          <p style="color: #3a2d34; text-align: center; font-size: 14px;">Role: ${role}</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${inviteUrl}" 
-               style="background-color: #EFC235; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-              Accept Invitation
-            </a>
-          </div>
-          <p style="color: #3a2d34; text-align: center; font-size: 14px;">
-            Once accepted, you'll find this board in your collaboration workspace.
-          </p>
-          <p style="color: #3a2d34; font-size: 14px; text-align: center; margin-bottom: 20px;">This invitation expires in 7 days.</p>
-          <hr style="border: none; border-top: 1px solid #e6e6e6; margin: 20px 0;">
-          <p style="color: #888; font-size: 12px; text-align: center;">If you didn't expect this invitation, you can safely ignore this email.</p>
-        </div>
-      </div>
-    `;
-
-    await sendEmail({
-      email,
-      subject: `Invitation to join ${board.name} board`,
-      message,
-    });
-
-    const populatedBoard = await Board.findById(board._id).populate(
-      'workspace',
-      'name type'
+    // Process bulk invitations using the invitationService
+    const invitationResults = await invitationService.processBulkInvitations(
+      board,
+      invitesArray,
+      req.user._id,
+      'board',
+      process.env.BASE_URL
     );
+
+    // Log activity for each successful invitation
+    for (const invitation of invitationResults) {
+      await activityService.logBoardActivity(
+        board,
+        req.user._id,
+        'invitation_sent',
+        {
+          email: invitation.email,
+          role: invitation.role,
+        }
+      );
+    }
+
+    // Save the board to ensure invitations are stored
+    await board.save();
 
     res.status(200).json({
       status: 'success',
-      message: 'Invitation sent successfully',
+      message: `Successfully sent ${invitationResults.length} invitation(s)`,
       data: {
-        board: formatBoardResponse(populatedBoard, req.user._id),
+        invitationResults,
       },
     });
   } catch (error) {
     return next(
-      new AppError('Error processing invitation: ' + error.message, 500)
+      new AppError('Error sending invitations: ' + error.message, 500)
     );
   }
 });
 
+// Accept invitation to join a board
 exports.acceptInvitation = catchAsync(async (req, res, next) => {
   const { token } = req.params;
+
+  // Find board by token
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
   const board = await Board.findOne({
     invitations: {
       $elemMatch: {
-        token: crypto.createHash('sha256').update(token).digest('hex'),
+        token: hashedToken,
         status: 'pending',
         tokenExpiresAt: { $gt: Date.now() },
       },
@@ -587,21 +715,21 @@ exports.acceptInvitation = catchAsync(async (req, res, next) => {
     return next(new AppError('Invalid or expired invitation', 400));
   }
 
-  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-  const invitation = board.invitations.find(
-    (inv) => inv.token === hashedToken && inv.status === 'pending'
-  );
+  // Use invitationService to verify token
+  const invitation = invitationService.verifyInvitationToken(board, token);
 
   if (!invitation) {
     return next(new AppError('Invalid or expired invitation', 400));
   }
 
-  const user = await User.findOne({ email: invitation.email });
+  // Find user
+  let user = await User.findOne({ email: invitation.email });
   if (!user) {
     return next(new AppError('User not found', 404));
   }
 
   try {
+    // Find or create user's collaboration workspace
     let collaborationWorkspace = await Workspace.findOne({
       createdBy: user._id,
       type: 'collaboration',
@@ -609,26 +737,29 @@ exports.acceptInvitation = catchAsync(async (req, res, next) => {
 
     if (!collaborationWorkspace) {
       collaborationWorkspace = await Workspace.create({
-        name: `${user.name}'s Collaboration Workspace`,
+        name: 'Collaboration Workspace',
+        description: 'Access boards shared by others',
         type: 'collaboration',
         createdBy: user._id,
         members: [{ user: user._id, role: 'owner' }],
       });
     }
 
-    if (!board.members.some((m) => m.user.toString() === user._id.toString())) {
-      board.members.push({
-        user: user._id,
-        role: invitation.role,
-        watchStatus: 'tracking',
-        invitedBy: invitation.invitedBy,
-      });
-    }
+    // Use invitationService to accept the invitation
+    await invitationService.acceptInvitation(board, invitation, user, {
+      entityType: 'board',
+    });
 
-    board.invitations = board.invitations.filter(
-      (inv) => inv.token !== hashedToken
+    // Log activity
+    await activityService.logBoardActivity(
+      board,
+      user._id,
+      'invitation_accepted',
+      {
+        invitedBy: invitation.invitedBy,
+        role: invitation.role,
+      }
     );
-    await board.save();
 
     res.status(200).json({
       status: 'success',
@@ -644,129 +775,129 @@ exports.acceptInvitation = catchAsync(async (req, res, next) => {
   }
 });
 
+// Get pending invitations for a board
 exports.getPendingInvitations = catchAsync(async (req, res, next) => {
-  const board = await Board.findById(req.params.id).select('+invitations');
+  const board = req.board;
 
-  if (!board) {
-    return next(new AppError('Board not found', 404));
-  }
+  // Clean up expired invitations using invitationService
+  invitationService.cleanExpiredInvitations(board);
 
-  const member = board.members.find(
-    (m) => m.user.toString() === req.user._id.toString()
+  // Return only pending invitations
+  const pendingInvitations = board.invitations.filter(
+    (inv) => inv.status === 'pending' && inv.tokenExpiresAt > Date.now()
   );
-
-  if (!member || !['admin', 'owner'].includes(member.role)) {
-    return next(
-      new AppError('Only board admins and owners can view invitations', 403)
-    );
-  }
-
-  const pendingInvitations = board.invitations
-    .filter(
-      (inv) => inv.status === 'pending' && inv.tokenExpiresAt > Date.now()
-    )
-    .map((inv) => ({
-      email: inv.email,
-      role: inv.role,
-      invitedBy: inv.invitedBy,
-      createdAt: inv.createdAt,
-      expiresAt: inv.tokenExpiresAt,
-    }));
 
   res.status(200).json({
     status: 'success',
-    data: { invitations: pendingInvitations },
+    data: {
+      invitations: pendingInvitations,
+    },
   });
 });
 
-/**
- * Cancel pending invitation for a board
- * @param {string} req.params.id - Board ID
- * @param {string} req.params.email - Invited email to cancel
- */
+// Cancel pending invitation
 exports.cancelInvitation = catchAsync(async (req, res, next) => {
-  const board = await Board.findById(req.params.id).select('+invitations');
+  const board = req.board;
   const { email } = req.params;
 
-  if (!board) {
-    return next(new AppError('Board not found', 404));
-  }
-
-  const requester = board.members.find(
-    (m) => m.user.toString() === req.user._id.toString()
+  // Find invitation to be cancelled
+  const invitation = board.invitations.find(
+    (inv) => inv.email === email && inv.status === 'pending'
   );
 
-  if (!requester || !['admin', 'owner'].includes(requester.role)) {
-    return next(
-      new AppError('Only board admins and owners can cancel invitations', 403)
-    );
+  if (!invitation) {
+    return next(new AppError(`No pending invitation found for ${email}`, 404));
   }
 
-  board.invitations = board.invitations.filter((inv) => inv.email !== email);
-  await board.save();
+  // Use invitationService to cancel invitation
+  const cancelled = invitationService.cancelInvitation(board, email);
+
+  if (cancelled) {
+    // Log the activity
+    await activityService.logBoardActivity(
+      board,
+      req.user._id,
+      'invitation_cancelled',
+      {
+        email: invitation.email,
+        role: invitation.role,
+      }
+    );
+
+    await board.save();
+  }
 
   res.status(200).json({
     status: 'success',
-    message: 'Invitation cancelled successfully',
+    message: 'Invitation cancelled',
   });
 });
 
-/**
- * Remove member from board
- * @param {string} req.params.id - Board ID
- * @param {string} req.params.userId - User ID to remove
- */
+// Remove member from board
 exports.removeMember = catchAsync(async (req, res, next) => {
-  const board = await Board.findById(req.params.id).populate(
-    'workspace',
-    'name type'
-  );
+  const board = req.board;
+  const targetUserId = req.params.userId;
 
-  if (!board) {
-    return next(new AppError('Board not found', 404));
-  }
-
-  const requester = board.members.find(
-    (m) => m.user.toString() === req.user._id.toString()
-  );
-
-  if (!requester || !['admin', 'owner'].includes(requester.role)) {
-    return next(
-      new AppError('Only board admins and owners can remove members', 403)
-    );
-  }
-
+  // Get the target member's role
   const targetMember = board.members.find(
-    (m) => m.user.toString() === req.params.userId
+    (member) => member.user.toString() === targetUserId
   );
 
   if (!targetMember) {
-    return next(new AppError('Member not found in board', 404));
+    return next(new AppError('Member not found', 404));
   }
 
+  // Prevent removing the board owner
   if (targetMember.role === 'owner') {
     return next(new AppError('Cannot remove board owner', 400));
   }
 
+  // Admin can only remove regular members, not other admins
+  const currentUserRole = board.members.find(
+    (m) => m.user.toString() === req.user._id.toString()
+  )?.role;
+
+  if (currentUserRole === 'admin' && targetMember.role === 'admin') {
+    return next(new AppError('Admins cannot remove other admins', 403));
+  }
+
+  // Check if this is the last member in a collaboration board
   if (board.workspace.type === 'collaboration' && board.members.length === 1) {
-    await board.remove();
+    await Board.deleteOne({ _id: board._id });
+
     return res.status(204).json({
       status: 'success',
       message: 'Board deleted as last member was removed',
     });
   }
 
+  // Store member info for activity log
+  const memberInfo = {
+    user: targetUserId,
+    role: targetMember.role,
+  };
+
+  // Remove member
   board.members = board.members.filter(
-    (m) => m.user.toString() !== req.params.userId
+    (member) => member.user.toString() !== targetUserId
   );
+
+  // Log activity
+  await activityService.logBoardActivity(
+    board,
+    req.user._id,
+    'member_removed',
+    {
+      member: memberInfo,
+      removedBy: req.user._id,
+    }
+  );
+
   await board.save();
 
-  res.status(200).json({
+  res.status(204).json({
     status: 'success',
-    message: 'Member removed successfully',
-    data: {
-      board: formatBoardResponse(board, req.user._id),
-    },
+    data: null,
   });
 });
 
@@ -774,7 +905,6 @@ exports.getArchivedBoards = catchAsync(async (req, res, next) => {
   const archivedBoards = await Board.find({
     'members.user': req.user._id,
     archived: true,
-    archivedBy: req.user._id,
   })
     .populate({
       path: 'workspace',
@@ -825,32 +955,29 @@ exports.getArchivedBoards = catchAsync(async (req, res, next) => {
 });
 
 exports.archiveBoard = catchAsync(async (req, res, next) => {
-  const board = await Board.findById(req.params.id).populate(
-    'workspace',
-    'name type'
-  );
-
-  if (!board) {
-    return next(new AppError('Board not found', 404));
-  }
-
-  const isMember = board.members.some(
-    (member) => member.user.toString() === req.user._id.toString()
-  );
-
-  if (!isMember) {
-    return next(new AppError('You must be a board member to archive it', 403));
-  }
+  const board = req.board;
 
   if (board.archived) {
     return next(new AppError('Board is already archived', 400));
   }
 
+  // Update board status
   board.archived = true;
   board.archivedAt = Date.now();
   board.archivedBy = req.user._id;
-
   await board.save();
+
+  // Log activity
+  await activityService.logBoardActivity(
+    board,
+    req.user._id,
+    'board_archived',
+    {
+      board: {
+        name: board.name,
+      },
+    }
+  );
 
   res.status(200).json({
     status: 'success',
@@ -862,32 +989,29 @@ exports.archiveBoard = catchAsync(async (req, res, next) => {
 });
 
 exports.restoreBoard = catchAsync(async (req, res, next) => {
-  const board = await Board.findById(req.params.id).populate(
-    'workspace',
-    'name type'
-  );
-
-  if (!board) {
-    return next(new AppError('Board not found', 404));
-  }
-
-  const isMember = board.members.some(
-    (member) => member.user.toString() === req.user._id.toString()
-  );
-
-  if (!isMember) {
-    return next(new AppError('You must be a board member to restore it', 403));
-  }
+  const board = req.board;
 
   if (!board.archived) {
     return next(new AppError('Board is not archived', 400));
   }
 
+  // Update board status
   board.archived = false;
   board.archivedAt = undefined;
   board.archivedBy = undefined;
-
   await board.save();
+
+  // Log activity
+  await activityService.logBoardActivity(
+    board,
+    req.user._id,
+    'board_restored',
+    {
+      board: {
+        name: board.name,
+      },
+    }
+  );
 
   res.status(200).json({
     status: 'success',
@@ -897,32 +1021,16 @@ exports.restoreBoard = catchAsync(async (req, res, next) => {
     },
   });
 });
-/**
- * Star a board
- * @route PATCH /api/boards/:id/star
- */
+
+// Star a board
 exports.starBoard = catchAsync(async (req, res, next) => {
-  const board = await Board.findById(req.params.id);
+  const board = req.board;
 
-  if (!board) {
-    return next(new AppError('Board not found', 404));
-  }
-
-  // Check if user is a member of the board
-  const isMember = board.members.some(
-    (member) => member.user.toString() === req.user._id.toString()
-  );
-
-  if (!isMember) {
-    return next(new AppError('You must be a board member to star it', 403));
-  }
-
-  // Check if board is already starred
   if (board.starred) {
     return next(new AppError('Board is already starred', 400));
   }
 
-  // Star the board
+  // Update board
   board.starred = true;
   await board.save();
 
@@ -930,37 +1038,20 @@ exports.starBoard = catchAsync(async (req, res, next) => {
     status: 'success',
     message: 'Board starred successfully',
     data: {
-      board,
+      board: formatBoardResponse(board, req.user._id),
     },
   });
 });
 
-/**
- * Remove star from a board
- * @route PATCH /api/boards/:id/unstar
- */
+// Unstar a board
 exports.unstarBoard = catchAsync(async (req, res, next) => {
-  const board = await Board.findById(req.params.id);
+  const board = req.board;
 
-  if (!board) {
-    return next(new AppError('Board not found', 404));
-  }
-
-  // Check if user is a member of the board
-  const isMember = board.members.some(
-    (member) => member.user.toString() === req.user._id.toString()
-  );
-
-  if (!isMember) {
-    return next(new AppError('You must be a board member to unstar it', 403));
-  }
-
-  // Check if board is not starred
   if (!board.starred) {
     return next(new AppError('Board is not starred', 400));
   }
 
-  // Remove star from the board
+  // Update board
   board.starred = false;
   await board.save();
 
@@ -968,39 +1059,31 @@ exports.unstarBoard = catchAsync(async (req, res, next) => {
     status: 'success',
     message: 'Board unstarred successfully',
     data: {
-      board,
+      board: formatBoardResponse(board, req.user._id),
     },
   });
 });
 
-/**
- * Get boards starred by current user
- * @route GET /api/boards/me/starred
- * @access Private
- */
+// Get starred boards for the current user
 exports.getMyStarredBoards = catchAsync(async (req, res, next) => {
   const starredBoards = await Board.find({
     'members.user': req.user._id,
     starred: true,
     archived: false,
   })
-    .populate({
-      path: 'workspace',
-      select: 'name type',
-    })
-    .populate({
-      path: 'members.user',
-      select: 'name email username',
-    })
-    .populate({
-      path: 'createdBy',
-      select: 'name email username',
-    })
+    .populate('workspace', 'name type')
+    .populate('members.user', 'name email username')
+    .populate('createdBy', 'name email username')
     .sort('-updatedAt');
 
-  // Calculate some statistics
+  // Format response
+  const formattedBoards = starredBoards.map((board) =>
+    formatBoardResponse(board, req.user._id)
+  );
+
+  // Calculate statistics
   const stats = {
-    total: starredBoards.length,
+    total: formattedBoards.length,
     byWorkspaceType: {
       private: starredBoards.filter(
         (board) => board.workspace.type === 'private'
@@ -1016,61 +1099,7 @@ exports.getMyStarredBoards = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     data: {
-      boards: starredBoards,
-      stats,
-    },
-  });
-});
-
-exports.getBoardMembers = catchAsync(async (req, res, next) => {
-  const { id: boardId } = req.params;
-
-  const board = await Board.findById(boardId)
-    .populate({
-      path: 'members.user',
-      select: 'name email username',
-    })
-    .select('members');
-
-  if (!board) {
-    return next(new AppError('Board not found', 404));
-  }
-
-  // Check if requesting user is a member
-  const isMember = board.members.some(
-    (member) => member.user._id.toString() === req.user._id.toString()
-  );
-
-  if (!isMember) {
-    return next(
-      new AppError('You must be a board member to view members', 403)
-    );
-  }
-
-  // Format members data
-  const members = board.members.map((member) => ({
-    id: member.user._id,
-    name: member.user.name,
-    email: member.user.email,
-    username: member.user.username,
-    role: member.role,
-    watchStatus: member.watchStatus,
-    joinedAt: member.joinedAt,
-  }));
-
-  const stats = {
-    total: members.length,
-    byRole: {
-      owner: members.filter((m) => m.role === 'owner').length,
-      admin: members.filter((m) => m.role === 'admin').length,
-      member: members.filter((m) => m.role === 'member').length,
-    },
-  };
-
-  res.status(200).json({
-    status: 'success',
-    data: {
-      members,
+      boards: formattedBoards,
       stats,
     },
   });

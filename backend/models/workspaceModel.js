@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
-const crypto = require('crypto'); // Add this at the top
-const User = require('./userModel');
+
 const workspaceSchema = new mongoose.Schema(
   {
     name: {
@@ -47,23 +46,24 @@ const workspaceSchema = new mongoose.Schema(
                   'manage_members', // Can add/remove members
                   'manage_roles', // Can change member roles
                   'create_boards', // Can create new boards
-                  'delete_boards', // Can delete boards
+                  'invite_members', // Can invite new members
+                  'view_members', // Can view member list
+                  'manage_settings', // Can change workspace settings
+                  'manage_permissions', // Can manage permission settings
+                ];
+              case 'admin':
+                return [
+                  'manage_members', // Can add/remove regular members
+                  'create_boards', // Can create new boards
                   'invite_members', // Can invite new members
                   'view_members', // Can view member list
                   'manage_settings', // Can change workspace settings
                 ];
-              case 'admin':
-                return [
-                  'create_boards', // Can create new boards
-                  'delete_own_boards', // Can delete boards they created
-                  'invite_members', // Can invite new members
-                  'view_members', // Can view member list
-                  'manage_settings', // Can change general settings
-                ];
               default:
                 return [
                   'view_workspace', // Can view workspace
-                  'view_boards', // Can view boards in workspace
+                  'view_own_boards', // Can view boards they have access to
+                  'view_members', // Can view member list
                 ];
             }
           },
@@ -78,25 +78,16 @@ const workspaceSchema = new mongoose.Schema(
       // Critical Settings (Owner Only)
       inviteRestriction: {
         type: String,
-        enum: ['owner', 'admin'],
+        enum: ['owner', 'admin', 'member'],
         default: 'owner',
       },
       boardCreation: {
         type: String,
-        enum: ['owner', 'admin'],
+        enum: ['owner', 'admin', 'member'],
         default: 'owner',
       },
 
-      // General Settings (Owner & Admin)
-      defaultView: {
-        type: String,
-        enum: ['board', 'calendar', 'timeline'],
-        default: 'board',
-      },
-      cardCoverEnabled: {
-        type: Boolean,
-        default: true,
-      },
+      // disanbled or enabled on the member's account only
       notificationsEnabled: {
         type: Boolean,
         default: true,
@@ -106,13 +97,19 @@ const workspaceSchema = new mongoose.Schema(
       {
         email: {
           type: String,
-          required: true,
           lowercase: true,
         },
         role: {
           type: String,
           enum: ['admin', 'member'],
           default: 'member',
+          validate: {
+            validator: function (value) {
+              return ['admin', 'member'].includes(value);
+            },
+            message: (props) =>
+              `${props.value} is not a valid role for invitation. Role must be either "admin" or "member"`,
+          },
         },
         invitedBy: {
           type: mongoose.Schema.Types.ObjectId,
@@ -132,6 +129,37 @@ const workspaceSchema = new mongoose.Schema(
         },
       },
     ],
+    // Activities array for workspace-related activities
+    activities: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        action: {
+          type: String,
+          enum: [
+            // 'workspace_created',
+            'workspace_updated',
+            'workspace_settings_updated',
+            'member_added',
+            'member_removed',
+            'member_role_updated',
+            'invitation_sent',
+            'invitation_accepted',
+            'invitation_cancelled',
+            'board_created',
+            'board_removed',
+            // 'board_shared',
+          ],
+        },
+        data: mongoose.Schema.Types.Mixed,
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   {
     timestamps: true,
@@ -142,30 +170,6 @@ const workspaceSchema = new mongoose.Schema(
 workspaceSchema.index({ name: 1, createdBy: 1 });
 workspaceSchema.index({ 'members.user': 1 });
 workspaceSchema.index({ 'invitations.email': 1, 'invitations.token': 1 });
-
-// Method to check if a user has a specific permission
-workspaceSchema.methods.hasPermission = function (userId, permission) {
-  const member = this.members.find(
-    (m) => m.user.toString() === userId.toString()
-  );
-  return member && member.permissions.includes(permission);
-};
-
-// Method to check if a user is an owner or admin
-workspaceSchema.methods.isOwnerOrAdmin = function (userId) {
-  const member = this.members.find(
-    (m) => m.user.toString() === userId.toString()
-  );
-  return member && ['owner', 'admin'].includes(member.role);
-};
-
-// Method to get member's role
-workspaceSchema.methods.getMemberRole = function (userId) {
-  const member = this.members.find(
-    (m) => m.user.toString() === userId.toString()
-  );
-  return member ? member.role : null;
-};
 
 // VIRTUAL POPULATE, 'Virtual Child Referencing' to get all boards of a workspace
 workspaceSchema.virtual('boards', {
@@ -181,6 +185,22 @@ workspaceSchema.virtual('boards', {
     archived: false,
   },
 });
+
+// Method to get member's role
+workspaceSchema.methods.getMemberRole = function (userId) {
+  const member = this.members.find(
+    (m) => m.user.toString() === userId.toString()
+  );
+  return member ? member.role : null;
+};
+
+// Method to check if a user is an owner or admin
+workspaceSchema.methods.isOwnerOrAdmin = function (userId) {
+  const member = this.members.find(
+    (m) => m.user.toString() === userId.toString()
+  );
+  return member && ['owner', 'admin'].includes(member.role);
+};
 
 // Static method to create default workspaces for a new user
 workspaceSchema.statics.createDefaultWorkspaces = async function (
@@ -219,51 +239,6 @@ workspaceSchema.statics.createDefaultWorkspaces = async function (
   } catch (error) {
     throw new Error('Failed to create default workspaces: ' + error.message);
   }
-};
-
-// Add methods for invitation token handling
-workspaceSchema.methods.createInvitationToken = function (
-  email,
-  role,
-  invitedBy
-) {
-  // Generate random token
-  const inviteToken = crypto.randomBytes(32).toString('hex');
-
-  // Hash token for storage
-  const hashedToken = crypto
-    .createHash('sha256')
-    .update(inviteToken)
-    .digest('hex');
-
-  // Add invitation to invitations array
-  this.invitations.push({
-    email,
-    role,
-    invitedBy,
-    token: hashedToken,
-    tokenExpiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
-    status: 'pending',
-  });
-
-  return inviteToken; // Return unhashed token for email
-};
-
-// Add static method for verifying invitation token
-workspaceSchema.statics.verifyInvitationToken = async function (token, email) {
-  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-
-  const workspace = await this.findOne({
-    invitations: {
-      $elemMatch: {
-        token: hashedToken,
-        tokenExpiresAt: { $gt: Date.now() },
-        status: 'pending',
-      },
-    },
-  });
-
-  return workspace;
 };
 
 // Automatically clean up expired invitations
