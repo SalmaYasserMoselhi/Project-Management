@@ -17,7 +17,10 @@
 // import notificationIcon from "../assets/notification.png";
 // import Avatar from "../assets/defaultAvatar.png";
 // import LogoF from "../assets/LogoF.png";
+<<<<<<< HEAD
+=======
 // import LogoS from "../assets/Logo.png";
+>>>>>>> 5575001b4f47289ac90dde3f035de8578ffcfab8
 
 // import {
 //   ChevronDown,
@@ -85,6 +88,37 @@
 //       }`}
 //     >
 //       {/* Logo and Close Button Section */}
+<<<<<<< HEAD
+//       <div className="relative flex items-center w-full mb-6 mt-2">
+//         {isSidebarOpen && (
+//           <img
+//             src={LogoF || "/placeholder.svg"}
+//             alt="Logo"
+//             className="h-12 transition-all duration-300"
+//           />
+//         )}
+//         <button
+//           onClick={() => dispatch(toggleSidebar())}
+//           className={`flex items-center justify-center w-8 h-8 rounded-full bg-[#57356A] text-white transition-all duration-300 shadow-lg ${
+//             isSidebarOpen
+//               ? "ml-auto hover:bg-[#57356A]"
+//               : "mx-auto hover:bg-[#57356A]"
+//           }`}
+//         >
+//           {isSidebarOpen ? (
+//             <ChevronLeft size={24} />
+//           ) : (
+//             <ChevronRight size={24} />
+//           )}
+//         </button>
+//       </div>
+
+//       <hr className="border-t border-[#BBBBBB80] opacity-50 mb-4" />
+
+//       {/* Only render the user workspace section if user data is available */}
+//       {user && (
+//         <div className="mb-4">
+=======
 //       <div className="relative flex items-center w-full mb-4 mt-1">
 //         {isSidebarOpen ? (
 //           <img
@@ -121,6 +155,7 @@
 //       {/* Only render the user workspace section if user data is available */}
 //       {user && (
 //         <div className="mb-3">
+>>>>>>> 5575001b4f47289ac90dde3f035de8578ffcfab8
 //           {isSidebarOpen ? (
 //             <div
 //               className="flex items-center justify-between cursor-pointer px-2 py-1 rounded-md hover:bg-[#6A3B82]"
@@ -151,6 +186,36 @@
 //             </div>
 //           )}
 
+<<<<<<< HEAD
+//           {/* Dropdown menu */}
+//           {isSidebarOpen && isWorkspaceOpen && (
+//             <div className="mt-2 space-y-2 pl-3">
+//               {/* Notifications */}
+//               <div className="flex items-center space-x-2 cursor-pointer py-1 text-white hover:text-gray-300">
+//                 <img
+//                   src={notificationIcon || "/placeholder.svg"}
+//                   alt="Notifications"
+//                   className="h-5 w-5"
+//                 />
+//                 <span className="text-sm">Notifications</span>
+//               </div>
+
+//               {/* Chat */}
+//               <div className="flex items-center space-x-2 cursor-pointer py-1 text-white hover:text-gray-300">
+//                 <img
+//                   src={chatIcon || "/placeholder.svg"}
+//                   alt="Chat"
+//                   className="h-5 w-5"
+//                 />
+//                 <span className="text-sm">Chat</span>
+//               </div>
+//             </div>
+//           )}
+//         </div>
+//       )}
+
+//       <hr className="border-t border-[#BBBBBB80] opacity-50 mb-4" />
+=======
 //           {/* Dropdown menu
 //           {isSidebarOpen && isWorkspaceOpen && (
 
@@ -219,6 +284,7 @@
 //       )}
 
 //       <hr className="border-t border-[#BBBBBB80] opacity-50 mb-3" />
+>>>>>>> 5575001b4f47289ac90dde3f035de8578ffcfab8
 //       {/* Navigation Items */}
 //       <nav className="space-y-2">
 //         {sidebarItems.map((item) => (
@@ -305,12 +371,16 @@
 
 // export default Sidebar;
 
+<<<<<<< HEAD
+
+import { useEffect } from "react";
+=======
 "use client";
 
 import { useEffect, useState } from "react";
+>>>>>>> 5575001b4f47289ac90dde3f035de8578ffcfab8
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-
 import {
   toggleSidebar,
   setActiveItem,
@@ -330,13 +400,13 @@ import LogoS from "../assets/Logo.png";
 
 import { ChevronLeft, ChevronRight, ChevronsUpDown, X } from "lucide-react";
 
-const Sidebar = () => {
+const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [isMobile, setIsMobile] = useState(false);
 
   // Get state from Redux store
-  const { isSidebarOpen, activeItem, isWorkspaceOpen } = useSelector(
+  const { activeItem, isWorkspaceOpen } = useSelector(
     (state) => state.sidebar
   );
   const { user } = useSelector((state) => state.user);
@@ -387,6 +457,11 @@ const Sidebar = () => {
 
   return (
     <div
+<<<<<<< HEAD
+      className={`fixed left-0 top-0 bottom-0 bg-[#4D2D61] shadow-lg p-4 flex flex-col border-r border-gray-200 font-[Nunito] transition-all duration-300 z-50 ${
+        isSidebarOpen ? "w-64" : "w-16"
+      }`}
+=======
       className={`fixed left-0 top-0 bottom-0 bg-[#4D2D61] shadow-lg p-4 flex flex-col border-r border-gray-200 font-[Nunito] transition-all duration-300 z-50 
         ${isSidebarOpen ? "w-60" : "w-20"}
         ${
@@ -398,6 +473,7 @@ const Sidebar = () => {
         }
         ${isMobile && "bg-opacity-95 backdrop-blur-sm"}
       `}
+>>>>>>> 5575001b4f47289ac90dde3f035de8578ffcfab8
     >
       {/* Logo and Close Button Section */}
       <div className="relative flex items-center w-full mb-4 mt-1">
@@ -416,6 +492,24 @@ const Sidebar = () => {
             />
           </div>
         )}
+<<<<<<< HEAD
+        <button
+          onClick={toggleSidebar}
+          className={`flex items-center justify-center w-8 h-8 rounded-full bg-[#57356A] text-white transition-all duration-300 shadow-lg ${
+            isSidebarOpen
+              ? "ml-auto hover:bg-[#57356A]"
+              : "mx-auto hover:bg-[#57356A]"
+          }`}
+        >
+          {isSidebarOpen ? (
+            <ChevronLeft size={24} />
+          ) : (
+            <ChevronRight size={24} />
+          )}
+        </button>
+      </div>
+=======
+>>>>>>> 5575001b4f47289ac90dde3f035de8578ffcfab8
 
         {/* Close button for mobile */}
         {isMobile && isSidebarOpen && (
