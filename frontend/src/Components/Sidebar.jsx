@@ -49,11 +49,6 @@ const Sidebar = () => {
 
   const sidebarItems = [
     {
-      icon: DashboardIcon,
-      title: "Dashboard",
-      path: "dashboard",
-    },
-    {
       icon: WorkspaceIcon,
       title: "Workspace",
     },
@@ -141,7 +136,7 @@ const Sidebar = () => {
         <div className="mb-3">
           {isSidebarOpen ? (
             <div
-              className="flex items-center justify-between cursor-pointer px-2 py-1 rounded-md hover:bg-[#6A3B82]"
+              className="flex items-center justify-between cursor-pointer px-3 py-2.5 rounded-md hover:bg-[#6A3B82]"
               onClick={() => dispatch(toggleWorkspaceOpen())}
             >
               <div className="w-6 h-6 flex items-center justify-center bg-white text-[#4D2D61] font-bold rounded-sm text-sm">
@@ -174,9 +169,9 @@ const Sidebar = () => {
             <div
               className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
                 activeItem === "Notifications"
-                  ? "bg-[#4D2D61] text-white"
+                  ? "bg-[#6A3B82] text-white"
                   : "text-gray-900 hover:bg-[#6A3B82]"
-              } ${isSidebarOpen ? "w-full" : "w-14 justify-center"}`}
+              } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
               onClick={(e) => {
                 e.preventDefault();
                 handleItemClick("Notifications", "notifications");
@@ -189,7 +184,7 @@ const Sidebar = () => {
                   className={`h-5 w-5 filter brightness-0 invert ${
                     activeItem === "Notifications"
                       ? "filter brightness-0 invert"
-                      : "filter brightness-0"
+                      : "filter brightness-0 invert"
                   }`}
                 />
                 {isSidebarOpen && (
@@ -199,27 +194,21 @@ const Sidebar = () => {
                 )}
               </div>
             </div>
-
-            {/* Chat */}
             <div
               className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
                 activeItem === "Chat"
-                  ? "bg-[#4D2D61] text-white"
+                  ? "bg-[#6A3B82] text-white"
                   : "text-gray-900 hover:bg-[#6A3B82]"
-              } ${isSidebarOpen ? "w-full" : "w-14 justify-center"}`}
-              onClick={(e) => {
-                e.preventDefault();
-                handleItemClick("Chat", "chat");
-              }}
+              } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
             >
               <div className="flex items-center gap-3">
                 <img
                   src={chatIcon}
-                  alt="Chat"
+                  alt="chat"
                   className={`h-5 w-5 filter brightness-0 invert ${
                     activeItem === "Chat"
                       ? "filter brightness-0 invert"
-                      : "filter brightness-0"
+                      : "filter brightness-0 invert"
                   }`}
                 />
                 {isSidebarOpen && (
@@ -237,27 +226,49 @@ const Sidebar = () => {
         className="space-y-2 overflow-y-auto"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
+        <div
+          className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+            activeItem === "Dashboard"
+              ? "bg-[#6A3B82] text-white"
+              : "text-gray-900 hover:bg-[#6A3B82]"
+          } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
+          onClick={(e) => {
+            e.preventDefault();
+            handleItemClick("Dashboard", "dashboard");
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <img
+              src={DashboardIcon}
+              alt="Dashboard"
+              className={`h-5 w-5 filter brightness-0 invert ${
+                activeItem === "Dashboard"
+                  ? "filter brightness-0 invert"
+                  : "filter brightness-0 invert"
+              }`}
+            />
+            {isSidebarOpen && (
+              <span className="text-sm font-medium text-white">Dashboard</span>
+            )}
+          </div>
+        </div>
         {sidebarItems.map((item) => (
           <div
             key={item.title}
-            className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+            className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
               activeItem === item.title
-                ? "bg-[#4D2D61] text-white"
+                ? "bg-[#6A3B82] text-white"
                 : "text-gray-900 hover:bg-[#6A3B82]"
-            } ${isSidebarOpen ? "w-full" : "w-14 justify-center"}`}
-            onClick={(e) => {
-              e.preventDefault();
-              handleItemClick(item.title, item.path);
-            }}
+            } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
           >
             <div className="flex items-center gap-3">
               <img
                 src={item.icon}
                 alt={`${item.title} icon`}
-                className={`h-6 w-6 filter brightness-0 invert ${
+                className={`h-5 w-5 filter brightness-0 invert ${
                   activeItem === item.title
                     ? "filter brightness-0 invert"
-                    : "filter brightness-0"
+                    : "filter brightness-0 invert"
                 }`}
               />
               {isSidebarOpen && (

@@ -95,12 +95,18 @@ exports.createOpenConversation = catchAsync(async (req, res, next) => {
     }
 
     // Ensure name field is included and valid
+    // let convoData = {
+    //   name:
+    //     receiverUser.username && receiverUser.username.trim() !== ''
+    //       ? receiverUser.username
+    //       : 'Conversation with ' + receiverObjectId,
+    //   picture: receiverUser.picture,
+    //   isGroup: false,
+    //   users: [senderObjectId, receiverObjectId],
+    // };
     let convoData = {
-      name:
-        receiverUser.username && receiverUser.username.trim() !== ''
-          ? receiverUser.username
-          : 'Conversation with ' + receiverObjectId,
-      picture: receiverUser.picture,
+      name: 'conversation name',
+      picture: 'conversation picture',
       isGroup: false,
       users: [senderObjectId, receiverObjectId],
     };
