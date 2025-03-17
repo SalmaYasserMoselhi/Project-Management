@@ -28,7 +28,7 @@ const Main = () => {
       {/* Mobile overlay with blur effect */}
       {isMobile && isSidebarOpen && (
         <div
-          className="fixed inset-0 backdrop-blur-sm bg-white/30 z-40"
+          className="fixed inset-0 backdrop-blur-xs bg-white/10 z-40"
           onClick={() => dispatch(toggleSidebar())}
         />
       )}

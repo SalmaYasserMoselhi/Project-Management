@@ -10,7 +10,6 @@ import MainBoard from "../Board/mainBoard";
 
 import Notifications from "../Main/Notifications";
 import Main from "../Main/Main";
-import Home from "../Chat/Home";
 
 function Routing() {
   return (
@@ -23,7 +22,6 @@ function Routing() {
         <Route path="/verification" element={<Verification />} />
         <Route path="/resetpassword" element={<ResetPassword />} />
         <Route path="/mainboard" element={<MainBoard />} />
-        <Route path="/home" element={<Home />} />
 
         <Route path="/main/*" element={<Main />}>
           <Route index element={<Navigate to="dashboard" />} />
