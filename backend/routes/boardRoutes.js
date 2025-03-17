@@ -4,38 +4,99 @@ const authController = require('../controllers/authController');
 
 const router = express.Router();
 
+// Public routes
+router.get('/join/:token', boardController.acceptInvitation);
+
+// Protect all routes after this middleware
 router.use(authController.protect);
 
-
-
-router.get('/join/:token', boardController.acceptInvitation); // Changed from accept-invitation to join
-router.use(authController.protect);
-
+// Board creation route
 router.route('/').post(boardController.createBoard);
 
-router.route('/:id/invite').post(boardController.inviteMemberByEmail);
+// Board-specific routes
+router.route('/:id').get(
+  boardController.checkBoardPermission('view_board', {
+    path: 'workspace',
+    select: 'name type',
+  }),
+  boardController.getBoardById
+);
 
-router.route('/:id/invitations').get(boardController.getPendingInvitations);
+// Member management routes
+router.route('/:id/members').get(
+  boardController.checkBoardPermission('view_board', {
+    path: 'members.user',
+    select: 'name email username',
+  }),
+  boardController.getBoardMembers
+);
+
+// Invitation management routes
+router
+  .route('/:id/invite')
+  .post(
+    boardController.checkBoardPermission('manage_members'),
+    boardController.inviteMembers
+  );
+
+router
+  .route('/:id/invitations')
+  .get(
+    boardController.checkBoardPermission('manage_members'),
+    boardController.getPendingInvitations
+  );
 
 router
   .route('/:id/invitations/:email')
-  .delete(boardController.cancelInvitation);
+  .delete(
+    boardController.checkBoardPermission('manage_members'),
+    boardController.cancelInvitation
+  );
 
-router.route('/:id/members/:userId').delete(boardController.removeMember);
+// Member removal route
+router
+  .route('/:id/members/:userId')
+  .delete(
+    boardController.checkBoardPermission('manage_members'),
+    boardController.removeMember
+  );
 
-router.get('/user-boards', boardController.getUserBoards);
+// Board update/archive routes
+router
+  .route('/user-boards/:id')
+  .patch(
+    boardController.checkBoardPermission('manage_board'),
+    boardController.updateBoard
+  );
+
+router
+  .route('/user-boards/:id/archive')
+  .patch(
+    boardController.checkBoardPermission('archive_board'),
+    boardController.archiveBoard
+  );
+
+router
+  .route('/user-boards/:id/restore')
+  .patch(
+    boardController.checkBoardPermission('archive_board'),
+    boardController.restoreBoard
+  );
+
+router
+  .route('/user-boards/:id')
+  .delete(
+    boardController.checkBoardPermission('delete_board'),
+    boardController.deleteBoard
+  );
+
+// Get boards for a specific workspace
 router.get(
   '/workspaces/:workspaceId/boards',
   boardController.getWorkspaceBoards
 );
 
+// Get archived boards
 router.get('/user-boards/archived', boardController.getArchivedBoards);
-router.patch('/user-boards/:id/archive', boardController.archiveBoard);
-router.patch('/user-boards/:id/restore', boardController.restoreBoard);
 
-router.patch('/user-boards/:id', boardController.updateBoard);
-
-router.delete('/user-boards/:id', boardController.deleteBoard);
-
-router.get('/user-boards/:id/members', boardController.getBoardMembers);
 module.exports = router;

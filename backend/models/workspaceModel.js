@@ -1,6 +1,4 @@
 const mongoose = require('mongoose');
-const crypto = require('crypto');
-const invitationService = require('../utils/invitationService');
 
 const workspaceSchema = new mongoose.Schema(
   {
@@ -88,12 +86,8 @@ const workspaceSchema = new mongoose.Schema(
         enum: ['owner', 'admin', 'member'],
         default: 'owner',
       },
-      // General Settings
-      defaultView: {
-        type: String,
-        enum: ['board', 'calendar', 'timeline'],
-        default: 'board',
-      },
+
+      // disanbled or enabled on the member's account only
       notificationsEnabled: {
         type: Boolean,
         default: true,
