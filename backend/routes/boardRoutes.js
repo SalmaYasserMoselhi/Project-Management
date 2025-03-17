@@ -70,33 +70,51 @@ router
   );
 
 router
-  .route('/user-boards/:id/archive')
-  .patch(
-    boardController.checkBoardPermission('archive_board'),
-    boardController.archiveBoard
-  );
-
-router
-  .route('/user-boards/:id/restore')
-  .patch(
-    boardController.checkBoardPermission('archive_board'),
-    boardController.restoreBoard
-  );
-
-router
   .route('/user-boards/:id')
   .delete(
     boardController.checkBoardPermission('delete_board'),
     boardController.deleteBoard
   );
 
+router
+  .route('/user-boards/:id/archive')
+  .patch(
+    boardController.checkBoardPermission('view_board'),
+    boardController.archiveBoard
+  );
+
+router
+  .route('/user-boards/:id/restore')
+  .patch(
+    boardController.checkBoardPermission('view_board'),
+    boardController.restoreBoard
+  );
+
+// Get archived boards
+router.get('/user-boards/archived', boardController.getArchivedBoards);
+
+// Star/unstar routes
+router
+  .route('/user-boards/:id/star')
+  .patch(
+    boardController.checkBoardPermission('view_board'),
+    boardController.starBoard
+  );
+
+router
+  .route('/user-boards/:id/unstar')
+  .patch(
+    boardController.checkBoardPermission('view_board'),
+    boardController.unstarBoard
+  );
+
+// Route to get starred boards doesn't need to change as it's already user-specific
+router.get('/user-boards/starred', boardController.getMyStarredBoards);
+
 // Get boards for a specific workspace
 router.get(
   '/workspaces/:workspaceId/boards',
   boardController.getWorkspaceBoards
 );
-
-// Get archived boards
-router.get('/user-boards/archived', boardController.getArchivedBoards);
 
 module.exports = router;

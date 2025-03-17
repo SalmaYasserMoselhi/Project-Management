@@ -30,13 +30,22 @@ const formatBoardResponse = (board, userId) => ({
   id: board._id,
   name: board.name,
   description: board.description,
-  background: board.background,
   workspace: board.workspace,
   createdBy: board.createdBy,
   memberCount: board.members ? board.members.length : 0,
-  isStarred: board.starred,
   lastActivity: board.updatedAt,
-  viewPreferences: board.viewPreferences,
+  // Check if the board is starred for this specific user
+  starred:
+    board.starredByUsers &&
+    board.starredByUsers.some(
+      (entry) => entry.user.toString() === userId.toString()
+    ),
+  // Check if the board is archived for this specific user
+  archived:
+    board.archivedByUsers &&
+    board.archivedByUsers.some(
+      (entry) => entry.user.toString() === userId.toString()
+    ),
   // lists: Array.isArray(board.lists)
   //   ? board.lists.map((list) => ({
   //       id: list._id,
@@ -256,10 +265,7 @@ exports.updateBoard = catchAsync(async (req, res, next) => {
     }
 
     // General settings (owner & admin)
-    const generalSettings = [
-      'cardEditing',
-      'cardMoving',
-    ];
+    const generalSettings = ['cardEditing', 'cardMoving'];
     if (
       generalSettings.some(
         (field) => settings.general && settings.general[field] !== undefined
@@ -491,6 +497,8 @@ exports.deleteBoard = catchAsync(async (req, res, next) => {
 exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
   const { workspaceId } = req.params;
   const { search, sort = '-updatedAt' } = req.query;
+  const userId = req.user._id;
+  const userIdString = userId.toString();
 
   const workspace = await Workspace.findById(workspaceId);
   if (!workspace) {
@@ -498,7 +506,7 @@ exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
   }
 
   const isMember = workspace.members.some(
-    (member) => member.user.toString() === req.user._id.toString()
+    (member) => member.user.toString() === userIdString
   );
 
   if (!isMember) {
@@ -508,23 +516,29 @@ exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
   // Different query for collaboration workspace
   let query;
   if (workspace.type === 'collaboration') {
-    // For collaboration workspace, find all boards where user is a member
-    // but exclude boards from user's own workspaces
-    const userOwnedWorkspaces = await Workspace.find({
-      createdBy: req.user._id,
+    // For collaboration workspace, find boards where:
+    // 1. User is a direct member of the board
+    // 2. BUT the board doesn't belong to any workspace where user is a member
+    // 3. AND the board is not archived by the current user
+
+    // First, find all workspaces where user is a member
+    const userWorkspaces = await Workspace.find({
+      'members.user': userId,
       type: { $ne: 'collaboration' },
     }).select('_id');
 
-    const ownedWorkspaceIds = userOwnedWorkspaces.map((w) => w._id);
+    const userWorkspaceIds = userWorkspaces.map((w) => w._id);
 
     query = {
-      'members.user': req.user._id,
-      workspace: { $nin: ownedWorkspaceIds },
-      archived: false,
+      'members.user': userId,
+      // Exclude boards that belong to any workspace where the user is a member
+      workspace: { $nin: userWorkspaceIds },
+      // Exclude boards archived by this user
+      'archivedByUsers.user': { $ne: userId },
       ...(search && {
         $or: [
           { name: { $regex: search, $options: 'i' } },
-          { description: { $regex: search, $options: 'i' } },
+          // { description: { $regex: search, $options: 'i' } },
         ],
       }),
     };
@@ -532,11 +546,12 @@ exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
     // Regular query for other workspace types
     query = {
       workspace: workspaceId,
-      archived: false,
+      // Exclude boards archived by this user
+      'archivedByUsers.user': { $ne: userId },
       ...(search && {
         $or: [
           { name: { $regex: search, $options: 'i' } },
-          { description: { $regex: search, $options: 'i' } },
+          // { description: { $regex: search, $options: 'i' } },
         ],
       }),
     };
@@ -544,24 +559,32 @@ exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
 
   const boards = await Board.find(query)
     .select(
-      'name description background members lists starred updatedAt viewPreferences settings'
+      'name description background members lists starredByUsers updatedAt settings'
     )
     .sort(sort)
     .lean();
 
-  // Modified board formatting to exclude workspace info since it's at the top level
+  // Count boards starred by this user
+  const starredBoardsCount = boards.reduce((count, board) => {
+    const isStarredByUser = board.starredByUsers && 
+      board.starredByUsers.some(entry => entry.user.toString() === userIdString);
+    return isStarredByUser ? count + 1 : count;
+  }, 0);
+
   const formattedBoards = boards.map((board) => ({
     id: board._id,
     name: board.name,
     description: board.description,
     background: board.background,
     userRole:
-      board.members.find((m) => m.user.toString() === req.user._id.toString())
-        ?.role || 'member',
+      board.members.find((m) => m.user.toString() === userIdString)?.role ||
+      'member',
     memberCount: board.members.length,
-    isStarred: board.starred,
+    starred: board.starredByUsers &&
+      board.starredByUsers.some(
+        (entry) => entry.user.toString() === userIdString
+      ) || false,
     lastActivity: board.updatedAt,
-    viewPreferences: board.viewPreferences,
     lists: board.lists || [],
     settings: board.settings,
   }));
@@ -577,7 +600,7 @@ exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
       boards: formattedBoards,
       stats: {
         total: boards.length,
-        starred: boards.filter((board) => board.starred).length,
+        starred: starredBoardsCount
       },
     },
   });
@@ -902,9 +925,12 @@ exports.removeMember = catchAsync(async (req, res, next) => {
 });
 
 exports.getArchivedBoards = catchAsync(async (req, res, next) => {
+  const userId = req.user._id;
+
+  // Find boards where the current user is in archivedByUsers array
   const archivedBoards = await Board.find({
-    'members.user': req.user._id,
-    archived: true,
+    'members.user': userId,
+    'archivedByUsers.user': userId,
   })
     .populate({
       path: 'workspace',
@@ -915,32 +941,42 @@ exports.getArchivedBoards = catchAsync(async (req, res, next) => {
       },
     })
     .select(
-      'name description background workspace members lists archived archivedAt viewPreferences settings'
+      'name description background workspace members lists archivedByUsers viewPreferences settings'
     )
-    .sort('-archivedAt')
+    .sort('-archivedByUsers.archivedAt') // Sort by archive date (most recent first)
     .lean();
 
-  const formattedBoards = archivedBoards.map((board) => ({
-    ...formatBoardResponse(board, req.user._id),
-    archivedAt: board.archivedAt,
-  }));
+  // Filter out boards with missing workspace data
+  const validBoards = archivedBoards.filter((board) => board.workspace);
+
+  const formattedBoards = validBoards.map((board) => {
+    // Find the user's archive entry to get their specific archivedAt date
+    const userArchiveEntry = board.archivedByUsers.find(
+      (entry) => entry.user.toString() === userId.toString()
+    );
+
+    return {
+      ...formatBoardResponse(board, userId),
+      archivedAt: userArchiveEntry ? userArchiveEntry.archivedAt : null,
+    };
+  });
 
   const stats = {
     total: formattedBoards.length,
     byWorkspaceType: {
-      private: archivedBoards.filter(
+      private: validBoards.filter(
         (board) =>
-          board.workspace.type === 'private' &&
-          board.workspace.createdBy?._id.toString() === req.user._id.toString()
+          board.workspace?.type === 'private' &&
+          board.workspace?.createdBy?._id.toString() === userId.toString()
       ).length,
-      public: archivedBoards.filter(
+      public: validBoards.filter(
         (board) =>
-          board.workspace.type === 'public' &&
-          board.workspace.createdBy?._id.toString() === req.user._id.toString()
+          board.workspace?.type === 'public' &&
+          board.workspace?.createdBy?._id.toString() === userId.toString()
       ).length,
-      collaboration: archivedBoards.filter(
+      collaboration: validBoards.filter(
         (board) =>
-          board.workspace.createdBy?._id.toString() !== req.user._id.toString()
+          board.workspace?.createdBy?._id.toString() !== userId.toString()
       ).length,
     },
   };
@@ -956,28 +992,30 @@ exports.getArchivedBoards = catchAsync(async (req, res, next) => {
 
 exports.archiveBoard = catchAsync(async (req, res, next) => {
   const board = req.board;
+  const userId = req.user._id;
 
-  if (board.archived) {
-    return next(new AppError('Board is already archived', 400));
+  // Check if board is already archived by this user
+  const isArchivedByUser =
+    board.archivedByUsers &&
+    board.archivedByUsers.some(
+      (entry) => entry.user.toString() === userId.toString()
+    );
+
+  if (isArchivedByUser) {
+    return next(new AppError('Board is already archived by you', 400));
   }
 
-  // Update board status
-  board.archived = true;
-  board.archivedAt = Date.now();
-  board.archivedBy = req.user._id;
-  await board.save();
+  // Add user to archivedByUsers array
+  if (!board.archivedByUsers) {
+    board.archivedByUsers = [];
+  }
 
-  // Log activity
-  await activityService.logBoardActivity(
-    board,
-    req.user._id,
-    'board_archived',
-    {
-      board: {
-        name: board.name,
-      },
-    }
-  );
+  board.archivedByUsers.push({
+    user: userId,
+    archivedAt: Date.now(),
+  });
+
+  await board.save();
 
   res.status(200).json({
     status: 'success',
@@ -990,28 +1028,25 @@ exports.archiveBoard = catchAsync(async (req, res, next) => {
 
 exports.restoreBoard = catchAsync(async (req, res, next) => {
   const board = req.board;
+  const userId = req.user._id;
 
-  if (!board.archived) {
-    return next(new AppError('Board is not archived', 400));
+  // Check if board is archived by this user
+  const isArchivedByUser =
+    board.archivedByUsers &&
+    board.archivedByUsers.some(
+      (entry) => entry.user.toString() === userId.toString()
+    );
+
+  if (!isArchivedByUser) {
+    return next(new AppError('Board is not archived by you', 400));
   }
 
-  // Update board status
-  board.archived = false;
-  board.archivedAt = undefined;
-  board.archivedBy = undefined;
-  await board.save();
-
-  // Log activity
-  await activityService.logBoardActivity(
-    board,
-    req.user._id,
-    'board_restored',
-    {
-      board: {
-        name: board.name,
-      },
-    }
+  // Remove user from archivedByUsers array
+  board.archivedByUsers = board.archivedByUsers.filter(
+    (entry) => entry.user.toString() !== userId.toString()
   );
+
+  await board.save();
 
   res.status(200).json({
     status: 'success',
@@ -1025,13 +1060,29 @@ exports.restoreBoard = catchAsync(async (req, res, next) => {
 // Star a board
 exports.starBoard = catchAsync(async (req, res, next) => {
   const board = req.board;
+  const userId = req.user._id;
 
-  if (board.starred) {
-    return next(new AppError('Board is already starred', 400));
+  // Check if board is already starred by this user
+  const isStarredByUser =
+    board.starredByUsers &&
+    board.starredByUsers.some(
+      (entry) => entry.user.toString() === userId.toString()
+    );
+
+  if (isStarredByUser) {
+    return next(new AppError('Board is already starred by you', 400));
   }
 
-  // Update board
-  board.starred = true;
+  // Add user to starredByUsers array
+  if (!board.starredByUsers) {
+    board.starredByUsers = [];
+  }
+
+  board.starredByUsers.push({
+    user: userId,
+    starredAt: Date.now(),
+  });
+
   await board.save();
 
   res.status(200).json({
@@ -1046,13 +1097,24 @@ exports.starBoard = catchAsync(async (req, res, next) => {
 // Unstar a board
 exports.unstarBoard = catchAsync(async (req, res, next) => {
   const board = req.board;
+  const userId = req.user._id;
 
-  if (!board.starred) {
-    return next(new AppError('Board is not starred', 400));
+  // Check if board is starred by this user
+  const isStarredByUser =
+    board.starredByUsers &&
+    board.starredByUsers.some(
+      (entry) => entry.user.toString() === userId.toString()
+    );
+
+  if (!isStarredByUser) {
+    return next(new AppError('Board is not starred by you', 400));
   }
 
-  // Update board
-  board.starred = false;
+  // Remove user from starredByUsers array
+  board.starredByUsers = board.starredByUsers.filter(
+    (entry) => entry.user.toString() !== userId.toString()
+  );
+
   await board.save();
 
   res.status(200).json({
@@ -1066,10 +1128,14 @@ exports.unstarBoard = catchAsync(async (req, res, next) => {
 
 // Get starred boards for the current user
 exports.getMyStarredBoards = catchAsync(async (req, res, next) => {
+  const userId = req.user._id;
+
+  // Find boards that the user has starred
   const starredBoards = await Board.find({
-    'members.user': req.user._id,
-    starred: true,
-    archived: false,
+    'members.user': userId,
+    'starredByUsers.user': userId,
+    // Don't show boards the user has archived
+    'archivedByUsers.user': { $ne: userId },
   })
     .populate('workspace', 'name type')
     .populate('members.user', 'name email username')
@@ -1078,7 +1144,7 @@ exports.getMyStarredBoards = catchAsync(async (req, res, next) => {
 
   // Format response
   const formattedBoards = starredBoards.map((board) =>
-    formatBoardResponse(board, req.user._id)
+    formatBoardResponse(board, userId)
   );
 
   // Calculate statistics

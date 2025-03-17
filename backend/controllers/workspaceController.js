@@ -168,30 +168,29 @@ exports.getUserWorkspaces = catchAsync(async (req, res, next) => {
     type: 'public',
   }).populate('boards', '_id');
 
-  // Get all board IDs from public and private workspaces
-  const existingBoardIds = [
-    ...ownedWorkspaces.filter((w) => w.type !== 'collaboration'),
-    ...memberWorkspaces,
-  ].reduce((acc, workspace) => {
-    return [
-      ...acc,
-      ...(workspace.boards || []).map((board) => board._id.toString()),
-    ];
-  }, []);
+  // Get all non-collaboration workspaces where user is a member
+  const userWorkspaces = await Workspace.find({
+    'members.user': req.user._id,
+    type: { $ne: 'collaboration' },
+  }).select('_id');
+
+  const userWorkspaceIds = userWorkspaces.map((w) => w._id);
 
   // For collaboration workspace, get only board IDs where user is a member AND board is not in other workspaces
   const collaborationWorkspace = ownedWorkspaces.find(
     (w) => w.type === 'collaboration'
   );
+
   if (collaborationWorkspace) {
-    const sharedBoardIds = await Board.find({
+    const directlySharedBoardIds = await Board.find({
       'members.user': req.user._id,
-      workspace: { $ne: collaborationWorkspace._id },
-      _id: { $nin: existingBoardIds },
+      workspace: { $nin: userWorkspaceIds },
       archived: false,
     }).select('_id');
 
-    collaborationWorkspace.boards = sharedBoardIds.map((board) => board._id);
+    collaborationWorkspace.boards = directlySharedBoardIds.map(
+      (board) => board._id
+    );
   }
 
   // Ensure user has all default workspace types
