@@ -8,56 +8,76 @@ const { uploadMultipleFiles } = require('../Middlewares/fileUploadMiddleware');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const cardController = require('./cardController');
+const permissionService = require('../utils/permissionService');
 
-// Helper function to check if a card exists
-const checkCardExists = async (cardId) => {
+// Helper function to get card with its parent list and board
+const getCardWithContext = async (cardId) => {
+  // Find card and verify it exists
+  const card = await Card.findById(cardId);
+  if (!card) {
+    throw new AppError('Card not found', 404);
+  }
+
+  // Find list and verify it exists
+  const list = await List.findById(card.list);
+  if (!list) {
+    throw new AppError('List not found', 404);
+  }
+
+  // Find board and verify it exists
+  const board = await Board.findById(list.board);
+  if (!board) {
+    throw new AppError('Board not found', 404);
+  }
+
+  return { card, list, board };
+};
+
+// Helper function to check if user can delete a file
+const checkDeletePermission = async (req, file) => {
   try {
-    const card = await Card.findById(cardId);
-    return !!card; // Returns true if card exists
+    // Check if the file was uploaded by the current user
+    const isUploader = file.uploadedBy.toString() === req.user._id.toString();
+
+    console.log(`File uploader ID: ${file.uploadedBy.toString()}`);
+    console.log(`Current user ID: ${req.user._id.toString()}`);
+    console.log(`Is uploader: ${isUploader}`);
+
+    // Users can always delete their own uploads
+    if (isUploader) {
+      return true;
+    }
+
+    // For card files, check board permissions using permissionService
+    if (file.entityType === 'card') {
+      try {
+        const { card, list, board } = await getCardWithContext(file.entityId);
+
+        // Check if user is admin or owner using permissionService
+        const canManageBoard = permissionService.hasPermission(
+          board,
+          req.user._id,
+          'manage_board'
+        );
+        console.log(`User has manage_board permission: ${canManageBoard}`);
+
+        return canManageBoard;
+      } catch (error) {
+        console.error('Error checking board permissions:', error);
+        return false;
+      }
+    }
+
+    return false;
   } catch (error) {
-    console.error(`Error checking if card exists:`, error);
+    console.error('Error in checkDeletePermission:', error);
     return false;
   }
 };
 
-// Helper function to check if user can delete a file
-const checkDeletePermission = catchAsync(async (req, file) => {
-  // Check if the file was uploaded by the current user
-  const isUploader = file.uploadedBy.toString() === req.user._id.toString();
-
-  if (isUploader) {
-    // Users can always delete their own uploads
-    return true;
-  }
-
-  // For card files, check board permissions
-  if (file.entityType === 'card') {
-    const card = await Card.findById(file.entityId);
-    if (!card) return false;
-
-    const list = await List.findById(card.list);
-    if (!list) return false;
-
-    const board = await Board.findById(list.board);
-    if (!board) return false;
-
-    // Check if user is admin or owner of the board
-    const membership = board.members.find(
-      (member) => member.user.toString() === req.user._id.toString()
-    );
-
-    if (!membership) return false;
-
-    const userRole = membership.role || 'member';
-    return ['admin', 'owner'].includes(userRole);
-  }
-
-  return false;
-});
-
 exports.uploadAttachments = uploadMultipleFiles().array('files', 5);
 
-// Upload files with simplified permission checks
+// Upload files with improved permission checks
 exports.uploadFiles = catchAsync(async (req, res, next) => {
   const { entityType, entityId } = req.body;
 
@@ -75,33 +95,39 @@ exports.uploadFiles = catchAsync(async (req, res, next) => {
     return next(new AppError('No files uploaded', 400));
   }
 
-  // Just verify the card exists
-  const cardExists = await checkCardExists(entityId);
-  if (!cardExists) {
-    return next(new AppError('Card not found', 404));
-  }
+  // Get card context and verify permissions
+  try {
+    const { card, list, board } = await getCardWithContext(entityId);
 
-  // Create file records for each uploaded file
-  const uploadedFiles = [];
+    // Check if user can edit this card using permissionService
+    if (!permissionService.canEditCard(board, card, req.user._id)) {
+      return next(
+        new AppError(
+          'You do not have permission to add attachments to this card',
+          403
+        )
+      );
+    }
 
-  for (const file of req.files) {
-    const newFile = await Attachment.create({
-      originalName: file.originalname,
-      filename: file.filename,
-      mimetype: file.mimetype,
-      size: file.size,
-      path: file.path,
-      entityType,
-      entityId,
-      uploadedBy: req.user._id,
-    });
+    // Create file records for each uploaded file
+    const uploadedFiles = [];
 
-    uploadedFiles.push(newFile);
+    for (const file of req.files) {
+      const newFile = await Attachment.create({
+        originalName: file.originalname,
+        filename: file.filename,
+        mimetype: file.mimetype,
+        size: file.size,
+        path: file.path,
+        entityType,
+        entityId,
+        uploadedBy: req.user._id,
+      });
 
-    // Add activity log for the card
-    try {
-      const card = await Card.findById(entityId);
-      if (card) {
+      uploadedFiles.push(newFile);
+
+      // Add activity log for the card
+      try {
         cardController.logCardActivity(card, 'attachment_added', req.user._id, {
           fileId: newFile._id,
           filename: newFile.originalName,
@@ -111,59 +137,65 @@ exports.uploadFiles = catchAsync(async (req, res, next) => {
         });
 
         await card.save();
+      } catch (error) {
+        console.error('Error logging activity:', error);
       }
-    } catch (error) {
-      console.error('Error logging activity:', error);
     }
-  }
 
-  res.status(201).json({
-    status: 'success',
-    results: uploadedFiles.length,
-    data: {
-      files: uploadedFiles,
-    },
-  });
+    res.status(201).json({
+      status: 'success',
+      results: uploadedFiles.length,
+      data: {
+        files: uploadedFiles,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 // Get files for a card
 exports.getCardFiles = catchAsync(async (req, res, next) => {
   const { cardId } = req.params;
 
-  // Just verify the card exists
-  const cardExists = await checkCardExists(cardId);
-  if (!cardExists) {
-    return next(new AppError('Card not found', 404));
-  }
+  // Get card context and verify permissions
+  try {
+    const { card, list, board } = await getCardWithContext(cardId);
 
-  // Get files for this card
-  const files = await Attachment.find({
-    entityType: 'card',
-    entityId: cardId,
-  })
-    .populate('uploadedBy', 'firstName lastName email avatar username')
-    .sort('-createdAt');
+    // Verify user is a board member and can view the board
+    permissionService.verifyPermission(board, req.user._id, 'view_board');
 
-  // Add a flag for each file to indicate if the current user can delete it
-  const filesWithPermissions = await Promise.all(
-    files.map(async (file) => {
-      const fileObj = file.toObject();
-
-      // Check if user can delete this file
-      const canDelete = await checkDeletePermission(req, file);
-      fileObj.canDelete = canDelete;
-
-      return fileObj;
+    // Get files for this card
+    const files = await Attachment.find({
+      entityType: 'card',
+      entityId: cardId,
     })
-  );
+      .populate('uploadedBy', 'firstName lastName email avatar username')
+      .sort('-createdAt');
 
-  res.status(200).json({
-    status: 'success',
-    results: filesWithPermissions.length,
-    data: {
-      files: filesWithPermissions,
-    },
-  });
+    // Add a flag for each file to indicate if the current user can delete it
+    const filesWithPermissions = await Promise.all(
+      files.map(async (file) => {
+        const fileObj = file.toObject();
+
+        // Check if user can delete this file
+        const canDelete = await checkDeletePermission(req, file);
+        fileObj.canDelete = canDelete;
+
+        return fileObj;
+      })
+    );
+
+    res.status(200).json({
+      status: 'success',
+      results: filesWithPermissions.length,
+      data: {
+        files: filesWithPermissions,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 // Download a file
@@ -175,11 +207,15 @@ exports.downloadFile = catchAsync(async (req, res, next) => {
     return next(new AppError('File not found', 404));
   }
 
-  // For card files, verify the card exists
+  // For card files, verify permissions
   if (file.entityType === 'card') {
-    const cardExists = await checkCardExists(file.entityId);
-    if (!cardExists) {
-      return next(new AppError('Card not found', 404));
+    try {
+      const { card, list, board } = await getCardWithContext(file.entityId);
+
+      // Verify user has permission to view the board
+      permissionService.verifyPermission(board, req.user._id, 'view_board');
+    } catch (error) {
+      return next(error);
     }
   }
 
@@ -210,8 +246,14 @@ exports.deleteFile = catchAsync(async (req, res, next) => {
     return next(new AppError('File not found', 404));
   }
 
+  console.log(`Processing delete request for file: ${file._id}`);
+  console.log(`File uploaded by: ${file.uploadedBy}`);
+  console.log(`Current user: ${req.user._id}`);
+
   // Check if user has permission to delete this file
   const canDelete = await checkDeletePermission(req, file);
+  console.log(`Can delete file: ${canDelete}`);
+
   if (!canDelete) {
     return next(
       new AppError('You do not have permission to delete this file', 403)
@@ -231,8 +273,9 @@ exports.deleteFile = catchAsync(async (req, res, next) => {
 
     // Log activity for card attachments
     if (file.entityType === 'card') {
-      const card = await Card.findById(file.entityId);
-      if (card) {
+      try {
+        const { card } = await getCardWithContext(file.entityId);
+
         cardController.logCardActivity(
           card,
           'attachment_removed',
@@ -245,6 +288,8 @@ exports.deleteFile = catchAsync(async (req, res, next) => {
         );
 
         await card.save();
+      } catch (error) {
+        console.error('Error logging card activity:', error);
       }
     }
 
