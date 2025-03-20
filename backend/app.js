@@ -23,6 +23,7 @@ const cardRouter = require('./routes/cardRoutes.js');
 const listRouter = require('./routes/listRoutes.js');
 const conversationRouter = require('./routes/conversationRoutes.js');
 const messageRouter = require('./routes/messageRoutes.js');
+const attachmentRouter = require('./routes/attachmentsRoutes.js');
 const app = express();
 
 // 1) Global Middlewares
@@ -70,7 +71,7 @@ app.use(xss());
 app.use(hpp({}));
 
 // Serving static files
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'Uploads')));
 
 // Request timestamp middleware
 app.use((req, res, next) => {
@@ -147,6 +148,7 @@ app.use('/api/v1/cards', cardRouter);
 app.use('/api/v1/lists', listRouter);
 app.use('/api/v1/conversations', conversationRouter);
 app.use('/api/v1/message', messageRouter);
+app.use('/api/v1/attachments', attachmentRouter);
 
 // Handle undefined routes
 app.all('*', (req, res) => {
