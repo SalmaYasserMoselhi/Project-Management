@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { v4: uuidv4 } = require('uuid');
 const mongoose = require('mongoose');
 const validator = require('validator');
 const bcrypt = require('bcryptjs');
@@ -48,7 +49,6 @@ const userSchema = new mongoose.Schema(
     },
     avatar: {
       type: String,
-      default: 'default.jpg',
     },
     status: {
       type: String,
@@ -255,6 +255,22 @@ userSchema.methods.isOnline = function () {
   );
 };
 
+userSchema.post('init', (doc) => {
+  // http://localhost:3000/users/https://lh3.googleusercontent.com/a/ACg8ocLIlrIuyPgK-J_k7IuzqIz-lzI7V_3hhixpwzN_xSC488TFHw=s96-c
+  if (doc.avatar) {
+    const imageURL = doc.avatar.startsWith('https://')
+      ? doc.avatar
+      : `${process.env.BASE_FILE_URL}/users/${doc.avatar}`;
+    doc.avatar = imageURL;
+  }
+});
+
+// userSchema.post('save' , (doc) => {
+//   if(doc.avatar){
+//     const imageURL = `${process.env.BASE_FILE_URL}/users/${doc.avatar}`
+//     doc.avatar = imageURL
+//   }
+// })
 const User = mongoose.model('User', userSchema);
 
 module.exports = User;

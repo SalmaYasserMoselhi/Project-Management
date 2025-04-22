@@ -240,6 +240,8 @@ const boardSchema = new mongoose.Schema(
             'comment_updated',
             'comment_deleted',
             'settings_updated',
+            'attachment_added',
+            'attachment_removed',
           ],
         },
         entityType: {

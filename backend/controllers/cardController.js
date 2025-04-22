@@ -16,6 +16,19 @@ const getCardWithContext = async (cardId, userId) => {
 
   // Find list and verify it exists
   const list = await List.findById(card.list);
+const permissionService = require('../utils/permissionService');
+const activityService = require('../utils/activityService');
+
+// Helper function to validate card access and get related objects
+const getCardWithContext = async (cardId, userId) => {
+  // Find card and verify it exists
+  const card = await Card.findById(cardId);
+  if (!card) {
+    throw new AppError('Card not found', 404);
+  }
+
+  // Find list and verify it exists
+  const list = await List.findById(card.list);
   if (!list) {
     throw new AppError('List not found', 404);
   }
