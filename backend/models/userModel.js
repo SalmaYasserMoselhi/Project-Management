@@ -34,7 +34,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Each user must have an email'],
       trim: true,
-      unique: true,
+      unique: [true, 'Email already exists'],
       lowercase: true,
       validate: [
         validator.isEmail,
@@ -175,16 +175,16 @@ userSchema.pre('save', function (next) {
   next();
 });
 
-userSchema.pre('save', async function (next) {
-  if (this.isNew) {
-    try {
-      await Workspace.createDefaultWorkspaces(this._id, this.username);
-    } catch (error) {
-      return next(error); // Prevent user creation if workspaces fail
-    }
-  }
-  next();
-});
+// userSchema.pre('save', async function (next) {
+//   if (this.isNew) {
+//     try {
+//       await Workspace.createDefaultWorkspaces(this._id, this.username);
+//     } catch (error) {
+//       return next(error); // Prevent user creation if workspaces fail
+//     }
+//   }
+//   next();
+// });
 
 userSchema.methods.correctPassword = async function (
   candidatePassword,

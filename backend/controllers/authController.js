@@ -91,14 +91,14 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
   createSendToken(user, 200, req, res);
 });
 
-exports.signup = catchAsync(async (req, res, next) => {
-  const { email, username, password, passwordConfirm, firstName, lastName } =
-    req.body;
+exports.signup = catchAsync(
+  // Main function
+  async (req, res, next) => {
+    const { email, username, password, passwordConfirm, firstName, lastName } =
+      req.body;
 
-  let newUser = null;
-  try {
-    // 1) Create user - this will trigger the post-save hook
-    newUser = await User.create({
+    // 1) Create user
+    const newUser = await User.create({
       firstName,
       lastName,
       username,
@@ -108,14 +108,21 @@ exports.signup = catchAsync(async (req, res, next) => {
       emailVerified: false,
     });
 
-    // 2) Generate verification token
+    // Store user ID for potential cleanup
+    req.createdUserId = newUser._id;
+
+    // 2) Create default workspaces
+    // Important: Remove the automatic workspace creation from userModel.js pre('save') middleware
+    await Workspace.createDefaultWorkspaces(newUser._id, newUser.username);
+
+    // 3) Generate verification token
     const verificationToken = newUser.createEmailVerificationToken();
     await newUser.save({ validateBeforeSave: false });
 
-    // 3) Send verification email
+    // 4) Send verification email
     await sendVerificationEmail(newUser, verificationToken);
 
-    // 4) Fetch user with populated workspaces
+    // 5) Return user with workspaces
     const userWithWorkspaces = await User.findById(newUser._id).populate(
       'workspaces'
     );
@@ -128,15 +135,20 @@ exports.signup = catchAsync(async (req, res, next) => {
         user: userWithWorkspaces,
       },
     });
-  } catch (err) {
-    // Cleanup on error
-    if (newUser) {
-      await User.findByIdAndDelete(newUser._id);
-      await Workspace.deleteMany({ createdBy: newUser._id });
+  },
+  // Cleanup function - executed only on error
+  async (req, err) => {
+    if (req.createdUserId) {
+      console.log(
+        `Cleaning up after failed signup for user ID: ${req.createdUserId}`
+      );
+      // Delete user
+      await User.findByIdAndDelete(req.createdUserId);
+      // Delete associated workspaces
+      await Workspace.deleteMany({ createdBy: req.createdUserId });
     }
-    return next(new AppError(`Signup failed: ${err.message}`, 400));
   }
-});
+);
 
 exports.login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
@@ -165,26 +177,14 @@ exports.login = catchAsync(async (req, res, next) => {
     await user.save({ validateBeforeSave: false });
 
     // Send new verification email
-    try {
-      await sendVerificationEmail(user, verificationToken);
-      return next(
-        new AppError(
-          'Please verify your email first. A new verification link has been sent to your email.',
-          401
-        )
-      );
-    } catch (err) {
-      // If email sending fails, clear the verification tokens
-      user.emailVerificationToken = undefined;
-      user.emailVerificationExpires = undefined;
-      await user.save({ validateBeforeSave: false });
-      return next(
-        new AppError(
-          'Error sending verification email. Please try again later.',
-          500
-        )
-      );
-    }
+    await sendVerificationEmail(user, verificationToken);
+
+    return next(
+      new AppError(
+        'Please verify your email first. A new verification link has been sent to your email.',
+        401
+      )
+    );
   }
 
   // 5) If everything is ok, send token and log in user
@@ -335,19 +335,31 @@ exports.restrictTo = (...roles) => {
   };
 };
 
-exports.forgotPassword = catchAsync(async (req, res, next) => {
-  // 1) Get user based on POSTed email
-  const user = await User.findOne({ email: req.body.email });
-  if (!user) {
-    return next(new AppError('There is no user with that email address', 404));
-  }
+exports.forgotPassword = catchAsync(
+  async (req, res, next) => {
+    // 1) Get user based on POSTed email
+    const user = await User.findOne({ email: req.body.email });
+    if (!user) {
+      return next(
+        new AppError('There is no user with that email address', 404)
+      );
+    }
 
-  // 2) Generate a random 6-digit reset code
-  const resetCode = user.createVerificationCode();
-  await user.save({ validateBeforeSave: false }); // validateBeforeSave is set to false to prevent mongoose from validating the document before saving it
+    // Store original state for potential rollback
+    req.passwordResetInfo = {
+      userId: user._id,
+      originalVerificationState: {
+        verificationCode: user.verificationCode,
+        verificationCodeExpires: user.verificationCodeExpires,
+      },
+    };
 
-  // 3) Generate the email template
-  const message = `
+    // 2) Generate a random 6-digit reset code
+    const resetCode = user.createVerificationCode();
+    await user.save({ validateBeforeSave: false }); // validateBeforeSave is set to false to prevent mongoose from validating the document before saving it
+
+    // 3) Generate the email template
+    const message = `
     <div style="background-color: #f6f9fc; padding: 20px; font-family: Arial, sans-serif;">
       <div style="background-color: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 0 auto; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
         <h2 style="color: #EFC235; text-align: center; font-size: 24px; margin-bottom: 20px;">Password Reset Code</h2>
@@ -362,7 +374,6 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
     </div>
   `;
 
-  try {
     // 3) Send the reset code to user's email
     await sendEmail({
       email: user.email,
@@ -374,20 +385,29 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
       status: 'success',
       message: 'Reset code sent to your email.',
     });
-  } catch (err) {
-    user.verificationCode = undefined;
-    user.verificationCodeExpires = undefined;
-    await user.save({ validateBeforeSave: false }); // validateBeforeSave
-    console.log(err);
+  },
+  // Cleanup function
+  async (req, err) => {
+    if (req.passwordResetInfo && req.passwordResetInfo.userId) {
+      console.log(
+        `Reverting verification code for user: ${req.passwordResetInfo.userId}`
+      );
 
-    return next(
-      new AppError(
-        'There was an error sending the email. Try again later.',
-        500
-      )
-    );
+      // Reset the verification code to its original state
+      await User.findByIdAndUpdate(
+        req.passwordResetInfo.userId,
+        {
+          verificationCode:
+            req.passwordResetInfo.originalVerificationState.verificationCode,
+          verificationCodeExpires:
+            req.passwordResetInfo.originalVerificationState
+              .verificationCodeExpires,
+        },
+        { validateBeforeSave: false }
+      );
+    }
   }
-});
+);
 
 exports.verifyResetCode = catchAsync(async (req, res, next) => {
   const { resetCode } = req.body;

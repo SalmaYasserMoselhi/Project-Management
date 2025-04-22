@@ -40,6 +40,7 @@
     "passport-microsoft": "^2.1.0",
     "path": "^0.12.7",
     "sharp": "^0.33.5",
+    "socket.io": "^4.8.1",
     "util": "^0.12.5",
     "uuid": "^11.0.5",
     "validator": "^13.12.0",

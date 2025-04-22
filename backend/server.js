@@ -48,7 +48,7 @@ const io = new Server(server, {
 
 io.on('connection', (socket) => {
   console.log('Socket io connected successfully');
-  socketServer(socket);
+  socketServer(socket, io);
 });
 // process.on("unhandledRejection", (err) => {
 //   console.log("UNHANDLED REJECTION! 💥 Shutting down...");
