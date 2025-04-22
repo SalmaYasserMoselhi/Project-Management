@@ -2,7 +2,7 @@ const express = require('express');
 const boardController = require('../controllers/boardController');
 const authController = require('../controllers/authController');
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true }); // To access WorkspaceId from parent router
 
 // Public routes
 router.get('/join/:token', boardController.acceptInvitation);
@@ -113,7 +113,7 @@ router.get('/user-boards/starred', boardController.getMyStarredBoards);
 
 // Get boards for a specific workspace
 router.get(
-  '/workspaces/:workspaceId/boards',
+  '/workspace/:workspaceId/boards',
   boardController.getWorkspaceBoards
 );
 

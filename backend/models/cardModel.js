@@ -121,40 +121,6 @@ const cardSchema = new mongoose.Schema(
         },
       },
     ],
-    activity: [
-      {
-        action: {
-          type: String,
-          enum: [
-            'created',
-            'updated',
-            'moved',
-            'deleted',
-            'label_added',
-            'label_updated',
-            'label_removed',
-            'date_updated',
-            'subtask_added',
-            'member_added',
-            'member_removed',
-            'status_changed',
-            'commented',
-            'updated_comment',
-            'deleted_comment',
-            'replied_comment',
-          ],
-        },
-        userId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'User',
-        },
-        data: mongoose.Schema.Types.Mixed,
-        timestamp: {
-          type: Date,
-          default: Date.now,
-        },
-      },
-    ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -174,10 +140,17 @@ const cardSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    archivedAt: Date,
+    archivedAt: {
+      type: Date,
+    },
     archivedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
+    },
+    originalPosition: {
+      // For restoring archived cards
+      type: Number,
+      default: null,
     },
   },
   {
@@ -196,6 +169,7 @@ cardSchema.index(
 );
 cardSchema.index({ 'state.current': 1 });
 cardSchema.index({ 'state.lastStateChange': 1 });
+cardSchema.index({ list: 1, archived: 1, position: 1 });
 
 // Virtual for comments
 cardSchema.virtual('comments', {
@@ -330,5 +304,4 @@ cardSchema.pre('save', async function (next) {
   }
   next();
 });
-
 module.exports = mongoose.model('Card', cardSchema);

@@ -106,53 +106,50 @@ exports.getBoardById = catchAsync(async (req, res, next) => {
 });
 
 // Create Board
-exports.createBoard = catchAsync(async (req, res, next) => {
-  const { workspace } = req.body;
+exports.createBoard = catchAsync(
+  // Main function
+  async (req, res, next) => {
+    const { workspace } = req.body;
 
-  const workspaceDoc = await Workspace.findById(workspace);
-  if (!workspaceDoc) {
-    return next(new AppError('Workspace not found', 404));
-  }
+    const workspaceDoc = await Workspace.findById(workspace);
+    if (!workspaceDoc) {
+      return next(new AppError('Workspace not found', 404));
+    }
 
-  if (workspaceDoc.type === 'collaboration') {
-    return next(
-      new AppError(
-        'Cannot create boards in collaboration workspace. This workspace is only for boards shared with you.',
-        403
-      )
+    if (workspaceDoc.type === 'collaboration') {
+      return next(
+        new AppError(
+          'Cannot create boards in collaboration workspace. This workspace is only for boards shared with you.',
+          403
+        )
+      );
+    }
+
+    // Verify user is a workspace member with permissions
+    const userWorkspaceMember = workspaceDoc.members.find(
+      (member) => member.user.toString() === req.user._id.toString()
     );
-  }
+    if (!userWorkspaceMember) {
+      return next(new AppError('You are not a member of this workspace', 403));
+    }
 
-  // Verify user is a workspace member
-  const userWorkspaceMember = workspaceDoc.members.find(
-    (member) => member.user.toString() === req.user._id.toString()
-  );
-  if (!userWorkspaceMember) {
-    return next(new AppError('You are not a member of this workspace', 403));
-  }
-
-  const hasPermission = permissionService.hasWorkspacePermission(
-    workspaceDoc,
-    req.user._id,
-    'create_boards'
-  );
-
-  if (!hasPermission) {
-    return next(
-      new AppError(
-        'You do not have permission to create boards in this workspace',
-        403
-      )
+    const hasPermission = permissionService.hasWorkspacePermission(
+      workspaceDoc,
+      req.user._id,
+      'create_boards'
     );
-  }
 
-  // Create board and default lists inside a try-catch block to handle cleanup on error
-  let board;
-  let defaultLists = [];
+    if (!hasPermission) {
+      return next(
+        new AppError(
+          'You do not have permission to create boards in this workspace',
+          403
+        )
+      );
+    }
 
-  try {
     // Create the board
-    board = await Board.create({
+    const board = await Board.create({
       ...req.body,
       createdBy: req.user._id,
       members: [
@@ -163,8 +160,11 @@ exports.createBoard = catchAsync(async (req, res, next) => {
       ],
     });
 
+    // Store board ID for potential cleanup
+    req.createdBoardId = board._id;
+
     // Create default lists
-    defaultLists = await createDefaultLists(board._id, req.user._id);
+    const defaultLists = await createDefaultLists(board._id, req.user._id);
 
     // Log board creation activity
     await activityService.logWorkspaceActivity(
@@ -198,28 +198,30 @@ exports.createBoard = catchAsync(async (req, res, next) => {
         board: formatBoardResponse(populatedBoard, req.user._id),
       },
     });
-  } catch (error) {
-    // If board was created but we hit an error later, clean up
-    if (board) {
+  },
+  // Cleanup function
+  async (req, err) => {
+    if (req.createdBoardId) {
+      console.log(
+        `Cleaning up after failed board creation for ID: ${req.createdBoardId}`
+      );
+
       // Delete any created lists
-      if (defaultLists.length > 0) {
-        await List.deleteMany({ board: board._id });
-      }
+      await List.deleteMany({ board: req.createdBoardId });
 
       // Delete the board itself
-      await Board.findByIdAndDelete(board._id);
+      await Board.findByIdAndDelete(req.createdBoardId);
 
       // Remove board reference from workspace if it was added
-      await Workspace.updateMany(
-        { boards: board._id },
-        { $pull: { boards: board._id } }
-      );
+      if (req.body && req.body.workspace) {
+        await Workspace.updateMany(
+          { boards: req.createdBoardId },
+          { $pull: { boards: req.createdBoardId } }
+        );
+      }
     }
-
-    // Pass the error to the global error handler
-    return next(error);
   }
-});
+);
 
 exports.updateBoard = catchAsync(async (req, res, next) => {
   const board = req.board;
@@ -566,8 +568,11 @@ exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
 
   // Count boards starred by this user
   const starredBoardsCount = boards.reduce((count, board) => {
-    const isStarredByUser = board.starredByUsers && 
-      board.starredByUsers.some(entry => entry.user.toString() === userIdString);
+    const isStarredByUser =
+      board.starredByUsers &&
+      board.starredByUsers.some(
+        (entry) => entry.user.toString() === userIdString
+      );
     return isStarredByUser ? count + 1 : count;
   }, 0);
 
@@ -580,10 +585,12 @@ exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
       board.members.find((m) => m.user.toString() === userIdString)?.role ||
       'member',
     memberCount: board.members.length,
-    starred: board.starredByUsers &&
-      board.starredByUsers.some(
-        (entry) => entry.user.toString() === userIdString
-      ) || false,
+    starred:
+      (board.starredByUsers &&
+        board.starredByUsers.some(
+          (entry) => entry.user.toString() === userIdString
+        )) ||
+      false,
     lastActivity: board.updatedAt,
     lists: board.lists || [],
     settings: board.settings,
@@ -600,7 +607,7 @@ exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
       boards: formattedBoards,
       stats: {
         total: boards.length,
-        starred: starredBoardsCount
+        starred: starredBoardsCount,
       },
     },
   });
@@ -631,53 +638,60 @@ exports.getBoardMembers = catchAsync(async (req, res, next) => {
 });
 
 // Invite a new member to the board by email
-exports.inviteMembers = catchAsync(async (req, res, next) => {
-  const board = req.board;
-  const userRole = board.members.find(
-    (m) => m.user.toString() === req.user._id.toString()
-  ).role;
+exports.inviteMembers = catchAsync(
+  async (req, res, next) => {
+    const board = req.board;
+    const userRole = board.members.find(
+      (m) => m.user.toString() === req.user._id.toString()
+    ).role;
 
-  // Support both single invitation and bulk invitations
-  const invitesArray = req.body.invites || [
-    {
-      email: req.body.email,
-      role: req.body.role || 'member',
-    },
-  ];
+    // Support both single invitation and bulk invitations
+    const invitesArray = req.body.invites || [
+      {
+        email: req.body.email,
+        role: req.body.role || 'member',
+      },
+    ];
 
-  // Validate invites before processing
-  for (const invite of invitesArray) {
-    const { email, role = 'member' } = invite;
+    // Validate invites before processing
+    for (const invite of invitesArray) {
+      const { email, role = 'member' } = invite;
 
-    // Only owners can invite admins
-    if (role === 'admin' && userRole !== 'owner') {
-      return next(new AppError('Only owners can invite admins', 403));
-    }
+      // Only owners can invite admins
+      if (role === 'admin' && userRole !== 'owner') {
+        return next(new AppError('Only owners can invite admins', 403));
+      }
 
-    // Check if user exists
-    const user = await User.findOne({ email: invite.email });
-    if (!user) {
-      return next(
-        new AppError(`User with email ${invite.email} does not exist`, 404)
+      // Check if user exists
+      const user = await User.findOne({ email: invite.email });
+      if (!user) {
+        return next(
+          new AppError(`User with email ${invite.email} does not exist`, 404)
+        );
+      }
+
+      if (board.members.some((member) => member.user.equals(user._id))) {
+        return next(
+          new AppError(
+            `User with email ${email} is already a board member`,
+            400
+          )
+        );
+      }
+
+      // Check for existing pending invitation
+      const existingInvitation = board.invitations.find(
+        (inv) => inv.email === email && inv.status === 'pending'
       );
+      if (existingInvitation) {
+        return next(new AppError(`Invitation already sent to ${email}`, 400));
+      }
     }
 
-    if (board.members.some((member) => member.user.equals(user._id))) {
-      return next(
-        new AppError(`User with email ${email} is already a board member`, 400)
-      );
-    }
+    // Store original invitations state for potential rollback
+    req.originalInvitations = [...board.invitations];
+    req.boardId = board._id;
 
-    // Check for existing pending invitation
-    const existingInvitation = board.invitations.find(
-      (inv) => inv.email === email && inv.status === 'pending'
-    );
-    if (existingInvitation) {
-      return next(new AppError(`Invitation already sent to ${email}`, 400));
-    }
-  }
-
-  try {
     // Process bulk invitations using the invitationService
     const invitationResults = await invitationService.processBulkInvitations(
       board,
@@ -710,12 +724,18 @@ exports.inviteMembers = catchAsync(async (req, res, next) => {
         invitationResults,
       },
     });
-  } catch (error) {
-    return next(
-      new AppError('Error sending invitations: ' + error.message, 500)
-    );
+  }, // Cleanup function
+  async (req, err) => {
+    if (req.boardId && req.originalInvitations) {
+      console.log(`Restoring original invitations for board ${req.boardId}`);
+
+      // Restore original invitations state
+      await Board.findByIdAndUpdate(req.boardId, {
+        invitations: req.originalInvitations,
+      });
+    }
   }
-});
+);
 
 // Accept invitation to join a board
 exports.acceptInvitation = catchAsync(async (req, res, next) => {
