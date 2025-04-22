@@ -92,8 +92,15 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
 });
 
 exports.signup = catchAsync(async (req, res, next) => {
-  const { email, username, password, passwordConfirm, firstName, lastName } =
-    req.body;
+  const {
+    email,
+    username,
+    password,
+    passwordConfirm,
+    firstName,
+    lastName,
+    avatar,
+  } = req.body;
 
   let newUser = null;
   try {
@@ -106,6 +113,7 @@ exports.signup = catchAsync(async (req, res, next) => {
       password,
       passwordConfirm,
       emailVerified: false,
+      avatar,
     });
 
     // 2) Generate verification token
