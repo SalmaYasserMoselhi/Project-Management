@@ -169,6 +169,7 @@ cardSchema.index(
 );
 cardSchema.index({ 'state.current': 1 });
 cardSchema.index({ 'state.lastStateChange': 1 });
+cardSchema.index({ list: 1, archived: 1, position: 1 });
 
 // Virtual for comments
 cardSchema.virtual('comments', {
@@ -303,5 +304,4 @@ cardSchema.pre('save', async function (next) {
   }
   next();
 });
-
 module.exports = mongoose.model('Card', cardSchema);

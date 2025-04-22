@@ -168,30 +168,29 @@ exports.getUserWorkspaces = catchAsync(async (req, res, next) => {
     type: 'public',
   }).populate('boards', '_id');
 
-  // Get all board IDs from public and private workspaces
-  const existingBoardIds = [
-    ...ownedWorkspaces.filter((w) => w.type !== 'collaboration'),
-    ...memberWorkspaces,
-  ].reduce((acc, workspace) => {
-    return [
-      ...acc,
-      ...(workspace.boards || []).map((board) => board._id.toString()),
-    ];
-  }, []);
+  // Get all non-collaboration workspaces where user is a member
+  const userWorkspaces = await Workspace.find({
+    'members.user': req.user._id,
+    type: { $ne: 'collaboration' },
+  }).select('_id');
+
+  const userWorkspaceIds = userWorkspaces.map((w) => w._id);
 
   // For collaboration workspace, get only board IDs where user is a member AND board is not in other workspaces
   const collaborationWorkspace = ownedWorkspaces.find(
     (w) => w.type === 'collaboration'
   );
+
   if (collaborationWorkspace) {
-    const sharedBoardIds = await Board.find({
+    const directlySharedBoardIds = await Board.find({
       'members.user': req.user._id,
-      workspace: { $ne: collaborationWorkspace._id },
-      _id: { $nin: existingBoardIds },
+      workspace: { $nin: userWorkspaceIds },
       archived: false,
     }).select('_id');
 
-    collaborationWorkspace.boards = sharedBoardIds.map((board) => board._id);
+    collaborationWorkspace.boards = directlySharedBoardIds.map(
+      (board) => board._id
+    );
   }
 
   // Ensure user has all default workspace types
@@ -519,62 +518,68 @@ exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
 });
 
 // Invite multiple members to a workspace
-exports.inviteMembers = catchAsync(async (req, res, next) => {
-  const workspace = req.workspace;
-  const userRole = workspace.getMemberRole(req.user._id);
+exports.inviteMembers = catchAsync(
+  async (req, res, next) => {
+    const workspace = req.workspace;
+    const userRole = workspace.getMemberRole(req.user._id);
 
-  // Check invite restriction setting
-  if (
-    workspace.settings.inviteRestriction === 'owner' &&
-    userRole !== 'owner'
-  ) {
-    return next(new AppError('Only workspace owner can send invitations', 403));
-  }
-
-  // Support both single invitation and bulk invitations
-  const invitesArray = req.body.invites || [
-    {
-      email: req.body.email,
-      role: req.body.role || 'member',
-    },
-  ];
-
-  // Validate invites before processing
-  for (const invite of invitesArray) {
-    const { email, role = 'member' } = invite;
-
-    // Only owners can invite admins
-    if (role === 'admin' && userRole !== 'owner') {
-      return next(new AppError('Only owners can invite admins', 403));
-    }
-
-    // Check if user exists
-    const user = await User.findOne({ email: invite.email });
-    if (!user) {
+    // Check invite restriction setting
+    if (
+      workspace.settings.inviteRestriction === 'owner' &&
+      userRole !== 'owner'
+    ) {
       return next(
-        new AppError(`User with email ${invite.email} does not exist`, 404)
+        new AppError('Only workspace owner can send invitations', 403)
       );
     }
 
-    if (workspace.members.some((member) => member.user.equals(user._id))) {
-      return next(
-        new AppError(
-          `User with email ${email} is already a workspace member`,
-          400
-        )
+    // Support both single invitation and bulk invitations
+    const invitesArray = req.body.invites || [
+      {
+        email: req.body.email,
+        role: req.body.role || 'member',
+      },
+    ];
+
+    // Validate invites before processing
+    for (const invite of invitesArray) {
+      const { email, role = 'member' } = invite;
+
+      // Only owners can invite admins
+      if (role === 'admin' && userRole !== 'owner') {
+        return next(new AppError('Only owners can invite admins', 403));
+      }
+
+      // Check if user exists
+      const user = await User.findOne({ email: invite.email });
+      if (!user) {
+        return next(
+          new AppError(`User with email ${invite.email} does not exist`, 404)
+        );
+      }
+
+      if (workspace.members.some((member) => member.user.equals(user._id))) {
+        return next(
+          new AppError(
+            `User with email ${email} is already a workspace member`,
+            400
+          )
+        );
+      }
+
+      // Check for existing pending invitation
+      const existingInvitation = workspace.invitations.find(
+        (inv) => inv.email === email && inv.status === 'pending'
       );
+      if (existingInvitation) {
+        return next(new AppError(`Invitation already sent to ${email}`, 400));
+      }
     }
 
-    // Check for existing pending invitation
-    const existingInvitation = workspace.invitations.find(
-      (inv) => inv.email === email && inv.status === 'pending'
-    );
-    if (existingInvitation) {
-      return next(new AppError(`Invitation already sent to ${email}`, 400));
-    }
-  }
+    // Store original invitations state for potential rollback
+    req.originalInvitations = [...workspace.invitations];
+    req.workspaceId = workspace._id;
 
-  try {
     // Process bulk invitations using the invitationService
     const invitationResults = await invitationService.processBulkInvitations(
       workspace,
@@ -607,12 +612,21 @@ exports.inviteMembers = catchAsync(async (req, res, next) => {
         invitationResults,
       },
     });
-  } catch (error) {
-    return next(
-      new AppError('Error sending invitations: ' + error.message, 500)
-    );
+  },
+  // Cleanup function
+  async (req, err) => {
+    if (req.workspaceId && req.originalInvitations) {
+      console.log(
+        `Restoring original invitations for workspace ${req.workspaceId}`
+      );
+
+      // Restore original invitations state
+      await Workspace.findByIdAndUpdate(req.workspaceId, {
+        invitations: req.originalInvitations,
+      });
+    }
   }
-});
+);
 
 // Accept workspace invitation
 exports.acceptInvitation = catchAsync(async (req, res, next) => {

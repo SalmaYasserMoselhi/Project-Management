@@ -20,14 +20,6 @@ const boardSchema = new mongoose.Schema(
       ref: 'Workspace',
       required: [true, 'Board must belong to a workspace'],
     },
-    // View Customization
-    // viewPreferences: {
-    //   defaultView: {
-    //     type: String,
-    //     enum: ['board', 'calendar', 'timeline'],
-    //     default: 'board',
-    //   },
-    // },
     // Members Management
     members: [
       {
@@ -57,7 +49,6 @@ const boardSchema = new mongoose.Schema(
                 return [
                   'manage_board',
                   'delete_board',
-                  'archive_board',
                   'manage_members',
                   'manage_roles',
                   'create_lists',
@@ -74,7 +65,6 @@ const boardSchema = new mongoose.Schema(
               case 'admin':
                 return [
                   'manage_board',
-                  'archive_board',
                   'manage_members',
                   'create_lists',
                   'edit_lists',
@@ -150,22 +140,32 @@ const boardSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
-    archived: {
-      type: Boolean,
-      default: false,
-    },
-    archivedAt: {
-      type: Date,
-      default: Date.now,
-    },
-    archivedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-    },
-    starred: {
-      type: Boolean,
-      default: false,
-    },
+    archivedByUsers: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        archivedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    starredByUsers: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        starredAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     invitations: [
       {
         email: {
@@ -214,17 +214,19 @@ const boardSchema = new mongoose.Schema(
           enum: [
             'board_created',
             'board_updated',
-            'board_archived',
-            'board_restored',
             'board_deleted',
             'list_created',
             'list_updated',
             'list_deleted',
+            'list_archived',
+            'list_restored',
             'card_created',
             'card_updated',
             'card_deleted',
             'card_moved',
             'card_status_changed',
+            'card_archived',
+            'card_restored',
             'member_added',
             'member_removed',
             'member_role_updated',
@@ -378,6 +380,7 @@ boardSchema.pre('save', async function (next) {
       }
 
       // Only proceed if workspace is NOT of type 'collaboration'
+      // And the board's workspace is not of type 'collaboration'
       if (workspace.type !== 'collaboration') {
         // Get existing member IDs after deduplication
         const existingMemberIds = new Set(
