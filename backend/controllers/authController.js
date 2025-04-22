@@ -224,6 +224,14 @@ exports.handleCallback = async (req, res) => {
       'firstName lastName username email role status avatar emailVerified workspaces'
     );
 
+    // Check if user needs to have default workspaces created
+    const workspaces = await Workspace.find({ createdBy: user._id });
+    if (workspaces.length === 0) {
+      // User doesn't have workspaces yet - create them
+      console.log(`Creating default workspaces for OAuth user: ${user._id}`);
+      await Workspace.createDefaultWorkspaces(user._id, user.username);
+    }
+
     // If email not verified, send verification email
     if (!user.emailVerified) {
       const verificationToken = user.createEmailVerificationToken();
