@@ -16,19 +16,6 @@ const getCardWithContext = async (cardId, userId) => {
 
   // Find list and verify it exists
   const list = await List.findById(card.list);
-const permissionService = require('../utils/permissionService');
-const activityService = require('../utils/activityService');
-
-// Helper function to validate card access and get related objects
-const getCardWithContext = async (cardId, userId) => {
-  // Find card and verify it exists
-  const card = await Card.findById(cardId);
-  if (!card) {
-    throw new AppError('Card not found', 404);
-  }
-
-  // Find list and verify it exists
-  const list = await List.findById(card.list);
   if (!list) {
     throw new AppError('List not found', 404);
   }
@@ -1073,185 +1060,171 @@ exports.getListCards = catchAsync(async (req, res, next) => {
 exports.archiveCard = catchAsync(async (req, res, next) => {
   const { cardId } = req.params;
 
-  try {
-    // Get card with context and verify access
-    const { card, list, board } = await getCardWithContext(
-      cardId,
-      req.user._id
-    );
+  // Get card with context and verify access
+  const { card, list, board } = await getCardWithContext(cardId, req.user._id);
 
-    // Check if card is already archived
-    if (card.archived) {
-      return next(new AppError('Card is already archived', 400));
-    }
-
-    // Check permission to archive cards
-    if (card.createdBy.toString() === req.user._id.toString()) {
-      // If user created the card, they need edit_own_cards permission
-      permissionService.verifyPermission(board, req.user._id, 'edit_own_cards');
-    } else {
-      // Otherwise, they need edit_cards permission
-      permissionService.verifyPermission(board, req.user._id, 'edit_cards');
-    }
-
-    // Get current position before archiving
-    const currentPosition = card.position;
-
-    // Archive the card - All logic directly in controller
-    card.originalPosition = currentPosition;
-    card.archived = true;
-    card.archivedAt = Date.now();
-    card.archivedBy = req.user._id;
-    await card.save();
-
-    // Use existing recalculatePositions function to adjust positions
-    // Decrement positions of cards after the archived card
-    await recalculatePositions(card.list, currentPosition, false);
-
-    // Log the activity
-    await activityService.logCardActivity(
-      board,
-      req.user._id,
-      'card_archived',
-      card._id,
-      {
-        title: card.title,
-        listId: list._id,
-        position: currentPosition,
-      }
-    );
-
-    // Get all remaining cards in the list to send back updated positions
-    const remainingCards = await Card.find({
-      list: card.list,
-      archived: false,
-    })
-      .sort('position')
-      .populate('members.user', 'username email avatar')
-      .populate('createdBy', 'username email avatar')
-      .populate('labels');
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Card archived successfully',
-      data: {
-        card,
-        remainingCards,
-        list: {
-          id: list._id,
-          cardCount: remainingCards.length,
-        },
-      },
-    });
-  } catch (error) {
-    return next(new AppError(`Error archiving card: ${error.message}`, 500));
+  // Check if card is already archived
+  if (card.archived) {
+    return next(new AppError('Card is already archived', 400));
   }
+
+  // Check permission to archive cards
+  if (card.createdBy.toString() === req.user._id.toString()) {
+    // If user created the card, they need edit_own_cards permission
+    permissionService.verifyPermission(board, req.user._id, 'edit_own_cards');
+  } else {
+    // Otherwise, they need edit_cards permission
+    permissionService.verifyPermission(board, req.user._id, 'edit_cards');
+  }
+
+  // Get current position before archiving
+  const currentPosition = card.position;
+
+  // Archive the card - All logic directly in controller
+  card.originalPosition = currentPosition;
+  card.archived = true;
+  card.archivedAt = Date.now();
+  card.archivedBy = req.user._id;
+  await card.save();
+
+  // Use existing recalculatePositions function to adjust positions
+  // Decrement positions of cards after the archived card
+  await recalculatePositions(card.list, currentPosition, false);
+
+  // Log the activity
+  await activityService.logCardActivity(
+    board,
+    req.user._id,
+    'card_archived',
+    card._id,
+    {
+      title: card.title,
+      listId: list._id,
+      position: currentPosition,
+    }
+  );
+
+  // Get all remaining cards in the list to send back updated positions
+  const remainingCards = await Card.find({
+    list: card.list,
+    archived: false,
+  })
+    .sort('position')
+    .populate('members.user', 'username email avatar')
+    .populate('createdBy', 'username email avatar')
+    .populate('labels');
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Card archived successfully',
+    data: {
+      card,
+      remainingCards,
+      list: {
+        id: list._id,
+        cardCount: remainingCards.length,
+      },
+    },
+  });
 });
 
 // Restore card
 exports.restoreCard = catchAsync(async (req, res, next) => {
   const { cardId } = req.params;
 
-  try {
-    // Get card with context and verify access
-    const { card, list, board } = await getCardWithContext(
-      cardId,
-      req.user._id
-    );
+  // Get card with context and verify access
+  const { card, list, board } = await getCardWithContext(cardId, req.user._id);
 
-    // Check if card is archived
-    if (!card.archived) {
-      return next(new AppError('Card is not archived', 400));
-    }
-
-    // Check permission to edit cards
-    if (card.createdBy.toString() === req.user._id.toString()) {
-      permissionService.verifyPermission(board, req.user._id, 'edit_own_cards');
-    } else {
-      permissionService.verifyPermission(board, req.user._id, 'edit_cards');
-    }
-
-    // Check if list has a card limit
-    if (list.cardLimit) {
-      // Count current non-archived cards in the list
-      const currentCardCount = await Card.countDocuments({
-        list: list._id,
-        archived: false,
-      });
-
-      // Check if limit would be exceeded
-      if (currentCardCount >= list.cardLimit) {
-        return next(
-          new AppError(
-            `Cannot restore card. List "${list.name}" has reached its card limit of ${list.cardLimit}`,
-            400
-          )
-        );
-      }
-    }
-
-    // Get all current active cards in the same list
-    const activeCards = await Card.find({
-      list: card.list,
-      archived: false,
-    }).sort('position');
-
-    // Determine target position - prefer original position but don't exceed current list length
-    const targetPosition = Math.min(
-      card.originalPosition || 0,
-      activeCards.length // Ensure we don't exceed the current card count
-    );
-
-    // Use existing recalculatePositions to make space for the restored card
-    await recalculatePositions(card.list, targetPosition, true);
-
-    // Restore the card manually
-    card.archived = false;
-    card.archivedAt = undefined;
-    card.archivedBy = undefined;
-    card.position = targetPosition;
-    card.originalPosition = undefined;
-    await card.save();
-
-    // Log the activity
-    await activityService.logCardActivity(
-      board,
-      req.user._id,
-      'card_restored',
-      card._id,
-      {
-        title: card.title,
-        listId: list._id,
-        restoredPosition: targetPosition,
-        originalPosition: card.originalPosition,
-      }
-    );
-
-    // Get all cards in the list to send back updated positions
-    const allCards = await Card.find({
-      list: card.list,
-      archived: false,
-    })
-      .sort('position')
-      .populate('members.user', 'username email avatar')
-      .populate('createdBy', 'username email avatar')
-      .populate('labels');
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Card restored successfully',
-      data: {
-        card,
-        allCards,
-        list: {
-          id: list._id,
-          cardCount: allCards.length,
-        },
-      },
-    });
-  } catch (error) {
-    return next(new AppError(`Error restoring card: ${error.message}`, 500));
+  // Check if card is archived
+  if (!card.archived) {
+    return next(new AppError('Card is not archived', 400));
   }
+
+  // Check permission to edit cards
+  if (card.createdBy.toString() === req.user._id.toString()) {
+    permissionService.verifyPermission(board, req.user._id, 'edit_own_cards');
+  } else {
+    permissionService.verifyPermission(board, req.user._id, 'edit_cards');
+  }
+
+  // Check if list has a card limit
+  if (list.cardLimit) {
+    // Count current non-archived cards in the list
+    const currentCardCount = await Card.countDocuments({
+      list: list._id,
+      archived: false,
+    });
+
+    // Check if limit would be exceeded
+    if (currentCardCount >= list.cardLimit) {
+      return next(
+        new AppError(
+          `Cannot restore card. List "${list.name}" has reached its card limit of ${list.cardLimit}`,
+          400
+        )
+      );
+    }
+  }
+
+  // Get all current active cards in the same list
+  const activeCards = await Card.find({
+    list: card.list,
+    archived: false,
+  }).sort('position');
+
+  // Determine target position - prefer original position but don't exceed current list length
+  const targetPosition = Math.min(
+    card.originalPosition || 0,
+    activeCards.length // Ensure we don't exceed the current card count
+  );
+
+  // Use existing recalculatePositions to make space for the restored card
+  await recalculatePositions(card.list, targetPosition, true);
+
+  // Restore the card manually
+  card.archived = false;
+  card.archivedAt = undefined;
+  card.archivedBy = undefined;
+  card.position = targetPosition;
+  card.originalPosition = undefined;
+  await card.save();
+
+  // Log the activity
+  await activityService.logCardActivity(
+    board,
+    req.user._id,
+    'card_restored',
+    card._id,
+    {
+      title: card.title,
+      listId: list._id,
+      restoredPosition: targetPosition,
+      originalPosition: card.originalPosition,
+    }
+  );
+
+  // Get all cards in the list to send back updated positions
+  const allCards = await Card.find({
+    list: card.list,
+    archived: false,
+  })
+    .sort('position')
+    .populate('members.user', 'username email avatar')
+    .populate('createdBy', 'username email avatar')
+    .populate('labels');
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Card restored successfully',
+    data: {
+      card,
+      allCards,
+      list: {
+        id: list._id,
+        cardCount: allCards.length,
+      },
+    },
+  });
 });
 
 // Get archived cards function for cardController.js
@@ -1259,159 +1232,135 @@ exports.getArchivedCards = catchAsync(async (req, res, next) => {
   const { boardId } = req.params;
   const { search = '', limit = 50, skip = 0, sort = '-archivedAt' } = req.query;
 
-  try {
-    // Find the board
-    const board = await Board.findById(boardId);
-    if (!board) {
-      return next(new AppError('Board not found', 404));
-    }
-
-    // Verify permission to view board
-    permissionService.verifyPermission(board, req.user._id, 'view_board');
-
-    // Find all lists in this board (including archived lists)
-    const lists = await List.find({ board: boardId });
-    const listIds = lists.map((list) => list._id);
-
-    // Build base query
-    let cardQuery = {
-      list: { $in: listIds },
-      archived: true,
-    };
-
-    // Add search condition if provided
-    if (search) {
-      cardQuery.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-      ];
-    }
-
-    // Get total count of matching archived cards
-    const totalCount = await Card.countDocuments(cardQuery);
-
-    // Build the query to fetch cards
-    let cards = await Card.find(cardQuery)
-      .sort(sort)
-      .skip(parseInt(skip))
-      .limit(parseInt(limit))
-      .populate(
-        'members.user',
-        'email username firstName lastName avatar fullName'
-      )
-      .populate(
-        'createdBy',
-        'email username firstName lastName avatar fullName'
-      )
-      .populate(
-        'archivedBy',
-        'email username firstName lastName avatar fullName'
-      )
-      .populate('labels')
-      .populate({
-        path: 'list',
-        select: 'name position archived',
-      });
-
-    res.status(200).json({
-      status: 'success',
-      totalCount,
-      data: {
-        archivedCards: cards,
-      },
-    });
-  } catch (error) {
-    return next(
-      new AppError(`Error fetching archived cards: ${error.message}`, 500)
-    );
+  // Find the board
+  const board = await Board.findById(boardId);
+  if (!board) {
+    return next(new AppError('Board not found', 404));
   }
+
+  // Verify permission to view board
+  permissionService.verifyPermission(board, req.user._id, 'view_board');
+
+  // Find all lists in this board (including archived lists)
+  const lists = await List.find({ board: boardId });
+  const listIds = lists.map((list) => list._id);
+
+  // Build base query
+  let cardQuery = {
+    list: { $in: listIds },
+    archived: true,
+  };
+
+  // Add search condition if provided
+  if (search) {
+    cardQuery.$or = [
+      { title: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } },
+    ];
+  }
+
+  // Get total count of matching archived cards
+  const totalCount = await Card.countDocuments(cardQuery);
+
+  // Build the query to fetch cards
+  let cards = await Card.find(cardQuery)
+    .sort(sort)
+    .skip(parseInt(skip))
+    .limit(parseInt(limit))
+    .populate(
+      'members.user',
+      'email username firstName lastName avatar fullName'
+    )
+    .populate('createdBy', 'email username firstName lastName avatar fullName')
+    .populate('archivedBy', 'email username firstName lastName avatar fullName')
+    .populate('labels')
+    .populate({
+      path: 'list',
+      select: 'name position archived',
+    });
+
+  res.status(200).json({
+    status: 'success',
+    totalCount,
+    data: {
+      archivedCards: cards,
+    },
+  });
 });
+
 // Delete archived card function for cardController.js
 exports.deleteArchivedCard = catchAsync(async (req, res, next) => {
   const { cardId } = req.params;
 
-  try {
-    // Find card and verify it exists
-    const card = await Card.findById(cardId);
-    if (!card) {
-      return next(new AppError('Card not found', 404));
-    }
+  // Find card and verify it exists
+  const card = await Card.findById(cardId);
+  if (!card) {
+    return next(new AppError('Card not found', 404));
+  }
 
-    // Find list and verify it exists
-    const list = await List.findById(card.list);
-    if (!list) {
-      return next(new AppError('List not found', 404));
-    }
+  // Find list and verify it exists
+  const list = await List.findById(card.list);
+  if (!list) {
+    return next(new AppError('List not found', 404));
+  }
 
-    // Find board and verify it exists
-    const board = await Board.findById(list.board);
-    if (!board) {
-      return next(new AppError('Board not found', 404));
-    }
+  // Find board and verify it exists
+  const board = await Board.findById(list.board);
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
 
-    // Verify user is a board member
-    const isMember = board.members.some(
-      (member) => member.user.toString() === req.user._id.toString()
-    );
-    if (!isMember) {
-      return next(
-        new AppError('You must be a board member to access this card', 403)
-      );
-    }
-
-    // Check if card is archived (can only delete archived cards with this endpoint)
-    if (!card.archived) {
-      return next(
-        new AppError(
-          'Only archived cards can be deleted with this endpoint',
-          400
-        )
-      );
-    }
-
-    // Check permission to delete cards
-    if (card.createdBy.toString() === req.user._id.toString()) {
-      // Creator can delete their own card
-      permissionService.verifyPermission(
-        board,
-        req.user._id,
-        'delete_own_cards'
-      );
-    } else {
-      // Otherwise need delete_cards permission
-      permissionService.verifyPermission(board, req.user._id, 'delete_cards');
-    }
-
-    // Store card info for activity log
-    const cardInfo = {
-      title: card.title,
-      listId: card.list,
-      archived: true,
-    };
-
-    // Delete the card
-    await card.deleteOne();
-
-    // Log the activity
-    await activityService.logCardActivity(
-      board,
-      req.user._id,
-      'card_deleted',
-      board._id, // Use board ID since card ID no longer exists
-      {
-        title: cardInfo.title,
-        listId: cardInfo.listId,
-        fromArchive: true,
-      }
-    );
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Archived card deleted successfully',
-    });
-  } catch (error) {
+  // Verify user is a board member
+  const isMember = board.members.some(
+    (member) => member.user.toString() === req.user._id.toString()
+  );
+  if (!isMember) {
     return next(
-      new AppError(`Error deleting archived card: ${error.message}`, 500)
+      new AppError('You must be a board member to access this card', 403)
     );
   }
+
+  // Check if card is archived (can only delete archived cards with this endpoint)
+  if (!card.archived) {
+    return next(
+      new AppError('Only archived cards can be deleted with this endpoint', 400)
+    );
+  }
+
+  // Check permission to delete cards
+  if (card.createdBy.toString() === req.user._id.toString()) {
+    // Creator can delete their own card
+    permissionService.verifyPermission(board, req.user._id, 'delete_own_cards');
+  } else {
+    // Otherwise need delete_cards permission
+    permissionService.verifyPermission(board, req.user._id, 'delete_cards');
+  }
+
+  // Store card info for activity log
+  const cardInfo = {
+    title: card.title,
+    listId: card.list,
+    archived: true,
+  };
+
+  // Delete the card
+  await card.deleteOne();
+
+  // Log the activity
+  await activityService.logCardActivity(
+    board,
+    req.user._id,
+    'card_deleted',
+    board._id, // Use board ID since card ID no longer exists
+    {
+      title: cardInfo.title,
+      listId: cardInfo.listId,
+      fromArchive: true,
+    }
+  );
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Archived card deleted successfully',
+  });
 });

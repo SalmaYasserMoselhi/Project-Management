@@ -12,7 +12,6 @@ router.use('/:cardId/comments', commentRouter);
 
 // test but must be in ListRoutes
 router.get('/list/:listId/cards', cardController.getListCards);
-router.get('/list/:listId/cards', cardController.getListCards);
 
 // Card CRUD routes
 router.route('/').post(cardController.createCard);

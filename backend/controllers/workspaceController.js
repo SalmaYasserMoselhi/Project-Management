@@ -519,6 +519,7 @@ exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
 
 // Invite multiple members to a workspace
 exports.inviteMembers = catchAsync(
+  // Main function
   async (req, res, next) => {
     const workspace = req.workspace;
     const userRole = workspace.getMemberRole(req.user._id);
@@ -580,7 +581,7 @@ exports.inviteMembers = catchAsync(
     req.originalInvitations = [...workspace.invitations];
     req.workspaceId = workspace._id;
 
-    // Process bulk invitations using the invitationService
+    // Process bulk invitations
     const invitationResults = await invitationService.processBulkInvitations(
       workspace,
       invitesArray,
@@ -602,7 +603,7 @@ exports.inviteMembers = catchAsync(
       );
     }
 
-    // Save the workspace to ensure invitations are stored
+    // Save the workspace with the new invitations
     await workspace.save();
 
     res.status(200).json({
@@ -629,41 +630,55 @@ exports.inviteMembers = catchAsync(
 );
 
 // Accept workspace invitation
-exports.acceptInvitation = catchAsync(async (req, res, next) => {
-  const { token } = req.params;
+exports.acceptInvitation = catchAsync(
+  // Main function
+  async (req, res, next) => {
+    const { token } = req.params;
 
-  // Find workspace by token
-  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    // Hash token
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-  const workspace = await Workspace.findOne({
-    invitations: {
-      $elemMatch: {
-        token: hashedToken,
-        status: 'pending',
-        tokenExpiresAt: { $gt: Date.now() },
+    // Find workspace by token
+    const workspace = await Workspace.findOne({
+      invitations: {
+        $elemMatch: {
+          token: hashedToken,
+          status: 'pending',
+          tokenExpiresAt: { $gt: Date.now() },
+        },
       },
-    },
-  });
+    });
 
-  if (!workspace) {
-    return next(new AppError('Invalid or expired invitation', 400));
-  }
+    if (!workspace) {
+      return next(new AppError('Invalid or expired invitation', 400));
+    }
 
-  // Use invitationService to verify token
-  const invitation = invitationService.verifyInvitationToken(workspace, token);
+    // Verify token
+    const invitation = invitationService.verifyInvitationToken(
+      workspace,
+      token
+    );
 
-  if (!invitation) {
-    return next(new AppError('Invalid or expired invitation', 400));
-  }
+    if (!invitation) {
+      return next(new AppError('Invalid or expired invitation', 400));
+    }
 
-  // Find user
-  let user = await User.findOne({ email: invitation.email });
-  if (!user) {
-    return next(new AppError('User not found', 404));
-  }
+    // Find user
+    let user = await User.findOne({ email: invitation.email });
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
 
-  try {
-    // Use invitationService to accept the invitation
+    // Store state for potential rollback
+    req.invitationAcceptance = {
+      workspaceId: workspace._id,
+      originalMembers: [...workspace.members],
+      originalInvitations: [...workspace.invitations],
+      userId: user._id,
+      invitationToken: hashedToken,
+    };
+
+    // Accept invitation
     await invitationService.acceptInvitation(workspace, invitation, user, {
       entityType: 'workspace',
     });
@@ -687,12 +702,22 @@ exports.acceptInvitation = catchAsync(async (req, res, next) => {
         workspace,
       },
     });
-  } catch (error) {
-    return next(
-      new AppError(`Error accepting invitation: ${error.message}`, 500)
-    );
+  },
+  // Cleanup function
+  async (req, err) => {
+    if (req.invitationAcceptance) {
+      console.log(
+        `Reverting invitation acceptance for workspace ${req.invitationAcceptance.workspaceId}`
+      );
+
+      // Restore original members and invitations
+      await Workspace.findByIdAndUpdate(req.invitationAcceptance.workspaceId, {
+        members: req.invitationAcceptance.originalMembers,
+        invitations: req.invitationAcceptance.originalInvitations,
+      });
+    }
   }
-});
+);
 
 // Get pending invitations for a workspace
 exports.getPendingInvitations = catchAsync(async (req, res, next) => {

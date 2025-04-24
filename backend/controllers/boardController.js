@@ -443,56 +443,51 @@ exports.deleteBoard = catchAsync(async (req, res, next) => {
   if (!workspace) {
     return next(new AppError('Workspace not found', 404));
   }
+  // Find all lists associated with this board
+  const lists = await List.find({ board: board._id });
 
-  try {
-    // Find all lists associated with this board
-    const lists = await List.find({ board: board._id });
+  // For each list, delete all its cards
+  for (const list of lists) {
+    await Card.deleteMany({ list: list._id });
+  }
 
-    // For each list, delete all its cards
-    for (const list of lists) {
-      await Card.deleteMany({ list: list._id });
-    }
+  // Delete all lists
+  await List.deleteMany({ board: board._id });
 
-    // Delete all lists
-    await List.deleteMany({ board: board._id });
+  // Remove board reference from workspace
+  await Workspace.updateMany(
+    { boards: board._id },
+    { $pull: { boards: board._id } }
+  );
 
-    // Remove board reference from workspace
+  // If workspace is public, remove board from all collaboration workspaces
+  if (workspace.type === 'public') {
     await Workspace.updateMany(
-      { boards: board._id },
+      { type: 'collaboration' },
       { $pull: { boards: board._id } }
     );
-
-    // If workspace is public, remove board from all collaboration workspaces
-    if (workspace.type === 'public') {
-      await Workspace.updateMany(
-        { type: 'collaboration' },
-        { $pull: { boards: board._id } }
-      );
-    }
-
-    // Delete the board itself
-    await Board.deleteOne({ _id: board._id });
-
-    // Log activity
-    await activityService.logWorkspaceActivity(
-      workspace,
-      req.user._id,
-      'board_removed',
-      {
-        board: {
-          name: board.name,
-          id: board._id,
-        },
-      }
-    );
-
-    res.status(204).json({
-      status: 'success',
-      data: null,
-    });
-  } catch (error) {
-    return next(new AppError(`Error deleting board: ${error.message}`, 500));
   }
+
+  // Delete the board itself
+  await Board.deleteOne({ _id: board._id });
+
+  // Log activity
+  await activityService.logWorkspaceActivity(
+    workspace,
+    req.user._id,
+    'board_removed',
+    {
+      board: {
+        name: board.name,
+        id: board._id,
+      },
+    }
+  );
+
+  res.status(204).json({
+    status: 'success',
+    data: null,
+  });
 });
 
 // Get boards for a specific workspace
@@ -738,40 +733,50 @@ exports.inviteMembers = catchAsync(
 );
 
 // Accept invitation to join a board
-exports.acceptInvitation = catchAsync(async (req, res, next) => {
-  const { token } = req.params;
+exports.acceptInvitation = catchAsync(
+  async (req, res, next) => {
+    const { token } = req.params;
 
-  // Find board by token
-  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    // Find board by token
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-  const board = await Board.findOne({
-    invitations: {
-      $elemMatch: {
-        token: hashedToken,
-        status: 'pending',
-        tokenExpiresAt: { $gt: Date.now() },
+    const board = await Board.findOne({
+      invitations: {
+        $elemMatch: {
+          token: hashedToken,
+          status: 'pending',
+          tokenExpiresAt: { $gt: Date.now() },
+        },
       },
-    },
-  }).populate('workspace', 'name type');
+    }).populate('workspace', 'name type');
 
-  if (!board) {
-    return next(new AppError('Invalid or expired invitation', 400));
-  }
+    if (!board) {
+      return next(new AppError('Invalid or expired invitation', 400));
+    }
 
-  // Use invitationService to verify token
-  const invitation = invitationService.verifyInvitationToken(board, token);
+    // Use invitationService to verify token
+    const invitation = invitationService.verifyInvitationToken(board, token);
 
-  if (!invitation) {
-    return next(new AppError('Invalid or expired invitation', 400));
-  }
+    if (!invitation) {
+      return next(new AppError('Invalid or expired invitation', 400));
+    }
 
-  // Find user
-  let user = await User.findOne({ email: invitation.email });
-  if (!user) {
-    return next(new AppError('User not found', 404));
-  }
+    // Find user
+    let user = await User.findOne({ email: invitation.email });
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
 
-  try {
+    // Store information for potential rollback
+    req.invitationInfo = {
+      boardId: board._id,
+      invitation: invitation,
+      userId: user._id,
+      originalBoardMembers: [...board.members],
+      originalInvitations: [...board.invitations],
+      createdWorkspace: false,
+    };
+
     // Find or create user's collaboration workspace
     let collaborationWorkspace = await Workspace.findOne({
       createdBy: user._id,
@@ -786,6 +791,10 @@ exports.acceptInvitation = catchAsync(async (req, res, next) => {
         createdBy: user._id,
         members: [{ user: user._id, role: 'owner' }],
       });
+
+      // Mark that we created a new w2orkspace (for potential cleanup)
+      req.invitationInfo.createdWorkspace = true;
+      req.invitationInfo.workspaceId = collaborationWorkspace._id;
     }
 
     // Use invitationService to accept the invitation
@@ -811,12 +820,32 @@ exports.acceptInvitation = catchAsync(async (req, res, next) => {
         board: formatBoardResponse(board, user._id),
       },
     });
-  } catch (error) {
-    return next(
-      new AppError(`Error accepting invitation: ${error.message}`, 500)
-    );
+  },
+  // Cleanup function
+  async (req, err) => {
+    if (req.invitationInfo) {
+      console.log(
+        `Cleaning up after failed invitation acceptance for board: ${req.invitationInfo.boardId}`
+      );
+
+      // Restore original board members and invitations
+      if (req.invitationInfo.boardId) {
+        await Board.findByIdAndUpdate(req.invitationInfo.boardId, {
+          members: req.invitationInfo.originalBoardMembers,
+          invitations: req.invitationInfo.originalInvitations,
+        });
+      }
+
+      // Delete created workspace if one was created during this operation
+      if (
+        req.invitationInfo.createdWorkspace &&
+        req.invitationInfo.workspaceId
+      ) {
+        await Workspace.findByIdAndDelete(req.invitationInfo.workspaceId);
+      }
+    }
   }
-});
+);
 
 // Get pending invitations for a board
 exports.getPendingInvitations = catchAsync(async (req, res, next) => {
