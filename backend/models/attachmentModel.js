@@ -51,7 +51,18 @@ const fileSchema = new mongoose.Schema(
 
 // Virtual to get URL for download
 fileSchema.virtual('url').get(function () {
-  return `/api/v1/files/${this._id}/download`;
+  return `${process.env.BASE_FILE_URL}/attachments/${this._id}/download`;
+});
+
+fileSchema.post('init', (doc) => {
+  // http://localhost:3000/attachments/attach-add7c5fd-f4e1-45d4-9625-ecbe485e9101-1745619165369.png
+    if (doc.filename)
+  {
+    const imageURL = doc.filename.startsWith('https://')
+      ? doc.filename
+      : `${process.env.BASE_FILE_URL}/attachments/${doc.filename}`;
+    doc.filename = imageURL;
+  }
 });
 
 // Method to format file size for display

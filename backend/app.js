@@ -148,7 +148,7 @@ app.use('/api/v1/cards', cardRouter);
 app.use('/api/v1/lists', listRouter);
 app.use('/api/v1/conversations', conversationRouter);
 app.use('/api/v1/message', messageRouter);
-app.use('/api/v1/attachments', attachmentRouter);
+// app.use('/api/v1/attachments', attachmentRouter);
 
 // Handle undefined routes
 app.all('*', (req, res) => {

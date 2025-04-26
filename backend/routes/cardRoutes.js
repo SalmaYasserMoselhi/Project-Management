@@ -2,7 +2,7 @@ const express = require('express');
 const cardController = require('../controllers/cardController');
 const authController = require('../controllers/authController');
 const commentRouter = require('./commentRoutes.js');
-
+const attachmentController = require('../controllers/attachmentController');
 const router = express.Router({ mergeParams: true });
 
 router.use(authController.protect);
@@ -14,11 +14,11 @@ router.use('/:cardId/comments', commentRouter);
 router.get('/list/:listId/cards', cardController.getListCards);
 
 // Card CRUD routes
-router.route('/').post(cardController.createCard);
+router.route('/').post(attachmentController.uploadAttachments, cardController.createCard);
 router
   .route('/:cardId')
-  .get(cardController.getCard)
-  .patch(cardController.updateCard)
+  .get( cardController.getCard)
+  .patch(attachmentController.uploadAttachments, cardController.updateCard)
   .delete(cardController.deleteCard);
 
 // Card completion route
@@ -70,4 +70,11 @@ router.delete('/archived/:cardId', cardController.deleteArchivedCard);
 // Get all archived cards in a board
 router.get('/boards/:boardId/archived', cardController.getArchivedCards);
 
+
+
+router.delete('/:cardId/attachments/:fileId', attachmentController.deleteFile); 
+router.get(
+  '/downloadattachment/:fileId',
+  attachmentController.downloadFile
+);
 module.exports = router;
