@@ -23,7 +23,7 @@ const Board = () => {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6">
           <div className="flex items-center gap-6 mb-4 md:mb-0">
-            {["board", "timeline", "calendar"].map((item) => (
+            {["board", "calendar"].map((item) => (
               <button
                 key={item}
                 className={`text-base font-semibold pb-3 ${

@@ -29,11 +29,11 @@ const ProjectInfo = () => {
               alt="User 1"
               className="w-8 h-8 rounded-full border-2 border-white"
             />
-            <img
+            {/* <img
               src="src/assets/Vector.png"
               alt="User 2"
               className="w-[18px] h-[4px] rounded-full border-2 border-white"
-            />             
+            />              */}
           </div>
         </div>
       </div>
