@@ -1,48 +1,84 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
+// Utility function to delay execution
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Retry configuration
+const RETRY_DELAY = 1000; // 1 second
+const MAX_RETRIES = 3;
+
 export const fetchUserData = createAsyncThunk(
   "user/fetchUserData",
   async (_, { rejectWithValue }) => {
-    try {
-      const response = await fetch("/api/v1/users/me", {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-      });
+    let retries = 0;
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          window.location.href = "/login";
-          return rejectWithValue("Unauthorized");
+    while (retries < MAX_RETRIES) {
+      try {
+        const response = await fetch("/api/v1/users/me", {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+        });
+
+        // Handle rate limiting
+        if (response.status === 429) {
+          console.warn(`Rate limited, attempt ${retries + 1}/${MAX_RETRIES}`);
+          await delay(RETRY_DELAY);
+          retries++;
+          continue;
         }
-        const errorData = await response.json();
-        return rejectWithValue(
-          errorData.message || "Failed to fetch user data"
-        );
-      }
 
-      const data = await response.json();
-      if (data.data && data.data.user) {
+        // Handle other error responses
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.warn("Authentication failed - no valid session");
+            return rejectWithValue("Unauthorized");
+          }
+
+          let errorMessage = "Failed to fetch user data";
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (parseError) {
+            console.warn("Error response is not in JSON format");
+          }
+          return rejectWithValue(errorMessage);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          console.error("Unexpected response format:", contentType);
+          return rejectWithValue("Invalid response format");
+        }
+
+        const data = await response.json();
+        console.log("User data response:", data);
+
+        // Check for the expected data structure
+        if (!data.data?.user) {
+          console.error("Invalid user data format:", data);
+          return rejectWithValue("Invalid user data format");
+        }
+
         return data.data.user;
-      } else {
-        return rejectWithValue("Invalid user data format");
+      } catch (error) {
+        if (retries < MAX_RETRIES - 1) {
+          console.warn(
+            `Request failed, retrying (${retries + 1}/${MAX_RETRIES})...`
+          );
+          await delay(RETRY_DELAY);
+          retries++;
+          continue;
+        }
+        console.error("Error in fetchUserData:", error);
+        return rejectWithValue(error.message || "Failed to fetch user data");
       }
-    } catch (error) {
-      console.error("Error in fetchUserData:", error);
-
-      if (
-        error.message.includes("logged in") ||
-        error.message.includes("Unauthorized") ||
-        error.message.includes("jwt")
-      ) {
-        window.location.href = "/login";
-      }
-
-      return rejectWithValue(error.message || "Failed to fetch user data");
     }
+
+    return rejectWithValue("Max retries exceeded");
   }
 );
 
@@ -50,12 +86,20 @@ const initialState = {
   user: null,
   loading: false,
   error: null,
+  retryCount: 0,
 };
 
 export const userSlice = createSlice({
   name: "user",
   initialState,
-  reducers: {},
+  reducers: {
+    clearUserData: (state) => {
+      state.user = null;
+      state.loading = false;
+      state.error = null;
+      state.retryCount = 0;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchUserData.pending, (state) => {
@@ -65,12 +109,18 @@ export const userSlice = createSlice({
       .addCase(fetchUserData.fulfilled, (state, action) => {
         state.user = action.payload;
         state.loading = false;
+        state.error = null;
+        state.retryCount = 0;
       })
       .addCase(fetchUserData.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+        if (action.payload === "Unauthorized") {
+          state.user = null;
+        }
       });
   },
 });
 
+export const { clearUserData } = userSlice.actions;
 export default userSlice.reducer;

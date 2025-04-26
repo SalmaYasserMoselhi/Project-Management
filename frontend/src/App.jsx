@@ -16,8 +16,14 @@
 import { useSelector } from "react-redux";
 import { useLocation } from "react-router-dom";
 import Routing from "./Routing/Routing";
+<<<<<<< HEAD
 import WorkspacePopup from "./Workspace/WorkspacePopup";
 import Sidebar from "./Components/Sidebar";
+=======
+import { useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { fetchUserData } from "./features/Slice/userSlice/userSlice";
+>>>>>>> aa7d3aa530b1bf0862019481f670b81f27aae275
 import "./index.css";
 
 function App() {
