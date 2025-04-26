@@ -10,4 +10,7 @@ router
 router
   .route('/')
   .get(authController.protect, conversationController.getConversations);
+router
+  .route('/group')
+  .post(authController.protect, conversationController.createGroup);
 module.exports = router;

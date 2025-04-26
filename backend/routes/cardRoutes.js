@@ -2,7 +2,8 @@ const express = require('express');
 const cardController = require('../controllers/cardController');
 const authController = require('../controllers/authController');
 const commentRouter = require('./commentRoutes.js');
-const router = express.Router();
+
+const router = express.Router({ mergeParams: true });
 
 router.use(authController.protect);
 
@@ -10,7 +11,7 @@ router.use(authController.protect);
 router.use('/:cardId/comments', commentRouter);
 
 // test but must be in ListRoutes
-router.get('/list/cards/:listId', cardController.getListCards);
+router.get('/list/:listId/cards', cardController.getListCards);
 
 // Card CRUD routes
 router.route('/').post(cardController.createCard);
@@ -58,5 +59,15 @@ router.patch(
   '/:cardId/subtasks/:subtaskId/toggle',
   cardController.toggleSubtask
 );
+
+// Card archive/restore routes
+router.patch('/:cardId/archive', cardController.archiveCard);
+router.patch('/:cardId/restore', cardController.restoreCard);
+
+// Delete archived card
+router.delete('/archived/:cardId', cardController.deleteArchivedCard);
+
+// Get all archived cards in a board
+router.get('/boards/:boardId/archived', cardController.getArchivedCards);
 
 module.exports = router;
