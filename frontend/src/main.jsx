@@ -5,12 +5,15 @@ import "./index.css";
 import { Provider } from "react-redux";
 import { store } from "./features/Store/Store.js";
 import App from "./App.jsx";
+import { ChatProvider } from "./context/chat-context";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <Provider store={store}>
       <BrowserRouter>
-        <App />
+        <ChatProvider>
+          <App />
+        </ChatProvider>
       </BrowserRouter>
     </Provider>
   </StrictMode>
