@@ -7,6 +7,7 @@ import Verification from "../Auth/Verification";
 import ResetPassword from "../Auth/ResetPassword";
 import Dashboard from "../Main/Dashboard";
 import MainBoard from "../Board/mainBoard";
+// import WorkspacePopup from "../Workspace/WorkspacePopup";
 
 import Notifications from "../Main/Notifications";
 import Main from "../Main/Main";
@@ -27,6 +28,7 @@ function Routing() {
           <Route index element={<Navigate to="dashboard" />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="notifications" element={<Notifications />} />
+       
         </Route>
       </Routes>
     </div>
@@ -34,3 +36,4 @@ function Routing() {
 }
 
 export default Routing;
+
