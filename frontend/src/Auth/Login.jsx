@@ -1,5 +1,5 @@
 import { useSelector, useDispatch } from "react-redux";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   setEmail,
   setPassword,
@@ -10,19 +10,33 @@ import {
   resetErrors,
   loginUser,
 } from "../features/Slice/authSlice/loginSlice";
+import { fetchUserData } from "../features/Slice/userSlice/userSlice";
 import { useNavigate } from "react-router-dom";
+import { useChat } from "../context/chat-context";
 
 const API_BASE_URL = "/api/v1";
 
 const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
 function Login() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { email, password } = useSelector((state) => state.login.form);
+  const { setCurrentUser } = useChat();
 
   const { errorMessage, emailError, passwordError, loading, oauthLoading } =
     useSelector((state) => state.login);
   const [activeButton, setActiveButton] = useState(null);
+
+  const auth = useSelector((state) => state.auth);
+  const currentUser = auth?.user;
+
+  // Check if user is already logged in
+  useEffect(() => {
+    if (currentUser?._id) {
+      navigate("/main/chat");
+    }
+  }, [currentUser, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -58,12 +72,13 @@ function Login() {
     try {
       const resultAction = await dispatch(loginUser({ email, password }));
       if (loginUser.fulfilled.match(resultAction)) {
-        navigate("/main");
-      } else {
-        setActiveButton(null);
+        // Fetch user data after successful login
+        await dispatch(fetchUserData());
+        navigate("/main/chat");
       }
     } catch (error) {
-      console.error(error);
+      console.error("Login error:", error);
+    } finally {
       setActiveButton(null);
     }
   };
@@ -79,6 +94,8 @@ function Login() {
         })
       );
       dispatch(setErrorMessage(""));
+
+      // Add credentials parameter for cookie handling
       const frontendUrl = window.location.origin;
       window.location.href = `${API_BASE_URL}/users/auth/${provider}?frontendUrl=${frontendUrl}`;
     } catch (error) {

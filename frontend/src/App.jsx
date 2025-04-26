@@ -1,5 +1,8 @@
 import "react";
 import Routing from "./Routing/Routing";
+import { useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { fetchUserData } from "./features/Slice/userSlice/userSlice";
 import "./index.css";
 
 function App() {

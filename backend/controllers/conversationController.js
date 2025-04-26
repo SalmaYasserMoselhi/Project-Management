@@ -134,9 +134,18 @@ exports.createOpenConversation = catchAsync(async (req, res, next) => {
       //   isGroup: false,
       //   users: [senderObjectId, receiverObjectId],
       // };
+
       let convoData = {
-        name: 'conversation name',
-        picture: 'conversation picture',
+        name:
+          req.body.name ||
+          req.body.conversationName ||
+          receiverUser.username ||
+          'Chat',
+        picture:
+          req.body.picture ||
+          req.body.avatar ||
+          receiverUser.avatar ||
+          'conversation picture',
         isGroup: false,
         users: [senderObjectId, receiverObjectId],
       };

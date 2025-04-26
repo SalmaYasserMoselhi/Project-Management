@@ -200,6 +200,10 @@ const Sidebar = () => {
                   ? "bg-[#6A3B82] text-white"
                   : "text-gray-900 hover:bg-[#6A3B82]"
               } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
+              onClick={(e) => {
+                e.preventDefault();
+                handleItemClick("Chat", "chat");
+              }}
             >
               <div className="flex items-center gap-3">
                 <img
