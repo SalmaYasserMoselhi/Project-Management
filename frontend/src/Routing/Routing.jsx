@@ -32,11 +32,7 @@ function Routing() {
           <Route index element={<Navigate to="dashboard" />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="notifications" element={<Notifications />} />
-<<<<<<< HEAD
-       
-=======
           <Route path="chat" element={<ChatLayout />} />
->>>>>>> aa7d3aa530b1bf0862019481f670b81f27aae275
         </Route>
       </Routes>
     </div>

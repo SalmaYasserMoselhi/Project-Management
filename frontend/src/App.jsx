@@ -16,14 +16,11 @@
 import { useSelector } from "react-redux";
 import { useLocation } from "react-router-dom";
 import Routing from "./Routing/Routing";
-<<<<<<< HEAD
 import WorkspacePopup from "./Workspace/WorkspacePopup";
 import Sidebar from "./Components/Sidebar";
-=======
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { fetchUserData } from "./features/Slice/userSlice/userSlice";
->>>>>>> aa7d3aa530b1bf0862019481f670b81f27aae275
 import "./index.css";
 
 function App() {
@@ -31,7 +28,7 @@ function App() {
   const location = useLocation();
 
   // List of auth pages where we don't want Sidebar and WorkspacePopup
-  const authPages = ["/Login", "/signup", "/forgetpassword","/verification","/ResetPassword"];
+  const authPages = ["/","/Login", "/signup", "/forgetpassword","/verification","/ResetPassword"];
 
   // Check if current page is auth
   const isAuthPage = authPages.includes(location.pathname);
