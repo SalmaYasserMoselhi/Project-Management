@@ -113,40 +113,40 @@ exports.createCard = catchAsync(async (req, res, next) => {
     ],
   });
 
-   // Process uploaded files
-   let uploadedFiles = [];
-   if (req.files && req.files.length > 0) {
-     for (const file of req.files) {
-       const newFile = await Attachment.create({
-         originalName: file.originalname,
-         filename: file.filename,
-         mimetype: file.mimetype,
-         size: file.size,
-         path: file.path,
-         entityType: 'card',
-         entityId: card._id,
-         uploadedBy: req.user._id,
-       });
- 
-       uploadedFiles.push(newFile);
- 
-       // Add file activity log
-       await activityService.logCardActivity(
-         board,
-         req.user._id,
-         'attachment_added',
-         card._id,
-         {
-           fileId: newFile._id,
-           filename: newFile.originalName,
-           size: newFile.formatSize ? 
-             newFile.formatSize() : 
-             `${Math.round(newFile.size / 1024)} KB`,
-         }
-       );
-     }
-   }
- 
+  // Process uploaded files
+  let uploadedFiles = [];
+  if (req.files && req.files.length > 0) {
+    for (const file of req.files) {
+      const newFile = await Attachment.create({
+        originalName: file.originalname,
+        filename: file.filename,
+        mimetype: file.mimetype,
+        size: file.size,
+        path: file.path,
+        entityType: 'card',
+        entityId: card._id,
+        uploadedBy: req.user._id,
+      });
+
+      uploadedFiles.push(newFile);
+
+      // Add file activity log
+      await activityService.logCardActivity(
+        board,
+        req.user._id,
+        'attachment_added',
+        card._id,
+        {
+          fileId: newFile._id,
+          filename: newFile.originalName,
+          size: newFile.formatSize
+            ? newFile.formatSize()
+            : `${Math.round(newFile.size / 1024)} KB`,
+        }
+      );
+    }
+  }
+
   // Log activity in board
   await activityService.logCardActivity(
     board,
@@ -180,14 +180,14 @@ exports.getCard = catchAsync(async (req, res, next) => {
   // Get card attachments
   const attachments = await Attachment.find({
     entityType: 'card',
-    entityId: card._id
+    entityId: card._id,
   }).populate('uploadedBy', 'firstName lastName email avatar username');
 
   res.status(200).json({
     status: 'success',
     data: {
       card,
-      attachments
+      attachments,
     },
   });
 });
@@ -233,24 +233,22 @@ exports.updateCard = catchAsync(async (req, res, next) => {
     );
 
     // Update card
-    updatedCard = await Card.findByIdAndUpdate(
-      cardId,
-      updateData,
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    updatedCard = await Card.findByIdAndUpdate(cardId, updateData, {
+      new: true,
+      runValidators: true,
+    });
   }
 
   // Process uploaded files
   let uploadedFiles = [];
   if (req.files && req.files.length > 0) {
-    console.log(`Processing ${req.files.length} uploaded files for card ${cardId}`);
-    
+    console.log(
+      `Processing ${req.files.length} uploaded files for card ${cardId}`
+    );
+
     for (const file of req.files) {
       console.log(`Creating attachment record for file: ${file.originalname}`);
-      
+
       const newFile = await Attachment.create({
         originalName: file.originalname,
         filename: file.filename,
@@ -273,13 +271,13 @@ exports.updateCard = catchAsync(async (req, res, next) => {
         {
           fileId: newFile._id,
           filename: newFile.originalName,
-          size: newFile.formatSize ? 
-            newFile.formatSize() : 
-            `${Math.round(newFile.size / 1024)} KB`,
+          size: newFile.formatSize
+            ? newFile.formatSize()
+            : `${Math.round(newFile.size / 1024)} KB`,
         }
       );
     }
-    
+
     console.log(`Successfully processed ${uploadedFiles.length} files`);
   }
 
@@ -290,9 +288,9 @@ exports.updateCard = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: 'success',
-    data: { 
+    data: {
       card: populatedCard,
-      files: uploadedFiles 
+      files: uploadedFiles,
     },
   });
 });
@@ -1157,7 +1155,10 @@ exports.getListCards = catchAsync(async (req, res, next) => {
   // Get all cards in the list
   const cards = await Card.find({ list: listId, archived: false })
     .sort('position')
-    .populate('members.user', 'email firstName lastName')
+    .populate({
+      path: 'members.user',
+      select: 'email firstName lastName avatar username',
+    })
     .populate('createdBy', 'email firstName lastName')
     .populate('subtasks.assignedTo', 'email firstName lastName');
 
