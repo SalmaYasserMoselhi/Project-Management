@@ -23,28 +23,28 @@ const formatMemberData = (member) => ({
   joinedAt: member.joinedAt,
 });
 
-// Helper function to get workspace and verify access
-const getWorkspace = async (workspaceId, userId) => {
-  const workspace = await Workspace.findById(workspaceId);
+// // Helper function to get workspace and verify access
+// const getWorkspace = async (workspaceId, userId) => {
+//   const workspace = await Workspace.findById(workspaceId);
 
-  if (!workspace) {
-    throw new AppError('Workspace not found', 404);
-  }
+//   if (!workspace) {
+//     throw new AppError('Workspace not found', 404);
+//   }
 
-  // Verify user is a workspace member
-  const isMember = workspace.members.some(
-    (member) => member.user.toString() === userId.toString()
-  );
+//   // Verify user is a workspace member
+//   const isMember = workspace.members.some(
+//     (member) => member.user.toString() === userId.toString()
+//   );
 
-  if (!isMember) {
-    throw new AppError(
-      'You must be a workspace member to access this workspace',
-      403
-    );
-  }
+//   if (!isMember) {
+//     throw new AppError(
+//       'You must be a workspace member to access this workspace',
+//       403
+//     );
+//   }
 
-  return workspace;
-};
+//   return workspace;
+// };
 
 // Middleware for checking workspace permissions with optional population
 exports.checkWorkspacePermission = (permission, populateOptions = null) => {
