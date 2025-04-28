@@ -6,6 +6,7 @@ const List = require('../models/listModel');
 const AppError = require('../utils/appError');
 const permissionService = require('../utils/permissionService');
 const activityService = require('../utils/activityService');
+const notificationService = require('../utils/notificationService');
 
 // Helper function to validate card access and get related objects
 const getCardWithContext = async (cardId, userId) => {
@@ -685,6 +686,24 @@ exports.addMember = catchAsync(async (req, res, next) => {
   });
   await card.save();
 
+  // After successfully adding the member, send a notification
+  if (global.io && userId !== req.user._id.toString()) {
+    await notificationService.createNotification(
+      global.io,
+      userId,
+      req.user._id,
+      'card_assignment',
+      'card',
+      card._id,
+      {
+        cardTitle: card.title,
+        boardId: board._id,
+        boardName: board.name,
+        listId: card.list,
+      }
+    );
+  }
+
   // Log activity
   await activityService.logCardActivity(
     board,
@@ -1118,7 +1137,7 @@ exports.getCardSubtasks = catchAsync(async (req, res, next) => {
 
 // Get all cards in a list
 exports.getListCards = catchAsync(async (req, res, next) => {
-  const listId = req.params.list;
+  const listId = req.params.listId;
 
   // Find the list
   const list = await List.findById(listId);
@@ -1136,7 +1155,7 @@ exports.getListCards = catchAsync(async (req, res, next) => {
   permissionService.verifyPermission(board, req.user._id, 'view_board');
 
   // Get all cards in the list
-  const cards = await Card.find({ list: listId })
+  const cards = await Card.find({ list: listId, archived: false })
     .sort('position')
     .populate('members.user', 'email firstName lastName')
     .populate('createdBy', 'email firstName lastName')

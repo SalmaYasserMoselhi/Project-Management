@@ -68,7 +68,7 @@ router.patch('/:cardId/restore', cardController.restoreCard);
 router.delete('/archived/:cardId', cardController.deleteArchivedCard);
 
 // Get all archived cards in a board
-router.get('/boards/:boardId/archived', cardController.getArchivedCards);
+router.get('/board/:boardId/archived', cardController.getArchivedCards);
 
 
 

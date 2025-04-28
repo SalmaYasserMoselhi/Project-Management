@@ -29,7 +29,9 @@ const cardSchema = new mongoose.Schema(
       },
       endDate: Date,
       reminder: Boolean,
+      notifiedDueSoon: Boolean, // Track if "due soon" notification was sent
     },
+
     state: {
       current: {
         type: String,
@@ -205,6 +207,11 @@ cardSchema.pre('save', async function (next) {
       this.state.current = 'overdue';
       this.state.overdueAt = now;
       this.state.lastStateChange = now;
+    }
+
+    // Reset notifiedDueSoon if due date changes
+    if (this.isModified('dueDate.endDate')) {
+      this.dueDate.notifiedDueSoon = false;
     }
   }
   next();
