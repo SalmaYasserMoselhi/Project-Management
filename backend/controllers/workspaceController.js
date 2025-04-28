@@ -133,6 +133,7 @@ exports.getPublicAndMemberWorkspaces = catchAsync(async (req, res, next) => {
     data: { workspaces: transformedWorkspaces }
   });
 });
+
 exports.createWorkspace = catchAsync(async (req, res, next) => {
   const workspace = await Workspace.create({
     ...req.body,
@@ -465,12 +466,47 @@ exports.removeMember = catchAsync(async (req, res, next) => {
 // Get members of a public workspace only
 exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
   const workspace = req.workspace;
+  
+  // Get query parameters
+  const { page = 1, limit = 10, sort = 'joinedAt' } = req.query;
+  const parsedPage = Math.max(parseInt(page), 1);
+  const parsedLimit = Math.min(parseInt(limit), 100);
+  const sortOrder = sort.startsWith('-') ? -1 : 1;
+  const sortField = sort.replace(/^-/, '');
 
-  const members = workspace.members.map(formatMemberData);
+  // Clone members array to avoid mutating original
+  let members = [...workspace.members];
 
-  // Add useful stats
+  // Validate sort field
+  const validSortFields = ['joinedAt', 'role'];
+  if (!validSortFields.includes(sortField)) {
+    return next(new AppError('Invalid sort field', 400));
+  }
+
+  // Sort members
+  members.sort((a, b) => {
+    if (sortField === 'joinedAt') {
+      return sortOrder * (new Date(a[sortField]) - new Date(b[sortField]));
+    }
+    if (sortField === 'role') {
+      const roleOrder = { owner: 1, admin: 2, member: 3 };
+      return sortOrder * (roleOrder[a.role] - roleOrder[b.role]);
+    }
+    return 0;
+  });
+
+  // Pagination calculations
+  const total = members.length;
+  const startIndex = (parsedPage - 1) * parsedLimit;
+  const endIndex = parsedPage * parsedLimit;
+  const paginatedMembers = members.slice(startIndex, endIndex);
+
+  // Format data after pagination
+  const formattedMembers = paginatedMembers.map(formatMemberData);
+
+  // Stats calculation (from original full list)
   const memberStats = {
-    total: members.length,
+    total,
     byRole: {
       owner: members.filter((m) => m.role === 'owner').length,
       admin: members.filter((m) => m.role === 'admin').length,
@@ -480,10 +516,16 @@ exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: 'success',
-    data: {
-      members,
-      stats: memberStats,
+    pagination: {
+      currentPage: parsedPage,
+      totalPages: Math.ceil(total / parsedLimit),
+      itemsPerPage: parsedLimit,
+      totalItems: total
     },
+    data: {
+      members: formattedMembers,
+      stats: memberStats
+    }
   });
 });
 
@@ -692,20 +734,63 @@ exports.acceptInvitation = catchAsync(
 // Get pending invitations for a workspace
 exports.getPendingInvitations = catchAsync(async (req, res, next) => {
   const workspace = req.workspace;
+  const { page = 1, limit = 10, sort = '-createdAt' } = req.query;
+  
+  // Parse and validate inputs
+  const parsedPage = Math.max(parseInt(page), 1);
+  const parsedLimit = Math.min(parseInt(limit), 100);
+  const sortOrder = sort.startsWith('-') ? -1 : 1;
+  const sortField = sort.replace(/^-/, '');
 
-  // Clean up expired invitations using invitationService
+  // Clean up expired invitations
   invitationService.cleanExpiredInvitations(workspace);
 
-  // Get only pending invitations
-  const pendingInvitations = workspace.invitations.filter(
+  // Get filtered and sorted invitations
+  let pendingInvitations = workspace.invitations.filter(
     (inv) => inv.status === 'pending' && inv.tokenExpiresAt > Date.now()
   );
 
+  // Validate sort field
+  const validSortFields = ['createdAt', 'tokenExpiresAt', 'email'];
+  if (!validSortFields.includes(sortField)) {
+    return next(new AppError('Invalid sort field. Valid fields: createdAt, tokenExpiresAt, email', 400));
+  }
+
+  // Sort invitations
+  pendingInvitations.sort((a, b) => {
+    if (sortField === 'email') {
+      return sortOrder * a.email.localeCompare(b.email);
+    }
+    return sortOrder * (new Date(a[sortField]) - new Date(b[sortField]));
+  });
+
+  // Pagination
+  const total = pendingInvitations.length;
+  const startIndex = (parsedPage - 1) * parsedLimit;
+  const endIndex = parsedPage * parsedLimit;
+  const paginatedInvitations = pendingInvitations.slice(startIndex, endIndex);
+
+  // Format response
+  const formattedInvitations = paginatedInvitations.map(inv => ({
+    email: inv.email,
+    role: inv.role,
+    status: inv.status,
+    createdAt: inv.createdAt,
+    expiresAt: inv.tokenExpiresAt,
+    invitedBy: inv.invitedBy
+  }));
+
   res.status(200).json({
     status: 'success',
-    data: {
-      invitations: pendingInvitations,
+    pagination: {
+      currentPage: parsedPage,
+      totalPages: Math.ceil(total / parsedLimit),
+      itemsPerPage: parsedLimit,
+      totalItems: total
     },
+    data: {
+      invitations: formattedInvitations
+    }
   });
 });
 
