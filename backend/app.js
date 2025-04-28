@@ -24,6 +24,7 @@ const listRouter = require('./routes/listRoutes.js');
 const conversationRouter = require('./routes/conversationRoutes.js');
 const messageRouter = require('./routes/messageRoutes.js');
 const attachmentRouter = require('./routes/attachmentsRoutes.js');
+const notificationRouter = require('./routes/notificationRoutes.js');
 const app = express();
 
 // 1) Global Middlewares
@@ -149,6 +150,7 @@ app.use('/api/v1/lists', listRouter);
 app.use('/api/v1/conversations', conversationRouter);
 app.use('/api/v1/message', messageRouter);
 app.use('/api/v1/attachments', attachmentRouter);
+app.use('/api/v1/notifications', notificationRouter);
 
 // Handle undefined routes
 app.all('*', (req, res) => {
