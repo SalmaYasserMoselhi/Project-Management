@@ -242,6 +242,11 @@ const boardSchema = new mongoose.Schema(
             'settings_updated',
             'attachment_added',
             'attachment_removed',
+            'meeting_created',
+            'meeting_deleted',
+            'meeting_updated',
+            'meeting_attendees_added',  
+            'meeting_attendee_removed',
           ],
         },
         entityType: {
@@ -288,15 +293,35 @@ boardSchema.virtual('lists', {
 
 // Virtual for getting total number of cards
 boardSchema.virtual('totalCards').get(function () {
-  return this.lists.reduce((count, list) => count + list.cards.length, 0);
+  // Check if lists is populated and is an array before trying to reduce
+  if (!this.lists || !Array.isArray(this.lists)) {
+    return 0;
+  }
+  return this.lists.reduce((count, list) => {
+    // Check if cards is populated on each list
+    if (list.cards && Array.isArray(list.cards)) {
+      return count + list.cards.length;
+    }
+    return count;
+  }, 0);
 });
 
 // Virtual for getting cards due soon (next 24 hours)
 boardSchema.virtual('cardsDueSoon').get(function () {
+  // Check if lists is populated and is an array
+  if (!this.lists || !Array.isArray(this.lists)) {
+    return [];
+  }
+  
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   return this.lists.reduce((cards, list) => {
+    // Check if cards is populated on each list
+    if (!list.cards || !Array.isArray(list.cards)) {
+      return cards;
+    }
+    
     return cards.concat(
       list.cards.filter(
         (card) => card.dueDate && card.dueDate <= tomorrow && !card.completed
