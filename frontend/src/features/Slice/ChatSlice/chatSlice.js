@@ -268,7 +268,7 @@ export const createConversation = createAsyncThunk(
         chat.users.find((u) => u._id === userId) ||
         chat.userCache[userId];
 
-      // Get user data explicitly for confirmation of complete data
+      // جلب بيانات المستخدم بشكل محدد للتأكد من وجود البيانات الكاملة
       let userData = null;
       try {
         const userResponse = await api.get(`/users/${userId}`);
@@ -289,19 +289,19 @@ export const createConversation = createAsyncThunk(
           dispatch(cacheUserData(userData));
         }
       } catch (error) {
-        // Use previously cached data if fetch fails
+        // استخدام البيانات المخزنة سابقاً إذا فشل الجلب
         userData = userObject;
       }
 
-      // Confirm user data exists
+      // التأكد من وجود بيانات للمستخدم
       if (!userData && !userObject) {
         throw new Error("Could not get user data for this conversation");
       }
 
-      // Use best available data
+      // استخدام أفضل البيانات المتاحة
       const finalUserData = userData || userObject;
 
-      // Prepare user name
+      // تحضير اسم المستخدم
       const userName =
         finalUserData.fullName ||
         `${finalUserData.firstName || ""} ${
@@ -311,10 +311,10 @@ export const createConversation = createAsyncThunk(
         finalUserData.email ||
         "User";
 
-      // Prepare user picture
+      // تحضير صورة المستخدم
       const userPicture = finalUserData.avatar || null;
 
-      // Send all available data with conversation creation request
+      // إرسال جميع البيانات المتوفرة مع طلب إنشاء المحادثة
       const payload = {
         receiverId: userId,
         name: userName,
@@ -322,15 +322,16 @@ export const createConversation = createAsyncThunk(
         picture: userPicture,
         avatar: userPicture,
         type: "private",
+        isGroup: false,
       };
 
-      // Send conversation creation request
+      // إرسال طلب إنشاء المحادثة
       const response = await api.post("/conversations", payload);
 
-      // Extract conversation data from different possible response formats
+      // استخراج بيانات المحادثة من الاستجابة
       let conversationData = response.data;
 
-      // Handle different response formats
+      // التعامل مع تنسيقات الاستجابة المختلفة
       if (!conversationData._id && conversationData.data) {
         if (conversationData.data.newConvo) {
           conversationData = conversationData.data.newConvo;
@@ -341,12 +342,12 @@ export const createConversation = createAsyncThunk(
         }
       }
 
-      // Confirm conversation ID exists
+      // التأكد من وجود معرف للمحادثة
       if (!conversationData || !conversationData._id) {
         throw new Error("Invalid response format from server");
       }
 
-      // Add other user data to conversation for user interface
+      // إضافة بيانات المستخدم الآخر للمحادثة لاستخدامها في واجهة المستخدم
       const enhancedConversation = {
         ...conversationData,
         name: userName,
@@ -354,7 +355,7 @@ export const createConversation = createAsyncThunk(
         otherUser: finalUserData,
       };
 
-      // Update conversations list after a short delay
+      // تحديث قائمة المحادثات بعد فترة قصيرة
       setTimeout(() => {
         dispatch(fetchConversations());
       }, 1000);
@@ -539,6 +540,8 @@ export const searchUsers = createAsyncThunk(
         `/users/workspace-users?search=${encodedSearchTerm}&limit=20`
       );
 
+      console.log(response);
+
       if (!response.data) {
         throw new Error("No data received from server");
       }
@@ -576,7 +579,6 @@ export const searchUsers = createAsyncThunk(
     }
   }
 );
-
 export const getAllUsers = createAsyncThunk(
   "chat/getAllUsers",
   async (_, { rejectWithValue, getState }) => {
@@ -590,7 +592,8 @@ export const getAllUsers = createAsyncThunk(
 
       const currentUserId = login.user._id;
 
-      const response = await api.get("/users?role=user");
+      // const response = await api.get("/users?role=user");
+      const response = await api.get(`/users/workspace-users`);
 
       if (!response.data) {
         throw new Error("No data received from server");

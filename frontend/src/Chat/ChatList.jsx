@@ -16,7 +16,6 @@ import { useChat } from "../context/chat-context";
 import { motion } from "framer-motion";
 import { dateHandler } from "../utils/Date";
 import Avatar from "../assets/defaultAvatar.png";
-import { Loader } from "lucide-react";
 
 const isValidImageUrl = (url) => {
   if (!url) return false;
