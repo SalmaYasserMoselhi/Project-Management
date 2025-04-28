@@ -23,28 +23,28 @@ const formatMemberData = (member) => ({
   joinedAt: member.joinedAt,
 });
 
-// Helper function to get workspace and verify access
-const getWorkspace = async (workspaceId, userId) => {
-  const workspace = await Workspace.findById(workspaceId);
+// // Helper function to get workspace and verify access
+// const getWorkspace = async (workspaceId, userId) => {
+//   const workspace = await Workspace.findById(workspaceId);
 
-  if (!workspace) {
-    throw new AppError('Workspace not found', 404);
-  }
+//   if (!workspace) {
+//     throw new AppError('Workspace not found', 404);
+//   }
 
-  // Verify user is a workspace member
-  const isMember = workspace.members.some(
-    (member) => member.user.toString() === userId.toString()
-  );
+//   // Verify user is a workspace member
+//   const isMember = workspace.members.some(
+//     (member) => member.user.toString() === userId.toString()
+//   );
 
-  if (!isMember) {
-    throw new AppError(
-      'You must be a workspace member to access this workspace',
-      403
-    );
-  }
+//   if (!isMember) {
+//     throw new AppError(
+//       'You must be a workspace member to access this workspace',
+//       403
+//     );
+//   }
 
-  return workspace;
-};
+//   return workspace;
+// };
 
 // Middleware for checking workspace permissions with optional population
 exports.checkWorkspacePermission = (permission, populateOptions = null) => {
@@ -89,44 +89,48 @@ exports.checkPublicWorkspace = catchAsync(async (req, res, next) => {
 });
 
 exports.getPublicAndMemberWorkspaces = catchAsync(async (req, res, next) => {
-  const workspaces = await Workspace.find({
+  // Parse query parameters
+  const { page = 1, limit = 10, sort = '-createdAt' } = req.query;
+  const parsedPage = Math.max(parseInt(page), 1);
+  const parsedLimit = Math.min(parseInt(limit), 100);
+
+  // Build query
+  const query = {
     $and: [
-      { 'members.user': req.user._id }, // User must be a member
-      { type: { $ne: 'private' } }, // Not private type
-      { type: { $ne: 'collaboration' } }, // Not collaboration type
-    ],
-  })
-    // .populate('members.user')
-    .populate('boards', '_id')
-    .sort({ createdAt: -1 });
+      { 'members.user': req.user._id },
+      { type: { $ne: 'private' } },
+      { type: { $ne: 'collaboration' } }
+    ]
+  };
 
-  // Transform workspace data
-  const transformedWorkspaces = workspaces.map((workspace) => {
-    const userMembership = workspace.members.find(
-      (member) =>
-        member.user && member.user._id && member.user._id.equals(req.user._id)
-    );
+  // Get total count
+  const total = await Workspace.countDocuments(query);
 
-    return {
-      _id: workspace._id,
-      name: workspace.name,
-      description: workspace.description,
-      type: workspace.type,
-      createdBy: workspace.createdBy,
-      createdAt: workspace.createdAt,
-      updatedAt: workspace.updatedAt,
-      settings: workspace.settings,
-      boards: workspace.boards,
-      memberCount: workspace.members.length,
-      userRole: userMembership ? userMembership.role : null,
-    };
-  });
+  // Get paginated results (include members for memberCount calculation)
+  const workspaces = await Workspace.find(query)
+    .sort(sort)
+    .skip((parsedPage - 1) * parsedLimit)
+    .limit(parsedLimit);
+
+  // Transform data
+  const transformedWorkspaces = workspaces.map((workspace) => ({
+    _id: workspace._id,
+    name: workspace.name,
+    description: workspace.description,
+    type: workspace.type,
+    createdBy: workspace.createdBy,
+    createdAt: workspace.createdAt,
+    updatedAt: workspace.updatedAt,
+    settings: workspace.settings,
+    memberCount: workspace.members.length // Now accessible
+  }));
 
   res.status(200).json({
     status: 'success',
-    data: {
-      workspaces: transformedWorkspaces,
-    },
+    total,
+    currentPage: parsedPage,
+    totalPages: Math.ceil(total / parsedLimit),
+    data: { workspaces: transformedWorkspaces }
   });
 });
 
@@ -157,46 +161,13 @@ exports.createWorkspace = catchAsync(async (req, res, next) => {
 // Get user's workspaces
 exports.getUserWorkspaces = catchAsync(async (req, res, next) => {
   // Get workspaces where user is the creator
-  const ownedWorkspaces = await Workspace.find({
-    createdBy: req.user._id,
-  }).populate('boards', '_id');
-
-  // Get workspaces where user is a member but not creator
-  const memberWorkspaces = await Workspace.find({
-    'members.user': req.user._id,
-    createdBy: { $ne: req.user._id },
-    type: 'public',
-  }).populate('boards', '_id');
-
-  // Get all non-collaboration workspaces where user is a member
-  const userWorkspaces = await Workspace.find({
-    'members.user': req.user._id,
-    type: { $ne: 'collaboration' },
-  }).select('_id');
-
-  const userWorkspaceIds = userWorkspaces.map((w) => w._id);
-
-  // For collaboration workspace, get only board IDs where user is a member AND board is not in other workspaces
-  const collaborationWorkspace = ownedWorkspaces.find(
-    (w) => w.type === 'collaboration'
-  );
-
-  if (collaborationWorkspace) {
-    const directlySharedBoardIds = await Board.find({
-      'members.user': req.user._id,
-      workspace: { $nin: userWorkspaceIds },
-      archived: false,
-    }).select('_id');
-
-    collaborationWorkspace.boards = directlySharedBoardIds.map(
-      (board) => board._id
-    );
-  }
+  const ownedWorkspaces = await Workspace.find({ createdBy: req.user._id });
 
   // Ensure user has all default workspace types
   const userDefaultWorkspaces = ownedWorkspaces.filter((w) =>
     ['private', 'public', 'collaboration'].includes(w.type)
   );
+  console.log(userDefaultWorkspaces.length);
 
   if (userDefaultWorkspaces.length < 3) {
     const existingTypes = userDefaultWorkspaces.map((w) => w.type);
@@ -239,9 +210,9 @@ exports.getUserWorkspaces = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: 'success',
+    result: ownedWorkspaces.length,
     data: {
       ownedWorkspaces,
-      memberWorkspaces,
     },
   });
 });
@@ -495,12 +466,47 @@ exports.removeMember = catchAsync(async (req, res, next) => {
 // Get members of a public workspace only
 exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
   const workspace = req.workspace;
+  
+  // Get query parameters
+  const { page = 1, limit = 10, sort = 'joinedAt' } = req.query;
+  const parsedPage = Math.max(parseInt(page), 1);
+  const parsedLimit = Math.min(parseInt(limit), 100);
+  const sortOrder = sort.startsWith('-') ? -1 : 1;
+  const sortField = sort.replace(/^-/, '');
 
-  const members = workspace.members.map(formatMemberData);
+  // Clone members array to avoid mutating original
+  let members = [...workspace.members];
 
-  // Add useful stats
+  // Validate sort field
+  const validSortFields = ['joinedAt', 'role'];
+  if (!validSortFields.includes(sortField)) {
+    return next(new AppError('Invalid sort field', 400));
+  }
+
+  // Sort members
+  members.sort((a, b) => {
+    if (sortField === 'joinedAt') {
+      return sortOrder * (new Date(a[sortField]) - new Date(b[sortField]));
+    }
+    if (sortField === 'role') {
+      const roleOrder = { owner: 1, admin: 2, member: 3 };
+      return sortOrder * (roleOrder[a.role] - roleOrder[b.role]);
+    }
+    return 0;
+  });
+
+  // Pagination calculations
+  const total = members.length;
+  const startIndex = (parsedPage - 1) * parsedLimit;
+  const endIndex = parsedPage * parsedLimit;
+  const paginatedMembers = members.slice(startIndex, endIndex);
+
+  // Format data after pagination
+  const formattedMembers = paginatedMembers.map(formatMemberData);
+
+  // Stats calculation (from original full list)
   const memberStats = {
-    total: members.length,
+    total,
     byRole: {
       owner: members.filter((m) => m.role === 'owner').length,
       admin: members.filter((m) => m.role === 'admin').length,
@@ -510,10 +516,16 @@ exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: 'success',
-    data: {
-      members,
-      stats: memberStats,
+    pagination: {
+      currentPage: parsedPage,
+      totalPages: Math.ceil(total / parsedLimit),
+      itemsPerPage: parsedLimit,
+      totalItems: total
     },
+    data: {
+      members: formattedMembers,
+      stats: memberStats
+    }
   });
 });
 
@@ -722,20 +734,63 @@ exports.acceptInvitation = catchAsync(
 // Get pending invitations for a workspace
 exports.getPendingInvitations = catchAsync(async (req, res, next) => {
   const workspace = req.workspace;
+  const { page = 1, limit = 10, sort = '-createdAt' } = req.query;
+  
+  // Parse and validate inputs
+  const parsedPage = Math.max(parseInt(page), 1);
+  const parsedLimit = Math.min(parseInt(limit), 100);
+  const sortOrder = sort.startsWith('-') ? -1 : 1;
+  const sortField = sort.replace(/^-/, '');
 
-  // Clean up expired invitations using invitationService
+  // Clean up expired invitations
   invitationService.cleanExpiredInvitations(workspace);
 
-  // Get only pending invitations
-  const pendingInvitations = workspace.invitations.filter(
+  // Get filtered and sorted invitations
+  let pendingInvitations = workspace.invitations.filter(
     (inv) => inv.status === 'pending' && inv.tokenExpiresAt > Date.now()
   );
 
+  // Validate sort field
+  const validSortFields = ['createdAt', 'tokenExpiresAt', 'email'];
+  if (!validSortFields.includes(sortField)) {
+    return next(new AppError('Invalid sort field. Valid fields: createdAt, tokenExpiresAt, email', 400));
+  }
+
+  // Sort invitations
+  pendingInvitations.sort((a, b) => {
+    if (sortField === 'email') {
+      return sortOrder * a.email.localeCompare(b.email);
+    }
+    return sortOrder * (new Date(a[sortField]) - new Date(b[sortField]));
+  });
+
+  // Pagination
+  const total = pendingInvitations.length;
+  const startIndex = (parsedPage - 1) * parsedLimit;
+  const endIndex = parsedPage * parsedLimit;
+  const paginatedInvitations = pendingInvitations.slice(startIndex, endIndex);
+
+  // Format response
+  const formattedInvitations = paginatedInvitations.map(inv => ({
+    email: inv.email,
+    role: inv.role,
+    status: inv.status,
+    createdAt: inv.createdAt,
+    expiresAt: inv.tokenExpiresAt,
+    invitedBy: inv.invitedBy
+  }));
+
   res.status(200).json({
     status: 'success',
-    data: {
-      invitations: pendingInvitations,
+    pagination: {
+      currentPage: parsedPage,
+      totalPages: Math.ceil(total / parsedLimit),
+      itemsPerPage: parsedLimit,
+      totalItems: total
     },
+    data: {
+      invitations: formattedInvitations
+    }
   });
 });
 

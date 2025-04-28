@@ -3,6 +3,8 @@ const dotenv = require('dotenv');
 const { Server } = require('socket.io');
 const http = require('http');
 const socketServer = require('./socketServer.js');
+const scheduledTasks = require('./utils/scheduledTasks');
+
 // process.on("uncaughtException", (err) => {
 //   console.log("UNCAUGHT EXCEPTION! 💥 Shutting down...");
 //   console.log(err.name, err.message);
@@ -42,6 +44,9 @@ const io = new Server(server, {
     origin: process.env.BASE_URL.split('/api/v1')[0],
   },
 });
+
+// Make io instance available globally
+global.io = io;
 
 io.on('connection', (socket) => {
   console.log('Socket io connected successfully');

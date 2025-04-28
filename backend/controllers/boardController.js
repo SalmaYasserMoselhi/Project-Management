@@ -493,10 +493,16 @@ exports.deleteBoard = catchAsync(async (req, res, next) => {
 // Get boards for a specific workspace
 exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
   const { workspaceId } = req.params;
-  const { search, sort = '-updatedAt' } = req.query;
+  const { search, sort = '-updatedAt', page = 1, limit = 10 } = req.query;
   const userId = req.user._id;
   const userIdString = userId.toString();
 
+  // Validate numeric parameters
+  const pageNum = parseInt(page, 10) || 1;
+  const limitNum = parseInt(limit, 10) || 10;
+  const skip = (pageNum - 1) * limitNum;
+
+  // Get workspace
   const workspace = await Workspace.findById(workspaceId);
   if (!workspace) {
     return next(new AppError('Workspace not found', 404));
@@ -559,6 +565,8 @@ exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
       'name description background members lists starredByUsers updatedAt settings'
     )
     .sort(sort)
+    .skip(skip)
+    .limit(limitNum)
     .lean();
 
   // Count boards starred by this user
@@ -610,24 +618,41 @@ exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
 
 exports.getBoardMembers = catchAsync(async (req, res, next) => {
   const board = req.board;
+  const { sort = 'joinedAt', page = 1, limit = 10 } = req.query;
+
+  // Validate numeric parameters
+  const pageNum = parseInt(page, 10) || 1;
+  const limitNum = parseInt(limit, 10) || 10;
+  const skip = (pageNum - 1) * limitNum;
 
   const members = board.members.map(formatMemberData);
 
-  // Add useful stats
-  const memberStats = {
-    total: members.length,
-    byRole: {
-      owner: members.filter((m) => m.role === 'owner').length,
-      admin: members.filter((m) => m.role === 'admin').length,
-      member: members.filter((m) => m.role === 'member').length,
-    },
-  };
+  // Sorting logic
+  const sortField = sort.startsWith('-') ? sort.slice(1) : sort;
+  const sortOrder = sort.startsWith('-') ? -1 : 1;
+
+  members.sort((a, b) => {
+    if (sortField === 'joinedAt') {
+      return new Date(a[sortField]) - new Date(b[sortField]) * sortOrder;
+    }
+    return (a[sortField]?.localeCompare(b[sortField]) || 0) * sortOrder;
+  });
+
+  // Pagination
+  const totalMembers = members.length;
+  const paginatedMembers = members.slice(skip, skip + limitNum);
 
   res.status(200).json({
     status: 'success',
     data: {
-      members,
-      stats: memberStats,
+      members: paginatedMembers.map(formatMemberData),
+      pagination: {
+        total: totalMembers,
+        page: pageNum,
+        results: paginatedMembers.length,
+        totalPages: Math.ceil(totalMembers / limitNum),
+        limit: limitNum,
+      },
     },
   });
 });
@@ -976,23 +1001,30 @@ exports.removeMember = catchAsync(async (req, res, next) => {
 exports.getArchivedBoards = catchAsync(async (req, res, next) => {
   const userId = req.user._id;
 
+  const { sort = '-archivedAt', page = 1, limit = 10 } = req.query;
+
+  // Validate numeric parameters
+  const pageNum = parseInt(page, 10) || 1;
+  const limitNum = parseInt(limit, 10) || 10;
+  const skip = (pageNum - 1) * limitNum;
+
+  // Base query
+  const query = {
+    'members.user': userId,
+    'archivedByUsers.user': userId,
+  };
+
+  // Get total count
+  const totalBoards = await Board.countDocuments(query);
+
   // Find boards where the current user is in archivedByUsers array
   const archivedBoards = await Board.find({
     'members.user': userId,
     'archivedByUsers.user': userId,
   })
-    .populate({
-      path: 'workspace',
-      select: 'name type createdBy',
-      populate: {
-        path: 'createdBy',
-        select: '_id',
-      },
-    })
-    .select(
-      'name description background workspace members lists archivedByUsers viewPreferences settings'
-    )
-    .sort('-archivedByUsers.archivedAt') // Sort by archive date (most recent first)
+    .sort(sort)
+    .skip(skip)
+    .limit(limitNum)
     .lean();
 
   // Filter out boards with missing workspace data
@@ -1035,6 +1067,13 @@ exports.getArchivedBoards = catchAsync(async (req, res, next) => {
     data: {
       boards: formattedBoards,
       stats,
+      pagination: {
+        total: totalBoards,
+        page: pageNum,
+        results: archivedBoards.length,
+        totalPages: Math.ceil(totalBoards / limitNum),
+        limit: limitNum
+      }
     },
   });
 });

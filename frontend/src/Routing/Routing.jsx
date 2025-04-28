@@ -12,7 +12,6 @@ import MainBoard from "../Board/mainBoard";
 import Notifications from "../Main/Notifications";
 import Main from "../Main/Main";
 import ChatList from "../Chat/ChatList";
-import ChatContainer from "../Chat/ChatContainer";
 import ChatLayout from "../Chat/ChatLayout";
 
 function Routing() {

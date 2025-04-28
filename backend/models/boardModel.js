@@ -242,6 +242,11 @@ const boardSchema = new mongoose.Schema(
             'settings_updated',
             'attachment_added',
             'attachment_removed',
+            'meeting_created',
+            'meeting_deleted',
+            'meeting_updated',
+            'meeting_attendees_added',  
+            'meeting_attendee_removed',
           ],
         },
         entityType: {
@@ -288,15 +293,35 @@ boardSchema.virtual('lists', {
 
 // Virtual for getting total number of cards
 boardSchema.virtual('totalCards').get(function () {
-  return this.lists.reduce((count, list) => count + list.cards.length, 0);
+  // Check if lists is populated and is an array before trying to reduce
+  if (!this.lists || !Array.isArray(this.lists)) {
+    return 0;
+  }
+  return this.lists.reduce((count, list) => {
+    // Check if cards is populated on each list
+    if (list.cards && Array.isArray(list.cards)) {
+      return count + list.cards.length;
+    }
+    return count;
+  }, 0);
 });
 
 // Virtual for getting cards due soon (next 24 hours)
 boardSchema.virtual('cardsDueSoon').get(function () {
+  // Check if lists is populated and is an array
+  if (!this.lists || !Array.isArray(this.lists)) {
+    return [];
+  }
+  
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   return this.lists.reduce((cards, list) => {
+    // Check if cards is populated on each list
+    if (!list.cards || !Array.isArray(list.cards)) {
+      return cards;
+    }
+    
     return cards.concat(
       list.cards.filter(
         (card) => card.dueDate && card.dueDate <= tomorrow && !card.completed
@@ -305,43 +330,44 @@ boardSchema.virtual('cardsDueSoon').get(function () {
   }, []);
 });
 
-boardSchema.methods.syncMemberToCards = async function (newMember) {
-  try {
-    // Find all cards associated with this board through its lists
-    const lists = await mongoose
-      .model('List')
-      .find({ board: this._id })
-      .select('_id');
-    const listIds = lists.map((list) => list._id);
+// boardSchema.methods.syncMemberToCards = async function (newMember) {
+//   try {
+//     // Find all cards associated with this board through its lists
+//     const lists = await mongoose
+//       .model('List')
+//       .find({ board: this._id })
+//       .select('_id');
+//     const listIds = lists.map((list) => list._id);
 
-    // Find all cards in these lists
-    const cards = await mongoose.model('Card').find({ list: { $in: listIds } });
+//     // Find all cards in these lists
+//     const cards = await mongoose.model('Card').find({ list: { $in: listIds } });
 
-    // Add the new member to each card
-    const updatePromises = cards.map((card) => {
-      return mongoose.model('Card').findByIdAndUpdate(
-        card._id,
-        {
-          $addToSet: {
-            members: {
-              user: newMember.user,
-              assignedBy: newMember.invitedBy || this.createdBy,
-              assignedAt: new Date(),
-            },
-          },
-        },
-        { new: true }
-      );
-    });
+//     // Add the new member to each card
+//     const updatePromises = cards.map((card) => {
+//       return mongoose.model('Card').findByIdAndUpdate(
+//         card._id,
+//         {
+//           $addToSet: {
+//             members: {
+//               user: newMember.user,
+//               assignedBy: newMember.invitedBy || this.createdBy,
+//               assignedAt: new Date(),
+//             },
+//           },
+//         },
+//         { new: true }
+//       );
+//     });
 
-    await Promise.all(updatePromises);
-  } catch (error) {
-    console.error('Error syncing member to cards:', error);
-    throw error;
-  }
-};
+//     await Promise.all(updatePromises);
+//   } catch (error) {
+//     console.error('Error syncing member to cards:', error);
+//     throw error;
+//   }
+// };
 
 // Clean expired invitations
+
 boardSchema.pre('save', function (next) {
   if (this.invitations && this.invitations.length > 0) {
     this.invitations.forEach((invitation) => {
@@ -406,22 +432,23 @@ boardSchema.pre('save', async function (next) {
   next();
 });
 
-boardSchema.pre('save', async function (next) {
-  if (this.isModified('members')) {
-    const newMembers = this.members.filter((member) => {
-      return !this._originalMembers?.some(
-        (original) => original.user.toString() === member.user.toString()
-      );
-    });
+// boardSchema.pre('save', async function (next) {
+//   if (this.isModified('members')) {
+//     const newMembers = this.members.filter((member) => {
+//       return !this._originalMembers?.some(
+//         (original) => original.user.toString() === member.user.toString()
+//       );
+//     });
 
-    for (const newMember of newMembers) {
-      await this.syncMemberToCards(newMember);
-    }
-  }
-  next();
-});
+//     for (const newMember of newMembers) {
+//       await this.syncMemberToCards(newMember);
+//     }
+//   }
+//   next();
+// });
 
 // Store original members before modification
+
 boardSchema.pre('save', function (next) {
   if (this.isModified('members')) {
     this._originalMembers = [...this.members];

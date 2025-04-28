@@ -60,4 +60,41 @@ module.exports = function (socket, io) {
   socket.on('end call', (id) => {
     io.to(id).emit('end call');
   });
+
+  // NOTIFICATION HANDLERS
+  // User joins a board room to receive board-related notifications
+  socket.on('join board', (boardId) => {
+    socket.join(`board:${boardId}`);
+    console.log(`User joined board room: board:${boardId}`);
+  });
+
+  // User leaves a board room
+  socket.on('leave board', (boardId) => {
+    socket.leave(`board:${boardId}`);
+    console.log(`User left board room: board:${boardId}`);
+  });
+
+  // User joins a workspace room to receive workspace-related notifications
+  socket.on('join workspace', (workspaceId) => {
+    socket.join(`workspace:${workspaceId}`);
+    console.log(`User joined workspace room: workspace:${workspaceId}`);
+  });
+
+  // User leaves a workspace room
+  socket.on('leave workspace', (workspaceId) => {
+    socket.leave(`workspace:${workspaceId}`);
+    console.log(`User left workspace room: workspace:${workspaceId}`);
+  });
+
+  // Handle mark notification as read - sync across devices
+  socket.on('notification read', ({ userId, notificationId }) => {
+    // Broadcast to all user's devices that this notification was read
+    socket.to(userId).emit('notification read', notificationId);
+  });
+
+  // Handle mark all notifications as read - sync across devices
+  socket.on('all notifications read', ({ userId }) => {
+    // Broadcast to all user's devices that all notifications were read
+    socket.to(userId).emit('all notifications read');
+  });
 };

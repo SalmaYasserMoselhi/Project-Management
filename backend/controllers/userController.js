@@ -5,6 +5,8 @@ const AppError = require('./../utils/appError');
 const catchAsync = require('./../utils/catchAsync');
 const { uploadSingleImage } = require('../Middlewares/fileUploadMiddleware');
 const User = require('./../models/userModel');
+const Workspace = require('../models/workspaceModel');
+const mongoose = require('mongoose');
 
 exports.uploadUserAvatar = uploadSingleImage('avatar');
 
@@ -183,5 +185,59 @@ exports.searchUsers = catchAsync(async (req, res, next) => {
     data: {
       users,
     },
+  });
+});
+
+exports.searchWorkspaceUsers = catchAsync(async (req, res, next) => {
+  const currentUserId = req.user._id;
+  const searchTerm = req.query.search || '';
+
+  const userWorkspaces = await Workspace.find({
+    'members.user': currentUserId, // يعني موجود جوه الميمبرز
+  }).select('members.user');
+
+  const workspaceMemberIds = new Set();
+
+  userWorkspaces.forEach((workspace) => {
+    workspace.members.forEach((member) => {
+      if (member.user) {
+        workspaceMemberIds.add(member.user.toString());
+      }
+    });
+  });
+
+  if (workspaceMemberIds.size === 0) {
+    return res.status(200).json({
+      status: 'success',
+      results: 0,
+      data: { users: [] },
+    });
+  }
+
+  const memberIdsArray = Array.from(workspaceMemberIds).map(
+    (id) => new mongoose.Types.ObjectId(id)
+  );
+
+  const query = {
+    _id: { $in: memberIdsArray, $ne: currentUserId },
+  };
+
+  if (searchTerm.trim()) {
+    query.$or = [
+      { username: { $regex: searchTerm, $options: 'i' } },
+      { email: { $regex: searchTerm, $options: 'i' } },
+      { firstName: { $regex: searchTerm, $options: 'i' } },
+      { lastName: { $regex: searchTerm, $options: 'i' } },
+    ];
+  }
+
+  const users = await User.find(query).select(
+    'username email avatar _id firstName lastName'
+  );
+
+  return res.status(200).json({
+    status: 'success',
+    results: users.length,
+    data: { users },
   });
 });

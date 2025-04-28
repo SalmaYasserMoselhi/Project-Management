@@ -1,5 +1,6 @@
 const List = require('../models/listModel');
 const Board = require('../models/boardModel');
+const Card = require('../models/cardModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const activityService = require('../utils/activityService');
@@ -498,7 +499,7 @@ exports.archiveList = catchAsync(
       data: {
         list,
         lists: remainingLists,
-        archivedCardCount: cards.length,
+        // archivedCardCount: cards.length,
       },
     });
   }
@@ -669,11 +670,11 @@ exports.getArchivedLists = catchAsync(async (req, res, next) => {
       data: {
         lists: withCards === 'true' ? listWithCards : lists,
         totalCount,
-        pagination: {
-          limit: parseInt(limit),
-          skip: parseInt(skip),
-          hasMore: parseInt(skip) + lists.length < totalCount,
-        },
+        // pagination: {
+        //   limit: parseInt(limit),
+        //   skip: parseInt(skip),
+        //   hasMore: parseInt(skip) + lists.length < totalCount,
+        // },
       },
     });
   } catch (error) {
