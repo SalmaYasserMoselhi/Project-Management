@@ -4,6 +4,7 @@ import forgotPasswordReducer from "../Slice/authSlice/forgotPasswordSlice";
 import resetPasswordReducer from "../Slice/authSlice/resetPasswordSlice";
 import userReducer from "../Slice/userSlice/userSlice";
 import sidebarReducer from "../Slice/ComponentSlice/sidebarSlice";
+import chatReducer from "../Slice/ChatSlice/chatSlice";
 
 export const store = configureStore({
   reducer: {
@@ -13,6 +14,7 @@ export const store = configureStore({
     user: userReducer,
 
     sidebar: sidebarReducer,
+    chat: chatReducer,
   },
   devTools: true,
 });
