@@ -535,9 +535,8 @@ export const searchUsers = createAsyncThunk(
       // Encode the search term properly for URL
       const encodedSearchTerm = encodeURIComponent(searchTerm.trim());
 
-      // Add a limit parameter for performance
       const response = await api.get(
-        `/users?query=${encodedSearchTerm}&role=user&limit=20`
+        `/users/workspace-users?search=${encodedSearchTerm}&limit=20`
       );
 
       if (!response.data) {
@@ -555,21 +554,19 @@ export const searchUsers = createAsyncThunk(
         throw new Error("Invalid response format");
       }
 
-      // Only return users that actually match the search term
       const term = searchTerm.toLowerCase().trim();
       const filteredUsers = users.filter((user) => {
-        const fullName = `${user.firstName || ""} ${
-          user.lastName || ""
-        }`.toLowerCase();
+        const firstName = (user.firstName || "").toLowerCase();
+        const lastName = (user.lastName || "").toLowerCase();
         const username = (user.username || "").toLowerCase();
         const email = (user.email || "").toLowerCase();
 
-        // Only include users that match the search term
         return (
-          (fullName.includes(term) ||
+          (firstName.includes(term) ||
+            lastName.includes(term) ||
             username.includes(term) ||
             email.includes(term)) &&
-          user._id !== currentUserId
+          user._id !== currentUserId // ما ترجعش اليوزر الحالي
         );
       });
 

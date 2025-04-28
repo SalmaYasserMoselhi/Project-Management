@@ -1,6 +1,7 @@
 const express = require('express');
 const listController = require('../controllers/listController');
 const authController = require('../controllers/authController');
+const cardController = require('../controllers/cardController');
 
 const router = express.Router({ mergeParams: true }); // To access boardId from parent router
 
@@ -10,6 +11,7 @@ router.use(authController.protect);
 // Get lists for a board
 router.get('/board/:boardId/lists', listController.getBoardLists);
 router.get('/board/:boardId/lists/archived', listController.getArchivedLists);
+
 
 // List operations
 router.post('/', listController.createList);

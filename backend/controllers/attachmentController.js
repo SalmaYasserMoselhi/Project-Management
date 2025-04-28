@@ -238,17 +238,13 @@ exports.downloadFile = catchAsync(async (req, res, next) => {
 
 // Delete a file (permanent delete with permission checks)
 exports.deleteFile = catchAsync(async (req, res, next) => {
-  const { fileId } = req.params;
+  const {fileId } = req.params;
 
-  // Find the file record
+  // Find the file
   const file = await Attachment.findById(fileId);
   if (!file) {
     return next(new AppError('File not found', 404));
   }
-
-  console.log(`Processing delete request for file: ${file._id}`);
-  console.log(`File uploaded by: ${file.uploadedBy}`);
-  console.log(`Current user: ${req.user._id}`);
 
   // Check if user has permission to delete this file
   const canDelete = await checkDeletePermission(req, file);
@@ -271,10 +267,11 @@ exports.deleteFile = catchAsync(async (req, res, next) => {
     // Remove the database record
     await Attachment.findByIdAndDelete(fileId);
 
-    // Log activity for card attachments
+      /// Log activity for card attachments
     if (file.entityType === 'card') {
       try {
         const { card } = await getCardWithContext(file.entityId);
+        console.log(`Logging activity for card: ${card._id}`);
 
         cardController.logCardActivity(
           card,
@@ -288,18 +285,19 @@ exports.deleteFile = catchAsync(async (req, res, next) => {
         );
 
         await card.save();
-      } catch (error) {
-        console.error('Error logging card activity:', error);
+        console.log('Card activity logged successfully');
+      } catch (activityError) {
+        console.error('Error logging card activity:', activityError);
+        // Continue with the operation even if activity logging fails
       }
     }
-
-    res.status(200).json({
-      status: 'success',
-      message: 'File deleted successfully',
-      data: null,
+        res.status(200).json({
+          status: 'success',
+          message: 'Attachment deleted successfully',
+          data: null,
+        });
+      } catch (error) {
+        console.error('Error logging card activity:', error);
+        return next(new AppError('Error deleting file', 500));
+      }
     });
-  } catch (error) {
-    console.error('Error deleting file:', error);
-    return next(new AppError('Error deleting file', 500));
-  }
-});

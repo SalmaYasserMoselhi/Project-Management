@@ -1,10 +1,12 @@
 const Card = require('../models/cardModel');
+const Attachment = require('../models/attachmentModel');
 const catchAsync = require('../utils/catchAsync');
 const Board = require('../models/boardModel');
 const List = require('../models/listModel');
 const AppError = require('../utils/appError');
 const permissionService = require('../utils/permissionService');
 const activityService = require('../utils/activityService');
+const notificationService = require('../utils/notificationService');
 
 // Helper function to validate card access and get related objects
 const getCardWithContext = async (cardId, userId) => {
@@ -111,6 +113,40 @@ exports.createCard = catchAsync(async (req, res, next) => {
     ],
   });
 
+   // Process uploaded files
+   let uploadedFiles = [];
+   if (req.files && req.files.length > 0) {
+     for (const file of req.files) {
+       const newFile = await Attachment.create({
+         originalName: file.originalname,
+         filename: file.filename,
+         mimetype: file.mimetype,
+         size: file.size,
+         path: file.path,
+         entityType: 'card',
+         entityId: card._id,
+         uploadedBy: req.user._id,
+       });
+ 
+       uploadedFiles.push(newFile);
+ 
+       // Add file activity log
+       await activityService.logCardActivity(
+         board,
+         req.user._id,
+         'attachment_added',
+         card._id,
+         {
+           fileId: newFile._id,
+           filename: newFile.originalName,
+           size: newFile.formatSize ? 
+             newFile.formatSize() : 
+             `${Math.round(newFile.size / 1024)} KB`,
+         }
+       );
+     }
+   }
+ 
   // Log activity in board
   await activityService.logCardActivity(
     board,
@@ -131,7 +167,7 @@ exports.createCard = catchAsync(async (req, res, next) => {
   });
 });
 
-// Get Single Card
+// Get Single Card (with attachments)
 exports.getCard = catchAsync(async (req, res, next) => {
   const { card, board } = await getCardWithContext(
     req.params.cardId,
@@ -141,15 +177,22 @@ exports.getCard = catchAsync(async (req, res, next) => {
   // Check permission
   permissionService.verifyPermission(board, req.user._id, 'view_board');
 
+  // Get card attachments
+  const attachments = await Attachment.find({
+    entityType: 'card',
+    entityId: card._id
+  }).populate('uploadedBy', 'firstName lastName email avatar username');
+
   res.status(200).json({
     status: 'success',
     data: {
       card,
+      attachments
     },
   });
 });
 
-// Update Card
+// Update Card with Files
 exports.updateCard = catchAsync(async (req, res, next) => {
   const { cardId } = req.params;
   const updateData = { ...req.body };
@@ -165,41 +208,94 @@ exports.updateCard = catchAsync(async (req, res, next) => {
   delete updateData.list;
   delete updateData.position;
 
-  // Track what's being updated
-  const changes = {};
-  Object.keys(updateData).forEach((key) => {
-    changes[key] = {
-      from: card[key],
-      to: updateData[key],
-    };
-  });
+  // Check if there are card fields to update
+  let updatedCard = card;
+  if (Object.keys(updateData).length > 0) {
+    // Track what's being updated
+    const changes = {};
+    Object.keys(updateData).forEach((key) => {
+      changes[key] = {
+        from: card[key],
+        to: updateData[key],
+      };
+    });
 
-  // Log activity
-  logCardActivity(card, 'updated', req.user._id, {
-    changes,
-    updatedFields: Object.keys(updateData),
-  });
+    // Log activity for card data updates
+    await activityService.logCardActivity(
+      board,
+      req.user._id,
+      'card_updated',
+      cardId,
+      {
+        changes,
+        updatedFields: Object.keys(updateData),
+      }
+    );
 
-  // Update card with everything including the new activity
-  const updatedCard = await Card.findByIdAndUpdate(
-    cardId,
-    {
-      ...updateData,
-      activity: card.activity, // Include our newly logged activity
-    },
-    {
-      new: true,
-      runValidators: true,
+    // Update card
+    updatedCard = await Card.findByIdAndUpdate(
+      cardId,
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+  }
+
+  // Process uploaded files
+  let uploadedFiles = [];
+  if (req.files && req.files.length > 0) {
+    console.log(`Processing ${req.files.length} uploaded files for card ${cardId}`);
+    
+    for (const file of req.files) {
+      console.log(`Creating attachment record for file: ${file.originalname}`);
+      
+      const newFile = await Attachment.create({
+        originalName: file.originalname,
+        filename: file.filename,
+        mimetype: file.mimetype,
+        size: file.size,
+        path: file.path,
+        entityType: 'card',
+        entityId: cardId,
+        uploadedBy: req.user._id,
+      });
+
+      uploadedFiles.push(newFile);
+
+      // Add file activity log
+      await activityService.logCardActivity(
+        board,
+        req.user._id,
+        'attachment_added',
+        cardId,
+        {
+          fileId: newFile._id,
+          filename: newFile.originalName,
+          size: newFile.formatSize ? 
+            newFile.formatSize() : 
+            `${Math.round(newFile.size / 1024)} KB`,
+        }
+      );
     }
-  );
-  await updatedCard.save();
+    
+    console.log(`Successfully processed ${uploadedFiles.length} files`);
+  }
+
+  // Get updated card with populated fields if needed
+  const populatedCard = await Card.findById(cardId)
+    .populate('members.user', 'firstName lastName email avatar username')
+    .populate('createdBy', 'firstName lastName email avatar username');
 
   res.status(200).json({
     status: 'success',
-    data: { card: updatedCard },
+    data: { 
+      card: populatedCard,
+      files: uploadedFiles 
+    },
   });
 });
-
 // Delete card
 exports.deleteCard = catchAsync(async (req, res, next) => {
   const { cardId } = req.params;
@@ -589,6 +685,24 @@ exports.addMember = catchAsync(async (req, res, next) => {
     assignedAt: new Date(),
   });
   await card.save();
+
+  // After successfully adding the member, send a notification
+  if (global.io && userId !== req.user._id.toString()) {
+    await notificationService.createNotification(
+      global.io,
+      userId,
+      req.user._id,
+      'card_assignment',
+      'card',
+      card._id,
+      {
+        cardTitle: card.title,
+        boardId: board._id,
+        boardName: board.name,
+        listId: card.list,
+      }
+    );
+  }
 
   // Log activity
   await activityService.logCardActivity(
@@ -1023,7 +1137,7 @@ exports.getCardSubtasks = catchAsync(async (req, res, next) => {
 
 // Get all cards in a list
 exports.getListCards = catchAsync(async (req, res, next) => {
-  const listId = req.params.list;
+  const listId = req.params.listId;
 
   // Find the list
   const list = await List.findById(listId);
@@ -1041,7 +1155,7 @@ exports.getListCards = catchAsync(async (req, res, next) => {
   permissionService.verifyPermission(board, req.user._id, 'view_board');
 
   // Get all cards in the list
-  const cards = await Card.find({ list: listId })
+  const cards = await Card.find({ list: listId, archived: false })
     .sort('position')
     .populate('members.user', 'email firstName lastName')
     .populate('createdBy', 'email firstName lastName')

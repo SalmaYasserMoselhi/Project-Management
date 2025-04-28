@@ -68,7 +68,11 @@ router.patch(
 );
 router.delete('/deleteMe', authController.protect, userController.deleteMe);
 router.get('/search', userController.searchUsers);
-
+router.get(
+  '/workspace-users',
+  authController.protect,
+  userController.searchWorkspaceUsers
+);
 router
   .route('/')
   .get(userController.getAllUsers)

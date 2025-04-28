@@ -4,6 +4,7 @@ const AppError = require('../utils/appError');
 const Card = require('../models/cardModel');
 const List = require('../models/listModel');
 const Board = require('../models/boardModel');
+const notificationService = require('../utils/notificationService');
 
 // Helper function to validate card access
 const validateCardAccess = async (cardId, userId) => {
@@ -50,6 +51,78 @@ exports.createComment = catchAsync(async (req, res, next) => {
     author: req.user._id,
     mentions,
   });
+
+  // Get the card's members to notify
+  const cardMembers = card.members.map((member) => member.user.toString());
+
+  // Send notifications for mentions
+  if (global.io && mentions.length > 0) {
+    const notificationService = require('../utils/notificationService');
+    const User = require('../models/userModel');
+
+    // Get the board and list for context
+    const List = require('../models/listModel');
+    const list = await List.findById(card.list);
+
+    for (const mentionedUserId of mentions) {
+      // Don't notify yourself
+      if (mentionedUserId.toString() === req.user._id.toString()) {
+        continue;
+      }
+
+      // Check if user exists
+      const mentionedUser = await User.findById(mentionedUserId);
+      if (!mentionedUser) continue;
+
+      await notificationService.createNotification(
+        global.io,
+        mentionedUserId,
+        req.user._id,
+        'mention',
+        'comment',
+        comment._id,
+        {
+          entityType: 'card',
+          entityName: card.title,
+          cardId: card._id,
+          boardId: board._id,
+          boardName: board.name,
+          listId: card.list,
+          listName: list ? list.name : 'Unknown List',
+          commentText: text.substring(0, 100),
+        }
+      );
+    }
+  }
+
+  // Notify card members about the comment
+  if (global.io && cardMembers.length > 0) {
+    for (const memberId of cardMembers) {
+      // Skip author and mentioned users
+      if (
+        memberId === req.user._id.toString() ||
+        mentions.some((id) => id.toString() === memberId)
+      ) {
+        continue;
+      }
+
+      await notificationService.createNotification(
+        global.io,
+        memberId,
+        req.user._id,
+        'card_comment',
+        'comment',
+        comment._id,
+        {
+          cardTitle: card.title,
+          cardId: card._id,
+          boardId: board._id,
+          boardName: board.name,
+          commentText: text.substring(0, 100),
+        }
+      );
+    }
+  }
 
   // Log activity in card
   card.activity.push({
