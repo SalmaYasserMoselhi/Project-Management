@@ -23,7 +23,8 @@ const cardRouter = require('./routes/cardRoutes.js');
 const listRouter = require('./routes/listRoutes.js');
 const conversationRouter = require('./routes/conversationRoutes.js');
 const messageRouter = require('./routes/messageRoutes.js');
-const attachmentRouter = require('./routes/attachmentsRoutes.js');
+// const attachmentRouter = require('./routes/attachmentsRoutes.js');
+const meetingRouter = require('./routes/meetingRoutes.js');
 const notificationRouter = require('./routes/notificationRoutes.js');
 const app = express();
 
@@ -149,6 +150,7 @@ app.use('/api/v1/cards', cardRouter);
 app.use('/api/v1/lists', listRouter);
 app.use('/api/v1/conversations', conversationRouter);
 app.use('/api/v1/message', messageRouter);
+app.use('/api/v1/meetings', meetingRouter);
 // app.use('/api/v1/attachments', attachmentRouter);
 app.use('/api/v1/notifications', notificationRouter);
 
