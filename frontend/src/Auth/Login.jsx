@@ -74,7 +74,7 @@ function Login() {
       if (loginUser.fulfilled.match(resultAction)) {
         // Fetch user data after successful login
         await dispatch(fetchUserData());
-        navigate("/main/chat");
+        navigate("/main/dashboard");
       }
     } catch (error) {
       console.error("Login error:", error);
