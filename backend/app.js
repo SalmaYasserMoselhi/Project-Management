@@ -25,6 +25,7 @@ const conversationRouter = require('./routes/conversationRoutes.js');
 const messageRouter = require('./routes/messageRoutes.js');
 // const attachmentRouter = require('./routes/attachmentsRoutes.js');
 const meetingRouter = require('./routes/meetingRoutes.js');
+const notificationRouter = require('./routes/notificationRoutes.js');
 const app = express();
 
 // 1) Global Middlewares
@@ -94,7 +95,7 @@ const limiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   message: 'Too many requests from this IP, please try again in an hour!',
 });
-app.use('/api', limiter);
+// app.use('/api', limiter);
 
 // Session configuration
 app.use(
@@ -151,6 +152,7 @@ app.use('/api/v1/conversations', conversationRouter);
 app.use('/api/v1/message', messageRouter);
 app.use('/api/v1/meetings', meetingRouter);
 // app.use('/api/v1/attachments', attachmentRouter);
+app.use('/api/v1/notifications', notificationRouter);
 
 // Handle undefined routes
 app.all('*', (req, res) => {

@@ -95,10 +95,6 @@ const permissionService = {
           return generalSettings.cardEditing === 'all_members';
         case 'move_other_cards':
           return generalSettings.cardMoving === 'all_members';
-        case 'comment':
-          return generalSettings.commenting !== 'disabled'; // Default to true if not specified
-        case 'export_board':
-          return generalSettings.exportPermission === 'all_members';
         case 'create_cards':
         case 'view_board':
           return true; // Members can always create cards and view the board

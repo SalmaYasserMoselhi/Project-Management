@@ -89,47 +89,50 @@ exports.checkPublicWorkspace = catchAsync(async (req, res, next) => {
 });
 
 exports.getPublicAndMemberWorkspaces = catchAsync(async (req, res, next) => {
-  const workspaces = await Workspace.find({
+  // Parse query parameters
+  const { page = 1, limit = 10, sort = '-createdAt' } = req.query;
+  const parsedPage = Math.max(parseInt(page), 1);
+  const parsedLimit = Math.min(parseInt(limit), 100);
+
+  // Build query
+  const query = {
     $and: [
-      { 'members.user': req.user._id }, // User must be a member
-      { type: { $ne: 'private' } }, // Not private type
-      { type: { $ne: 'collaboration' } }, // Not collaboration type
-    ],
-  })
-    // .populate('members.user')
-    .populate('boards', '_id')
-    .sort({ createdAt: -1 });
+      { 'members.user': req.user._id },
+      { type: { $ne: 'private' } },
+      { type: { $ne: 'collaboration' } }
+    ]
+  };
 
-  // Transform workspace data
-  const transformedWorkspaces = workspaces.map((workspace) => {
-    const userMembership = workspace.members.find(
-      (member) =>
-        member.user && member.user._id && member.user._id.equals(req.user._id)
-    );
+  // Get total count
+  const total = await Workspace.countDocuments(query);
 
-    return {
-      _id: workspace._id,
-      name: workspace.name,
-      description: workspace.description,
-      type: workspace.type,
-      createdBy: workspace.createdBy,
-      createdAt: workspace.createdAt,
-      updatedAt: workspace.updatedAt,
-      settings: workspace.settings,
-      boards: workspace.boards,
-      memberCount: workspace.members.length,
-      userRole: userMembership ? userMembership.role : null,
-    };
-  });
+  // Get paginated results (include members for memberCount calculation)
+  const workspaces = await Workspace.find(query)
+    .sort(sort)
+    .skip((parsedPage - 1) * parsedLimit)
+    .limit(parsedLimit);
+
+  // Transform data
+  const transformedWorkspaces = workspaces.map((workspace) => ({
+    _id: workspace._id,
+    name: workspace.name,
+    description: workspace.description,
+    type: workspace.type,
+    createdBy: workspace.createdBy,
+    createdAt: workspace.createdAt,
+    updatedAt: workspace.updatedAt,
+    settings: workspace.settings,
+    memberCount: workspace.members.length // Now accessible
+  }));
 
   res.status(200).json({
     status: 'success',
-    data: {
-      workspaces: transformedWorkspaces,
-    },
+    total,
+    currentPage: parsedPage,
+    totalPages: Math.ceil(total / parsedLimit),
+    data: { workspaces: transformedWorkspaces }
   });
 });
-
 exports.createWorkspace = catchAsync(async (req, res, next) => {
   const workspace = await Workspace.create({
     ...req.body,
@@ -157,46 +160,13 @@ exports.createWorkspace = catchAsync(async (req, res, next) => {
 // Get user's workspaces
 exports.getUserWorkspaces = catchAsync(async (req, res, next) => {
   // Get workspaces where user is the creator
-  const ownedWorkspaces = await Workspace.find({
-    createdBy: req.user._id,
-  }).populate('boards', '_id');
-
-  // Get workspaces where user is a member but not creator
-  const memberWorkspaces = await Workspace.find({
-    'members.user': req.user._id,
-    createdBy: { $ne: req.user._id },
-    type: 'public',
-  }).populate('boards', '_id');
-
-  // Get all non-collaboration workspaces where user is a member
-  const userWorkspaces = await Workspace.find({
-    'members.user': req.user._id,
-    type: { $ne: 'collaboration' },
-  }).select('_id');
-
-  const userWorkspaceIds = userWorkspaces.map((w) => w._id);
-
-  // For collaboration workspace, get only board IDs where user is a member AND board is not in other workspaces
-  const collaborationWorkspace = ownedWorkspaces.find(
-    (w) => w.type === 'collaboration'
-  );
-
-  if (collaborationWorkspace) {
-    const directlySharedBoardIds = await Board.find({
-      'members.user': req.user._id,
-      workspace: { $nin: userWorkspaceIds },
-      archived: false,
-    }).select('_id');
-
-    collaborationWorkspace.boards = directlySharedBoardIds.map(
-      (board) => board._id
-    );
-  }
+  const ownedWorkspaces = await Workspace.find({ createdBy: req.user._id });
 
   // Ensure user has all default workspace types
   const userDefaultWorkspaces = ownedWorkspaces.filter((w) =>
     ['private', 'public', 'collaboration'].includes(w.type)
   );
+  console.log(userDefaultWorkspaces.length);
 
   if (userDefaultWorkspaces.length < 3) {
     const existingTypes = userDefaultWorkspaces.map((w) => w.type);
@@ -239,9 +209,9 @@ exports.getUserWorkspaces = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: 'success',
+    result: ownedWorkspaces.length,
     data: {
       ownedWorkspaces,
-      memberWorkspaces,
     },
   });
 });

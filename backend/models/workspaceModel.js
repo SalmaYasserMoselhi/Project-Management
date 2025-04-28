@@ -139,7 +139,7 @@ const workspaceSchema = new mongoose.Schema(
         action: {
           type: String,
           enum: [
-            // 'workspace_created',
+            'workspace_created',
             'workspace_updated',
             'workspace_settings_updated',
             'member_added',
