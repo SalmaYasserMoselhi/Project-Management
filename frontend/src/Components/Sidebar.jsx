@@ -55,12 +55,15 @@ const Sidebar = () => {
     // Add event listener to close popup when clicking outside
     const handleClickOutside = (event) => {
       // Only handle outside clicks if workspace is open and not already closing
-      if ((workspaceTransitionState === "open" || workspaceTransitionState === "opening") && 
-          !isClosingWorkspace) {
-        
+      if (
+        (workspaceTransitionState === "open" ||
+          workspaceTransitionState === "opening") &&
+        !isClosingWorkspace
+      ) {
         // Check if the click is outside of the sidebar and workspace popup
         const sidebarElement = document.getElementById("sidebar");
-        const workspacePopupElement = document.querySelector(".workspace-popup");
+        const workspacePopupElement =
+          document.querySelector(".workspace-popup");
 
         if (sidebarElement && workspacePopupElement) {
           if (
@@ -73,7 +76,7 @@ const Sidebar = () => {
         }
       }
     };
-    
+
     document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
@@ -94,21 +97,23 @@ const Sidebar = () => {
   // Handle closing workspace with animation
   const handleCloseWorkspace = () => {
     // Prevent double-closing or closing when already in closed/closing state
-    if (isClosingWorkspace || 
-        workspaceTransitionState === "closing" || 
-        workspaceTransitionState === "closed") {
+    if (
+      isClosingWorkspace ||
+      workspaceTransitionState === "closing" ||
+      workspaceTransitionState === "closed"
+    ) {
       return;
     }
 
     console.log("Sidebar: Starting workspace popup closing");
-    
+
     // Set local state flag to prevent multiple close attempts
     setIsClosingWorkspace(true);
-    
+
     // Dispatch the close start action to Redux
     // This will set the state to "closing" which will trigger CSS animations
     dispatch(closeWorkspaceStart());
-    
+
     // Reset the local tracking state after a delay
     // This is just for our local UI prevention logic
     setTimeout(() => {
@@ -121,16 +126,9 @@ const Sidebar = () => {
     if (e) e.preventDefault();
 
     try {
-      // If already in a transition state, do nothing to prevent conflicts
-      if (
-        workspaceTransitionState === "opening" ||
-        workspaceTransitionState === "closing"
-      ) {
-        return;
-      }
-
       // If clicking on the same workspace type that's already open, just close it
-      if (workspaceTransitionState === "open" && activeWorkspaceType === workspaceType) {
+      if (isWorkspaceOpen && activeWorkspaceType === workspaceType) {
+        console.log("Closing workspace:", workspaceType);
         handleCloseWorkspace();
         return;
       }
@@ -162,21 +160,16 @@ const Sidebar = () => {
             description: workspace.description,
           };
 
-          // Check if we need to close an existing workspace first
-          if (workspaceTransitionState === "open" || workspaceTransitionState === "opening") {
-            // First close the current workspace
+          // If a workspace is currently open, close it first
+          if (isWorkspaceOpen) {
+            // Close the current workspace
             dispatch(closeWorkspaceStart());
-
-            // Store new workspace details for use after current popup closes
-            sessionStorage.setItem(
-              "pendingWorkspace",
-              JSON.stringify({
-                type: workspaceType,
-                data: workspaceData,
-              })
-            );
+            // Immediately open the new workspace
+            dispatch(setActiveWorkspaceType(workspaceType));
+            dispatch(selectWorkspace(workspaceData));
+            dispatch(openWorkspaceStart());
           } else {
-            // If no workspace is open, we can directly open the new one
+            // If no workspace is open, directly open the new one
             dispatch(setActiveWorkspaceType(workspaceType));
             dispatch(selectWorkspace(workspaceData));
             dispatch(openWorkspaceStart());
@@ -192,11 +185,42 @@ const Sidebar = () => {
       console.error("Error fetching workspace data:", error);
     }
   };
-  
+
+  // Add animation end handler
+  useEffect(() => {
+    const handleAnimationEnd = (e) => {
+      if (e.target.classList.contains("workspace-popup")) {
+        if (workspaceTransitionState === "closing") {
+          // Check if there's a pending workspace to open
+          const pendingWorkspace = sessionStorage.getItem("pendingWorkspace");
+          if (pendingWorkspace) {
+            try {
+              const { type, data } = JSON.parse(pendingWorkspace);
+              sessionStorage.removeItem("pendingWorkspace");
+
+              // Open the new workspace
+              dispatch(setActiveWorkspaceType(type));
+              dispatch(selectWorkspace(data));
+              dispatch(openWorkspaceStart());
+            } catch (error) {
+              console.error("Error processing pending workspace:", error);
+              sessionStorage.removeItem("pendingWorkspace");
+            }
+          }
+        }
+      }
+    };
+
+    document.addEventListener("animationend", handleAnimationEnd);
+    return () => {
+      document.removeEventListener("animationend", handleAnimationEnd);
+    };
+  }, [dispatch, workspaceTransitionState]);
+
   return (
     <div
       id="sidebar"
-      className={`fixed z-50 left-0 top-0 bottom-0 bg-[#4D2D61] shadow-lg p-4 flex flex-col border-r rounded-r-lg border-gray-200 font-[Nunito] transition-all duration-300 
+      className={`fixed z-50 left-0 top-0 bottom-0 bg-[#4D2D61] shadow-lg p-4 flex flex-col border-r border-gray-200 font-[Nunito] transition-all duration-300 
         ${isSidebarOpen ? "w-60" : "w-20"}
         ${
           isMobile
