@@ -142,11 +142,95 @@ body,
 
 .popup-container {
   position: fixed;
-  left: 240px; 
+  left: 240px;
   top: 0;
   bottom: 0;
   width: 320px;
   z-index: 1000;
-  background: #4D2D61;
-  box-shadow: -4px 0 15px rgba(0,0,0,0.1);
+  background: #4d2d61;
+  box-shadow: -4px 0 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Improved animation for workspace popup - more similar to Notion's More button */
+@keyframes slideInFromLeft {
+  0% {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutToLeft {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+}
+
+/* Animation for backdrop with subtle timing */
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Workspace popup container with improved animation properties */
+.workspace-popup {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 293px;
+  background-color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-left: 1px solid #6a3b82;
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  will-change: transform, opacity;
+  transform-origin: left center;
+}
+
+/* Animation classes with improved timing and easing */
+.workspace-popup-entering {
+  animation: slideInFromLeft 200ms ease-out forwards;
+}
+
+.workspace-popup-exiting {
+  animation: slideOutToLeft 200ms ease-in forwards;
+}
+
+.workspace-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(0.5px);
+  z-index: 40;
+  will-change: opacity;
+}
+
+.workspace-backdrop-entering {
+  animation: fadeIn 250ms ease-out forwards;
+}
+
+.workspace-backdrop-exiting {
+  animation: fadeOut 200ms ease-in forwards;
 }

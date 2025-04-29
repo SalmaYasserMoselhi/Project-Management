@@ -1,0 +1,3114 @@
+{
+	"info": {
+		"_postman_id": "fd4d827f-9e6b-4c3f-a08b-73bcc6b208e3",
+		"name": "Beehive",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "38348412",
+		"_collection_link": "https://zzzzzzzz-3107.postman.co/workspace/f8cc0f3d-9a09-42db-a26a-cfeab287830b/collection/37423892-fd4d827f-9e6b-4c3f-a08b-73bcc6b208e3?action=share&source=collection_link&creator=38348412"
+	},
+	"item": [
+		{
+			"name": "Graduation_Project",
+			"item": [
+				{
+					"name": "Authentication",
+					"item": [
+						{
+							"name": "Sign Up",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.environment.set(\"jwt\", pm.response.json().token);"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"username\": \"powerpuff\",\r\n    \"firstName\": \"Powerpuff\",\r\n    \"lastName\": \"Girl\",\r\n    \"email\": \"wearepowerpuffgirls3@gmail.com\",\r\n    \"password\": \"pass1234\",\r\n    \"passwordConfirm\": \"pass1234\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/users/signup",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"users",
+										"signup"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Login",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.environment.set(\"jwt\", pm.response.json().token); "
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"email\": \"usef.m.shaheen@gmail.com\",\r\n    \"password\": \"pass1234\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/users/login",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"users",
+										"login"
+									]
+								},
+								"description": "# User Login\n\nThis endpoint is used to authenticate a user by providing their email and password.\n\n## Request\n\n- Method: POST\n    \n- Endpoint: {{URL}}api/v1/users/login\n    \n- Headers:\n    \n    - Content-Type: application/json\n        \n- { \"email\": \"string\", \"password\": \"string\"}\n    \n\n### Request Body Parameters\n\n- `email` (string, required): The email of the user.\n    \n- `password` (string, required): The password of the user.\n    \n\n## Response\n\nThe response of this request is a JSON object with the following schema:\n\n``` json\n{\n  \"token\": \"string\",\n  \"userId\": \"string\"\n}\n\n ```\n\n### Response Properties\n\n- `token` (string): The authentication token for the user.\n    \n- `userId` (string): The unique identifier of the authenticated user."
+							},
+							"response": []
+						},
+						{
+							"name": "Update Current Password",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.environment.set(\"jwt\", pm.response.json().token);"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n\t\"passwordCurrent\": \"pass1234\",\r\n\t\"password\": \"newpassword\",\r\n\t\"passwordConfirm\": \"newpassword\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/users/updateMyPassword",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"users",
+										"updateMyPassword"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Forget Password",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"email\": \"fymcjh@gmail.com\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/users/forgotPassword",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"users",
+										"forgotPassword"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Verify Reset code",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.environment.set(\"jwt\", pm.response.json().resetToken);"
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"resetCode\": \"843442\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/users/verifyResetCode",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"users",
+										"verifyResetCode"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Reset Password",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"password\": \"usef1111\",\r\n    \"passwordConfirm\": \"usef1111\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/users/resetPassword",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"users",
+										"resetPassword"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Logout",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/users/logout",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"users",
+										"logout"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "User",
+					"item": [
+						{
+							"name": "Get All Users",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/users?role=user",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"users"
+									],
+									"query": [
+										{
+											"key": "role",
+											"value": "user"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get User",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/users/67998b760851d3f186dadbf7",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"users",
+										"67998b760851d3f186dadbf7"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update User",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "",
+										"value": "",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/users/5c8a23c82f8fb814b56fa18d",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"users",
+										"5c8a23c82f8fb814b56fa18d"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Delete User",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/users/5c8a23c82f8fb814b56fa18d",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"users",
+										"5c8a23c82f8fb814b56fa18d"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Current User",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"packages": {},
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/users/me",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"users",
+										"me"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Me",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/users/updateMe",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"users",
+										"updateMe"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Me",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/users/deleteMe",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"users",
+										"deleteMe"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Find User by Search",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/users/search?query=usef",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"users",
+										"search"
+									],
+									"query": [
+										{
+											"key": "query",
+											"value": "usef"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Workspace Users",
+							"request": {
+								"method": "GET",
+								"header": []
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Workspace",
+					"item": [
+						{
+							"name": "User Workspaces",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/workspaces/user-workspaces",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"workspaces",
+										"user-workspaces"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "user's public workspaces",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/workspaces/public-member?page=1&limit=5&sort=-createdAt",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"workspaces",
+										"public-member"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "5"
+										},
+										{
+											"key": "sort",
+											"value": "-createdAt"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Workspace Members",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/workspaces/680a49c753271e7f058f96a6/members?page=1&limit=5&sort=joinedAt",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"workspaces",
+										"680a49c753271e7f058f96a6",
+										"members"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "5"
+										},
+										{
+											"key": "sort",
+											"value": "joinedAt"
+										},
+										{
+											"key": "sort",
+											"value": "role",
+											"disabled": true
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Workspace",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/workspaces/67d5ea4932009f97448be8d3",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"workspaces",
+										"67d5ea4932009f97448be8d3"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Workspace (include manage settings or change member roles)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"settings\": {\r\n    \"boardCreation\": \"owner\"\r\n  }\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/workspaces/67d5ea4932009f97448be8d3",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"workspaces",
+										"67d5ea4932009f97448be8d3"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Workspace",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/workspaces/67983b7fa9d104b96b47a6cd",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"workspaces",
+										"67983b7fa9d104b96b47a6cd"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Invite Members",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"invites\": [\r\n        {\r\n            \"email\": \"usef.m.shaheen@gmail.com\",\r\n            \"role\": \"member\"\r\n        }\r\n    ]\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/workspaces/680fdb160f07089eee7a5738/invite",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"workspaces",
+										"680fdb160f07089eee7a5738",
+										"invite"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Pending Invitations",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/workspaces/680a49c753271e7f058f96a6/invite?page=2&limit=5&sort=-createdAt",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"workspaces",
+										"680a49c753271e7f058f96a6",
+										"invite"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "2"
+										},
+										{
+											"key": "limit",
+											"value": "5"
+										},
+										{
+											"key": "sort",
+											"value": "-createdAt"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Cancel Invitation",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "DELETE",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/workspaces/67d5ea4932009f97448be8d3/invite/salmayasser816@gmail.com",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"workspaces",
+										"67d5ea4932009f97448be8d3",
+										"invite",
+										"salmayasser816@gmail.com"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Remove Member",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/workspaces/67d5ea4932009f97448be8d3/members/67a278fa727325d32c8a6dd9",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"workspaces",
+										"67d5ea4932009f97448be8d3",
+										"members",
+										"67a278fa727325d32c8a6dd9"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Boards",
+					"item": [
+						{
+							"name": "Get Workspace Boards",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/boards/workspace/680a49c753271e7f058f96a6/boards?limit=10&sort=-updatedAt",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards",
+										"workspace",
+										"680a49c753271e7f058f96a6",
+										"boards"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "10"
+										},
+										{
+											"key": "sort",
+											"value": "-updatedAt"
+										},
+										{
+											"key": "search",
+											"value": "Updated Owner Board",
+											"disabled": true
+										},
+										{
+											"key": "search",
+											"value": "admin",
+											"disabled": true
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Board By Id",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/boards/680a78c07cc8db9e9eb87815",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards",
+										"680a78c07cc8db9e9eb87815"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "GET Board Members",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/boards/680a78c07cc8db9e9eb87815/members?page=2&limit=2&sort=-joinedAt",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards",
+										"680a78c07cc8db9e9eb87815",
+										"members"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "2"
+										},
+										{
+											"key": "limit",
+											"value": "2"
+										},
+										{
+											"key": "sort",
+											"value": "role",
+											"disabled": true
+										},
+										{
+											"key": "sort",
+											"value": "-joinedAt"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create Board",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"workspace\": \"67d5ea4932009f97448be8d1\",\r\n    \"name\": \"Board in Private Workspace\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/boards",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Board",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"settings\": {\r\n        \"memberListCreation\": \"disables\"\r\n    }\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/boards/user-boards/680a78c07cc8db9e9eb87815",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards",
+										"user-boards",
+										"680a78c07cc8db9e9eb87815"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Board",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/boards/user-boards/67d68838b9041e59743e027d\n",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards",
+										"user-boards",
+										"67d68838b9041e59743e027d\n"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Archived Boards",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/boards/user-boards/archived?limit=5&page=1",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards",
+										"user-boards",
+										"archived"
+									],
+									"query": [
+										{
+											"key": "sort",
+											"value": "-archivedAt",
+											"disabled": true
+										},
+										{
+											"key": "limit",
+											"value": "5"
+										},
+										{
+											"key": "page",
+											"value": "1"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Archive Board",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/boards/user-boards/67d8dcad7642103ecf05ba71/archive",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards",
+										"user-boards",
+										"67d8dcad7642103ecf05ba71",
+										"archive"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Restore Board",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/boards/user-boards/67d687e0b9041e59743e0245/restore",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards",
+										"user-boards",
+										"67d687e0b9041e59743e0245",
+										"restore"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Invite members",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"email\": \"salmayasser3993@gmail.com\",\r\n    \"role\": \"member\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/boards/67d687e0b9041e59743e0245/invite",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards",
+										"67d687e0b9041e59743e0245",
+										"invite"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Pending Invitations",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/boards/680a78c07cc8db9e9eb87815/invitations",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards",
+										"680a78c07cc8db9e9eb87815",
+										"invitations"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Cancel Invitation",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/boards/67d8dcad7642103ecf05ba71/invitations/usef.m.shaheen@gmail.com",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards",
+										"67d8dcad7642103ecf05ba71",
+										"invitations",
+										"usef.m.shaheen@gmail.com"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Remove Member",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/boards/680a78c07cc8db9e9eb87815/members/680a4b5253271e7f058f96b7",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards",
+										"680a78c07cc8db9e9eb87815",
+										"members",
+										"680a4b5253271e7f058f96b7"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Starred Boards",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/boards/user-boards/starred",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards",
+										"user-boards",
+										"starred"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Star Board",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/boards/user-boards/67d687e0b9041e59743e0245/star",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards",
+										"user-boards",
+										"67d687e0b9041e59743e0245",
+										"star"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Unstar Board",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/boards/user-boards/67d687e0b9041e59743e0245/starred",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"boards",
+										"user-boards",
+										"67d687e0b9041e59743e0245",
+										"starred"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "List",
+					"item": [
+						{
+							"name": "Get Board Lists",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/lists/board/680a78c07cc8db9e9eb87815/lists",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"lists",
+										"board",
+										"680a78c07cc8db9e9eb87815",
+										"lists"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create New List",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"name\": \"List in Board in Private Workspace\",\r\n    \"board\": \"67d8dcad7642103ecf05ba71\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/lists",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"lists"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update List",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"name\": \"Testing\",\r\n    \"cardLimit\": 10\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/lists/67acfd47d017a3e3976f702b",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"lists",
+										"67acfd47d017a3e3976f702b"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Reorder List",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"position\": 2\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/lists/67acf607c66b34f18f8d965b/reorder",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"lists",
+										"67acf607c66b34f18f8d965b",
+										"reorder"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Archive List",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/lists/67acf607c66b34f18f8d965b/archive",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"lists",
+										"67acf607c66b34f18f8d965b",
+										"archive"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Restore List",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/lists/67acf607c66b34f18f8d965b/restore",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"lists",
+										"67acf607c66b34f18f8d965b",
+										"restore"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Archived Lists",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/lists/board/680a78c07cc8db9e9eb87815/lists/archived",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"lists",
+										"board",
+										"680a78c07cc8db9e9eb87815",
+										"lists",
+										"archived"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Cards",
+					"item": [
+						{
+							"name": "Labels",
+							"item": [
+								{
+									"name": "Add Label",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\r\n    \"name\": \"Backend\",\r\n    \"color\": \"#121213\"\r\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/labels",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67b0e25f3ac3c5162ebd6d61",
+												"labels"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Update Label",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "PATCH",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\r\n    \"color\": \"#151515\"\r\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/labels/67b0e3207d1eac771ad49a2d",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67b0e25f3ac3c5162ebd6d61",
+												"labels",
+												"67b0e3207d1eac771ad49a2d"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Delete Label",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "DELETE",
+										"header": [],
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/labels/67b0e3207d1eac771ad49a2d",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67b0e25f3ac3c5162ebd6d61",
+												"labels",
+												"67b0e3207d1eac771ad49a2d"
+											]
+										}
+									},
+									"response": []
+								}
+							]
+						},
+						{
+							"name": "Sub-tasks",
+							"item": [
+								{
+									"name": "Get Subtasks of Card",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/subtasks",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67b0e25f3ac3c5162ebd6d61",
+												"subtasks"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Create Subtask",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\r\n    \"title\": \"Subtask 1\"\r\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/subtasks",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67b0e25f3ac3c5162ebd6d61",
+												"subtasks"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Delete Subtask",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "DELETE",
+										"header": [],
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/subtasks/67b10aca6a003c586935d6d8",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67b0e25f3ac3c5162ebd6d61",
+												"subtasks",
+												"67b10aca6a003c586935d6d8"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Complete - InComplete Subtask",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"var template = `\r",
+													"<style type=\"text/css\">\r",
+													"    .tftable {font-size:14px;color:#333333;width:100%;border-width: 1px;border-color: #87ceeb;border-collapse: collapse;}\r",
+													"    .tftable th {font-size:18px;background-color:#87ceeb;border-width: 1px;padding: 8px;border-style: solid;border-color: #87ceeb;text-align:left;}\r",
+													"    .tftable tr {background-color:#ffffff;}\r",
+													"    .tftable td {font-size:14px;border-width: 1px;padding: 8px;border-style: solid;border-color: #87ceeb;}\r",
+													"    .tftable tr:hover {background-color:#e0ffff;}\r",
+													"</style>\r",
+													"\r",
+													"<table class=\"tftable\" border=\"1\">\r",
+													"    <tr>\r",
+													"        <th>Title</th>\r",
+													"        <th>Is Completed</th>\r",
+													"        <th>Due Date</th>\r",
+													"        <th>Assigned To</th>\r",
+													"        <th>Position</th>\r",
+													"        <th>Created At</th>\r",
+													"        <th>Completed At</th>\r",
+													"        <th>Completed By</th>\r",
+													"    </tr>\r",
+													"    <tr>\r",
+													"        <td>{{response.data.subtask.title}}</td>\r",
+													"        <td>{{response.data.subtask.isCompleted}}</td>\r",
+													"        <td>{{response.data.subtask.dueDate}}</td>\r",
+													"        <td>{{response.data.subtask.assignedTo}}</td>\r",
+													"        <td>{{response.data.subtask.position}}</td>\r",
+													"        <td>{{response.data.subtask.createdAt}}</td>\r",
+													"        <td>{{response.data.subtask.completedAt}}</td>\r",
+													"        <td>{{response.data.subtask.completedBy.fullName}}</td>\r",
+													"    </tr>\r",
+													"</table>\r",
+													"`;\r",
+													"\r",
+													"function constructVisualizerPayload() {\r",
+													"    return {response: pm.response.json()}\r",
+													"}\r",
+													"\r",
+													"pm.visualizer.set(template, constructVisualizerPayload());"
+												],
+												"type": "text/javascript",
+												"packages": {}
+											}
+										}
+									],
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "PATCH",
+										"header": [],
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67ae4a3eb39c5af149eb511b/subtask/67ae54adfc85097ba995a45d/toggle",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67ae4a3eb39c5af149eb511b",
+												"subtask",
+												"67ae54adfc85097ba995a45d",
+												"toggle"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Update Subtask",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "PATCH",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\r\n    \"dueDate\": \"2/17/2025\"\r\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/subtasks/67b10abc6a003c586935d6b8",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67b0e25f3ac3c5162ebd6d61",
+												"subtasks",
+												"67b10abc6a003c586935d6b8"
+											]
+										}
+									},
+									"response": []
+								}
+							]
+						},
+						{
+							"name": "Members",
+							"item": [
+								{
+									"name": "Get Card Members",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/members",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67b0e25f3ac3c5162ebd6d61",
+												"members"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Remove Member From Card",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "DELETE",
+										"header": [],
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/members/67af7d900f23d4fed0e15232",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67b0e25f3ac3c5162ebd6d61",
+												"members",
+												"67af7d900f23d4fed0e15232"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Add Member",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\r\n    \"userId\": \"680a8ba27cc8db9e9eb879b9\" \r\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{URL}}api/v1/cards/680fb5925a8870eda36a578b/members",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"680fb5925a8870eda36a578b",
+												"members"
+											]
+										}
+									},
+									"response": []
+								}
+							]
+						},
+						{
+							"name": "Comments",
+							"item": [
+								{
+									"name": "Add Comment to Card",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\r\n    \"text\": \"Comment Test\"\r\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/comments",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67b0e25f3ac3c5162ebd6d61",
+												"comments"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Comment with replies",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67ae4a3eb39c5af149eb511b/comment/67ae78e4cf3aac38b70e17f1/thread",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67ae4a3eb39c5af149eb511b",
+												"comment",
+												"67ae78e4cf3aac38b70e17f1",
+												"thread"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Get All comments",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/comments",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67b0e25f3ac3c5162ebd6d61",
+												"comments"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Update Comment",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "PATCH",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\r\n    \"text\": \"Updated Comment\"\r\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/comments/67b27edc323b7abb1f681fe0",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67b0e25f3ac3c5162ebd6d61",
+												"comments",
+												"67b27edc323b7abb1f681fe0"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Delete Comment",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "DELETE",
+										"header": [],
+										"url": {
+											"raw": "{{URL}}api/v1/comments/67b25ec698c679d5a6fa2a21",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"comments",
+												"67b25ec698c679d5a6fa2a21"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Reply to comment",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\r\n    \"text\": \"Reply To Comment\"\r\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/comments/67b27edc323b7abb1f681fe0/reply",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67b0e25f3ac3c5162ebd6d61",
+												"comments",
+												"67b27edc323b7abb1f681fe0",
+												"reply"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Edit comment",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "PATCH",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\r\n    \"text\": \"Update Comment\"\r\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{URL}}api/v1/cards/67ae4a3eb39c5af149eb511b/edit-comment/67ae6600988f7fe3d7a306b9",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"cards",
+												"67ae4a3eb39c5af149eb511b",
+												"edit-comment",
+												"67ae6600988f7fe3d7a306b9"
+											]
+										}
+									},
+									"response": []
+								}
+							]
+						},
+						{
+							"name": "Attachments",
+							"item": [
+								{
+									"name": "GET Attachments for Card",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{URL}}api/v1/attachments/card/67d7a56dc6e57dd8b9acadb4",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"attachments",
+												"card",
+												"67d7a56dc6e57dd8b9acadb4"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Download File",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{URL}}api/v1/attachments/download/67d7aa3ae4fd4a5d90bac838",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"attachments",
+												"download",
+												"67d7aa3ae4fd4a5d90bac838"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Delete File",
+									"request": {
+										"auth": {
+											"type": "noauth"
+										},
+										"method": "DELETE",
+										"header": [],
+										"url": {
+											"raw": "{{URL}}api/v1/attachments/67d7a657944eaa7663281730",
+											"host": [
+												"{{URL}}api"
+											],
+											"path": [
+												"v1",
+												"attachments",
+												"67d7a657944eaa7663281730"
+											]
+										}
+									},
+									"response": []
+								}
+							]
+						},
+						{
+							"name": "Create Card",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"title\":\"2nd Card\",\r\n    \"dueDate\": {\r\n        \"startDate\": \"2/15/2025\",\r\n        \"endDate\": \"2/16/2025\"\r\n    },\r\n    \"list\": \"67af85030f23d4fed0e15255\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/cards",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"cards"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "GET Card",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"cards",
+										"67b0e25f3ac3c5162ebd6d61"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Card",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"title\": \"Updated Member Card\",\r\n    \"description\": \"Updated description\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/cards/680cfbee9f923a983f74a64f",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"cards",
+										"680cfbee9f923a983f74a64f"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Card",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/cards/67ad18817c3fed893c3ef35c",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"cards",
+										"67ad18817c3fed893c3ef35c"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Cards in List",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/cards/list/680bc51290be2a23e44ab4f0/cards",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"cards",
+										"list",
+										"680bc51290be2a23e44ab4f0",
+										"cards"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Due Date",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"date\": \"2025-02-22\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/cards/update-due-date/67ad03b66cd8f149878c8d07",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"cards",
+										"update-due-date",
+										"67ad03b66cd8f149878c8d07"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Date (startDate and endDate)",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"endDate\": \"2/17/2025\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/dueDate",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"cards",
+										"67b0e25f3ac3c5162ebd6d61",
+										"dueDate"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Complete - InComplete Card",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/toggle",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"cards",
+										"67b0e25f3ac3c5162ebd6d61",
+										"toggle"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Move Card From List to Another",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"listId\": \"67af85030f23d4fed0e15258\",\r\n    \"position\": 0\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/cards/67b0e25f3ac3c5162ebd6d61/move",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"cards",
+										"67b0e25f3ac3c5162ebd6d61",
+										"move"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Archive Card",
+							"request": {
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/cards/680cfb9f9f923a983f74a60b/archive",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"cards",
+										"680cfb9f9f923a983f74a60b",
+										"archive"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Restore Card",
+							"request": {
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/cards/680cfb9f9f923a983f74a60b/restore",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"cards",
+										"680cfb9f9f923a983f74a60b",
+										"restore"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get archived Cards",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/cards/board/680a78c07cc8db9e9eb87815/archived",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"cards",
+										"board",
+										"680a78c07cc8db9e9eb87815",
+										"archived"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Conversation",
+					"item": [
+						{
+							"name": "Create or Open conversation",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"receiverId\": \"67b65814493fd563bbaa9701\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/conversations",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"conversations"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "get Conversation",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/conversations",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"conversations"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Messages",
+					"item": [
+						{
+							"name": "Send Message",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"convoId\":\"67cc79bda7074cd86f72d7f6\",\r\n    \"message\":\"Hello From Adham\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/message",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"message"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Messages",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/message/67cc7bf080b71498f00b5de6",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"message",
+										"67cc7bf080b71498f00b5de6"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Notifications",
+					"item": [
+						{
+							"name": "Get My Notifications",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/notifications",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"notifications"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Unread Count",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/notifications/unread-count",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"notifications",
+										"unread-count"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Mark As Read",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"all\": true\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/notifications/mark-read",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"notifications",
+										"mark-read"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Notification",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/notifications{{notificationId}}",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"notifications{{notificationId}}"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Meeting",
+					"item": [
+						{
+							"name": "Create Meeting",
+							"request": {
+								"method": "GET",
+								"header": []
+							},
+							"response": []
+						},
+						{
+							"name": "Get Board Meetings",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/meetings/board/680a78c07cc8db9e9eb87815/meetings",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"meetings",
+										"board",
+										"680a78c07cc8db9e9eb87815",
+										"meetings"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Meeting",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"name\" : \"Backend\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/meetings/680e9aeaced04ac664571830",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"meetings",
+										"680e9aeaced04ac664571830"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Meeting",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/meetings/680e9bfaced04ac66457185d",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"meetings",
+										"680e9bfaced04ac66457185d"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Upcoming Meetings (Dashboard)",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/meetings/user-meetings/upcoming",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"meetings",
+										"user-meetings",
+										"upcoming"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": " Get User Meetings",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/meetings/user-meetings",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"meetings",
+										"user-meetings"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Specific Meeting",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{URL}}api/v1/meetings/680e9aeaced04ac664571830",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"meetings",
+										"680e9aeaced04ac664571830"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Remove Attendee",
+							"request": {
+								"method": "GET",
+								"header": []
+							},
+							"response": []
+						},
+						{
+							"name": "addAttendees",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"attendees\":[\"680a8ba27cc8db9e9eb879b9\" , \"680a4b5253271e7f058f96b7\"]\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{URL}}api/v1/meetings/680fcb71f4a31f5bd9925458/attendees",
+									"host": [
+										"{{URL}}api"
+									],
+									"path": [
+										"v1",
+										"meetings",
+										"680fcb71f4a31f5bd9925458",
+										"attendees"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		}
+	]
+}

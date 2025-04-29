@@ -1,20 +1,6 @@
-// import "react";
-// import Routing from "./Routing/Routing";
-// import "./index.css";
-
-// function App() {
-//   return (
-//     <div className="w-full h-screen overflow-hidden">
-//       <Routing />
-//     </div>
-//   );
-// }
-
-// export default App;
-
-
 import { useSelector } from "react-redux";
 import { useLocation } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 import Routing from "./Routing/Routing";
 import WorkspacePopup from "./Workspace/WorkspacePopup";
 import Sidebar from "./Components/Sidebar";
@@ -24,20 +10,53 @@ import { fetchUserData } from "./features/Slice/userSlice/userSlice";
 import "./index.css";
 
 function App() {
-  const { isWorkspaceOpen } = useSelector((state) => state.sidebar);
+  const { 
+    isWorkspaceOpen, 
+    selectedWorkspace, 
+    workspaceTransitionState 
+  } = useSelector((state) => state.sidebar);
+  
   const location = useLocation();
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    dispatch(fetchUserData());
+  }, [dispatch]);
 
   // List of auth pages where we don't want Sidebar and WorkspacePopup
-  const authPages = ["/","/Login", "/signup", "/forgetpassword","/verification","/ResetPassword"];
+  const authPages = [
+    "/",
+    "/Login",
+    "/signup",
+    "/forgetpassword",
+    "/verification",
+    "/ResetPassword",
+  ];
 
   // Check if current page is auth
   const isAuthPage = authPages.includes(location.pathname);
 
+  // Should we render the workspace popup?
+  const shouldRenderWorkspacePopup = !isAuthPage && (
+    isWorkspaceOpen || 
+    workspaceTransitionState === "opening" || 
+    workspaceTransitionState === "closing"
+  );
+
   return (
     <div className="w-full h-screen overflow-hidden flex">
-      {/* Show Sidebar and WorkspacePopup only if NOT on auth page */}
+      <Toaster />
+      
+      {/* Show Sidebar only if NOT on auth page */}
       {!isAuthPage && <Sidebar />}
-      {!isAuthPage && isWorkspaceOpen && <WorkspacePopup />}
+
+      {/* Only show WorkspacePopup if a workspace is selected and in the right state */}
+      {shouldRenderWorkspacePopup && selectedWorkspace && (
+        <WorkspacePopup
+          workspaceId={selectedWorkspace.id}
+          workspaceName={selectedWorkspace.name}
+        />
+      )}
 
       <div className="flex-1 overflow-auto">
         <Routing />
@@ -47,4 +66,3 @@ function App() {
 }
 
 export default App;
-

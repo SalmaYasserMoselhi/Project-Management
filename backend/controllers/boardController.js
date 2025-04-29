@@ -1072,8 +1072,8 @@ exports.getArchivedBoards = catchAsync(async (req, res, next) => {
         page: pageNum,
         results: archivedBoards.length,
         totalPages: Math.ceil(totalBoards / limitNum),
-        limit: limitNum
-      }
+        limit: limitNum,
+      },
     },
   });
 });
@@ -1145,10 +1145,11 @@ exports.restoreBoard = catchAsync(async (req, res, next) => {
   });
 });
 
-// Star a board
+// Star a board with a limit of 5 per workspace
 exports.starBoard = catchAsync(async (req, res, next) => {
   const board = req.board;
   const userId = req.user._id;
+  const workspaceId = board.workspace;
 
   // Check if board is already starred by this user
   const isStarredByUser =
@@ -1159,6 +1160,22 @@ exports.starBoard = catchAsync(async (req, res, next) => {
 
   if (isStarredByUser) {
     return next(new AppError('Board is already starred by you', 400));
+  }
+
+  // Count how many boards the user has already starred in this workspace
+  const starredBoardsCount = await Board.countDocuments({
+    workspace: workspaceId,
+    'starredByUsers.user': userId,
+  });
+
+  // Check if the user has reached the limit of 5 starred boards per workspace
+  if (starredBoardsCount >= 5) {
+    return next(
+      new AppError(
+        'You have reached the limit of 5 starred boards per workspace. Please unstar a board before starring a new one.',
+        400
+      )
+    );
   }
 
   // Add user to starredByUsers array
@@ -1178,6 +1195,8 @@ exports.starBoard = catchAsync(async (req, res, next) => {
     message: 'Board starred successfully',
     data: {
       board: formatBoardResponse(board, req.user._id),
+      starredBoardsCount: starredBoardsCount + 1,
+      remainingStars: 4 - starredBoardsCount, // How many more boards the user can star
     },
   });
 });
@@ -1214,7 +1233,7 @@ exports.unstarBoard = catchAsync(async (req, res, next) => {
   });
 });
 
-// Get starred boards for the current user
+// Get starred boards for the current user with counts per workspace
 exports.getMyStarredBoards = catchAsync(async (req, res, next) => {
   const userId = req.user._id;
 
@@ -1250,11 +1269,29 @@ exports.getMyStarredBoards = catchAsync(async (req, res, next) => {
     },
   };
 
+  // Group by workspaces and count stars
+  const workspaceStars = {};
+  starredBoards.forEach((board) => {
+    const workspaceId = board.workspace._id.toString();
+    if (!workspaceStars[workspaceId]) {
+      workspaceStars[workspaceId] = {
+        name: board.workspace.name,
+        type: board.workspace.type,
+        starredCount: 0,
+        remainingStars: 5,
+      };
+    }
+    workspaceStars[workspaceId].starredCount++;
+    workspaceStars[workspaceId].remainingStars =
+      5 - workspaceStars[workspaceId].starredCount;
+  });
+
   res.status(200).json({
     status: 'success',
     data: {
       boards: formattedBoards,
       stats,
+      workspaceStarLimits: Object.values(workspaceStars),
     },
   });
 });
