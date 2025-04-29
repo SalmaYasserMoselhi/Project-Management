@@ -10,12 +10,9 @@ import { fetchUserData } from "./features/Slice/userSlice/userSlice";
 import "./index.css";
 
 function App() {
-  const { 
-    isWorkspaceOpen, 
-    selectedWorkspace, 
-    workspaceTransitionState 
-  } = useSelector((state) => state.sidebar);
-  
+  const { isWorkspaceOpen, selectedWorkspace, workspaceTransitionState } =
+    useSelector((state) => state.sidebar);
+
   const location = useLocation();
   const dispatch = useDispatch();
 
@@ -26,27 +23,27 @@ function App() {
   // List of auth pages where we don't want Sidebar and WorkspacePopup
   const authPages = [
     "/",
-    "/Login",
+    "/login",
     "/signup",
     "/forgetpassword",
     "/verification",
-    "/ResetPassword",
+    "/resetpassword",
   ];
 
   // Check if current page is auth
   const isAuthPage = authPages.includes(location.pathname);
 
   // Should we render the workspace popup?
-  const shouldRenderWorkspacePopup = !isAuthPage && (
-    isWorkspaceOpen || 
-    workspaceTransitionState === "opening" || 
-    workspaceTransitionState === "closing"
-  );
+  const shouldRenderWorkspacePopup =
+    !isAuthPage &&
+    (isWorkspaceOpen ||
+      workspaceTransitionState === "opening" ||
+      workspaceTransitionState === "closing");
 
   return (
     <div className="w-full h-screen overflow-hidden flex">
       <Toaster />
-      
+
       {/* Show Sidebar only if NOT on auth page */}
       {!isAuthPage && <Sidebar />}
 
