@@ -45,36 +45,39 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
   }, [isSidebarOpen]);
 
   // Handle animation end events for proper state transitions
-  const handleAnimationEnd = useCallback((e) => {
-    // Only process the animation events we care about
-    if (e.target !== popupRef.current) return;
+  const handleAnimationEnd = useCallback(
+    (e) => {
+      // Only process the animation events we care about
+      if (e.target !== popupRef.current) return;
 
-    if (workspaceTransitionState === "opening") {
-      dispatch(openWorkspaceComplete());
-    } else if (workspaceTransitionState === "closing") {
-      dispatch(closeWorkspaceComplete());
+      if (workspaceTransitionState === "opening") {
+        dispatch(openWorkspaceComplete());
+      } else if (workspaceTransitionState === "closing") {
+        dispatch(closeWorkspaceComplete());
 
-      // Process any pending workspace switch
-      const pendingWorkspace = sessionStorage.getItem("pendingWorkspace");
-      if (pendingWorkspace) {
-        try {
-          const { type, data } = JSON.parse(pendingWorkspace);
-          sessionStorage.removeItem("pendingWorkspace");
+        // Process any pending workspace switch
+        const pendingWorkspace = sessionStorage.getItem("pendingWorkspace");
+        if (pendingWorkspace) {
+          try {
+            const { type, data } = JSON.parse(pendingWorkspace);
+            sessionStorage.removeItem("pendingWorkspace");
 
-          dispatch(setActiveWorkspaceType(type));
-          dispatch(selectWorkspace(data));
+            dispatch(setActiveWorkspaceType(type));
+            dispatch(selectWorkspace(data));
 
-          // Small delay before starting the next opening animation
-          setTimeout(() => {
-            dispatch(openWorkspaceStart());
-          }, 50);
-        } catch (error) {
-          console.error("Error processing pending workspace:", error);
-          sessionStorage.removeItem("pendingWorkspace");
+            // Small delay before starting the next opening animation
+            setTimeout(() => {
+              dispatch(openWorkspaceStart());
+            }, 50);
+          } catch (error) {
+            console.error("Error processing pending workspace:", error);
+            sessionStorage.removeItem("pendingWorkspace");
+          }
         }
       }
-    }
-  }, [dispatch, workspaceTransitionState]);
+    },
+    [dispatch, workspaceTransitionState]
+  );
 
   // Handle closing the workspace popup
   const handleClose = useCallback(() => {
@@ -104,7 +107,7 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
       "workspace-popup-entering",
       "workspace-popup-exiting"
     );
-    
+
     backdropElement.classList.remove(
       "workspace-backdrop-entering",
       "workspace-backdrop-exiting"
@@ -127,12 +130,16 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
     };
   }, [workspaceTransitionState, handleAnimationEnd]);
 
-  // Fetch boards when component mounts or inputs change
-  useEffect(() => {
-    const fetchBoards = async () => {
+  // Main function to fetch ALL boards at once with sorting and search
+  const fetchBoards = useCallback(
+    async () => {
       try {
-        if (!workspaceId) return;
+        if (!workspaceId) {
+          setError("Workspace not selected");
+          return;
+        }
 
+        setBoards([]);
         setLoading(true);
         setError("");
 
@@ -141,25 +148,30 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
 
         if (activeTab === "Archived") {
           endpoint = "/api/v1/boards/user-boards/archived";
+          queryParams.push(
+            `sort=${sortOption}`,
+            `limit=1000` // Very high limit to get all boards
+          );
         } else {
           endpoint = `/api/v1/boards/workspace/${workspaceId}/boards`;
+          queryParams.push(
+            `sort=${sortOption}`,
+            `limit=1000` // Very high limit to get all boards
+          );
+
+          // Add search parameter if there's a search term
           if (searchTerm) {
             queryParams.push(`search=${encodeURIComponent(searchTerm)}`);
           }
         }
 
-        queryParams.push(
-          `sort=${sortOption}`,
-          `limit=${LIMIT}`,
-          `page=${page}`
-        );
-
         const fullUrl = `${endpoint}?${queryParams.join("&")}`;
         const response = await api.get(fullUrl);
 
         if (response.data?.status === "success") {
-          setBoards(response.data.data?.boards || []);
-          setTotalBoards(response.data.data?.stats?.total || 0);
+          const allBoards = response.data.data?.boards || [];
+          setTotalBoards(response.data.data?.stats.total || 0);
+          setBoards(allBoards);
         } else {
           setBoards([]);
         }
@@ -169,23 +181,24 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
       } finally {
         setLoading(false);
       }
-    };
+    },
+    [workspaceId, activeTab, sortOption, searchTerm]
+  );
 
+  // Fetch boards when inputs change - with debouncing for search
+  useEffect(() => {
     if (workspaceId) {
       const delaySearch = setTimeout(
-        fetchBoards,
-        searchTerm ? 500 : 0 // Only delay if it's a search term change
-      );
+        () => {
+          fetchBoards();
+        },
+        searchTerm ? 500 : 0
+      ); // Only delay if it's a search term change
 
       return () => clearTimeout(delaySearch);
     }
-  }, [
-    workspaceId,
-    activeTab,
-    sortOption,
-    searchTerm,
-    page,
-  ]);
+  }, [workspaceId, activeTab, sortOption, searchTerm, fetchBoards]);
+
 
   // Handle pinning/unpinning a board
   const handlePinBoard = async (boardId, isStarred, e) => {
