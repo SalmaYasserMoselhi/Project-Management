@@ -359,7 +359,7 @@ function Dashboard() {
         </div>
 
         {/* Activity Log */}
-        <div className="bg-gray-50 rounded-xl shadow-sm p-3 md:p-4 border border-purple-200 overflow-x-auto">
+        <div className="bg-gray-50 rounded-xl shadow-sm p-3 md:p-4  border border-purple-200 overflow-x-auto">
           <h2 className="text-lg font-semibold text-[#57356A] mb-3">
             Activity Log
           </h2>

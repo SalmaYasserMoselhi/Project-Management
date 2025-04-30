@@ -10,7 +10,7 @@ import {
   getAllUsers,
   checkAuthStatus,
   cacheUserData,
-  updateConversationDetails,
+  fetchMessages,
 } from "../features/Slice/ChatSlice/chatSlice";
 import { useChat } from "../context/chat-context";
 import { motion } from "framer-motion";
@@ -27,6 +27,12 @@ const isValidImageUrl = (url) => {
     url.startsWith("http") ||
     url.startsWith("/")
   );
+};
+
+const getAvatarUrl = (avatarPath) => {
+  if (!avatarPath) return Avatar;
+  if (avatarPath.startsWith("http")) return avatarPath;
+  return `/api/v1/uploads/users/${avatarPath}`;
 };
 
 const ChatList = () => {
@@ -70,25 +76,30 @@ const ChatList = () => {
     checkAuth();
   }, [dispatch]);
 
-  // بديل لـ useEffect الذي يجلب المحادثات
   useEffect(() => {
-    if (authChecking) {
-      return;
-    }
+    if (authChecking) return;
 
-    if (!auth?.isAuthenticated || !currentUser?._id) {
-      setError("Please login to view conversations");
-      return;
-    }
+    const loadConversations = async () => {
+      if (!auth?.isAuthenticated || !currentUser?._id) {
+        setError("Please login to view conversations");
+        return;
+      }
 
-    dispatch(fetchConversations())
-      .then((response) => {
-        // تجاهل رسائل التصحيح
-      })
-      .catch(() => {
+      try {
+        await dispatch(fetchConversations()).unwrap();
+      } catch (error) {
+        console.error("Failed to load conversations:", error);
         setError("Failed to load conversations");
-      });
-  }, [dispatch, currentUser, auth?.isAuthenticated, authChecking]);
+      }
+    };
+
+    loadConversations();
+
+    // Set up periodic refresh
+    const refreshInterval = setInterval(loadConversations, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [auth?.isAuthenticated, currentUser?._id, authChecking, dispatch]);
 
   // بديل لـ useEffect الذي يبحث عن المستخدمين
   useEffect(() => {
@@ -406,7 +417,7 @@ const ChatList = () => {
         chat.lastMessage?.content?.toLowerCase()?.includes(searchLower);
       return nameMatch || messageMatch;
     });
-  }, [searchTerm, conversations, showUserSearch]);
+  }, [searchTerm, showUserSearch, conversations]);
 
   const highlightSearchTerm = (text, searchTerm) => {
     if (!searchTerm) return text;
@@ -453,9 +464,29 @@ const ChatList = () => {
     };
 
     console.log("Activating conversation:", conversationData);
-    setActiveConversation(conversationData);
-  };
 
+    // تحديث المحادثة النشطة في سياق الشات
+    setActiveConversation(conversationData);
+
+    // تأكد من أن المحادثة النشطة تم تحديثها في Redux أيضًا
+    dispatch({
+      type: "chat/setActiveConversation",
+      payload: conversationData,
+    });
+
+    // تحميل الرسائل للمحادثة المحددة
+    dispatch(fetchMessages({ conversationId: chat._id }));
+
+    // إغلاق أي واجهات بحث مفتوحة
+    if (showUserSearch) {
+      setShowUserSearch(false);
+      setSearchTerm("");
+    }
+  };
+  console.log("All conversations:", conversations);
+  console.log(`Number of conversations: ${conversations.length}`);
+
+  console.log("Filtered chats", filteredChats);
   return (
     <div className="flex flex-col w-[380px] h-screen bg-white border-r border-gray-300">
       {/* Header */}
@@ -561,7 +592,9 @@ const ChatList = () => {
                       >
                         <img
                           src={
-                            isValidImageUrl(user?.avatar) ? user.avatar : Avatar
+                            isValidImageUrl(user?.avatar)
+                              ? getAvatarUrl(user.avatar)
+                              : Avatar
                           }
                           alt={`${user.firstName} ${user.lastName}`}
                           className="w-10 h-10 rounded-full object-cover border border-gray-200"
@@ -702,7 +735,7 @@ const ChatList = () => {
                       displayPicture === "/src/assets/defaultAvatar.png"
                     ) {
                       if (otherUser && isValidImageUrl(otherUser.avatar)) {
-                        displayPicture = otherUser.avatar;
+                        displayPicture = getAvatarUrl(otherUser.avatar);
                       } else {
                         displayPicture = Avatar;
                       }

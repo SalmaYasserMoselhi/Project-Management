@@ -1,68 +1,30 @@
-// import { useState } from "react";
-// import { Smile, SendHorizontal } from "lucide-react";
-
-// function ChatInput() {
-//   const [message, setMessage] = useState("");
-
-//   const handleSubmit = (e) => {
-//     e.preventDefault();
-//     if (message.trim()) {
-//       console.log("Sending message:", message);
-//       setMessage("");
-//     }
-//   };
-
-//   return (
-//     <div className="bg-white px-1 py-3 flex items-center justify-center">
-//       <form
-//         onSubmit={handleSubmit}
-//         className="flex items-center w-[90%] max-w-[95%]] h-[56px] bg-white rounded-[14px] border border-gray-300 px-4 shadow-md"
-//       >
-//         {/* زر الإيموجي */}
-//         <button type="button" className="text-gray-500 hover:text-gray-700">
-//           <Smile className="h-6 w-6" />
-//         </button>
-
-//         {/* حقل إدخال النص */}
-//         <input
-//           type="text"
-//           value={message}
-//           onChange={(e) => setMessage(e.target.value)}
-//           placeholder="Message"
-//           className="flex-1 bg-transparent focus:outline-none text-gray-700 mx-3 text-sm"
-//         />
-
-//         {/* زر الإرسال */}
-//         <button
-//           type="submit"
-//           className={`ml-2 ${
-//             message.trim()
-//               ? "text-purple-700 hover:text-purple-900"
-//               : "text-gray-400"
-//           }`}
-//           disabled={!message.trim()}
-//         >
-//           <SendHorizontal className="h-6 w-6 text-[#4D2D61] " />
-//         </button>
-//       </form>
-//     </div>
-//   );
-// }
-
-// export default ChatInput;
-
 import { useState, useRef, useEffect } from "react";
-import { useDispatch } from "react-redux";
-import { Paperclip, Send } from "lucide-react";
-import { sendMessage } from "../features/Slice/ChatSlice/chatSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { Paperclip, Send, Smile } from "lucide-react";
+import EmojiPicker from "emoji-picker-react";
+import {
+  sendMessage,
+  addMessage,
+  updateConversationLastMessage,
+  updateConversationInList,
+  toggleEmojiPicker,
+  closeEmojiPicker,
+} from "../features/Slice/ChatSlice/chatSlice";
 import { emitTyping, emitStopTyping } from "../utils/socket";
+import { useChat } from "../context/chat-context";
 
 const ChatInput = ({ chatId }) => {
   const dispatch = useDispatch();
+  const { currentUser } = useChat();
   const [message, setMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const textareaRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const conversationFromStore = useSelector((state) =>
+    state.chat.conversations.find((c) => c._id === chatId)
+  );
+  const showEmojiPicker = useSelector((state) => state.chat.showEmojiPicker);
+  const emojiPickerRef = useRef(null);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -85,6 +47,20 @@ const ChatInput = ({ chatId }) => {
     };
   }, [chatId, isTyping]);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(event.target)
+      ) {
+        dispatch(closeEmojiPicker());
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [dispatch]);
+
   const handleTyping = () => {
     if (!isTyping) {
       setIsTyping(true);
@@ -98,27 +74,57 @@ const ChatInput = ({ chatId }) => {
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
       emitStopTyping(chatId);
-    }, 2000);
+    }, 3000);
+  };
+
+  const handleEmojiClick = (emojiData) => {
+    setMessage((prev) => prev + emojiData.emoji);
+    dispatch(closeEmojiPicker());
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (message.trim()) {
-      try {
-        await dispatch(
-          sendMessage({
-            conversationId: chatId,
-            content: message.trim(),
+    if (!message.trim()) return;
+
+    const tempMessage = {
+      _id: `temp-${Date.now()}`,
+      content: message,
+      sender: { _id: currentUser._id },
+      conversationId: chatId,
+      createdAt: new Date().toISOString(),
+      status: "sending",
+    };
+
+    dispatch(addMessage(tempMessage));
+    setMessage("");
+    textareaRef.current.style.height = "auto";
+
+    try {
+      const result = await dispatch(
+        sendMessage({
+          conversationId: chatId,
+          content: message,
+          isEmoji: /^[\uD800-\uDBFF][\uDC00-\uDFFF]$/.test(message), // Check if message is a single emoji
+        })
+      ).unwrap();
+
+      dispatch(
+        updateConversationLastMessage({
+          conversationId: chatId,
+          message: result,
+        })
+      );
+
+      if (conversationFromStore) {
+        dispatch(
+          updateConversationInList({
+            ...conversationFromStore,
+            lastMessage: result,
           })
-        ).unwrap();
-        setMessage("");
-        if (isTyping) {
-          setIsTyping(false);
-          emitStopTyping(chatId);
-        }
-      } catch (error) {
-        console.error("Failed to send message:", error);
+        );
       }
+    } catch (error) {
+      console.error("Failed to send message:", error);
     }
   };
 
@@ -130,17 +136,33 @@ const ChatInput = ({ chatId }) => {
   };
 
   return (
-    <div className="p-4 bg-white border-t">
+    <div className="bg-[#F5F5F5]  p-4">
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        <button
-          type="button"
-          className="p-2 hover:bg-gray-100 rounded-full text-[#4D2D61]"
-          title="Attach File"
-        >
-          <Paperclip className="w-5 h-5" />
-        </button>
+        <div className="flex-1 flex items-center bg-white rounded-xl px-4 py-2">
+          <div className="emoji-picker-container" ref={emojiPickerRef}>
+            <button
+              type="button"
+              className="p-1 text-[#4D2D61] transition-colors hover:text-[#57356A]"
+              title="Add Emoji"
+              onClick={() => dispatch(toggleEmojiPicker())}
+            >
+              <Smile className="w-5 h-5" />
+            </button>
+            {showEmojiPicker && (
+              <div className="emoji-picker-wrapper">
+                <EmojiPicker onEmojiClick={handleEmojiClick} />
+              </div>
+            )}
+          </div>
 
-        <div className="flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2">
+          <button
+            type="button"
+            className="p-1 text-[#4D2D61] transition-colors hover:text-[#57356A] mr-2"
+            title="Attach File"
+          >
+            <Paperclip className="w-5 h-5" />
+          </button>
+
           <textarea
             ref={textareaRef}
             value={message}
@@ -150,18 +172,19 @@ const ChatInput = ({ chatId }) => {
             }}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
-            className="flex-1 bg-transparent outline-none resize-none max-h-32 text-gray-800 placeholder-gray-400"
+            className="flex-1 bg-white rounded-lg px-3 py-2 outline-none resize-none max-h-32 text-gray-800 placeholder-gray-400 text-sm"
             rows={1}
           />
-        </div>
 
-        <button
-          type="submit"
-          disabled={!message.trim()}
-          className="p-2 hover:bg-gray-100 rounded-full text-[#4D2D61] disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Send className="w-5 h-5" />
-        </button>
+          <button
+            type="submit"
+            disabled={!message.trim()}
+            className="p-1 text-[#4D2D61] transition-colors hover:text-[#57356A] disabled:opacity-50 disabled:cursor-not-allowed ml-2"
+            title="Send Message"
+          >
+            <Send className="w-5 h-5" />
+          </button>
+        </div>
       </form>
     </div>
   );

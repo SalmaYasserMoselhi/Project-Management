@@ -8,14 +8,12 @@ import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { fetchUserData } from "./features/Slice/userSlice/userSlice";
 import "./index.css";
+import { ChatProvider } from "./context/chat-context";
 
 function App() {
-  const { 
-    isWorkspaceOpen, 
-    selectedWorkspace, 
-    workspaceTransitionState 
-  } = useSelector((state) => state.sidebar);
-  
+  const { isWorkspaceOpen, selectedWorkspace, workspaceTransitionState } =
+    useSelector((state) => state.sidebar);
+
   const location = useLocation();
   const dispatch = useDispatch();
 
@@ -26,42 +24,44 @@ function App() {
   // List of auth pages where we don't want Sidebar and WorkspacePopup
   const authPages = [
     "/",
-    "/Login",
+    "/login",
     "/signup",
     "/forgetpassword",
     "/verification",
-    "/ResetPassword",
+    "/resetpassword",
   ];
 
   // Check if current page is auth
-  const isAuthPage = authPages.includes(location.pathname);
+  const isAuthPage = authPages.some((authPath) => location.pathname.startsWith(authPath));
 
   // Should we render the workspace popup?
-  const shouldRenderWorkspacePopup = !isAuthPage && (
-    isWorkspaceOpen || 
-    workspaceTransitionState === "opening" || 
-    workspaceTransitionState === "closing"
-  );
+  const shouldRenderWorkspacePopup =
+    !isAuthPage &&
+    (isWorkspaceOpen ||
+      workspaceTransitionState === "opening" ||
+      workspaceTransitionState === "closing");
 
   return (
-    <div className="w-full h-screen overflow-hidden flex">
-      <Toaster />
-      
-      {/* Show Sidebar only if NOT on auth page */}
-      {!isAuthPage && <Sidebar />}
+    <ChatProvider>
+      <div className="w-full h-screen overflow-hidden flex">
+        <Toaster />
 
-      {/* Only show WorkspacePopup if a workspace is selected and in the right state */}
-      {shouldRenderWorkspacePopup && selectedWorkspace && (
-        <WorkspacePopup
-          workspaceId={selectedWorkspace.id}
-          workspaceName={selectedWorkspace.name}
-        />
-      )}
+        {/* Show Sidebar only if NOT on auth page */}
+        {!isAuthPage && <Sidebar />}
 
-      <div className="flex-1 overflow-auto">
-        <Routing />
+        {/* Only show WorkspacePopup if a workspace is selected and in the right state */}
+        {shouldRenderWorkspacePopup && selectedWorkspace && (
+          <WorkspacePopup
+            workspaceId={selectedWorkspace.id}
+            workspaceName={selectedWorkspace.name}
+          />
+        )}
+
+        <div className="flex-1 overflow-auto">
+          <Routing />
+        </div>
       </div>
-    </div>
+    </ChatProvider>
   );
 }
 
