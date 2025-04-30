@@ -210,21 +210,21 @@ workspaceSchema.statics.createDefaultWorkspaces = async function (
   try {
     const workspaces = await this.create([
       {
-        name: 'Private Workspace', // More personal name
+        name: 'Private Space', // More personal name
         description: 'Your private workspace for personal boards',
         type: 'private',
         createdBy: userId,
         members: [{ user: userId, role: 'owner' }],
       },
       {
-        name: `${username}'s workspace`, // Personalized team space
+        name: `${username}'s Workspace`, // Personalized team space
         description: 'Share and collaborate on boards with your team',
         type: 'public',
         createdBy: userId,
         members: [{ user: userId, role: 'owner' }],
       },
       {
-        name: 'Collaboration Workspace',
+        name: 'Collaboration Space',
         description: 'Access boards shared by others',
         type: 'collaboration',
         createdBy: userId,

@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import api from "../api";
 
 import {
   toggleSidebar,
   setActiveItem,
-  toggleWorkspaceOpen,
+  openWorkspaceStart,
+  closeWorkspaceStart,
+  setActiveWorkspaceType,
+  selectWorkspace,
 } from "../features/Slice/ComponentSlice/sidebarSlice";
 import { fetchUserData } from "../features/Slice/userSlice/userSlice";
 
@@ -25,11 +29,17 @@ const Sidebar = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [isMobile, setIsMobile] = useState(false);
+  const [isClosingWorkspace, setIsClosingWorkspace] = useState(false);
 
   // Get state from Redux store
-  const { isSidebarOpen, activeItem, isWorkspaceOpen } = useSelector(
-    (state) => state.sidebar
-  );
+  const {
+    isSidebarOpen,
+    activeItem,
+    isWorkspaceOpen,
+    activeWorkspaceType,
+    selectedWorkspace,
+    workspaceTransitionState,
+  } = useSelector((state) => state.sidebar);
   const { user } = useSelector((state) => state.user);
 
   useEffect(() => {
@@ -42,25 +52,38 @@ const Sidebar = () => {
     checkMobile();
     window.addEventListener("resize", checkMobile);
 
+    // Add event listener to close popup when clicking outside
+    const handleClickOutside = (event) => {
+      // Only handle outside clicks if workspace is open and not already closing
+      if (
+        (workspaceTransitionState === "open" ||
+          workspaceTransitionState === "opening") &&
+        !isClosingWorkspace
+      ) {
+        // Check if the click is outside of the sidebar and workspace popup
+        const sidebarElement = document.getElementById("sidebar");
+        const workspacePopupElement =
+          document.querySelector(".workspace-popup");
+
+        if (sidebarElement && workspacePopupElement) {
+          if (
+            !sidebarElement.contains(event.target) &&
+            !workspacePopupElement.contains(event.target)
+          ) {
+            // Start closing animation for workspace popup
+            handleCloseWorkspace();
+          }
+        }
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
     return () => {
       window.removeEventListener("resize", checkMobile);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [dispatch]);
-
-  const sidebarItems = [
-    {
-      icon: WorkspaceIcon,
-      title: "Workspace",
-    },
-    {
-      icon: CollaborationIcon,
-      title: "Collaboration",
-    },
-    {
-      icon: PrivateIcon,
-      title: "Private",
-    },
-  ];
+  }, [dispatch, workspaceTransitionState, isClosingWorkspace]);
 
   const handleItemClick = (title, path) => {
     dispatch(setActiveItem(title));
@@ -71,9 +94,133 @@ const Sidebar = () => {
     }
   };
 
+  // Handle closing workspace with animation
+  const handleCloseWorkspace = () => {
+    // Prevent double-closing or closing when already in closed/closing state
+    if (
+      isClosingWorkspace ||
+      workspaceTransitionState === "closing" ||
+      workspaceTransitionState === "closed"
+    ) {
+      return;
+    }
+
+    console.log("Sidebar: Starting workspace popup closing");
+
+    // Set local state flag to prevent multiple close attempts
+    setIsClosingWorkspace(true);
+
+    // Dispatch the close start action to Redux
+    // This will set the state to "closing" which will trigger CSS animations
+    dispatch(closeWorkspaceStart());
+
+    // Reset the local tracking state after a delay
+    // This is just for our local UI prevention logic
+    setTimeout(() => {
+      setIsClosingWorkspace(false);
+    }, 300); // Slightly longer than animation duration for safety
+  };
+
+  const handleWorkspaceToggle = async (workspaceType, e) => {
+    // Prevent navigation if event is provided
+    if (e) e.preventDefault();
+
+    try {
+      // If clicking on the same workspace type that's already open, just close it
+      if (isWorkspaceOpen && activeWorkspaceType === workspaceType) {
+        console.log("Closing workspace:", workspaceType);
+        handleCloseWorkspace();
+        return;
+      }
+
+      // Get the workspace data from the API
+      const response = await api.get("/api/v1/workspaces/user-workspaces");
+
+      if (
+        response.data?.status === "success" &&
+        response.data?.data?.ownedWorkspaces
+      ) {
+        // Map the workspace types to match the API
+        const typeMapping = {
+          workspace: "public",
+          collaboration: "collaboration",
+          private: "private",
+        };
+
+        const workspace = response.data.data.ownedWorkspaces.find(
+          (w) => w.type === typeMapping[workspaceType]
+        );
+
+        if (workspace) {
+          // Create workspace data object
+          const workspaceData = {
+            id: workspace._id,
+            name: workspace.name,
+            type: workspace.type,
+            description: workspace.description,
+          };
+
+          // If a workspace is currently open, close it first
+          if (isWorkspaceOpen) {
+            // Close the current workspace
+            dispatch(closeWorkspaceStart());
+            // Immediately open the new workspace
+            dispatch(setActiveWorkspaceType(workspaceType));
+            dispatch(selectWorkspace(workspaceData));
+            dispatch(openWorkspaceStart());
+          } else {
+            // If no workspace is open, directly open the new one
+            dispatch(setActiveWorkspaceType(workspaceType));
+            dispatch(selectWorkspace(workspaceData));
+            dispatch(openWorkspaceStart());
+          }
+        } else {
+          console.error(
+            "No workspace found for type:",
+            typeMapping[workspaceType]
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching workspace data:", error);
+    }
+  };
+
+  // Add animation end handler
+  useEffect(() => {
+    const handleAnimationEnd = (e) => {
+      if (e.target.classList.contains("workspace-popup")) {
+        if (workspaceTransitionState === "closing") {
+          // Check if there's a pending workspace to open
+          const pendingWorkspace = sessionStorage.getItem("pendingWorkspace");
+          if (pendingWorkspace) {
+            try {
+              const { type, data } = JSON.parse(pendingWorkspace);
+              sessionStorage.removeItem("pendingWorkspace");
+
+              // Open the new workspace
+              dispatch(setActiveWorkspaceType(type));
+              dispatch(selectWorkspace(data));
+              dispatch(openWorkspaceStart());
+            } catch (error) {
+              console.error("Error processing pending workspace:", error);
+              sessionStorage.removeItem("pendingWorkspace");
+            }
+          }
+        }
+      }
+    };
+
+    document.addEventListener("animationend", handleAnimationEnd);
+    return () => {
+      document.removeEventListener("animationend", handleAnimationEnd);
+    };
+  }, [dispatch, workspaceTransitionState]);
+
   return (
     <div
-      className={`fixed left-0 top-0 bottom-0 bg-[#4D2D61] shadow-lg p-4 flex flex-col border-r rounded-r-lg border-gray-200 font-[Nunito] transition-all duration-300 z-50 
+      id="sidebar"
+      className={`fixed z-50 left-0 top-0 bottom-0 bg-[#4D2D61] shadow-lg p-4 flex flex-col border-r border-gray-200 font-[Nunito] transition-all duration-300 
         ${isSidebarOpen ? "w-60" : "w-20"}
         ${
           isMobile
@@ -131,13 +278,13 @@ const Sidebar = () => {
       </div>
       <hr className="border-t border-[#BBBBBB80] opacity-50 mb-3" />
 
-      {/* Only render the user workspace section if user data is available */}
+      {/* User Workspace Section */}
       {user && (
         <div className="mb-3">
           {isSidebarOpen ? (
             <div
               className="flex items-center justify-between cursor-pointer px-3 py-2.5 rounded-md hover:bg-[#6A3B82]"
-              onClick={() => dispatch(toggleWorkspaceOpen())}
+              onClick={() => {}}
             >
               <div className="w-6 h-6 flex items-center justify-center bg-white text-[#4D2D61] font-bold rounded-sm text-sm">
                 {user.firstName.charAt(0).toUpperCase()}
@@ -147,14 +294,8 @@ const Sidebar = () => {
                 {user.firstName}&apos;s Workspaces
               </span>
 
-              <ChevronsUpDown
-                className="h-5 w-5 text-white transition-transform duration-200"
-                style={{
-                  transform: isWorkspaceOpen
-                    ? "rotate(180deg)"
-                    : "rotate(0deg)",
-                }}
-              />
+              {/* This icon is static now - not linked to workspace state */}
+              <ChevronsUpDown className="h-5 w-5 text-white" />
             </div>
           ) : (
             <div className="flex justify-center">
@@ -164,8 +305,8 @@ const Sidebar = () => {
             </div>
           )}
 
+          {/* Notifications and Chat */}
           <div className="mt-2 space-y-2">
-            {/* Notifications */}
             <div
               className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
                 activeItem === "Notifications"
@@ -181,11 +322,7 @@ const Sidebar = () => {
                 <img
                   src={notificationIcon}
                   alt="Notifications"
-                  className={`h-5 w-5 filter brightness-0 invert ${
-                    activeItem === "Notifications"
-                      ? "filter brightness-0 invert"
-                      : "filter brightness-0 invert"
-                  }`}
+                  className="h-5 w-5 filter brightness-0 invert"
                 />
                 {isSidebarOpen && (
                   <span className="text-sm font-medium text-white">
@@ -194,6 +331,7 @@ const Sidebar = () => {
                 )}
               </div>
             </div>
+
             <div
               className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
                 activeItem === "Chat"
@@ -208,12 +346,8 @@ const Sidebar = () => {
               <div className="flex items-center gap-3">
                 <img
                   src={chatIcon}
-                  alt="chat"
-                  className={`h-5 w-5 filter brightness-0 invert ${
-                    activeItem === "Chat"
-                      ? "filter brightness-0 invert"
-                      : "filter brightness-0 invert"
-                  }`}
+                  alt="Chat"
+                  className="h-5 w-5 filter brightness-0 invert"
                 />
                 {isSidebarOpen && (
                   <span className="text-sm font-medium text-white">Chat</span>
@@ -225,11 +359,13 @@ const Sidebar = () => {
       )}
 
       <hr className="border-t border-[#BBBBBB80] opacity-50 mb-3" />
+
       {/* Navigation Items */}
       <nav
         className="space-y-2 overflow-y-auto"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
+        {/* Dashboard */}
         <div
           className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
             activeItem === "Dashboard"
@@ -245,46 +381,87 @@ const Sidebar = () => {
             <img
               src={DashboardIcon}
               alt="Dashboard"
-              className={`h-5 w-5 filter brightness-0 invert ${
-                activeItem === "Dashboard"
-                  ? "filter brightness-0 invert"
-                  : "filter brightness-0 invert"
-              }`}
+              className="h-5 w-5 filter brightness-0 invert"
             />
             {isSidebarOpen && (
               <span className="text-sm font-medium text-white">Dashboard</span>
             )}
           </div>
         </div>
-        {sidebarItems.map((item) => (
-          <div
-            key={item.title}
-            className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-              activeItem === item.title
-                ? "bg-[#6A3B82] text-white"
-                : "text-gray-900 hover:bg-[#6A3B82]"
-            } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
-          >
-            <div className="flex items-center gap-3">
-              <img
-                src={item.icon}
-                alt={`${item.title} icon`}
-                className={`h-5 w-5 filter brightness-0 invert ${
-                  activeItem === item.title
-                    ? "filter brightness-0 invert"
-                    : "filter brightness-0 invert"
-                }`}
-              />
-              {isSidebarOpen && (
-                <span className="text-sm font-medium text-white">
-                  {item.title}
-                </span>
-              )}
-            </div>
+
+        {/* Workspace */}
+        <div
+          className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+            activeItem === "Workspace"
+              ? "bg-[#6A3B82] text-white"
+              : "text-gray-900 hover:bg-[#6A3B82]"
+          } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
+          onClick={(e) => {
+            handleWorkspaceToggle("workspace", e);
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <img
+              src={WorkspaceIcon}
+              alt="Workspace"
+              className="h-5 w-5 filter brightness-0 invert"
+            />
+            {isSidebarOpen && (
+              <span className="text-sm font-medium text-white">Workspace</span>
+            )}
           </div>
-        ))}
+        </div>
+
+        {/* Collaboration */}
+        <div
+          className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+            activeItem === "Collaboration"
+              ? "bg-[#6A3B82] text-white"
+              : "text-gray-900 hover:bg-[#6A3B82]"
+          } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
+          onClick={(e) => {
+            handleWorkspaceToggle("collaboration", e);
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <img
+              src={CollaborationIcon}
+              alt="Collaboration"
+              className="h-5 w-5 filter brightness-0 invert"
+            />
+            {isSidebarOpen && (
+              <span className="text-sm font-medium text-white">
+                Collaboration
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Private */}
+        <div
+          className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+            activeItem === "Private"
+              ? "bg-[#6A3B82] text-white"
+              : "text-gray-900 hover:bg-[#6A3B82]"
+          } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
+          onClick={(e) => {
+            handleWorkspaceToggle("private", e);
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <img
+              src={PrivateIcon}
+              alt="Private"
+              className="h-5 w-5 filter brightness-0 invert"
+            />
+            {isSidebarOpen && (
+              <span className="text-sm font-medium text-white">Private</span>
+            )}
+          </div>
+        </div>
       </nav>
 
+      {/* User Profile Section */}
       <div className="mt-auto">
         <hr className="border-t border-[#BBBBBB80] opacity-50 mb-4" />
         {user && (
@@ -326,5 +503,3 @@ const Sidebar = () => {
 };
 
 export default Sidebar;
-
-
