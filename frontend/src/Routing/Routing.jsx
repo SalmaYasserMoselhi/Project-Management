@@ -12,7 +12,6 @@ import MainBoard from "../Board/mainBoard";
 import Notifications from "../Main/Notifications";
 import Main from "../Main/Main";
 import ChatList from "../Chat/ChatList";
-import ChatList from "../Chat/ChatList";
 import ChatLayout from "../Chat/ChatLayout";
 
 function Routing() {
@@ -20,17 +19,14 @@ function Routing() {
     <div className="w-full h-full">
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgetpassword" element={<ForgetPassword />} />
         <Route path="/verification" element={<Verification />} />
         <Route path="/resetpassword" element={<ResetPassword />} />
         <Route path="/mainboard" element={<MainBoard />} />
-        <Route path="/mainboard" element={<MainBoard />} />
         <Route path="/chatlist" element={<ChatList />} />
 
-        <Route path="/main/*" element={<Main />}>
         <Route path="/main/*" element={<Main />}>
           <Route index element={<Navigate to="dashboard" />} />
           <Route path="dashboard" element={<Dashboard />} />
