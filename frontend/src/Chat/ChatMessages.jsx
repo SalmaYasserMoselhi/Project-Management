@@ -74,45 +74,48 @@ const MessageBubble = ({ message, isSender, showAvatar = true }) => {
 
   return (
     <div
-      className={`flex items-end gap-2 mb-1.5 ${
-        isSender ? "flex-row-reverse" : "flex-row"
+      className={`flex gap-2 mb-1 ${
+        isSender ? "justify-end" : "justify-start"
       }`}
     >
-      {!isSender && showAvatar && activeChat?.isGroup && (
-        <img
-          src={getAvatarUrl(message.sender?.avatar)}
-          alt={getSenderName()}
-          className="w-8 h-8 rounded-full flex-shrink-0"
-          onError={(e) => {
-            e.target.onerror = null;
-            e.target.src = Avatar;
-          }}
-        />
-      )}
-      <div
-        className={`max-w-[65%] flex flex-col ${
-          isSender ? "items-end" : "items-start"
-        }`}
-      >
+      {!isSender ? (
+        <div className="w-[40px] flex-shrink-0">
+          {showAvatar && activeChat?.isGroup && (
+            <img
+              src={getAvatarUrl(message.sender?.avatar)}
+              alt={getSenderName()}
+              className="w-[40px] h-[40px] rounded-full"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = Avatar;
+              }}
+            />
+          )}
+        </div>
+      ) : null}
+
+      <div className="flex flex-col min-w-[100px] max-w-[75%]">
         {!isSender && showAvatar && activeChat?.isGroup && (
-          <span className="text-xs text-gray-600 mb-0.5 px-1">
-            {getSenderName()}
-          </span>
+          <span className="text-xs text-gray-600 mb-1">{getSenderName()}</span>
         )}
         <div
-          className={`relative rounded-lg px-4 py-2 shadow-sm ${
-            isSender ? "bg-[#4D2D618F] text-white" : "bg-white text-gray-800"
+          className={`rounded-xl px-3 py-2 ${
+            isSender
+              ? "bg-[#4D2D618F] text-white ml-auto"
+              : "bg-white text-gray-800"
           }`}
+          style={{ minWidth: "100px" }}
         >
           {getMessageContent()}
-
-          <div className="flex justify-end items-center gap-1 mt-0.5">
-            <span className="text-[0.65rem] text-inherit opacity-75">
+          <div className="flex justify-end items-center gap-1 mt-1">
+            <span className="text-[0.65rem] opacity-75">
               {format(new Date(message.createdAt), "p", { locale: ar })}
             </span>
           </div>
         </div>
       </div>
+
+      {isSender && <div className="w-[40px] flex-shrink-0"></div>}
     </div>
   );
 };
@@ -189,18 +192,18 @@ export default function ChatMessages() {
   return (
     <div
       ref={chatContainerRef}
-      className="flex-1 overflow-y-auto"
+      className="flex-1 overflow-y-auto px-3"
       style={{
         height: "calc(100vh - 140px)",
         backgroundColor: "#F5F5F5",
       }}
     >
-      <div className="flex flex-col justify-end min-h-full">
-        <div className="px-4 py-2">
+      <div className="flex flex-col justify-end min-h-full py-4">
+        <div className="space-y-4">
           {Object.entries(groupedMessages).map(([date, dateMessages]) => (
-            <div key={date} className="space-y-1 mb-4">
-              <div className="flex justify-center">
-                <span className="text-xs bg-white text-[#4D2D61] px-2.5 py-1.5 rounded-full shadow-sm">
+            <div key={date} className="space-y-1">
+              <div className="flex justify-center mb-3">
+                <span className="text-sm bg-white text-[#4D2D61] px-4 py-2 rounded-2xl">
                   {date}
                 </span>
               </div>
@@ -219,8 +222,17 @@ export default function ChatMessages() {
           ))}
 
           {isTyping && (
-            <div className="bg-gray-100 px-4 py-2 rounded-lg mb-2 inline-block self-start shadow-sm">
-              <span className="text-sm text-gray-600">Typing...</span>
+            <div className="flex gap-2">
+              <div className="w-[40px]">
+                <img
+                  src={Avatar}
+                  alt="typing"
+                  className="w-[40px] h-[40px] rounded-full"
+                />
+              </div>
+              <div className="bg-gray-100 px-4 py-2 rounded-2xl text-gray-600">
+                <span className="text-sm">جاري الكتابة...</span>
+              </div>
             </div>
           )}
         </div>

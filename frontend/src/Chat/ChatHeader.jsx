@@ -119,6 +119,7 @@ import { FiPhone, FiVideo, FiMoreVertical } from "react-icons/fi";
 import { useChat } from "../context/chat-context";
 import { useMemo } from "react";
 import Avatar from "../assets/defaultAvatar.png";
+import { motion } from "framer-motion";
 
 function ChatHeader({ user }) {
   const dispatch = useDispatch();
@@ -195,11 +196,23 @@ function ChatHeader({ user }) {
         <div>
           <h3 className="font-semibold text-[#4D2D61]">{otherUser.name}</h3>
           <p className="text-xs text-gray-500">
-            {otherUser.isGroup
-              ? "Group Chat"
-              : otherUser.isOnline
-              ? "Online"
-              : "Offline"}
+            {otherUser.isGroup ? (
+              <motion.span
+                initial={{ opacity: 0.5 }}
+                animate={{ opacity: 1 }}
+                transition={{
+                  duration: 0.8,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                }}
+              >
+                Group Chat
+              </motion.span>
+            ) : otherUser.isOnline ? (
+              "Online"
+            ) : (
+              "Offline"
+            )}
           </p>
         </div>
       </div>

@@ -62,6 +62,7 @@ const initialState = {
   userCache: {},
   loading: false,
   groupCreationLoading: false,
+  showEmojiPicker: false, // Add new state for emoji picker visibility
 };
 
 // Async Thunks
@@ -132,12 +133,13 @@ export const fetchMessages = createAsyncThunk(
 
 export const sendMessage = createAsyncThunk(
   "chat/sendMessage",
-  async ({ conversationId, content }, { rejectWithValue }) => {
+  async ({ conversationId, content, isEmoji }, { rejectWithValue }) => {
     try {
       const response = await api.post(`/message`, {
         message: content,
         convoId: conversationId,
         files: [],
+        isEmoji: isEmoji || false, // Add isEmoji flag to indicate if this is an emoji message
       });
       console.log("Message sent:", response);
       return response.data.data.populatedMessage;
@@ -782,6 +784,12 @@ const chatSlice = createSlice({
         ].filter((u) => u._id !== user._id);
       }
     },
+    toggleEmojiPicker: (state) => {
+      state.showEmojiPicker = !state.showEmojiPicker;
+    },
+    closeEmojiPicker: (state) => {
+      state.showEmojiPicker = false;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -1083,6 +1091,8 @@ export const {
   addTestGroup,
   updateConversationLastMessage,
   updateConversationInList,
+  toggleEmojiPicker,
+  closeEmojiPicker,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

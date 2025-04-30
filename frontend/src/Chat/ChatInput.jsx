@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Paperclip, Send, Smile } from "lucide-react";
+import EmojiPicker from "emoji-picker-react";
 import {
   sendMessage,
   addMessage,
   updateConversationLastMessage,
   updateConversationInList,
+  toggleEmojiPicker,
+  closeEmojiPicker,
 } from "../features/Slice/ChatSlice/chatSlice";
 import { emitTyping, emitStopTyping } from "../utils/socket";
 import { useChat } from "../context/chat-context";
@@ -20,6 +23,8 @@ const ChatInput = ({ chatId }) => {
   const conversationFromStore = useSelector((state) =>
     state.chat.conversations.find((c) => c._id === chatId)
   );
+  const showEmojiPicker = useSelector((state) => state.chat.showEmojiPicker);
+  const emojiPickerRef = useRef(null);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -42,6 +47,20 @@ const ChatInput = ({ chatId }) => {
     };
   }, [chatId, isTyping]);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(event.target)
+      ) {
+        dispatch(closeEmojiPicker());
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [dispatch]);
+
   const handleTyping = () => {
     if (!isTyping) {
       setIsTyping(true);
@@ -56,6 +75,11 @@ const ChatInput = ({ chatId }) => {
       setIsTyping(false);
       emitStopTyping(chatId);
     }, 3000);
+  };
+
+  const handleEmojiClick = (emojiData) => {
+    setMessage((prev) => prev + emojiData.emoji);
+    dispatch(closeEmojiPicker());
   };
 
   const handleSubmit = async (e) => {
@@ -80,6 +104,7 @@ const ChatInput = ({ chatId }) => {
         sendMessage({
           conversationId: chatId,
           content: message,
+          isEmoji: /^[\uD800-\uDBFF][\uDC00-\uDFFF]$/.test(message), // Check if message is a single emoji
         })
       ).unwrap();
 
@@ -114,13 +139,21 @@ const ChatInput = ({ chatId }) => {
     <div className="bg-[#F5F5F5]  p-4">
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
         <div className="flex-1 flex items-center bg-white rounded-xl px-4 py-2">
-          <button
-            type="button"
-            className="p-1 text-[#4D2D61] transition-colors hover:text-[#57356A]"
-            title="Add Emoji"
-          >
-            <Smile className="w-5 h-5" />
-          </button>
+          <div className="emoji-picker-container" ref={emojiPickerRef}>
+            <button
+              type="button"
+              className="p-1 text-[#4D2D61] transition-colors hover:text-[#57356A]"
+              title="Add Emoji"
+              onClick={() => dispatch(toggleEmojiPicker())}
+            >
+              <Smile className="w-5 h-5" />
+            </button>
+            {showEmojiPicker && (
+              <div className="emoji-picker-wrapper">
+                <EmojiPicker onEmojiClick={handleEmojiClick} />
+              </div>
+            )}
+          </div>
 
           <button
             type="button"

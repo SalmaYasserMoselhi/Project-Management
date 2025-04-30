@@ -133,7 +133,15 @@ export const joinConversation = (conversationId) => {
 
 const setupEventListener = (eventName, callback) => {
   if (!socket) {
-    console.warn(`Cannot setup ${eventName} listener: socket not initialized`);
+    console.warn(
+      `Cannot setup ${eventName} listener: socket not initialized. Attempting to initialize...`
+    );
+    connectSocket().then(() => {
+      if (socket) {
+        socket.off(eventName);
+        socket.on(eventName, callback);
+      }
+    });
     return () => {};
   }
 
