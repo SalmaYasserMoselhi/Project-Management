@@ -1,5 +1,4 @@
 import { useState, useRef } from "react";
-import api from "../api";
 import toast from "react-hot-toast";
 
 const AddBoardPopup = ({ onClose, workspaceId, fetchBoardsAgain }) => {
@@ -8,6 +7,7 @@ const AddBoardPopup = ({ onClose, workspaceId, fetchBoardsAgain }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const modalRef = useRef(null);
+  const BASE_URL = "http://localhost:3000";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,14 +27,23 @@ const AddBoardPopup = ({ onClose, workspaceId, fetchBoardsAgain }) => {
         throw new Error("Board name is required");
       }
 
-      // API call to create board
-      const response = await api.post(`/api/v1/boards`, {
-        workspaceId: workspaceId,
-        name: boardName.trim(),
-        description: description.trim() || undefined,
+      // API call to create board with the correct endpoint structure
+      const response = await fetch(`${BASE_URL}/api/v1/boards`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          workspace: workspaceId,
+          name: boardName.trim(),
+          description: description.trim() || undefined,
+        }),
       });
 
-      if (response.data?.status === "success") {
+      const data = await response.json();
+
+      if (data?.status === "success") {
         // Show success message
         toast.success("Board created successfully!", {
           duration: 3000,
@@ -53,13 +62,11 @@ const AddBoardPopup = ({ onClose, workspaceId, fetchBoardsAgain }) => {
         // Close the popup
         onClose();
       } else {
-        throw new Error(response.data?.message || "Failed to create board");
+        throw new Error(data?.message || "Failed to create board");
       }
     } catch (err) {
       const errorMessage =
-        err.response?.data?.message ||
-        err.message ||
-        "Failed to create board. Please try again.";
+        err.message || "Failed to create board. Please try again.";
       setError(errorMessage);
 
       // Show error toast
