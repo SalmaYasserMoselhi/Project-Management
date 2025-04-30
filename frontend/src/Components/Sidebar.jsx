@@ -222,7 +222,7 @@ const Sidebar = () => {
   return (
     <div
       id="sidebar"
-      className={`fixed z-50 left-0 top-0 bottom-0 bg-[#4D2D61] shadow-lg p-4 flex flex-col border-r border-gray-200 font-[Nunito] transition-all duration-300 
+      className={`fixed z-50 left-0 top-0 bottom-0 bg-[#4D2D61] shadow-lg p-4 flex flex-col border-r border-gray-200 font-normal transition-all duration-300 
         ${isSidebarOpen ? "w-60" : "w-20"}
         ${
           isMobile
@@ -288,11 +288,11 @@ const Sidebar = () => {
               className="flex items-center justify-between cursor-pointer px-3 py-2.5 rounded-md hover:bg-[#6A3B82]"
               onClick={() => {}}
             >
-              <div className="w-6 h-6 flex items-center justify-center bg-white text-[#4D2D61] font-bold rounded-sm text-sm">
+              <div className="w-6 h-6 flex items-center justify-center bg-white text-[#4D2D61] font-normal rounded-sm text-sm">
                 {user.firstName.charAt(0).toUpperCase()}
               </div>
 
-              <span className="text-sm font-medium flex-1 px-2 truncate text-white">
+              <span className="text-sm font-normal flex-1 px-2 truncate text-white">
                 {user.firstName}&apos;s Workspaces
               </span>
 
@@ -301,7 +301,7 @@ const Sidebar = () => {
             </div>
           ) : (
             <div className="flex justify-center">
-              <div className="w-12 h-12 flex items-center justify-center bg-[#6A3B82] text-white font-bold rounded-xl text-sm">
+              <div className="w-12 h-12 flex items-center justify-center bg-[#6A3B82] text-white font-normal rounded-xl text-sm">
                 {user.firstName.charAt(0).toUpperCase()}
               </div>
             </div>
@@ -327,7 +327,7 @@ const Sidebar = () => {
                   className="h-5 w-5 filter brightness-0 invert"
                 />
                 {isSidebarOpen && (
-                  <span className="text-sm font-medium text-white">
+                  <span className="text-sm font-normal text-white">
                     Notifications
                   </span>
                 )}
@@ -352,7 +352,7 @@ const Sidebar = () => {
                   className="h-5 w-5 filter brightness-0 invert"
                 />
                 {isSidebarOpen && (
-                  <span className="text-sm font-medium text-white">Chat</span>
+                  <span className="text-sm font-normal text-white">Chat</span>
                 )}
               </div>
             </div>
@@ -386,7 +386,7 @@ const Sidebar = () => {
               className="h-5 w-5 filter brightness-0 invert"
             />
             {isSidebarOpen && (
-              <span className="text-sm font-medium text-white">Dashboard</span>
+              <span className="text-sm font-normal text-white">Dashboard</span>
             )}
           </div>
         </div>
@@ -409,7 +409,7 @@ const Sidebar = () => {
               className="h-5 w-5 filter brightness-0 invert"
             />
             {isSidebarOpen && (
-              <span className="text-sm font-medium text-white">Workspace</span>
+              <span className="text-sm font-normal text-white">Workspace</span>
             )}
           </div>
         </div>
@@ -432,7 +432,7 @@ const Sidebar = () => {
               className="h-5 w-5 filter brightness-0 invert"
             />
             {isSidebarOpen && (
-              <span className="text-sm font-medium text-white">
+              <span className="text-sm font-normal text-white">
                 Collaboration
               </span>
             )}
@@ -457,7 +457,7 @@ const Sidebar = () => {
               className="h-5 w-5 filter brightness-0 invert"
             />
             {isSidebarOpen && (
-              <span className="text-sm font-medium text-white">Private</span>
+              <span className="text-sm font-normal text-white">Private</span>
             )}
           </div>
         </div>
@@ -491,7 +491,7 @@ const Sidebar = () => {
 
             {isSidebarOpen && (
               <div className="ml-3 overflow-hidden">
-                <p className="text-xs sm:text-sm font-medium text-white truncate">
+                <p className="text-xs sm:text-sm font-normal text-white truncate">
                   {user.firstName} {user.lastName}
                 </p>
                 <p className="text-xs text-gray-300 truncate">{user.email}</p>
