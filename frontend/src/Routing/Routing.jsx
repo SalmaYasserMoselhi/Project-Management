@@ -24,7 +24,7 @@ function Routing() {
         <Route path="/forgetpassword" element={<ForgetPassword />} />
         <Route path="/verification" element={<Verification />} />
         <Route path="/resetpassword" element={<ResetPassword />} />
-        <Route path="/mainboard" element={<MainBoard />} />
+        {/* <Route path="/mainboard" element={<MainBoard />} /> */}
         <Route path="/chatlist" element={<ChatList />} />
 
         <Route path="/main/*" element={<Main />}>
@@ -32,6 +32,7 @@ function Routing() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="chat" element={<ChatLayout />} />
+          <Route path="mainboard" element={<MainBoard />} />
         </Route>
       </Routes>
     </div>
@@ -39,4 +40,3 @@ function Routing() {
 }
 
 export default Routing;
-
