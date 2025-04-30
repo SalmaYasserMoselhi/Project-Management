@@ -32,7 +32,7 @@ function App() {
   ];
 
   // Check if current page is auth
-  const isAuthPage = authPages.some((authPath) => location.pathname.startsWith(authPath));
+  const isAuthPage = authPages.includes(location.pathname);
 
   // Should we render the workspace popup?
   const shouldRenderWorkspacePopup =

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { MoreVertical, Pin, ChevronDown } from "lucide-react";
 import toast from "react-hot-toast";
-import api from "../api";
 import AddBoardPopup from "./AddBoardPopup";
 import {
   openWorkspaceComplete,
@@ -26,6 +25,7 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
   const [sortOption, setSortOption] = useState("-updatedAt");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [totalBoards, setTotalBoards] = useState(0);
+  const BASE_URL = "http://localhost:3000";
 
   const popupRef = useRef(null);
   const backdropRef = useRef(null);
@@ -33,9 +33,8 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
   const LIMIT = 10; // Number of boards to fetch per page
 
   // Get relevant state from Redux
-  const { isSidebarOpen, workspaceTransitionState } = useSelector(
-    (state) => state.sidebar
-  );
+  const { isSidebarOpen, workspaceTransitionState, activeWorkspaceType } =
+    useSelector((state) => state.sidebar);
 
   // Calculate popup position based on sidebar state
   const getPopupPosition = useCallback(() => {
@@ -131,59 +130,68 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
   }, [workspaceTransitionState, handleAnimationEnd]);
 
   // Main function to fetch ALL boards at once with sorting and search
-  const fetchBoards = useCallback(
-    async () => {
-      try {
-        if (!workspaceId) {
-          setError("Workspace not selected");
-          return;
-        }
-
-        setBoards([]);
-        setLoading(true);
-        setError("");
-
-        let endpoint;
-        let queryParams = [];
-
-        if (activeTab === "Archived") {
-          endpoint = "/api/v1/boards/user-boards/archived";
-          queryParams.push(
-            `sort=${sortOption}`,
-            `limit=1000` // Very high limit to get all boards
-          );
-        } else {
-          endpoint = `/api/v1/boards/workspace/${workspaceId}/boards`;
-          queryParams.push(
-            `sort=${sortOption}`,
-            `limit=1000` // Very high limit to get all boards
-          );
-
-          // Add search parameter if there's a search term
-          if (searchTerm) {
-            queryParams.push(`search=${encodeURIComponent(searchTerm)}`);
-          }
-        }
-
-        const fullUrl = `${endpoint}?${queryParams.join("&")}`;
-        const response = await api.get(fullUrl);
-
-        if (response.data?.status === "success") {
-          const allBoards = response.data.data?.boards || [];
-          setTotalBoards(response.data.data?.stats.total || 0);
-          setBoards(allBoards);
-        } else {
-          setBoards([]);
-        }
-      } catch (err) {
-        console.error("Error fetching boards:", err);
-        setError(err.response?.data?.message || "Failed to load boards");
-      } finally {
-        setLoading(false);
+  const fetchBoards = useCallback(async () => {
+    try {
+      if (!workspaceId) {
+        setError("Workspace not selected");
+        return;
       }
-    },
-    [workspaceId, activeTab, sortOption, searchTerm]
-  );
+
+      setBoards([]);
+      setLoading(true);
+      setError("");
+
+      let endpoint;
+      let queryParams = [];
+
+      if (activeTab === "Archived") {
+        endpoint = "/api/v1/boards/user-boards/archived";
+        queryParams.push(
+          `sort=${sortOption}`,
+          `limit=1000` // Very high limit to get all boards
+        );
+      } else {
+        endpoint = `/api/v1/boards/workspace/${workspaceId}/boards`;
+        queryParams.push(
+          `sort=${sortOption}`,
+          `limit=1000` // Very high limit to get all boards
+        );
+
+        // Add search parameter if there's a search term
+        if (searchTerm) {
+          queryParams.push(`search=${encodeURIComponent(searchTerm)}`);
+        }
+      }
+
+      const fullUrl = `${BASE_URL}${endpoint}?${queryParams.join("&")}`;
+      console.log("Fetching boards from:", fullUrl);
+
+      const response = await fetch(fullUrl, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      const data = await response.json();
+      console.log("Full API response:", data);
+
+      if (data?.status === "success") {
+        const allBoards = data.data?.boards || [];
+        console.log("Board data structure:", allBoards[0]); // Log first board's structure
+        setTotalBoards(data.data?.stats.total || 0);
+        setBoards(allBoards);
+      } else {
+        setBoards([]);
+      }
+    } catch (err) {
+      console.error("Error fetching boards:", err);
+      setError(err.message || "Failed to load boards");
+    } finally {
+      setLoading(false);
+    }
+  }, [workspaceId, activeTab, sortOption, searchTerm]);
 
   // Fetch boards when inputs change - with debouncing for search
   useEffect(() => {
@@ -199,17 +207,34 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
     }
   }, [workspaceId, activeTab, sortOption, searchTerm, fetchBoards]);
 
-
   // Handle pinning/unpinning a board
   const handlePinBoard = async (boardId, isStarred, e) => {
     e.stopPropagation();
     try {
-      const endpoint = `/api/v1/boards/user-boards/${boardId}/${
+      // Validate board ID
+      if (!boardId) {
+        console.error("Board ID is missing:", { boardId });
+        throw new Error("Board ID is required");
+      }
+
+      console.log("Pin/Unpin board:", { boardId, isStarred });
+      const endpoint = `${BASE_URL}/api/v1/boards/user-boards/${boardId}/${
         isStarred ? "unstar" : "star"
       }`;
-      const response = await api.patch(endpoint);
+      console.log("Using endpoint:", endpoint);
 
-      if (response.data?.status === "success") {
+      const response = await fetch(endpoint, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      const data = await response.json();
+      console.log("Pin/Unpin response:", data);
+
+      if (data?.status === "success") {
         // Update the local state to reflect the change
         setBoards(
           boards.map((board) => {
@@ -219,21 +244,20 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
             return board;
           })
         );
+      } else {
+        throw new Error(data?.message || "Failed to update board star status");
       }
     } catch (err) {
       console.error("Error toggling board star status:", err);
-      toast.error(
-        err.response?.data?.message || "Failed to update board star status",
-        {
-          duration: 4000,
-          position: "top-right",
-          style: {
-            background: "#F9E4E4",
-            color: "#DC2626",
-            border: "1px solid #DC2626",
-          },
-        }
-      );
+      toast.error(err.message || "Failed to update board star status", {
+        duration: 4000,
+        position: "top-right",
+        style: {
+          background: "#F9E4E4",
+          color: "#DC2626",
+          border: "1px solid #DC2626",
+        },
+      });
     }
   };
 
@@ -384,69 +408,81 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
           ) : (
             <>
               {/* Board Items */}
-              {sortedBoards.map((board) => (
-                <div
-                  key={board.id}
-                  className={`flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 group cursor-pointer ${
-                    board.starred ? "bg-purple-50" : ""
-                  }`}
-                  onClick={() => {
-                    // Navigate to board (implement your navigation logic here)
-                    console.log("Navigating to board:", board.id);
-                  }}
-                >
-                  <span className="text-sm font-medium text-[#4D2D61] truncate flex-1">
-                    {board.name}
-                  </span>
-                  <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) =>
-                        handlePinBoard(board.id, board.starred, e)
-                      }
-                      className={`hover:text-[#6A3B82] transition-colors ${
-                        board.starred
-                          ? "text-[#4D2D61] opacity-100"
-                          : "text-gray-400"
-                      }`}
-                    >
-                      <Pin
-                        className="w-[18px] h-[18px]"
-                        fill={board.starred ? "#4D2D61" : "none"}
-                      />
-                    </button>
-                    <MoreVertical className="w-[18px] h-[18px] text-[#4D2D61] cursor-pointer hover:text-[#6A3B82]" />
+              {sortedBoards.map((board) => {
+                console.log("Board in render:", board); // Log each board during render
+                return (
+                  <div
+                    key={board.id}
+                    className={`flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 group cursor-pointer ${
+                      board.starred ? "bg-purple-50" : ""
+                    }`}
+                    onClick={() => {
+                      console.log("Navigating to board:", board);
+                    }}
+                  >
+                    <span className="text-sm font-medium text-[#4D2D61] truncate flex-1">
+                      {board.name}
+                    </span>
+                    <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          console.log("Pin button clicked for board:", {
+                            id: board.id,
+                            board,
+                          });
+                          if (!board.id) {
+                            console.error("Board is missing _id:", board);
+                          }
+                          handlePinBoard(board.id, board.starred, e);
+                        }}
+                        className={`hover:text-[#6A3B82] transition-colors ${
+                          board.starred
+                            ? "text-[#4D2D61] opacity-100"
+                            : "text-gray-400"
+                        }`}
+                      >
+                        <Pin
+                          className="w-[18px] h-[18px]"
+                          fill={board.starred ? "#4D2D61" : "none"}
+                        />
+                      </button>
+                      <MoreVertical className="w-[18px] h-[18px] text-[#4D2D61] cursor-pointer hover:text-[#6A3B82]" />
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </>
           )}
         </div>
 
-        {/* Fixed Footer */}
-        <div className="p-4 mt-auto border-t border-gray-100">
-          <button
-            onClick={() => setIsAddBoardOpen(true)}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#4D2D61] hover:bg-[#6A3B82] transition-colors text-white text-sm font-semibold shadow-sm"
-          >
-            <div className="flex items-center justify-center bg-white rounded-full w-5 h-5">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-[#4D2D61]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 5v14M5 12h14"
-                />
-              </svg>
-            </div>
-            Add Board
-          </button>
-        </div>
+        {/* Fixed Footer - Only show Add Board button if not a collaboration workspace */}
+        {activeWorkspaceType !== "collaboration" && (
+          <div className="p-4 mt-auto border-t border-gray-100">
+            <button
+              onClick={() => setIsAddBoardOpen(true)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#4D2D61] hover:bg-[#6A3B82] transition-colors text-white text-sm font-semibold shadow-sm"
+            >
+              <div className="flex items-center justify-center bg-white rounded-full w-5 h-5">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-[#4D2D61]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 5v14M5 12h14"
+                  />
+                </svg>
+              </div>
+              Add Board
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Add Board Popup */}
@@ -458,7 +494,7 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
             setActiveTab("Active");
             setSearchTerm("");
             setPage(1);
-            // You would typically call fetchBoards() here
+            fetchBoards();
           }}
         />
       )}

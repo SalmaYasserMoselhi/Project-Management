@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import api from "../api";
 
 import {
   toggleSidebar,
@@ -30,6 +29,7 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const [isMobile, setIsMobile] = useState(false);
   const [isClosingWorkspace, setIsClosingWorkspace] = useState(false);
+  const BASE_URL = "http://localhost:3000";
 
   // Get state from Redux store
   const {
@@ -60,15 +60,17 @@ const Sidebar = () => {
           workspaceTransitionState === "opening") &&
         !isClosingWorkspace
       ) {
-        // Check if the click is outside of the sidebar and workspace popup
+        // Check if the click is outside of the sidebar, workspace popup, and add board popup
         const sidebarElement = document.getElementById("sidebar");
         const workspacePopupElement =
           document.querySelector(".workspace-popup");
+        const addBoardPopupElement = document.querySelector(".add-board-popup");
 
         if (sidebarElement && workspacePopupElement) {
           if (
             !sidebarElement.contains(event.target) &&
-            !workspacePopupElement.contains(event.target)
+            !workspacePopupElement.contains(event.target) &&
+            !addBoardPopupElement?.contains(event.target)
           ) {
             // Start closing animation for workspace popup
             handleCloseWorkspace();
@@ -105,8 +107,6 @@ const Sidebar = () => {
       return;
     }
 
-    console.log("Sidebar: Starting workspace popup closing");
-
     // Set local state flag to prevent multiple close attempts
     setIsClosingWorkspace(true);
 
@@ -128,18 +128,25 @@ const Sidebar = () => {
     try {
       // If clicking on the same workspace type that's already open, just close it
       if (isWorkspaceOpen && activeWorkspaceType === workspaceType) {
-        console.log("Closing workspace:", workspaceType);
         handleCloseWorkspace();
         return;
       }
 
-      // Get the workspace data from the API
-      const response = await api.get("/api/v1/workspaces/user-workspaces");
+      // Get the workspace data using fetch
+      const response = await fetch(
+        `${BASE_URL}/api/v1/workspaces/user-workspaces`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include", // This is important for cookies/session
+        }
+      );
 
-      if (
-        response.data?.status === "success" &&
-        response.data?.data?.ownedWorkspaces
-      ) {
+      const data = await response.json();
+
+      if (data?.status === "success" && data?.data?.ownedWorkspaces) {
         // Map the workspace types to match the API
         const typeMapping = {
           workspace: "public",
@@ -147,7 +154,7 @@ const Sidebar = () => {
           private: "private",
         };
 
-        const workspace = response.data.data.ownedWorkspaces.find(
+        const workspace = data.data.ownedWorkspaces.find(
           (w) => w.type === typeMapping[workspaceType]
         );
 
@@ -174,11 +181,6 @@ const Sidebar = () => {
             dispatch(selectWorkspace(workspaceData));
             dispatch(openWorkspaceStart());
           }
-        } else {
-          console.error(
-            "No workspace found for type:",
-            typeMapping[workspaceType]
-          );
         }
       }
     } catch (error) {
