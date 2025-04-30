@@ -73,12 +73,10 @@ function Routing() {
         <Route path="/forgetpassword" element={<ForgetPassword />} />
         <Route path="/verification" element={<Verification />} />
         <Route path="/resetpassword" element={<ResetPassword />} />
-<<<<<<< HEAD
         <Route path="/chatlist" element={<ChatList />} />
 
         {/* All Main layout routes go here */}
-        <Route path="/main/*" element={<Main />}>
-=======
+        {/* <Route path="/main/*" element={<Main />}> */}
 
         {/* Protected Routes */}
         <Route
@@ -90,7 +88,6 @@ function Routing() {
           path="/main/*"
           element={isAuthenticated ? <Main /> : <Navigate to="/login" />}
         >
->>>>>>> 8634ec6e9faba5b4c2c4cd5fe2350247f6e0bcea
           <Route index element={<Navigate to="dashboard" />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="notifications" element={<Notifications />} />
@@ -106,8 +103,5 @@ function Routing() {
 }
 
 export default Routing;
-<<<<<<< HEAD
 
 
-=======
->>>>>>> 8634ec6e9faba5b4c2c4cd5fe2350247f6e0bcea
