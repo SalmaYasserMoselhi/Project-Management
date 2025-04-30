@@ -1,4 +1,10 @@
-
+import drag from "../assets/drag-icon.png"
+import vector from "../assets/Vector.png"
+import avatar3 from "../assets/Avatar3.png"
+import addButton from "../assets/Add Button.png"
+import List from "../assets/prime_list.png"
+import File from "../assets/file_present.png" 
+import third from "../assets/third.png" 
 const TaskCard = ({ priority, fileCount = 3, commentCount = 5 }) => {
   const priorityStyles = {
     Low: "bg-[#FEE2E2] text-[#DC2626]",
@@ -13,7 +19,7 @@ const TaskCard = ({ priority, fileCount = 3, commentCount = 5 }) => {
         style={{ minHeight: '100px' }}
       >
         <img 
-          src="src/assets/drag-icon.png" 
+          src={drag} 
           className="w-5 h-8 text-white" 
           alt="Icon"
         />
@@ -23,7 +29,7 @@ const TaskCard = ({ priority, fileCount = 3, commentCount = 5 }) => {
         <div className="flex justify-between items-center">
           <h4 className="font-semibold mt-1 mb-3">Model Answer</h4>
           <img 
-            src="src/assets/Vector.png" 
+            src={vector}
             className="w-[18px] h-[4px] cursor-pointer hover:opacity-70" 
             alt="Right Icon"
           />
@@ -40,12 +46,12 @@ const TaskCard = ({ priority, fileCount = 3, commentCount = 5 }) => {
 
         <div className="flex justify-between items-center mt-4">
           <div className="flex -space-x-2">
-            <img src="src/assets/Avatar3.png" className="w-8 h-8 rounded-full border-2 border-white" alt="avatar"/>
+            <img src={avatar3} className="w-8 h-8 rounded-full border-2 border-white" alt="avatar"/>
             <span className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-full border-2 border-white text-sm font-bold text-[#606C80]">
               +5
             </span>
             <img
-              src="src/assets/Add Button.png"
+              src={addButton}
               alt="Add"
               className="w-8 h-8 ms-4 rounded-full border-2 border-white bg-gray-300 cursor-pointer"
             />
@@ -53,13 +59,13 @@ const TaskCard = ({ priority, fileCount = 3, commentCount = 5 }) => {
           
           <div className="flex gap-2 ml-4 items-center">
             <img 
-              src="src/assets/prime_list.png" 
+              src={List} 
               className="w-6 h-6 cursor-pointer hover:opacity-70"
               alt="Checklist"
             />
             <div className="flex items-center gap-0">
               <img 
-                src="src/assets/file_present.png" 
+                src={File}
                 className="w-5 h-5 cursor-pointer hover:opacity-70"
                 alt="Files"
               />
@@ -67,7 +73,7 @@ const TaskCard = ({ priority, fileCount = 3, commentCount = 5 }) => {
             </div>
             <div className="flex items-center gap-1">
               <img 
-                src="src/assets/third.png" 
+                src={third}
                 className="w-5 h-5 cursor-pointer hover:opacity-70 mt-1"
                 alt="Comments"
               />

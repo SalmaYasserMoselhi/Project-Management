@@ -1,53 +1,6 @@
-// "use client";
-
-// import { useEffect } from "react";
-// import { useSelector, useDispatch } from "react-redux";
-// import ChatHeader from "./ChatHeader";
-// import ChatMessages from "./ChatMessages";
-// import ChatInput from "./ChatInput";
-// import { setMessages, addMessage, setIsTyping } from "../features/chatSlice";
-// import { onMessage, onTyping, onStopTyping } from "../utils/socket";
-
-// function ChatContainer() {
-//   const { activeChat } = useContext(ChatContext);
-
-//   const messages = [
-//     {
-//       id: 1,
-//       text: "OMG 😂 do you remember what you did last night at the work night out?",
-//       time: "18:12",
-//       isSender: false,
-//       reactions: ["❤️"],
-//     },
-//     {
-//       id: 2,
-//       text: "no haha",
-//       time: "18:16",
-//       isSender: true,
-//       status: "read",
-//     },
-//     {
-//       id: 3,
-//       text: "I don't remember anything 😂",
-//       time: "18:16",
-//       isSender: true,
-//       status: "read",
-//     },
-//   ];
-
-//   return (
-//     <div className="flex flex-col flex-1 h-screen bg-white">
-//       <ChatHeader user={activeChat} />
-//       <ChatMessages messages={messages} />
-//       <ChatInput />
-//     </div>
-//   );
-// }
-
-// export default ChatContainer;
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import ChatHeader from "./ChatHeader";
 import ChatMessages from "./ChatMessages";
@@ -63,62 +16,78 @@ import { useChat } from "../context/chat-context";
 
 function ChatContainer() {
   const dispatch = useDispatch();
-  const { activeChat, messages, isTyping } = useSelector((state) => state.chat);
-  const { currentUser } = useChat();
+  const { isTyping } = useSelector((state) => state.chat);
+  const { currentUser, activeChat } = useChat();
+  const prevChatIdRef = useRef(null);
 
   useEffect(() => {
-    if (activeChat) {
-      // Load previous messages when active chat changes
+    const currentChatId = activeChat?.id;
+    if (prevChatIdRef.current !== currentChatId) {
+      dispatch(clearMessages());
+    }
+    prevChatIdRef.current = currentChatId;
+  }, [activeChat?.id, dispatch]);
+
+  useEffect(() => {
+    if (activeChat?.id) {
       dispatch(fetchMessages({ conversationId: activeChat.id }));
 
-      // Setup Socket.IO listeners with cleanup
-      const messageCleanup = onMessage((message) => {
-        if (message.conversationId === activeChat.id) {
-          dispatch(addMessage(message));
-        }
-      });
+      let messageCleanup = () => {};
+      let typingCleanup = () => {};
+      let stopTypingCleanup = () => {};
 
-      const typingCleanup = onTyping(({ chatId, userId }) => {
-        if (chatId === activeChat.id && userId !== currentUser?.id) {
-          dispatch(setIsTyping(true));
-        }
-      });
+      const setupListeners = () => {
+        messageCleanup = onMessage((message) => {
+          if (message?.conversation?._id === activeChat.id) {
+            dispatch(addMessage(message));
+          }
+        });
 
-      const stopTypingCleanup = onStopTyping(({ chatId, userId }) => {
-        if (chatId === activeChat.id && userId !== currentUser?.id) {
+        typingCleanup = onTyping(({ conversationId, userId }) => {
+          if (conversationId === activeChat.id && userId !== currentUser?._id) {
+            dispatch(setIsTyping(true));
+          }
+        });
+
+        stopTypingCleanup = onStopTyping(() => {
           dispatch(setIsTyping(false));
-        }
-      });
+        });
+      };
 
-      // Cleanup function
+      setupListeners();
+
       return () => {
         messageCleanup();
         typingCleanup();
         stopTypingCleanup();
-        dispatch(clearMessages());
         dispatch(setIsTyping(false));
       };
     }
-  }, [activeChat, currentUser?.id, dispatch]);
+  }, [activeChat?.id, currentUser?._id, dispatch]);
 
-  if (!activeChat || !currentUser) {
+  if (!activeChat?.id) {
     return (
-      <div className="flex flex-col flex-1 h-screen bg-white items-center justify-center text-[#4D2D61]">
-        Select a conversation to start
+      <div className="flex h-full items-center justify-center">
+        <p className="text-lg font-medium text-[#57356A]">
+          Select a conversation to start messaging
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col flex-1 h-screen bg-white">
+    <div className="flex flex-col h-full">
       <ChatHeader user={activeChat} />
-      <ChatMessages />
-      {isTyping && (
-        <div className="px-4 py-2 text-sm text-[#4D2D61]">
-          {activeChat.name} is typing...
-        </div>
-      )}
-      <ChatInput chatId={activeChat.id} />
+      <div className="flex-1 min-h-0 flex flex-col">
+        <ChatMessages />
+        {isTyping && (
+          <div className="px-4 py-1 text-sm text-[#4D2D61]">
+            {activeChat?.otherUser?.name || activeChat?.name || "User"} is
+            typing...
+          </div>
+        )}
+        <ChatInput chatId={activeChat.id} />
+      </div>
     </div>
   );
 }

@@ -62,122 +62,52 @@ const initialState = {
   userCache: {},
   loading: false,
   groupCreationLoading: false,
+  showEmojiPicker: false, // Add new state for emoji picker visibility
 };
 
 // Async Thunks
 export const fetchConversations = createAsyncThunk(
   "chat/fetchConversations",
-  async (_, { rejectWithValue, getState, dispatch }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
       console.log("Starting fetchConversations");
       const response = await api.get("/conversations");
       console.log("FULL API RESPONSE:", response);
-      console.log("RESPONSE DATA:", response.data);
 
-      // Get current user data
-      const { login } = getState();
-      const currentUser = login?.user;
-
-      // Extract conversation data from different potential response formats
       let conversationsData = [];
 
       if (response.data) {
-        if (
-          response.data.status === "success" &&
-          response.data.data &&
-          response.data.data.conversations
-        ) {
-          // Backend format: { status: 'success', data: { conversations: [...] } }
-          conversationsData = response.data.data.conversations;
-          console.log(
-            "FOUND CONVERSATIONS FORMAT 1:",
-            conversationsData.length
-          );
-        } else if (
-          response.data.data &&
-          Array.isArray(response.data.data.conversations)
-        ) {
-          // Format: { data: { conversations: [...] } }
-          conversationsData = response.data.data.conversations;
-          console.log(
-            "FOUND CONVERSATIONS FORMAT 2:",
-            conversationsData.length
-          );
-        } else if (Array.isArray(response.data.conversations)) {
-          // Format: { conversations: [...] }
-          conversationsData = response.data.conversations;
-          console.log(
-            "FOUND CONVERSATIONS FORMAT 3:",
-            conversationsData.length
-          );
+        if (response.data.status === "success" && response.data.data) {
+          conversationsData = response.data.data.conversations || [];
+        } else if (response.data.data) {
+          conversationsData = response.data.data;
         } else if (Array.isArray(response.data)) {
-          // Format: Direct array
           conversationsData = response.data;
-          console.log(
-            "FOUND CONVERSATIONS FORMAT 4:",
-            conversationsData.length
-          );
-        } else {
-          // Unknown format - log the complete response for debugging
-          console.error("Unknown response format:", response.data);
-          return rejectWithValue("Invalid response format from server");
         }
       }
 
-      // Log all raw conversations for debugging
-      conversationsData.forEach((conv, index) => {
-        console.log(`Raw conversation ${index}:`, {
-          id: conv._id,
-          name: conv.name,
-          isGroup: conv.isGroup,
-        });
-      });
+      // التأكد من أن البيانات صحيحة
+      if (!Array.isArray(conversationsData)) {
+        console.error("Invalid conversations data format:", conversationsData);
+        return rejectWithValue("Invalid response format from server");
+      }
 
-      // Process conversations and standardize properties
+      // معالجة المحادثات وتوحيد الخصائص
       const processedConversations = conversationsData
-        .map((conversation) => {
-          if (!conversation) return null;
+        .filter((conversation) => conversation && conversation._id)
+        .map((conversation) => ({
+          ...conversation,
+          isGroup: conversation.isGroup === true,
+          name:
+            conversation.name || (conversation.isGroup ? "Group Chat" : "Chat"),
+          picture:
+            conversation.picture ||
+            (conversation.isGroup
+              ? "https://image.pngaaa.com/78/6179078-middle.png"
+              : conversation.users?.[0]?.avatar || "default.jpg"),
+        }));
 
-          // Ensure conversation has an _id field
-          if (!conversation._id && conversation.id) {
-            conversation._id = conversation.id;
-          }
-
-          // For group conversations
-          if (conversation.isGroup === true) {
-            console.log("FOUND GROUP:", conversation._id, conversation.name);
-            return {
-              ...conversation,
-              _id: conversation._id,
-              name: conversation.name || "Group Chat",
-              picture:
-                conversation.picture ||
-                "https://image.pngaaa.com/78/6179078-middle.png",
-              isGroup: true,
-              isGroupChat: true,
-            };
-          }
-
-          // For individual conversations
-          return {
-            ...conversation,
-            _id: conversation._id,
-            isGroup: false,
-            isGroupChat: false,
-          };
-        })
-        .filter(Boolean);
-
-      // Log final processed conversations
-      console.log(
-        "FINAL PROCESSED CONVERSATIONS:",
-        processedConversations.length
-      );
-      console.log(
-        "FINAL GROUPS:",
-        processedConversations.filter((c) => c.isGroup === true).length
-      );
-
+      console.log("Processed conversations:", processedConversations);
       return processedConversations;
     } catch (error) {
       console.error("ERROR fetching conversations:", error);
@@ -190,10 +120,9 @@ export const fetchMessages = createAsyncThunk(
   "chat/fetchMessages",
   async ({ conversationId }, { rejectWithValue }) => {
     try {
-      const response = await api.get(
-        `/conversations/${conversationId}/messages`
-      );
-      return response.data.messages;
+      const response = await api.get(`/message/${conversationId}`);
+      console.log("Fetched messages:", response);
+      return response.data.data.messages;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch messages"
@@ -204,16 +133,16 @@ export const fetchMessages = createAsyncThunk(
 
 export const sendMessage = createAsyncThunk(
   "chat/sendMessage",
-  async ({ conversationId, content }, { rejectWithValue }) => {
+  async ({ conversationId, content, isEmoji }, { rejectWithValue }) => {
     try {
-      const response = await api.post(
-        `/conversations/${conversationId}/messages`,
-        {
-          content,
-          type: "text",
-        }
-      );
-      return response.data.message;
+      const response = await api.post(`/message`, {
+        message: content,
+        convoId: conversationId,
+        files: [],
+        isEmoji: isEmoji || false, // Add isEmoji flag to indicate if this is an emoji message
+      });
+      console.log("Message sent:", response);
+      return response.data.data.populatedMessage;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to send message"
@@ -763,8 +692,16 @@ const chatSlice = createSlice({
       state.currentCall = action.payload;
     },
     addMessage: (state, action) => {
-      if (action.payload.conversationId === state.activeConversation?._id) {
-        state.messages = [...state.messages, action.payload];
+      const newMessage = action.payload;
+      const isSameConversation =
+        newMessage.conversationId === state.activeConversation?._id;
+
+      const alreadyExists = state.messages.some(
+        (msg) => msg._id === newMessage._id
+      );
+
+      if (isSameConversation && !alreadyExists) {
+        state.messages.push(newMessage);
       }
     },
     setOnlineUsers: (state, action) => {
@@ -786,21 +723,72 @@ const chatSlice = createSlice({
     setConversations: (state, action) => {
       state.conversations = action.payload;
     },
-    // Add a new reducer to handle the test group
-    addTestGroup: (state, action) => {
-      console.log("Adding test group to state:", action.payload);
-      // Check if the test group already exists
-      const exists = state.conversations.some(
-        (conv) => conv._id === action.payload._id || conv._id === "test_group"
+    updateConversationLastMessage: (state, action) => {
+      const { conversationId, message } = action.payload;
+      const convoIndex = state.conversations.findIndex(
+        (c) => c._id === conversationId
       );
-
-      if (!exists) {
-        state.conversations = [action.payload, ...state.conversations];
-        console.log(
-          "Test group added, new conversation count:",
-          state.conversations.length
-        );
+      if (convoIndex !== -1) {
+        state.conversations[convoIndex].lastMessage = message;
       }
+    },
+    updateConversationInList: (state, action) => {
+      const updated = action.payload;
+
+      // تأكد إن البيانات كافية، مش بس _id
+      if (!updated || !updated._id || !updated.name) {
+        console.warn(
+          "Skipped updateConversationInList: Incomplete data",
+          updated
+        );
+        return;
+      }
+
+      const index = state.conversations.findIndex((c) => c._id === updated._id);
+
+      if (index !== -1) {
+        // تحديث داخلي للمرجع الحالي
+        Object.assign(state.conversations[index], updated);
+      } else {
+        // إدخال بدون تكرار
+        state.conversations = [
+          updated,
+          ...state.conversations.filter((c) => c._id !== updated._id),
+        ];
+      }
+    },
+
+    updateTypingStatus: (state, action) => {
+      const { conversationId, user, isTyping } = action.payload;
+
+      if (!state.typingUsers) {
+        state.typingUsers = {};
+      }
+
+      if (!state.typingUsers[conversationId]) {
+        state.typingUsers[conversationId] = [];
+      }
+
+      if (isTyping) {
+        // إضافة المستخدم إلى قائمة الكتابة إذا لم يكن موجودًا بالفعل
+        const userExists = state.typingUsers[conversationId].some(
+          (u) => u._id === user._id
+        );
+        if (!userExists) {
+          state.typingUsers[conversationId].push(user);
+        }
+      } else {
+        // إزالة المستخدم من قائمة الكتابة
+        state.typingUsers[conversationId] = state.typingUsers[
+          conversationId
+        ].filter((u) => u._id !== user._id);
+      }
+    },
+    toggleEmojiPicker: (state) => {
+      state.showEmojiPicker = !state.showEmojiPicker;
+    },
+    closeEmojiPicker: (state) => {
+      state.showEmojiPicker = false;
     },
   },
   extraReducers: (builder) => {
@@ -1101,6 +1089,10 @@ export const {
   cacheUserData,
   setConversations,
   addTestGroup,
+  updateConversationLastMessage,
+  updateConversationInList,
+  toggleEmojiPicker,
+  closeEmojiPicker,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

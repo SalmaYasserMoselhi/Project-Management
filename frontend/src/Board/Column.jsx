@@ -1,10 +1,11 @@
 
-
+import vector from "../assets/Vector.png"
 import TaskCard from "./TaskCard";
+import icon from "../assets/icon.png" 
 
 const Column = ({ title, count, className }) => {
   return (
-    <div className={`p-2 rounded-lg mb-4 md:mb-0 md:mr-4 ${className} min-w-[300px]`}> 
+    <div className={`p-2 rounded-lg mb-4 md:mb-0 md:mr-4 ${className} min-w-[300px] `}> 
       <div className="flex justify-between items-center mb-4 bg-white p-3 rounded-lg shadow-sm">
         <div className="flex items-center">
           <h3 className="text-black font-semibold me-2">
@@ -16,7 +17,7 @@ const Column = ({ title, count, className }) => {
         </div>
         <div className="flex items-center">
           <img
-            src="src/assets/Vector.png"
+            src={vector}
             alt="Photo 1"
             className="w-[18px] h-[4px]"
           />
@@ -34,7 +35,7 @@ const Column = ({ title, count, className }) => {
 
       <button className="bg-white mt-3 py-3 w-full rounded-md border border-[#F2F4F7] shadow-sm transition-all hover:shadow-md">
         <img 
-          src="src/assets/icon.png" 
+          src={icon}
           className="w-5 h-5 block mx-auto hover:brightness-80" 
           alt="Add task"
         />
