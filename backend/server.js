@@ -41,8 +41,10 @@ const server = app.listen(port, () => {
 const io = new Server(server, {
   pingTimeout: 60000,
   cors: {
-    origin: process.env.BASE_URL.split('/api/v1')[0],
-  },
+    origin: true,
+    credentials: true,
+    methods: ["GET", "POST"]
+  }
 });
 
 // Make io instance available globally
