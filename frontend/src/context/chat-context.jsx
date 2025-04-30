@@ -6,9 +6,9 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useState,
 } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { createSelector } from "@reduxjs/toolkit";
 import {
   connectSocket,
   disconnectSocket,
@@ -16,6 +16,7 @@ import {
   emitTyping,
   onMessage,
   onTyping,
+  onStopTyping,
   onOnlineUsers,
 } from "../utils/socket";
 import {
@@ -29,192 +30,181 @@ import { fetchUserData } from "../features/Slice/userSlice/userSlice";
 
 const ChatContext = createContext(null);
 
-// Memoized selectors
-const selectUser = (state) => state.login?.user ?? null;
-const selectIsAuthenticated = (state) => state.login?.isAuthenticated ?? false;
-const selectActiveConversation = (state) =>
-  state.chat?.activeConversation ?? null;
-
 export const ChatProvider = ({ children }) => {
   const dispatch = useDispatch();
-  const user = useSelector(selectUser);
-  const isAuthenticated = useSelector(selectIsAuthenticated);
-  const activeConversation = useSelector(selectActiveConversation);
+  const [socketInitialized, setSocketInitialized] = useState(false);
+  const user = useSelector((state) => state.login?.user);
+  const isAuthenticated = useSelector((state) => state.login?.isAuthenticated);
+  const activeConversation = useSelector(
+    (state) => state.chat?.activeConversation
+  );
 
-  // Authentication and user data initialization
+  // Socket initialization
   useEffect(() => {
     let mounted = true;
-
-    const initializeAuthAndUser = async () => {
-      try {
-        console.log("Starting auth initialization...");
-        const authResult = await dispatch(checkAuthStatus()).unwrap();
-        console.log("Auth check result:", authResult);
-
-        if (!mounted) return;
-
-        if (authResult.isAuthenticated) {
-          console.log("Authentication successful, fetching user data...");
-          const userData = await dispatch(fetchUserData()).unwrap();
-
-          if (!mounted) return;
-
-          if (userData) {
-            console.log("User data loaded successfully:", { id: userData._id });
-
-            // Force a delay before trying to connect socket
-            // This helps ensure cookies and state are fully processed
-            setTimeout(async () => {
-              if (!mounted) return;
-              try {
-                await connectSocket();
-                console.log("Socket connected after authentication");
-              } catch (err) {
-                console.error(
-                  "Failed to connect socket after successful auth:",
-                  err
-                );
-              }
-            }, 1000);
-          } else {
-            console.error("User data is null after successful fetch");
-            disconnectSocket();
-          }
-        } else {
-          console.log("Not authenticated, cleaning up...");
-          disconnectSocket();
-        }
-      } catch (error) {
-        if (mounted) {
-          console.error("Auth initialization failed:", error);
-          disconnectSocket();
-        }
-      }
-    };
-
-    initializeAuthAndUser();
-    return () => {
-      mounted = false;
-    };
-  }, [dispatch]);
-
-  // Socket connection management
-  useEffect(() => {
-    let mounted = true;
-    let socketCleanup = null;
+    let socketInitAttempt = null;
+    let retryCount = 0;
+    const maxRetries = 3;
 
     const initializeSocket = async () => {
-      // Ensure we have both authentication and user data
-      if (!isAuthenticated) {
-        console.log("Skipping socket - not authenticated");
-        return;
-      }
-
-      if (!user?._id) {
-        console.log("Skipping socket - no user data");
+      if (!isAuthenticated || !user?._id || socketInitialized) {
         return;
       }
 
       try {
-        console.log("Initializing socket for user:", { id: user._id });
-        await connectSocket();
+        console.log("Attempting to initialize socket...");
+        const socket = await connectSocket();
 
-        if (!mounted) return;
-
-        const cleanupFunctions = [];
-
-        // Message handler
-        cleanupFunctions.push(
-          onMessage((message) => {
-            if (mounted) {
-              console.log("Message received:", message);
-              dispatch(addMessage(message));
-            }
-          })
-        );
-
-        // Typing handler
-        cleanupFunctions.push(
-          onTyping(({ conversationId, userId }) => {
-            if (
-              mounted &&
-              activeConversation?._id === conversationId &&
-              userId !== user._id
-            ) {
-              dispatch(setIsTyping(true));
-              setTimeout(() => dispatch(setIsTyping(false)), 3000);
-            }
-          })
-        );
-
-        // Online users handler
-        cleanupFunctions.push(
-          onOnlineUsers((users) => {
-            if (mounted) {
-              console.log("Online users updated:", users);
-              dispatch(setOnlineUsers(users));
-            }
-          })
-        );
-
-        socketCleanup = () => {
-          console.log("Cleaning up socket connection for user:", user._id);
-          cleanupFunctions.forEach((cleanup) => cleanup?.());
+        if (!mounted) {
           disconnectSocket();
-        };
+          return;
+        }
+
+        if (socket) {
+          console.log("Socket initialized successfully");
+          setSocketInitialized(true);
+          retryCount = 0; // Reset retry count on successful connection
+        }
       } catch (error) {
-        if (mounted) {
-          console.error("Socket initialization failed:", error);
-          disconnectSocket();
+        console.error("Socket initialization failed:", error);
+        if (mounted && retryCount < maxRetries) {
+          retryCount++;
+          console.log(
+            `Retrying socket connection (${retryCount}/${maxRetries})...`
+          );
+          socketInitAttempt = setTimeout(initializeSocket, 5000);
+        } else if (retryCount >= maxRetries) {
+          console.error("Max retry attempts reached for socket connection");
         }
       }
     };
 
-    // Initialize socket connection
     initializeSocket();
 
-    // Cleanup function
     return () => {
       mounted = false;
-      if (socketCleanup) {
-        socketCleanup();
+      if (socketInitAttempt) {
+        clearTimeout(socketInitAttempt);
+      }
+      disconnectSocket();
+      setSocketInitialized(false);
+    };
+  }, [isAuthenticated, user?._id]);
+
+  // Socket event listeners
+  useEffect(() => {
+    if (!socketInitialized) return;
+
+    console.log("Setting up socket event listeners...");
+    const cleanupFunctions = [];
+
+    try {
+      // Message handler
+      cleanupFunctions.push(
+        onMessage((message) => {
+          console.log("Message received:", message);
+          dispatch(addMessage(message));
+        })
+      );
+
+      // Typing handlers
+      cleanupFunctions.push(
+        onTyping(({ conversationId, userId }) => {
+          if (
+            activeConversation?.id === conversationId &&
+            userId !== user?._id
+          ) {
+            dispatch(setIsTyping(true));
+          }
+        })
+      );
+
+      cleanupFunctions.push(
+        onStopTyping(({ conversationId, userId }) => {
+          if (
+            activeConversation?.id === conversationId &&
+            userId !== user?._id
+          ) {
+            dispatch(setIsTyping(false));
+          }
+        })
+      );
+
+      // Online users handler
+      cleanupFunctions.push(
+        onOnlineUsers((users) => {
+          console.log("Online users updated:", users);
+          dispatch(setOnlineUsers(users));
+        })
+      );
+    } catch (error) {
+      console.error("Failed to setup socket listeners:", error);
+    }
+
+    return () => {
+      console.log("Cleaning up socket listeners...");
+      cleanupFunctions.forEach((cleanup) => cleanup?.());
+    };
+  }, [socketInitialized, dispatch, user?._id, activeConversation?.id]);
+
+  // Authentication check
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const authResult = await dispatch(checkAuthStatus()).unwrap();
+        if (authResult.isAuthenticated) {
+          await dispatch(fetchUserData()).unwrap();
+        }
+      } catch (error) {
+        console.error("Auth check failed:", error);
       }
     };
-  }, [dispatch, isAuthenticated, user?._id, activeConversation]);
+
+    checkAuth();
+  }, [dispatch]);
 
   const sendMessage = useCallback(
     (message) => {
-      if (!message || !isAuthenticated) return;
+      if (!socketInitialized || !message) return;
       try {
         emitMessage(message);
       } catch (error) {
         console.error("Send message failed:", error);
       }
     },
-    [isAuthenticated]
+    [socketInitialized]
   );
 
   const notifyTyping = useCallback(
     (conversationId) => {
-      if (!conversationId || !isAuthenticated) return;
+      if (!socketInitialized || !conversationId) return;
       try {
         emitTyping(conversationId);
       } catch (error) {
         console.error("Typing notification failed:", error);
       }
     },
-    [isAuthenticated]
+    [socketInitialized]
   );
 
   const value = useMemo(
     () => ({
+      currentUser: user,
+      activeChat: activeConversation,
+      sendMessage,
+      notifyTyping,
+      setActiveConversation: (conversation) =>
+        dispatch(setActiveConversation(conversation)),
+      socketInitialized,
+    }),
+    [
+      user,
       sendMessage,
       notifyTyping,
       activeConversation,
-      setActiveConversation: (conversation) =>
-        dispatch(setActiveConversation(conversation)),
-    }),
-    [sendMessage, notifyTyping, activeConversation, dispatch]
+      dispatch,
+      socketInitialized,
+    ]
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

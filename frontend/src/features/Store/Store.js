@@ -16,6 +16,10 @@ export const store = configureStore({
     sidebar: sidebarReducer,
     chat: chatReducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: false,
+    }),
   devTools: true,
 });
 

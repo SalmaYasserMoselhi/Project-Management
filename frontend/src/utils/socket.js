@@ -1,100 +1,86 @@
-import io from "socket.io-client";
+import { io } from "socket.io-client";
 import { store } from "../features/Store/Store";
 
 let socket = null;
-let onlineUsers = [];
+const SOCKET_URL = "http://localhost:3000"; // التأكد من استخدام البورت الصحيح
 
-// Get authentication data from Redux store
-const getAuthFromStore = () => {
+// Helper function to get user data from store
+const getUserDataFromStore = () => {
   try {
     const state = store.getState();
-    const authUser = state.login?.user;
-    const isAuthenticated = state.login?.isAuthenticated;
-
-    if (isAuthenticated && authUser?._id) {
-      return { userId: authUser._id };
-    }
-
-    return null;
+    return state.login?.user?._id;
   } catch (error) {
-    console.error("Error accessing store auth data:", error);
+    console.error("Error getting user data from store:", error);
     return null;
-  }
-};
-
-// Get JWT token from cookies
-const getJwtToken = () => {
-  try {
-    return (
-      document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("jwt="))
-        ?.split("=")[1] || ""
-    );
-  } catch (error) {
-    console.error("Error getting JWT token:", error);
-    return "";
   }
 };
 
 export const connectSocket = async () => {
-  try {
-    // First, disconnect any existing socket
-    if (socket) {
-      disconnectSocket();
-    }
+  return new Promise((resolve, reject) => {
+    try {
+      // التحقق من وجود اتصال نشط
+      if (socket?.connected) {
+        console.log("Socket already connected");
+        resolve(socket);
+        return;
+      }
 
-    // Get auth data from Redux
-    const authData = getAuthFromStore();
+      const userId = getUserDataFromStore();
+      if (!userId) {
+        reject(new Error("No user ID found"));
+        return;
+      }
 
-    if (!authData) {
-      console.error("User not authenticated in Redux store");
-      return null;
-    }
+      console.log("Initializing socket connection for user:", userId);
 
-    // Use relative path to leverage Vite's proxy configuration
-    socket = io("/", {
-      transports: ["polling"], // Start with polling only
-      forceNew: true,
-      reconnection: true,
-      reconnectionAttempts: 3,
-      reconnectionDelay: 1000,
-      timeout: 10000,
-    });
-
-    // Enable debug mode for troubleshooting
-    localStorage.setItem("debug", "socket.io-client:*");
-
-    socket.on("connect_error", (error) => {
-      console.error("Socket connection error details:", {
-        message: error.message,
-        description: error.description,
-        type: error.type,
+      socket = io(SOCKET_URL, {
+        withCredentials: true,
+        transports: ["polling", "websocket"],
+        auth: {
+          userId: userId,
+        },
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        autoConnect: false,
+        forceNew: true,
       });
-    });
 
-    socket.on("connect", () => {
-      socket.emit("join", authData.userId);
-    });
+      socket.on("connect", () => {
+        console.log("Socket connected successfully");
+        socket.emit("join", userId);
+        resolve(socket);
+      });
 
-    socket.on("error", (error) => {
-      console.error("Socket error:", error);
-    });
+      socket.on("connect_error", (error) => {
+        console.error("Socket connection error:", error);
+        reject(error);
+      });
 
-    socket.on("get-online-users", (users) => {
-      onlineUsers = users;
-    });
+      socket.on("disconnect", (reason) => {
+        console.log("Socket disconnected:", reason);
+      });
 
-    // Return the socket
-    return socket;
-  } catch (error) {
-    console.error("Socket connection failed:", error);
-    return null;
-  }
+      socket.on("reconnect", (attemptNumber) => {
+        console.log("Socket reconnected after", attemptNumber, "attempts");
+      });
+
+      socket.on("error", (error) => {
+        console.error("Socket error:", error);
+        reject(error);
+      });
+
+      socket.connect();
+    } catch (error) {
+      console.error("Socket connection failed:", error);
+      reject(error);
+    }
+  });
 };
 
 export const disconnectSocket = () => {
   if (socket) {
+    console.log("Disconnecting socket...");
     socket.disconnect();
     socket.removeAllListeners();
     socket = null;
@@ -107,71 +93,78 @@ export const isSocketConnected = () => socket?.connected || false;
 
 export const emitMessage = (message) => {
   if (!socket?.connected) {
-    console.error("Cannot emit message: socket not connected");
-    return;
+    console.warn("Socket not connected, attempting to reconnect...");
+    return connectSocket().then(() => {
+      socket.emit("send message", message);
+    });
   }
   socket.emit("send message", message);
 };
 
 export const emitTyping = (conversationId) => {
   if (!socket?.connected) {
-    console.error("Cannot emit typing: socket not connected");
-    return;
+    console.warn("Socket not connected when trying to emit typing");
+    return connectSocket().then(() => {
+      socket.emit("typing", conversationId);
+    });
   }
   socket.emit("typing", conversationId);
 };
 
 export const emitStopTyping = (conversationId) => {
   if (!socket?.connected) {
-    console.error("Cannot emit stop typing: socket not connected");
-    return;
+    console.warn("Socket not connected when trying to emit stop typing");
+    return connectSocket().then(() => {
+      socket.emit("stop typing", conversationId);
+    });
   }
   socket.emit("stop typing", conversationId);
 };
 
 export const joinConversation = (conversationId) => {
   if (!socket?.connected) {
-    console.error("Cannot join conversation: socket not connected");
-    return;
+    console.warn("Socket not connected when trying to join conversation");
+    return connectSocket().then(() => {
+      socket.emit("join conversation", conversationId);
+    });
   }
   socket.emit("join conversation", conversationId);
 };
 
-export const onMessage = (callback) => {
+const setupEventListener = (eventName, callback) => {
   if (!socket) {
-    console.error("Cannot listen for messages: socket not initialized");
+    console.warn(`Cannot setup ${eventName} listener: socket not initialized`);
     return () => {};
   }
-  socket.on("receive message", callback);
-  return () => socket.off("receive message", callback);
+
+  // Remove any existing listeners for this event
+  socket.off(eventName);
+
+  // Add new listener
+  socket.on(eventName, callback);
+
+  // Return cleanup function
+  return () => {
+    if (socket) {
+      socket.off(eventName);
+    }
+  };
+};
+
+export const onMessage = (callback) => {
+  return setupEventListener("receive message", callback);
 };
 
 export const onTyping = (callback) => {
-  if (!socket) {
-    console.error("Cannot listen for typing: socket not initialized");
-    return () => {};
-  }
-  socket.on("typing", callback);
-  return () => socket.off("typing", callback);
+  return setupEventListener("typing", callback);
 };
 
 export const onStopTyping = (callback) => {
-  if (!socket) {
-    console.error("Cannot listen for stop typing: socket not initialized");
-    return () => {};
-  }
-  socket.on("stop typing", callback);
-  return () => socket.off("stop typing", callback);
+  return setupEventListener("stop typing", callback);
 };
 
 export const onOnlineUsers = (callback) => {
-  if (!socket) {
-    console.error("Cannot listen for online users: socket not initialized");
-    return () => {};
-  }
-  // Use the correct event name from the backend
-  socket.on("get-online-users", callback);
-  return () => socket.off("get-online-users", callback);
+  return setupEventListener("get-online-users", callback);
 };
 
 // Re-add sendMessage for backwards compatibility with chat-context.jsx

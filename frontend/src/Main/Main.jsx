@@ -38,7 +38,7 @@ const Main = () => {
 
       {/* Main  */}
       <div
-        className={`flex-1 transition-all duration-300 pb-3 ${
+        className={`flex-1 transition-all duration-300 pb-0 ${
           !isMobile && isSidebarOpen ? "ml-60" : !isMobile ? "ml-20" : "ml-0"
         }`}
       >

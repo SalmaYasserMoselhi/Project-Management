@@ -4,12 +4,17 @@ import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { fetchUserData } from "./features/Slice/userSlice/userSlice";
 import "./index.css";
+import { Toaster } from "react-hot-toast";
+import { ChatProvider } from "./context/chat-context";
 
 function App() {
   return (
-    <div className="w-full h-screen overflow-hidden">
-      <Routing />
-    </div>
+    <ChatProvider>
+      <div>
+        <Routing />
+        <Toaster position="top-right" />
+      </div>
+    </ChatProvider>
   );
 }
 
