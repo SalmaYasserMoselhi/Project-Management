@@ -24,7 +24,7 @@ const Board = () => {
   };
 
   return (
-    <div className="p-6 min-h-screen font-[Nunito] mt-2 flex flex-col item-center  overflow-y-auto -ml-3">
+    <div className="p-6 min-h-screen mt-2 flex flex-col item-center  overflow-y-auto -ml-3">
       <div className="border-l-2 border-t-2 border-b-2 border-[#C7C7C7] p-4 rounded-xl w-full max-w-5xl h-full flex flex-col">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 ">

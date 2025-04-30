@@ -24,24 +24,10 @@ function Routing() {
         <Route path="/forgetpassword" element={<ForgetPassword />} />
         <Route path="/verification" element={<Verification />} />
         <Route path="/resetpassword" element={<ResetPassword />} />
-<<<<<<< HEAD
-
-        {/* Protected Routes */}
-        <Route
-          path="/mainboard"
-          element={isAuthenticated ? <MainBoard /> : <Navigate to="/login" />}
-        />
-
-        <Route
-          path="/main/*"
-          element={isAuthenticated ? <Main /> : <Navigate to="/login" />}
-        >
-=======
         {/* <Route path="/mainboard" element={<MainBoard />} /> */}
         <Route path="/chatlist" element={<ChatList />} />
 
         <Route path="/main/*" element={<Main />}>
->>>>>>> 0577ce9b8559d13d91b3727128ec365f1d4692bc
           <Route index element={<Navigate to="dashboard" />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="notifications" element={<Notifications />} />

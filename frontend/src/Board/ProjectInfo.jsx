@@ -43,20 +43,19 @@
 //     </div>
 //   );
 // };
-// // 
+// //
 // export default ProjectInfo;
 
 import CalendarBlank from "../assets/CalendarBlank.png";
 import edit from "../assets/edit.png";
-import share from "../assets/share.png"
+import share from "../assets/share.png";
 
 const ProjectInfo = ({ isSidebarOpen }) => {
   return (
     <div
-      className={`bg-white p-6 rounded-2xl shadow-md font-[Nunito] mb-2 mt-7 transition-all duration-300`}
+      className={`bg-white p-6 rounded-2xl shadow-md mb-2 mt-7 transition-all duration-300`}
       style={{
         width: isSidebarOpen ? "98%" : "100%",
-              
       }}
     >
       <div className="flex flex-col md:flex-row justify-between items-start">
