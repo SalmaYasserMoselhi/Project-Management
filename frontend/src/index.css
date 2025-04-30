@@ -13,6 +13,9 @@ body {
   /* overflow-y: auto; */
   overflow: auto !important;
 }
+html, body {
+  overflow-x: hidden;
+}
 
 .animate-spin {
   animation: spin 1s linear infinite;
