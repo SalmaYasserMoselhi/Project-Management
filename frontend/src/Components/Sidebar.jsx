@@ -60,15 +60,17 @@ const Sidebar = () => {
           workspaceTransitionState === "opening") &&
         !isClosingWorkspace
       ) {
-        // Check if the click is outside of the sidebar and workspace popup
+        // Check if the click is outside of the sidebar, workspace popup, and add board popup
         const sidebarElement = document.getElementById("sidebar");
         const workspacePopupElement =
           document.querySelector(".workspace-popup");
+        const addBoardPopupElement = document.querySelector(".add-board-popup");
 
         if (sidebarElement && workspacePopupElement) {
           if (
             !sidebarElement.contains(event.target) &&
-            !workspacePopupElement.contains(event.target)
+            !workspacePopupElement.contains(event.target) &&
+            !addBoardPopupElement?.contains(event.target)
           ) {
             // Start closing animation for workspace popup
             handleCloseWorkspace();
@@ -105,8 +107,6 @@ const Sidebar = () => {
       return;
     }
 
-    console.log("Sidebar: Starting workspace popup closing");
-
     // Set local state flag to prevent multiple close attempts
     setIsClosingWorkspace(true);
 
@@ -128,7 +128,6 @@ const Sidebar = () => {
     try {
       // If clicking on the same workspace type that's already open, just close it
       if (isWorkspaceOpen && activeWorkspaceType === workspaceType) {
-        console.log("Closing workspace:", workspaceType);
         handleCloseWorkspace();
         return;
       }
@@ -174,11 +173,6 @@ const Sidebar = () => {
             dispatch(selectWorkspace(workspaceData));
             dispatch(openWorkspaceStart());
           }
-        } else {
-          console.error(
-            "No workspace found for type:",
-            typeMapping[workspaceType]
-          );
         }
       }
     } catch (error) {

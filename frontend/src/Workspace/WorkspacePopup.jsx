@@ -33,9 +33,8 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
   const LIMIT = 10; // Number of boards to fetch per page
 
   // Get relevant state from Redux
-  const { isSidebarOpen, workspaceTransitionState } = useSelector(
-    (state) => state.sidebar
-  );
+  const { isSidebarOpen, workspaceTransitionState, activeWorkspaceType } =
+    useSelector((state) => state.sidebar);
 
   // Calculate popup position based on sidebar state
   const getPopupPosition = useCallback(() => {
@@ -131,59 +130,56 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
   }, [workspaceTransitionState, handleAnimationEnd]);
 
   // Main function to fetch ALL boards at once with sorting and search
-  const fetchBoards = useCallback(
-    async () => {
-      try {
-        if (!workspaceId) {
-          setError("Workspace not selected");
-          return;
-        }
-
-        setBoards([]);
-        setLoading(true);
-        setError("");
-
-        let endpoint;
-        let queryParams = [];
-
-        if (activeTab === "Archived") {
-          endpoint = "/api/v1/boards/user-boards/archived";
-          queryParams.push(
-            `sort=${sortOption}`,
-            `limit=1000` // Very high limit to get all boards
-          );
-        } else {
-          endpoint = `/api/v1/boards/workspace/${workspaceId}/boards`;
-          queryParams.push(
-            `sort=${sortOption}`,
-            `limit=1000` // Very high limit to get all boards
-          );
-
-          // Add search parameter if there's a search term
-          if (searchTerm) {
-            queryParams.push(`search=${encodeURIComponent(searchTerm)}`);
-          }
-        }
-
-        const fullUrl = `${endpoint}?${queryParams.join("&")}`;
-        const response = await api.get(fullUrl);
-
-        if (response.data?.status === "success") {
-          const allBoards = response.data.data?.boards || [];
-          setTotalBoards(response.data.data?.stats.total || 0);
-          setBoards(allBoards);
-        } else {
-          setBoards([]);
-        }
-      } catch (err) {
-        console.error("Error fetching boards:", err);
-        setError(err.response?.data?.message || "Failed to load boards");
-      } finally {
-        setLoading(false);
+  const fetchBoards = useCallback(async () => {
+    try {
+      if (!workspaceId) {
+        setError("Workspace not selected");
+        return;
       }
-    },
-    [workspaceId, activeTab, sortOption, searchTerm]
-  );
+
+      setBoards([]);
+      setLoading(true);
+      setError("");
+
+      let endpoint;
+      let queryParams = [];
+
+      if (activeTab === "Archived") {
+        endpoint = "/api/v1/boards/user-boards/archived";
+        queryParams.push(
+          `sort=${sortOption}`,
+          `limit=1000` // Very high limit to get all boards
+        );
+      } else {
+        endpoint = `/api/v1/boards/workspace/${workspaceId}/boards`;
+        queryParams.push(
+          `sort=${sortOption}`,
+          `limit=1000` // Very high limit to get all boards
+        );
+
+        // Add search parameter if there's a search term
+        if (searchTerm) {
+          queryParams.push(`search=${encodeURIComponent(searchTerm)}`);
+        }
+      }
+
+      const fullUrl = `${endpoint}?${queryParams.join("&")}`;
+      const response = await api.get(fullUrl);
+
+      if (response.data?.status === "success") {
+        const allBoards = response.data.data?.boards || [];
+        setTotalBoards(response.data.data?.stats.total || 0);
+        setBoards(allBoards);
+      } else {
+        setBoards([]);
+      }
+    } catch (err) {
+      console.error("Error fetching boards:", err);
+      setError(err.response?.data?.message || "Failed to load boards");
+    } finally {
+      setLoading(false);
+    }
+  }, [workspaceId, activeTab, sortOption, searchTerm]);
 
   // Fetch boards when inputs change - with debouncing for search
   useEffect(() => {
@@ -198,7 +194,6 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
       return () => clearTimeout(delaySearch);
     }
   }, [workspaceId, activeTab, sortOption, searchTerm, fetchBoards]);
-
 
   // Handle pinning/unpinning a board
   const handlePinBoard = async (boardId, isStarred, e) => {
@@ -422,31 +417,33 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
           )}
         </div>
 
-        {/* Fixed Footer */}
-        <div className="p-4 mt-auto border-t border-gray-100">
-          <button
-            onClick={() => setIsAddBoardOpen(true)}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#4D2D61] hover:bg-[#6A3B82] transition-colors text-white text-sm font-semibold shadow-sm"
-          >
-            <div className="flex items-center justify-center bg-white rounded-full w-5 h-5">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-[#4D2D61]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 5v14M5 12h14"
-                />
-              </svg>
-            </div>
-            Add Board
-          </button>
-        </div>
+        {/* Fixed Footer - Only show Add Board button if not a collaboration workspace */}
+        {activeWorkspaceType !== "collaboration" && (
+          <div className="p-4 mt-auto border-t border-gray-100">
+            <button
+              onClick={() => setIsAddBoardOpen(true)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#4D2D61] hover:bg-[#6A3B82] transition-colors text-white text-sm font-semibold shadow-sm"
+            >
+              <div className="flex items-center justify-center bg-white rounded-full w-5 h-5">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-[#4D2D61]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 5v14M5 12h14"
+                  />
+                </svg>
+              </div>
+              Add Board
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Add Board Popup */}
@@ -458,7 +455,7 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
             setActiveTab("Active");
             setSearchTerm("");
             setPage(1);
-            // You would typically call fetchBoards() here
+            fetchBoards();
           }}
         />
       )}
