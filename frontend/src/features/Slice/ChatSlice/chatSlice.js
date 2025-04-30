@@ -190,7 +190,11 @@ export const createConversation = createAsyncThunk(
       // Get the user data from the state if available
       const { login, chat } = getState();
       const currentUser = login?.user;
-
+      if (currentUser?._id === userId) {
+        return rejectWithValue(
+          "You cannot create a conversation with yourself."
+        );
+      }
       // Find the user object from our search results or users list
       let userObject =
         chat.searchResults.find((u) => u._id === userId) ||
