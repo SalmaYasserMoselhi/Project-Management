@@ -14,7 +14,7 @@ const Column = ({ title, count, className }) => {
               {count}
             </span>
           </h3>
-        </div>
+        </div> 
         <div className="flex items-center">
           <img
             src={vector}
