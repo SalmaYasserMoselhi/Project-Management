@@ -304,7 +304,7 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
       {/* Workspace Panel */}
       <div
         ref={popupRef}
-        className="workspace-popup font-[Nunito]"
+        className="workspace-popup"
         style={{
           left: getPopupPosition().left,
         }}

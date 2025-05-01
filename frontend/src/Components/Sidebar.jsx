@@ -12,17 +12,106 @@ import {
 } from "../features/Slice/ComponentSlice/sidebarSlice";
 import { fetchUserData } from "../features/Slice/userSlice/userSlice";
 
-import DashboardIcon from "../assets/Dashboard.png";
-import WorkspaceIcon from "../assets/workspaces2.png";
-import CollaborationIcon from "../assets/collabration.png";
-import PrivateIcon from "../assets/private.png";
-import chatIcon from "../assets/chat.png";
-import notificationIcon from "../assets/notification.png";
+import {
+  MessageCircle,
+  Grid,
+  Network,
+  Users2,
+  User,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsUpDown,
+  X,
+} from "lucide-react";
+
 import Avatar from "../assets/defaultAvatar.png";
 import LogoF from "../assets/LogoF.png";
 import LogoS from "../assets/Logo.png";
 
-import { ChevronLeft, ChevronRight, ChevronsUpDown, X } from "lucide-react";
+const ChatIcon = ({ className }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const DashboardIcon = ({ className }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M3 3h7v7H3V3ZM14 3h7v7h-7V3ZM3 14h7v7H3v-7ZM14 14h7v7h-7v-7Z"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const WorkspaceIcon = ({ className }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M12 3c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2ZM12 17c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2ZM3 10c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2ZM21 10c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2ZM3.7 11h16.6M11 3.7v16.6"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const CollaborationIcon = ({ className }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const PrivateIcon = ({ className }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 
 const Sidebar = () => {
   const dispatch = useDispatch();
@@ -222,7 +311,7 @@ const Sidebar = () => {
   return (
     <div
       id="sidebar"
-      className={`fixed z-50 left-0 top-0 bottom-0 bg-[#4D2D61] shadow-lg p-4 flex flex-col border-r border-gray-200 font-[Nunito] transition-all duration-300 
+      className={`fixed z-50 left-0 top-0 bottom-0 bg-[#4D2D61] shadow-lg p-4 flex flex-col border-r border-gray-200 font-normal transition-all duration-300 
         ${isSidebarOpen ? "w-60" : "w-20"}
         ${
           isMobile
@@ -284,61 +373,30 @@ const Sidebar = () => {
       {user && (
         <div className="mb-3">
           {isSidebarOpen ? (
-            <div
-              className="flex items-center justify-between cursor-pointer px-3 py-2.5 rounded-md hover:bg-[#6A3B82]"
-              onClick={() => {}}
-            >
-              <div className="w-6 h-6 flex items-center justify-center bg-white text-[#4D2D61] font-bold rounded-sm text-sm">
+            <div className="flex items-center justify-between cursor-pointer px-3 py-2.5 rounded-md">
+              <div className="w-6 h-6 flex items-center justify-center bg-[#6A3B82] text-[#fff] font-medium rounded-sm text-sm">
                 {user.firstName.charAt(0).toUpperCase()}
               </div>
 
-              <span className="text-sm font-medium flex-1 px-2 truncate text-white">
+              <span className="text-sm flex-1 px-2 truncate text-white">
                 {user.firstName}&apos;s Workspaces
               </span>
 
-              {/* This icon is static now - not linked to workspace state */}
               <ChevronsUpDown className="h-5 w-5 text-white" />
             </div>
           ) : (
             <div className="flex justify-center">
-              <div className="w-12 h-12 flex items-center justify-center bg-[#6A3B82] text-white font-bold rounded-xl text-sm">
+              <div className="w-12 h-12 flex items-center justify-center bg-[#6A3B82] text-white font-normal rounded-xl text-sm">
                 {user.firstName.charAt(0).toUpperCase()}
               </div>
             </div>
           )}
 
-          {/* Notifications and Chat */}
+          {/* Chat */}
           <div className="mt-2 space-y-2">
             <div
-              className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-                activeItem === "Notifications"
-                  ? "bg-[#6A3B82] text-white"
-                  : "text-gray-900 hover:bg-[#6A3B82]"
-              } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
-              onClick={(e) => {
-                e.preventDefault();
-                handleItemClick("Notifications", "notifications");
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <img
-                  src={notificationIcon}
-                  alt="Notifications"
-                  className="h-5 w-5 filter brightness-0 invert"
-                />
-                {isSidebarOpen && (
-                  <span className="text-sm font-medium text-white">
-                    Notifications
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div
-              className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-                activeItem === "Chat"
-                  ? "bg-[#6A3B82] text-white"
-                  : "text-gray-900 hover:bg-[#6A3B82]"
+              className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+                activeItem === "Chat" ? "bg-white/95" : "hover:bg-white/95"
               } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
               onClick={(e) => {
                 e.preventDefault();
@@ -346,13 +404,55 @@ const Sidebar = () => {
               }}
             >
               <div className="flex items-center gap-3">
-                <img
-                  src={chatIcon}
-                  alt="Chat"
-                  className="h-5 w-5 filter brightness-0 invert"
+                <ChatIcon
+                  className={`h-5 w-5 ${
+                    activeItem === "Chat"
+                      ? "text-[#4D2D61]"
+                      : "text-white group-hover:text-[#4D2D61]"
+                  }`}
                 />
                 {isSidebarOpen && (
-                  <span className="text-sm font-medium text-white">Chat</span>
+                  <span
+                    className={`text-sm ${
+                      activeItem === "Chat"
+                        ? "text-[#4D2D61]"
+                        : "text-white group-hover:text-[#4D2D61]"
+                    }`}
+                  >
+                    Chat
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Dashboard */}
+            <div
+              className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+                activeItem === "Dashboard" ? "bg-white/95" : "hover:bg-white/95"
+              } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
+              onClick={(e) => {
+                e.preventDefault();
+                handleItemClick("Dashboard", "dashboard");
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <DashboardIcon
+                  className={`h-5 w-5 ${
+                    activeItem === "Dashboard"
+                      ? "text-[#4D2D61]"
+                      : "text-white group-hover:text-[#4D2D61]"
+                  }`}
+                />
+                {isSidebarOpen && (
+                  <span
+                    className={`text-sm ${
+                      activeItem === "Dashboard"
+                        ? "text-[#4D2D61]"
+                        : "text-white group-hover:text-[#4D2D61]"
+                    }`}
+                  >
+                    Dashboard
+                  </span>
                 )}
               </div>
             </div>
@@ -367,72 +467,62 @@ const Sidebar = () => {
         className="space-y-2 overflow-y-auto"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
-        {/* Dashboard */}
-        <div
-          className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-            activeItem === "Dashboard"
-              ? "bg-[#6A3B82] text-white"
-              : "text-gray-900 hover:bg-[#6A3B82]"
-          } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
-          onClick={(e) => {
-            e.preventDefault();
-            handleItemClick("Dashboard", "dashboard");
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <img
-              src={DashboardIcon}
-              alt="Dashboard"
-              className="h-5 w-5 filter brightness-0 invert"
-            />
-            {isSidebarOpen && (
-              <span className="text-sm font-medium text-white">Dashboard</span>
-            )}
-          </div>
-        </div>
-
         {/* Workspace */}
         <div
-          className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-            activeItem === "Workspace"
-              ? "bg-[#6A3B82] text-white"
-              : "text-gray-900 hover:bg-[#6A3B82]"
+          className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+            activeItem === "Workspace" ? "bg-white/95" : "hover:bg-white/95"
           } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
           onClick={(e) => {
             handleWorkspaceToggle("workspace", e);
           }}
         >
           <div className="flex items-center gap-3">
-            <img
-              src={WorkspaceIcon}
-              alt="Workspace"
-              className="h-5 w-5 filter brightness-0 invert"
+            <WorkspaceIcon
+              className={`h-5 w-5 ${
+                activeItem === "Workspace"
+                  ? "text-[#4D2D61]"
+                  : "text-white group-hover:text-[#4D2D61]"
+              }`}
             />
             {isSidebarOpen && (
-              <span className="text-sm font-medium text-white">Workspace</span>
+              <span
+                className={`text-sm ${
+                  activeItem === "Workspace"
+                    ? "text-[#4D2D61]"
+                    : "text-white group-hover:text-[#4D2D61]"
+                }`}
+              >
+                Workspace
+              </span>
             )}
           </div>
         </div>
 
         {/* Collaboration */}
         <div
-          className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-            activeItem === "Collaboration"
-              ? "bg-[#6A3B82] text-white"
-              : "text-gray-900 hover:bg-[#6A3B82]"
+          className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+            activeItem === "Collaboration" ? "bg-white/95" : "hover:bg-white/95"
           } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
           onClick={(e) => {
             handleWorkspaceToggle("collaboration", e);
           }}
         >
           <div className="flex items-center gap-3">
-            <img
-              src={CollaborationIcon}
-              alt="Collaboration"
-              className="h-5 w-5 filter brightness-0 invert"
+            <CollaborationIcon
+              className={`h-5 w-5 ${
+                activeItem === "Collaboration"
+                  ? "text-[#4D2D61]"
+                  : "text-white group-hover:text-[#4D2D61]"
+              }`}
             />
             {isSidebarOpen && (
-              <span className="text-sm font-medium text-white">
+              <span
+                className={`text-sm ${
+                  activeItem === "Collaboration"
+                    ? "text-[#4D2D61]"
+                    : "text-white group-hover:text-[#4D2D61]"
+                }`}
+              >
                 Collaboration
               </span>
             )}
@@ -441,65 +531,35 @@ const Sidebar = () => {
 
         {/* Private */}
         <div
-          className={`flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-            activeItem === "Private"
-              ? "bg-[#6A3B82] text-white"
-              : "text-gray-900 hover:bg-[#6A3B82]"
+          className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+            activeItem === "Private" ? "bg-white/95" : "hover:bg-white/95"
           } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
           onClick={(e) => {
             handleWorkspaceToggle("private", e);
           }}
         >
           <div className="flex items-center gap-3">
-            <img
-              src={PrivateIcon}
-              alt="Private"
-              className="h-5 w-5 filter brightness-0 invert"
+            <PrivateIcon
+              className={`h-5 w-5 ${
+                activeItem === "Private"
+                  ? "text-[#4D2D61]"
+                  : "text-white group-hover:text-[#4D2D61]"
+              }`}
             />
             {isSidebarOpen && (
-              <span className="text-sm font-medium text-white">Private</span>
+              <span
+                className={`text-sm ${
+                  activeItem === "Private"
+                    ? "text-[#4D2D61]"
+                    : "text-white group-hover:text-[#4D2D61]"
+                }`}
+              >
+                Private
+              </span>
             )}
           </div>
         </div>
       </nav>
-
-      {/* User Profile Section */}
-      <div className="mt-auto">
-        <hr className="border-t border-[#BBBBBB80] opacity-50 mb-4" />
-        {user && (
-          <div
-            className={`flex items-center p-3 rounded-2xl bg-[#6A3B82] text-white transition-all duration-300 ${
-              isSidebarOpen
-                ? "w-full flex-row"
-                : "w-12 h-12 flex-col justify-center"
-            }`}
-          >
-            <img
-              src={
-                user?.avatar && user.avatar !== "default.jpg"
-                  ? user.avatar
-                  : Avatar
-              }
-              alt="User Avatar"
-              onError={(e) => (e.target.src = Avatar)}
-              className={`rounded-full border-gray-600 transition-all duration-300 ${
-                isSidebarOpen
-                  ? "w-8 h-8 sm:w-10 sm:h-10"
-                  : "w-6 h-6 sm:w-8 sm:h-8"
-              }`}
-            />
-
-            {isSidebarOpen && (
-              <div className="ml-3 overflow-hidden">
-                <p className="text-xs sm:text-sm font-medium text-white truncate">
-                  {user.firstName} {user.lastName}
-                </p>
-                <p className="text-xs text-gray-300 truncate">{user.email}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
     </div>
   );
 };
