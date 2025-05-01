@@ -4,6 +4,7 @@ import CalendarBlank from "../assets/CalendarBlank.png";
 import edit from "../assets/edit.png";
 import share from "../assets/share.png";
 
+
 const ProjectInfo = ({ isSidebarOpen, boardName, boardDescription }) => {
   return (
     <div

@@ -5,6 +5,7 @@ import addButton from "../assets/Add Button.png";
 import List from "../assets/prime_list.png";
 import File from "../assets/file_present.png";
 import third from "../assets/third.png";
+
 const TaskCard = ({ priority, fileCount = 3, commentCount = 5 }) => {
   const priorityStyles = {
     Low: "bg-[#FEE2E2] text-[#DC2626]",

@@ -17,7 +17,7 @@ const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
     { title: "In Review", count: 2 },
     { title: "Done", count: 5 },
   ]);
-  // const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
 
   const addNewList = () => {
     const newList = {

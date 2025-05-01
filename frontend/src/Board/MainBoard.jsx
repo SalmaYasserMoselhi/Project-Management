@@ -48,7 +48,7 @@ const MainBoard = () => {
 
   return (
     <div className="min-h-screen flex bg-[#f5f5f5] overflow-hidden">
-      {/* Sidebar */}
+      
       <div style={{ width: sidebarWidth }}>
         <Sidebar
           isSidebarOpen={isSidebarOpen}
