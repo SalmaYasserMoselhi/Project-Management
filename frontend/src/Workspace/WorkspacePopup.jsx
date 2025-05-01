@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { MoreVertical, Pin, ChevronDown } from "lucide-react";
 import toast from "react-hot-toast";
 import AddBoardPopup from "./AddBoardPopup";
+import { useNavigate } from 'react-router-dom';
 import {
   openWorkspaceComplete,
   closeWorkspaceComplete,
@@ -13,6 +14,13 @@ import {
 } from "../features/Slice/ComponentSlice/sidebarSlice";
 
 const WorkspacePopup = ({ workspaceId, workspaceName }) => {
+  const navigate = useNavigate();
+
+  const handleBoardClick = (boardId) => {
+    handleClose();
+    navigate(`/main/workspaces/${workspaceId}/boards/${boardId}`);
+  };
+
   const dispatch = useDispatch();
   const [boards, setBoards] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -296,7 +304,7 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
       {/* Workspace Panel */}
       <div
         ref={popupRef}
-        className="workspace-popup font-[Nunito]"
+        className="workspace-popup"
         style={{
           left: getPopupPosition().left,
         }}
@@ -417,7 +425,8 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
                       board.starred ? "bg-purple-50" : ""
                     }`}
                     onClick={() => {
-                      console.log("Navigating to board:", board);
+                      // console.log("Navigating to board:", board);
+                      handleBoardClick(board.id)
                     }}
                   >
                     <span className="text-sm font-medium text-[#4D2D61] truncate flex-1">

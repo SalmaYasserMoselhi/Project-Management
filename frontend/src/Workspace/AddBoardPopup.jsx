@@ -42,9 +42,11 @@ const AddBoardPopup = ({ onClose, workspaceId, fetchBoardsAgain }) => {
       });
 
       const data = await response.json();
+      console.log(" board Response data:", data);
 
       if (data?.status === "success") {
         // Show success message
+        console.log("New board created:", data.data.board);
         toast.success("Board created successfully!", {
           duration: 3000,
           position: "top-right",

@@ -52,7 +52,7 @@
 //       }
 
 //       window.location.href = `${API_BASE_URL}/users/auth/${provider}?frontendUrl=${window.location.origin}`;
-      
+
 //     } catch (error) {
 //       setOauthStates({
 //         loading: false,
@@ -93,7 +93,7 @@
 //       });
 
 //       const responseData = await response.json();
-      
+
 //       if (!response.ok) {
 //         throw new Error(responseData.message || 'Signup failed');
 //       }
@@ -122,11 +122,10 @@
 //             className="w-8/4 "
 //           />
 //         </div>
-        
 
 //         {/* Right Section - Form */}
 //         <div className="flex flex-col items-center w-full md:w-1/2 p-5 ml-10">
-       
+
 //           {/* Logo */}
 //           <div className="mb-3 mr-20">
 //             <img
@@ -280,7 +279,7 @@
 //           </div>
 
 //           {/* Social Buttons */}
-//           <div className="space-y-2 w-full">          
+//           <div className="space-y-2 w-full">
 //             <button
 //               onClick={() => handleOAuthLogin('google')}
 //               disabled={oauthStates.loading}
@@ -306,7 +305,7 @@
 //                 </div>
 //               )}
 //             </button>
-          
+
 //             <button
 //               onClick={() => handleOAuthLogin('github')}
 //               disabled={oauthStates.loading}
@@ -351,8 +350,6 @@
 //     </div>
 //   );
 // }
-
-
 
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -403,16 +400,15 @@ export default function Signup() {
         activeProvider: provider,
       });
 
-      if (!['google', 'github'].includes(provider)) {
-        throw new Error('Invalid authentication provider');
+      if (!["google", "github"].includes(provider)) {
+        throw new Error("Invalid authentication provider");
       }
 
       window.location.href = `${API_BASE_URL}/users/auth/${provider}?frontendUrl=${window.location.origin}`;
-      
     } catch (error) {
       setOauthStates({
         loading: false,
-        error: error.message || 'Authentication failed. Please try again.',
+        error: error.message || "Authentication failed. Please try again.",
         activeProvider: null,
       });
     }
@@ -440,18 +436,18 @@ export default function Signup() {
       };
 
       const response = await fetch(`${API_BASE_URL}/users/signup`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        credentials: 'include',
-        body: JSON.stringify(requestData)
+        credentials: "include",
+        body: JSON.stringify(requestData),
       });
 
       const responseData = await response.json();
-      
+
       if (!response.ok) {
-        throw new Error(responseData.message || 'Signup failed');
+        throw new Error(responseData.message || "Signup failed");
       }
 
       console.log("Signup successful:", responseData);
@@ -467,7 +463,7 @@ export default function Signup() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen font-[Nunito] overflow-y-auto">
+    <div className="flex items-center justify-center min-h-screen verflow-y-auto">
       <div className="max-w-6xl w-full bg-white rounded-lg  flex">
         {/* Left Section - Image */}
         <div className="hidden md:flex flex-col items-center justify-center w-1/2  rounded-l-lg p-5">
@@ -508,11 +504,15 @@ export default function Signup() {
                   placeholder="Email"
                   {...register("email")}
                   className={`w-full border h-12 px-4 rounded focus:outline-none ${
-                    errors.email ? "border-red-500" : "border-gray-300 focus:border-[#4D2D61]"
+                    errors.email
+                      ? "border-red-500"
+                      : "border-gray-300 focus:border-[#4D2D61]"
                   }`}
                 />
                 {errors.email && (
-                  <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.email.message}
+                  </p>
                 )}
               </div>
 
@@ -523,11 +523,15 @@ export default function Signup() {
                   placeholder="Username"
                   {...register("username")}
                   className={`w-full border h-12 px-4 rounded focus:outline-none ${
-                    errors.username ? "border-red-500" : "border-gray-300 focus:border-[#4D2D61]"
+                    errors.username
+                      ? "border-red-500"
+                      : "border-gray-300 focus:border-[#4D2D61]"
                   }`}
                 />
                 {errors.username && (
-                  <p className="text-red-500 text-sm mt-1">{errors.username.message}</p>
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.username.message}
+                  </p>
                 )}
               </div>
 
@@ -539,11 +543,15 @@ export default function Signup() {
                     placeholder="First Name"
                     {...register("firstName")}
                     className={`w-full border h-12 px-4 rounded focus:outline-none ${
-                      errors.firstName ? "border-red-500" : "border-gray-300 focus:border-[#4D2D61]"
+                      errors.firstName
+                        ? "border-red-500"
+                        : "border-gray-300 focus:border-[#4D2D61]"
                     }`}
                   />
                   {errors.firstName && (
-                    <p className="text-red-500 text-sm mt-1">{errors.firstName.message}</p>
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.firstName.message}
+                    </p>
                   )}
                 </div>
 
@@ -553,11 +561,15 @@ export default function Signup() {
                     placeholder="Last Name (Optional)"
                     {...register("lastName")}
                     className={`w-full border h-12 px-4 rounded focus:outline-none ${
-                      errors.lastName ? "border-red-500" : "border-gray-300 focus:border-[#4D2D61]"
+                      errors.lastName
+                        ? "border-red-500"
+                        : "border-gray-300 focus:border-[#4D2D61]"
                     }`}
                   />
                   {errors.lastName && (
-                    <p className="text-red-500 text-sm mt-1">{errors.lastName.message}</p>
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.lastName.message}
+                    </p>
                   )}
                 </div>
               </div>
@@ -569,11 +581,15 @@ export default function Signup() {
                   placeholder="Password"
                   {...register("password")}
                   className={`w-full border h-12 px-4 rounded focus:outline-none ${
-                    errors.password ? "border-red-500" : "border-gray-300 focus:border-[#4D2D61]"
+                    errors.password
+                      ? "border-red-500"
+                      : "border-gray-300 focus:border-[#4D2D61]"
                   }`}
                 />
                 {errors.password && (
-                  <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.password.message}
+                  </p>
                 )}
               </div>
 
@@ -584,11 +600,15 @@ export default function Signup() {
                   placeholder="Confirm Password"
                   {...register("passwordConfirm")}
                   className={`w-full border h-12 px-4 rounded focus:outline-none ${
-                    errors.passwordConfirm ? "border-red-500" : "border-gray-300 focus:border-[#4D2D61]"
+                    errors.passwordConfirm
+                      ? "border-red-500"
+                      : "border-gray-300 focus:border-[#4D2D61]"
                   }`}
                 />
                 {errors.passwordConfirm && (
-                  <p className="text-red-500 text-sm mt-1">{errors.passwordConfirm.message}</p>
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.passwordConfirm.message}
+                  </p>
                 )}
               </div>
 
@@ -612,15 +632,16 @@ export default function Signup() {
             {/* Social Buttons */}
             <div className="space-y-3">
               <button
-                onClick={() => handleOAuthLogin('google')}
+                onClick={() => handleOAuthLogin("google")}
                 disabled={oauthStates.loading}
                 className={`w-full border h-12 px-4 rounded flex items-center justify-center transition-all ${
-                  oauthStates.loading && oauthStates.activeProvider === 'google'
+                  oauthStates.loading && oauthStates.activeProvider === "google"
                     ? "bg-gray-100 cursor-not-allowed"
                     : "hover:border-[#4D2D61] hover:bg-gray-50"
                 }`}
               >
-                {oauthStates.loading && oauthStates.activeProvider === 'google' ? (
+                {oauthStates.loading &&
+                oauthStates.activeProvider === "google" ? (
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#4D2D61] mr-3"></div>
                     <span>Authenticating...</span>
@@ -638,15 +659,16 @@ export default function Signup() {
               </button>
 
               <button
-                onClick={() => handleOAuthLogin('github')}
+                onClick={() => handleOAuthLogin("github")}
                 disabled={oauthStates.loading}
                 className={`w-full border h-12 px-4 rounded flex items-center justify-center transition-all ${
-                  oauthStates.loading && oauthStates.activeProvider === 'github'
+                  oauthStates.loading && oauthStates.activeProvider === "github"
                     ? "bg-gray-100 cursor-not-allowed"
                     : "hover:border-[#4D2D61] hover:bg-gray-50"
                 }`}
               >
-                {oauthStates.loading && oauthStates.activeProvider === 'github' ? (
+                {oauthStates.loading &&
+                oauthStates.activeProvider === "github" ? (
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2  mr-3"></div>
                     <span>Authenticating...</span>

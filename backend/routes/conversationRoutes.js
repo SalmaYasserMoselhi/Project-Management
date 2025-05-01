@@ -13,4 +13,21 @@ router
 router
   .route('/group')
   .post(authController.protect, conversationController.createGroup);
+
+router.patch(
+  '/group/add-user',
+  authController.protect,
+  conversationController.addUserToGroup
+);
+router.patch(
+  '/group/remove-user',
+  authController.protect,
+  conversationController.removeUserFromGroup
+);
+router.patch(
+  '/group/leave',
+  authController.protect,
+  conversationController.leaveGroup
+);
+
 module.exports = router;
