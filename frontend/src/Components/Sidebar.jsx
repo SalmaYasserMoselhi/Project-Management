@@ -386,7 +386,7 @@ const Sidebar = () => {
             </div>
           ) : (
             <div className="flex justify-center">
-              <div className="w-12 h-12 flex items-center justify-center bg-[#6A3B82] text-white font-normal rounded-xl text-sm">
+              <div className="w-12 px-3 py-2.5 flex items-center justify-center bg-[#6A3B82] text-white font-normal rounded-xl text-sm">
                 {user.firstName.charAt(0).toUpperCase()}
               </div>
             </div>
