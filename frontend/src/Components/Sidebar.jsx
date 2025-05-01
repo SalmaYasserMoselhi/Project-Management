@@ -21,7 +21,7 @@ import {
   // User,
   ChevronLeft,
   ChevronRight,
-  ChevronsUpDown,
+  ChevronDown,
   X,
 } from "lucide-react";
 
@@ -313,7 +313,20 @@ const Sidebar = () => {
   // Add handler for workspace popup
   const handleWorkspacePopupToggle = (e) => {
     e.stopPropagation();
-    setIsWorkspacePopupOpen(!isWorkspacePopupOpen);
+
+    // Don't open popup if sidebar is closed
+    if (!isSidebarOpen) return;
+
+    // If a workspace popup is open, close it first
+    if (isWorkspaceOpen || workspaceTransitionState === "opening") {
+      handleCloseWorkspace();
+      // Small delay to ensure workspace is closed before opening user's popup
+      setTimeout(() => {
+        setIsWorkspacePopupOpen(!isWorkspacePopupOpen);
+      }, 100);
+    } else {
+      setIsWorkspacePopupOpen(!isWorkspacePopupOpen);
+    }
   };
 
   return (
@@ -385,6 +398,7 @@ const Sidebar = () => {
               <div
                 className="flex items-center justify-between cursor-pointer px-3 py-2.5 rounded-md"
                 onClick={handleWorkspacePopupToggle}
+                data-popup-trigger="true"
               >
                 <div className="w-6 h-6 flex items-center justify-center bg-[#6A3B82] text-[#fff] font-medium rounded-sm text-sm">
                   {user.firstName.charAt(0).toUpperCase()}
@@ -394,17 +408,16 @@ const Sidebar = () => {
                   {user.firstName}&apos;s Workspaces
                 </span>
 
-                <ChevronsUpDown
-                  className={`h-5 w-5 text-white transition-transform duration-200 ${
-                    isWorkspacePopupOpen ? "transform rotate-180" : ""
-                  }`}
+                <ChevronDown
+                  className={`h-5 w-5 text-white transition-transform duration-200`}
                 />
               </div>
             ) : (
               <div className="flex justify-center">
                 <div
-                  className="w-12 px-3 py-2.5 flex items-center justify-center bg-[#6A3B82] text-white font-normal rounded-xl text-sm cursor-pointer"
+                  className="w-12 px-3 py-2.5 flex items-center justify-center bg-[#6A3B82] text-white font-normal rounded-xl text-sm"
                   onClick={handleWorkspacePopupToggle}
+                  data-popup-trigger="true"
                 >
                   {user.firstName.charAt(0).toUpperCase()}
                 </div>

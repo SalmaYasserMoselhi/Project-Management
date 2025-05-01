@@ -12,32 +12,56 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
   const popupRef = useRef(null);
   const [workspaces, setWorkspaces] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const { user } = useSelector((state) => state.user);
+  const { isWorkspaceOpen, workspaceTransitionState } = useSelector(
+    (state) => state.sidebar
+  );
   const BASE_URL = "http://localhost:3000";
 
-  // Fetch workspaces when the component mounts or when isOpen changes
+  // Global click handler to close popup
   useEffect(() => {
-    if (isOpen) {
-      fetchWorkspaces();
-    }
-  }, [isOpen]);
-
-  // Close popup when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (popupRef.current && !popupRef.current.contains(event.target)) {
+    const handleGlobalClick = (e) => {
+      if (isOpen && !e.target.closest('[data-popup-trigger="true"]')) {
         onClose();
       }
     };
 
     if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+      // Small delay to prevent immediate closure
+      setTimeout(() => {
+        document.addEventListener("mousedown", handleGlobalClick);
+      }, 0);
     }
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("mousedown", handleGlobalClick);
     };
   }, [isOpen, onClose]);
+
+  // Fetch workspaces when the component mounts or when isOpen changes
+  useEffect(() => {
+    if (isOpen) {
+      // Close any open workspace popup before opening this one
+      if (isWorkspaceOpen || workspaceTransitionState === "opening") {
+        dispatch(closeWorkspaceStart());
+      }
+      fetchWorkspaces();
+    }
+  }, [isOpen, isWorkspaceOpen, workspaceTransitionState, dispatch]);
+
+  // Handle animation states
+  useEffect(() => {
+    if (isOpen) {
+      setIsAnimating(true);
+    } else {
+      setIsAnimating(true);
+      const timer = setTimeout(() => {
+        setIsAnimating(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   const fetchWorkspaces = async () => {
     setLoading(true);
@@ -66,6 +90,8 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
   };
 
   const handleWorkspaceSelect = (workspace) => {
+    if (!workspace) return;
+
     // Create workspace data object
     const workspaceData = {
       id: workspace._id,
@@ -94,18 +120,21 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
 
   // Determine if a workspace is the current workspace
   const isCurrentWorkspace = (workspace) => {
-    return currentWorkspace && currentWorkspace.id === workspace._id;
+    return (
+      workspace && currentWorkspace && workspace._id === currentWorkspace.id
+    );
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !isAnimating) return null;
 
   return (
     <div
       ref={popupRef}
-      className="absolute top-[calc(100%+1px)] left-0 right-0 bg-white rounded-lg shadow-lg z-[9999] animate-slideDown"
+      className={`absolute top-full left-0 right-0 bg-white rounded-lg shadow-lg z-[9999] transition-all duration-300 ease-in-out transform ${
+        isOpen ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
+      }`}
       style={{
         boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
-        animationDuration: "150ms",
       }}
     >
       {/* Actions Menu */}
@@ -126,26 +155,25 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
 
       {/* Team List */}
       <div className="p-1">
-        <div className="flex items-center justify-between px-3 py-2 cursor-pointer">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 flex items-center justify-center bg-[#6A3B82] text-white rounded-sm text-xs font-medium">
-              {getInitial(workspaces[0]?.name)}
+        {workspaces.map((workspace, index) => (
+          <div
+            key={workspace?._id || index}
+            className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-100"
+            onClick={() => handleWorkspaceSelect(workspace)}
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 flex items-center justify-center bg-[#6A3B82] text-white rounded-sm text-xs font-medium">
+                {getInitial(workspace?.name)}
+              </div>
+              <span className="text-sm text-gray-700">{workspace?.name}</span>
             </div>
-            <span className="text-sm text-gray-700">{workspaces[0]?.name}</span>
+            {isCurrentWorkspace(workspace) && (
+              <span className="text-xs bg-gray-200 px-1.5 py-0.5 rounded text-gray-600">
+                Owner
+              </span>
+            )}
           </div>
-          {isCurrentWorkspace(workspaces[0]) && (
-            <span className="text-xs bg-gray-200 px-1.5 py-0.5 rounded text-gray-600">
-              Owner
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 px-3 py-2 cursor-pointer">
-          <div className="w-5 h-5 flex items-center justify-center bg-[#6A3B82] text-white rounded-sm text-xs font-medium">
-            {getInitial(workspaces[1]?.name)}
-          </div>
-          <span className="text-sm text-gray-700">{workspaces[1]?.name}</span>
-        </div>
+        ))}
       </div>
     </div>
   );
