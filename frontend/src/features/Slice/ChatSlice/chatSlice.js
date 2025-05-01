@@ -65,14 +65,96 @@ const initialState = {
   showEmojiPicker: false, // Add new state for emoji picker visibility
 };
 
-// Async Thunks
+// export const fetchConversations = createAsyncThunk(
+//   "chat/fetchConversations",
+//   async (_, { rejectWithValue, getState }) => {
+//     try {
+//       const { auth } = getState();
+//       const currentUserId = auth?.user?._id;
+
+//       const response = await api.get("/conversations");
+//       let conversationsData = [];
+
+//       if (response.data) {
+//         if (response.data.status === "success" && response.data.data) {
+//           conversationsData = response.data.data.conversations || [];
+//         } else if (response.data.data) {
+//           conversationsData = response.data.data;
+//         } else if (Array.isArray(response.data)) {
+//           conversationsData = response.data;
+//         }
+//       }
+
+//       if (!Array.isArray(conversationsData)) {
+//         console.error("Invalid conversations data format:", conversationsData);
+//         return rejectWithValue("Invalid response format from server");
+//       }
+
+//       const processedConversations = conversationsData
+//         .filter((conversation) => conversation && conversation._id)
+//         .map((conversation) => {
+//           const isGroup = conversation.isGroup === true;
+//           const users = conversation.users || [];
+
+//           let displayName = "Chat";
+//           let displayPicture = "default.jpg";
+//           let displayEmail = "";
+
+//           if (isGroup) {
+//             displayName = conversation.name || "Group Chat";
+//             displayPicture =
+//               conversation.picture ||
+//               "https://image.pngaaa.com/78/6179078-middle.png";
+//           } else {
+//             // استبعاد المستخدم الحالي من المحادثة واختيار الآخر
+//             const otherUser = users.find(
+//               (u) =>
+//                 u?._id &&
+//                 u._id !== currentUserId &&
+//                 u._id !== getState()?.auth?.user?._id
+//             );
+
+//             if (otherUser) {
+//               displayName =
+//                 otherUser.name ||
+//                 `${otherUser.firstName || ""} ${
+//                   otherUser.lastName || ""
+//                 }`.trim() ||
+//                 otherUser.username ||
+//                 "Unknown";
+
+//               displayPicture = otherUser.avatar || "default.jpg";
+//               displayEmail = otherUser.email || "";
+//             } else {
+//               console.warn(
+//                 "⚠️ Could not find other user in conversation:",
+//                 conversation
+//               );
+//             }
+//           }
+
+//           return {
+//             ...conversation,
+//             isGroup,
+//             name: displayName,
+//             picture: displayPicture,
+//             email: displayEmail,
+//           };
+//         });
+
+//       return processedConversations;
+//     } catch (error) {
+//       console.error("ERROR fetching conversations:", error);
+//       return rejectWithValue(error.message || "Failed to fetch conversations");
+//     }
+//   }
+// );
+
 export const fetchConversations = createAsyncThunk(
   "chat/fetchConversations",
   async (_, { rejectWithValue, getState }) => {
     try {
-      console.log("Starting fetchConversations");
       const response = await api.get("/conversations");
-      console.log("FULL API RESPONSE:", response);
 
       let conversationsData = [];
 
@@ -86,28 +168,51 @@ export const fetchConversations = createAsyncThunk(
         }
       }
 
-      // التأكد من أن البيانات صحيحة
       if (!Array.isArray(conversationsData)) {
         console.error("Invalid conversations data format:", conversationsData);
         return rejectWithValue("Invalid response format from server");
       }
 
-      // معالجة المحادثات وتوحيد الخصائص
+      const currentUserId = getState().login?.user?._id;
+
       const processedConversations = conversationsData
         .filter((conversation) => conversation && conversation._id)
-        .map((conversation) => ({
-          ...conversation,
-          isGroup: conversation.isGroup === true,
-          name:
-            conversation.name || (conversation.isGroup ? "Group Chat" : "Chat"),
-          picture:
-            conversation.picture ||
-            (conversation.isGroup
-              ? "https://image.pngaaa.com/78/6179078-middle.png"
-              : conversation.users?.[0]?.avatar || "default.jpg"),
-        }));
+        .map((conversation) => {
+          const isGroup = conversation.isGroup === true;
+          const participants =
+            conversation.users || conversation.participants || [];
 
-      console.log("Processed conversations:", processedConversations);
+          const otherUser = !isGroup
+            ? participants.find((u) => u._id !== currentUserId)
+            : null;
+
+          const name =
+            conversation.name ||
+            (isGroup
+              ? "Group Chat"
+              : otherUser?.fullName ||
+                `${otherUser?.firstName || ""} ${
+                  otherUser?.lastName || ""
+                }`.trim() ||
+                otherUser?.username ||
+                otherUser?.email ||
+                "Chat");
+
+          const picture =
+            conversation.picture ||
+            (isGroup
+              ? "https://image.pngaaa.com/78/6179078-middle.png"
+              : otherUser?.avatar || null); // ← استخدم null بدل "default.jpg"
+
+          return {
+            ...conversation,
+            isGroup,
+            name,
+            picture,
+            otherUser: otherUser || null,
+          };
+        });
+
       return processedConversations;
     } catch (error) {
       console.error("ERROR fetching conversations:", error);

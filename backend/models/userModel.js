@@ -255,19 +255,17 @@ userSchema.methods.isOnline = function () {
   );
 };
 
-userSchema.post('init', (doc) => {
-  // http://localhost:3000/users/https://lh3.googleusercontent.com/a/ACg8ocLIlrIuyPgK-J_k7IuzqIz-lzI7V_3hhixpwzN_xSC488TFHw=s96-c
-  if (doc.avatar) {
-    const imageURL = doc.avatar.startsWith('https://')
-      ? doc.avatar
-      : `${process.env.BASE_FILE_URL}/users/${doc.avatar}`;
-    doc.avatar = imageURL;
+userSchema.post('init', function (doc) {
+  if (doc.avatar && !doc.avatar.startsWith('http')) {
+    // Remove any duplicate /uploads/users/ in the path
+    const cleanPath = doc.avatar.replace(/^\/uploads\/users\/+/, '');
+    doc.avatar = `/uploads/users/${cleanPath}`;
   }
 });
 
 // userSchema.post('save' , (doc) => {
-//   if(doc.avatar){
-//     const imageURL = `${process.env.BASE_FILE_URL}/users/${doc.avatar}`
+//f(doc.avatar){
+//     imageURL = `${process.env.BASE_FILE_URL}/users/${doc.avatar}`
 //     doc.avatar = imageURL
 //   }
 // })

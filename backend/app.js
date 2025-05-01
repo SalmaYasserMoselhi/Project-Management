@@ -34,14 +34,18 @@ app.enable('trust proxy');
 app.set('trust proxy', 1);
 
 // Security Middleware
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 
 // CORS Configuration
 app.use(
   cors({
     origin: true, // allows all origins
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
       'Origin',
       'X-Requested-With',
@@ -56,6 +60,7 @@ app.use(
 // Additional CORS headers
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
   next();
 });
 
@@ -72,8 +77,17 @@ app.use(mongoSanitize());
 app.use(xss());
 app.use(hpp({}));
 
-// Serving static files
-app.use(express.static(path.join(__dirname, 'Uploads')));
+// Serving static files with proper headers
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET');
+    res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  },
+  express.static(path.join(__dirname, 'Uploads'))
+);
 
 // Request timestamp middleware
 app.use((req, res, next) => {

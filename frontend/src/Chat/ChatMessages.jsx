@@ -1,15 +1,61 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  useLayoutEffect,
+} from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 import { FiDownload, FiFile } from "react-icons/fi";
 import { useChat } from "../context/chat-context";
 import Avatar from "../assets/defaultAvatar.png";
-import { emitTyping, emitStopTyping, joinConversation } from "../utils/socket";
+import { joinConversation } from "../utils/socket";
 
-const MessageBubble = ({ message, isSender, showAvatar = true }) => {
+// ==== Message Content Renderer ====
+const renderContent = (message) => {
+  const text = message.content || message.message || "";
+
+  switch (message.type) {
+    case "image":
+      return (
+        <img
+          src={text}
+          alt="msg"
+          className="max-w-[300px] rounded-lg"
+          loading="lazy"
+        />
+      );
+    case "file":
+      return (
+        <div className="flex items-center gap-2 bg-white/80 p-3 rounded-lg">
+          <FiFile className="w-6 h-6 text-gray-500" />
+          <div className="flex-1 min-w-0">
+            <p className="truncate text-sm font-medium">{message.fileName}</p>
+            <p className="text-xs text-gray-500">
+              {(message.fileSize / 1024).toFixed(1)} KB
+            </p>
+          </div>
+          <a
+            href={message.fileUrl}
+            download={message.fileName}
+            className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+            title="Download File"
+          >
+            <FiDownload className="w-4 h-4" />
+          </a>
+        </div>
+      );
+    default:
+      return <p className="text-[0.9rem] leading-[1.4]">{text}</p>;
+  }
+};
+
+// ==== Message Bubble ====
+const MessageBubble = React.memo(({ message, isSender, showAvatar = true }) => {
   const { activeChat } = useChat();
 
   const getAvatarUrl = (avatarPath) => {
@@ -20,56 +66,7 @@ const MessageBubble = ({ message, isSender, showAvatar = true }) => {
 
   const getSenderName = () => {
     const sender = message.sender;
-    if (!sender) return "";
-
-    return sender.username || "";
-  };
-
-  const getMessageContent = () => {
-    // إضافة console.log لفحص محتوى الرسالة
-    console.log("Message content:", message);
-
-    // التأكد من وجود محتوى الرسالة
-    const messageText = message.content || message.message || "";
-
-    switch (message.type) {
-      case "text":
-        return <p className="text-[0.9rem] leading-[1.4]">{messageText}</p>;
-
-      case "image":
-        return (
-          <img
-            src={messageText}
-            alt="Message"
-            className="max-w-[300px] rounded-lg"
-            loading="lazy"
-          />
-        );
-
-      case "file":
-        return (
-          <div className="flex items-center gap-2 bg-white/80 p-3 rounded-lg">
-            <FiFile className="w-6 h-6 text-gray-500" />
-            <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium">{message.fileName}</p>
-              <p className="text-xs text-gray-500">
-                {(message.fileSize / 1024).toFixed(1)} KB
-              </p>
-            </div>
-            <a
-              href={message.fileUrl}
-              download={message.fileName}
-              className="p-2 hover:bg-gray-200 rounded-full transition-colors"
-              title="Download File"
-            >
-              <FiDownload className="w-4 h-4" />
-            </a>
-          </div>
-        );
-
-      default:
-        return <p className="text-[0.9rem] leading-[1.4]">{messageText}</p>;
-    }
+    return sender?.username || "";
   };
 
   return (
@@ -78,21 +75,19 @@ const MessageBubble = ({ message, isSender, showAvatar = true }) => {
         isSender ? "justify-end" : "justify-start"
       }`}
     >
-      {!isSender ? (
+      {!isSender && showAvatar && activeChat?.isGroup && (
         <div className="w-[40px] flex-shrink-0">
-          {showAvatar && activeChat?.isGroup && (
-            <img
-              src={getAvatarUrl(message.sender?.avatar)}
-              alt={getSenderName()}
-              className="w-[40px] h-[40px] rounded-full"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = Avatar;
-              }}
-            />
-          )}
+          <img
+            src={getAvatarUrl(message.sender?.avatar)}
+            alt={getSenderName()}
+            className="w-[40px] h-[40px] rounded-full"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = Avatar;
+            }}
+          />
         </div>
-      ) : null}
+      )}
 
       <div className="flex flex-col min-w-[100px] max-w-[75%]">
         {!isSender && showAvatar && activeChat?.isGroup && (
@@ -106,7 +101,7 @@ const MessageBubble = ({ message, isSender, showAvatar = true }) => {
           }`}
           style={{ minWidth: "100px" }}
         >
-          {getMessageContent()}
+          {renderContent(message)}
           <div className="flex justify-end items-center gap-1 mt-1">
             <span className="text-[0.65rem] opacity-75">
               {format(new Date(message.createdAt), "p", { locale: ar })}
@@ -115,49 +110,34 @@ const MessageBubble = ({ message, isSender, showAvatar = true }) => {
         </div>
       </div>
 
-      {isSender && <div className="w-[40px] flex-shrink-0"></div>}
+      {isSender && <div className="w-[40px] flex-shrink-0" />}
     </div>
   );
-};
+});
 
-export default function ChatMessages() {
+// ==== Main Component ====
+const ChatMessages = React.memo(() => {
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
   const dispatch = useDispatch();
-  const {
-    messages = [],
-    status,
-    isTyping,
-  } = useSelector((state) => state.chat);
+  const { messages = [], isTyping } = useSelector((state) => state.chat);
   const { currentUser, activeChat } = useChat();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const prevMessagesLength = useRef(0);
 
-  // Scroll to the most recent message
-  const scrollToBottom = (behavior = "auto") => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop =
-        chatContainerRef.current.scrollHeight;
-    }
+  const scrollToBottom = () => {
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    });
   };
 
-  // Initial load - scroll to bottom immediately
-  useEffect(() => {
-    if (messages.length > 0 && isInitialLoad) {
-      setTimeout(() => {
-        scrollToBottom();
-        setIsInitialLoad(false);
-      }, 100);
+  useLayoutEffect(() => {
+    if (messages.length > prevMessagesLength.current) {
+      scrollToBottom();
     }
-  }, [messages, isInitialLoad]);
+    prevMessagesLength.current = messages.length;
+  }, [messages]);
 
-  // Auto-scroll when new messages arrive
-  useEffect(() => {
-    if (!isInitialLoad && messages.length > 0) {
-      scrollToBottom("smooth");
-    }
-  }, [messages, isInitialLoad]);
-
-  // Join conversation room when activeChat changes
   useEffect(() => {
     if (activeChat?._id) {
       joinConversation(activeChat._id);
@@ -165,7 +145,6 @@ export default function ChatMessages() {
     }
   }, [activeChat?._id]);
 
-  // Group messages by date
   const groupedMessages = useMemo(() => {
     const groups = {};
     const today = new Date().toLocaleDateString();
@@ -173,19 +152,16 @@ export default function ChatMessages() {
 
     messages.forEach((message) => {
       const messageDate = new Date(message.createdAt).toLocaleDateString();
-      let displayDate = messageDate;
-
-      if (messageDate === today) {
-        displayDate = "today";
-      } else if (messageDate === yesterday) {
-        displayDate = "yesterday";
-      }
-
-      if (!groups[displayDate]) {
-        groups[displayDate] = [];
-      }
+      let displayDate =
+        messageDate === today
+          ? "today"
+          : messageDate === yesterday
+          ? "yesterday"
+          : messageDate;
+      if (!groups[displayDate]) groups[displayDate] = [];
       groups[displayDate].push(message);
     });
+
     return groups;
   }, [messages]);
 
@@ -200,26 +176,32 @@ export default function ChatMessages() {
     >
       <div className="flex flex-col justify-end min-h-full py-4">
         <div className="space-y-4">
-          {Object.entries(groupedMessages).map(([date, dateMessages]) => (
-            <div key={date} className="space-y-1">
-              <div className="flex justify-center mb-3">
-                <span className="text-sm bg-white text-[#4D2D61] px-4 py-2 rounded-2xl">
-                  {date}
-                </span>
-              </div>
-              {dateMessages.map((message, index) => (
-                <MessageBubble
-                  key={message._id || `msg-${index}`}
-                  message={message}
-                  isSender={message.sender._id === currentUser?._id}
-                  showAvatar={
-                    index === 0 ||
-                    dateMessages[index - 1]?.sender._id !== message.sender._id
-                  }
-                />
-              ))}
+          {Object.entries(groupedMessages).length === 0 ? (
+            <div className="text-center text-sm text-gray-500 py-8">
+              لا توجد رسائل
             </div>
-          ))}
+          ) : (
+            Object.entries(groupedMessages).map(([date, dateMessages]) => (
+              <div key={date} className="space-y-1">
+                <div className="flex justify-center mb-3">
+                  <span className="text-sm bg-white text-[#4D2D61] px-4 py-2 rounded-2xl">
+                    {date}
+                  </span>
+                </div>
+                {dateMessages.map((message, index) => (
+                  <MessageBubble
+                    key={message._id || `msg-${index}`}
+                    message={message}
+                    isSender={message.sender._id === currentUser?._id}
+                    showAvatar={
+                      index === 0 ||
+                      dateMessages[index - 1]?.sender._id !== message.sender._id
+                    }
+                  />
+                ))}
+              </div>
+            ))
+          )}
 
           {isTyping && (
             <div className="flex gap-2">
@@ -235,8 +217,12 @@ export default function ChatMessages() {
               </div>
             </div>
           )}
+
+          <div ref={messagesEndRef} />
         </div>
       </div>
     </div>
   );
-}
+});
+
+export default ChatMessages;

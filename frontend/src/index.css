@@ -13,7 +13,8 @@ body {
   /* overflow-y: auto; */
   overflow: auto !important;
 }
-html, body {
+html,
+body {
   overflow-x: hidden;
 }
 
@@ -248,12 +249,23 @@ body,
   position: absolute;
   bottom: 100%;
   left: 0;
-  z-index: 1000;
+  z-index: 9999;
   margin-bottom: 10px;
+  background-color: white;
+  border-radius: 8px;
 }
 
 /* Add shadow and border to the emoji picker */
 .emoji-picker-wrapper .EmojiPickerReact {
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+  border-radius: 8px !important;
+}
+
+/* Ensure emoji picker is visible over other elements */
+aside.EmojiPickerReact {
+  --epr-bg-color: #ffffff;
+  --epr-category-label-bg-color: #f8fafc;
+  position: relative;
+  z-index: 9999;
 }

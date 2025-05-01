@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Paperclip, Send, Smile } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
@@ -20,75 +20,54 @@ const ChatInput = ({ chatId }) => {
   const [isTyping, setIsTyping] = useState(false);
   const textareaRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const observerRef = useRef(null);
+  const emojiPickerRef = useRef(null);
+
   const conversationFromStore = useSelector((state) =>
     state.chat.conversations.find((c) => c._id === chatId)
   );
   const showEmojiPicker = useSelector((state) => state.chat.showEmojiPicker);
-  const emojiPickerRef = useRef(null);
 
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.min(
-        textareaRef.current.scrollHeight,
-        200
-      )}px`;
+  // Handle emoji picker visibility
+  const handleClickOutside = useCallback((event) => {
+    if (
+      emojiPickerRef.current &&
+      !emojiPickerRef.current.contains(event.target)
+    ) {
+      dispatch(closeEmojiPicker());
     }
-  }, [message]);
-
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-      if (isTyping) {
-        emitStopTyping(chatId);
-      }
-    };
-  }, [chatId, isTyping]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        emojiPickerRef.current &&
-        !emojiPickerRef.current.contains(event.target)
-      ) {
-        dispatch(closeEmojiPicker());
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [dispatch]);
 
-  const handleTyping = () => {
+  // Handle typing status
+  const handleTyping = useCallback(() => {
     if (!isTyping) {
       setIsTyping(true);
       emitTyping(chatId);
     }
 
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
+    clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
       emitStopTyping(chatId);
     }, 3000);
-  };
+  }, [chatId, isTyping]);
 
-  const handleEmojiClick = (emojiData) => {
+  // Handle emoji selection
+  const handleEmojiClick = useCallback((emojiData) => {
     setMessage((prev) => prev + emojiData.emoji);
     dispatch(closeEmojiPicker());
-  };
+  }, [dispatch]);
 
-  const handleSubmit = async (e) => {
+  // Handle message submission
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    if (!message.trim()) return;
+
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) return;
 
     const tempMessage = {
       _id: `temp-${Date.now()}`,
-      content: message,
+      content: trimmedMessage,
       sender: { _id: currentUser._id },
       conversationId: chatId,
       createdAt: new Date().toISOString(),
@@ -97,14 +76,13 @@ const ChatInput = ({ chatId }) => {
 
     dispatch(addMessage(tempMessage));
     setMessage("");
-    textareaRef.current.style.height = "auto";
 
     try {
       const result = await dispatch(
         sendMessage({
           conversationId: chatId,
-          content: message,
-          isEmoji: /^[\uD800-\uDBFF][\uDC00-\uDFFF]$/.test(message), // Check if message is a single emoji
+          content: trimmedMessage,
+          isEmoji: /^[\uD800-\uDBFF][\uDC00-\uDFFF]$/.test(trimmedMessage),
         })
       ).unwrap();
 
@@ -124,19 +102,54 @@ const ChatInput = ({ chatId }) => {
         );
       }
     } catch (error) {
-      console.error("Failed to send message:", error);
+      console.error("❌ Failed to send message:", error);
     }
-  };
+  }, [message, currentUser._id, chatId, dispatch, conversationFromStore]);
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+  // Handle keyboard shortcuts
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === "Enter" && !e.shiftKey) { // تم تعديل الشرط هنا
       e.preventDefault();
       handleSubmit(e);
     }
-  };
+  }, [handleSubmit]);
+
+  // Setup textarea auto-resize
+  useEffect(() => {
+    if (!textareaRef.current) return;
+
+    const textarea = textareaRef.current;
+    const resize = () => {
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+    };
+
+    resize();
+
+    observerRef.current = new ResizeObserver(resize);
+    observerRef.current.observe(textarea);
+
+    return () => {
+      observerRef.current?.disconnect();
+    };
+  }, [message]);
+
+  // Setup click outside listener
+  useEffect(() => {
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [handleClickOutside]);
+
+  // Cleanup typing timeout
+  useEffect(() => {
+    return () => {
+      clearTimeout(typingTimeoutRef.current);
+      emitStopTyping(chatId);
+    };
+  }, [chatId]);
 
   return (
-    <div className="bg-[#F5F5F5]  p-4">
+    <div className="bg-[#F5F5F5] p-4">
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
         <div className="flex-1 flex items-center bg-white rounded-xl px-4 py-2">
           <div className="emoji-picker-container" ref={emojiPickerRef}>
@@ -149,7 +162,7 @@ const ChatInput = ({ chatId }) => {
               <Smile className="w-5 h-5" />
             </button>
             {showEmojiPicker && (
-              <div className="emoji-picker-wrapper">
+              <div className="emoji-picker-wrapper z-50">
                 <EmojiPicker onEmojiClick={handleEmojiClick} />
               </div>
             )}
@@ -170,7 +183,7 @@ const ChatInput = ({ chatId }) => {
               setMessage(e.target.value);
               handleTyping();
             }}
-            onKeyDown={handleKeyDown}
+            onKeyDown={handleKeyDown} // تم تأكيد تواجد هذا الحدث
             placeholder="Type a message..."
             className="flex-1 bg-white rounded-lg px-3 py-2 outline-none resize-none max-h-32 text-gray-800 placeholder-gray-400 text-sm"
             rows={1}
@@ -178,7 +191,7 @@ const ChatInput = ({ chatId }) => {
 
           <button
             type="submit"
-            disabled={!message.trim()}
+            disabled={message.trim().length === 0}
             className="p-1 text-[#4D2D61] transition-colors hover:text-[#57356A] disabled:opacity-50 disabled:cursor-not-allowed ml-2"
             title="Send Message"
           >

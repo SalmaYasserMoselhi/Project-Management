@@ -16,24 +16,90 @@ import { useChat } from "../context/chat-context";
 import { motion } from "framer-motion";
 import { dateHandler } from "../utils/Date";
 import Avatar from "../assets/defaultAvatar.png";
+import { isValidImageUrl, getAvatarUrl } from "../utils/imageUtils";
+import React from "react";
 
-const isValidImageUrl = (url) => {
-  if (!url) return false;
-  if (url === "default.jpg" || url === "conversation picture") return false;
-  if (typeof url !== "string") return false;
+const ConversationItem = React.memo(({ chat, currentUser, isActive, onConversationClick }) => {
+  const { displayName, displayPicture } = useMemo(() => {
+    const isGroupChat = chat.isGroup === true;
+
+    if (isGroupChat) {
+      return {
+        displayName: chat.name || "Group",
+        displayPicture: chat.picture || "https://image.pngaaa.com/78/6179078-middle.png"
+      };
+    }
+
+    // في المحادثات الفردية، نبحث عن بيانات المستخدم الآخر
+    const otherUser = chat.users?.find(user => user._id !== currentUser?._id) ||
+                     chat.participants?.find(user => user._id !== currentUser?._id);
+
+    if (!otherUser) {
+      console.warn('Could not find other user in conversation:', chat._id);
+      return {
+        displayName: "Chat",
+        displayPicture: Avatar
+      };
+    }
+
+    // تكوين اسم العرض من بيانات المستخدم الآخر
+    const displayName = otherUser.fullName || 
+                       `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() ||
+                       otherUser.username ||
+                       otherUser.email ||
+                       "Chat";
+
+    // تحديد الصورة الشخصية للمستخدم الآخر
+    const displayPicture = otherUser.avatar && otherUser.avatar !== "default.jpg" 
+                          ? getAvatarUrl(otherUser.avatar) 
+                          : Avatar;
+
+    return { displayName, displayPicture };
+  }, [chat, currentUser]);
 
   return (
-    url.match(/\.(jpeg|jpg|gif|png|svg|webp)$/i) != null ||
-    url.startsWith("http") ||
-    url.startsWith("/")
+    <div
+      className={`relative flex items-center p-3 cursor-pointer hover:bg-gray-100 transition-colors ${
+        isActive ? "bg-[#4D2D61]/10" : ""
+      }`}
+      onClick={() => onConversationClick(chat)}
+    >
+      <div className="relative flex-shrink-0 mr-3">
+        {isValidImageUrl(displayPicture) ? (
+          <div className="w-10 h-10 rounded-full overflow-hidden">
+            <img
+              src={displayPicture}
+              alt={displayName}
+              loading="lazy"
+              className="w-10 h-10 rounded-full object-cover"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = Avatar;
+              }}
+            />
+          </div>
+        ) : (
+          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-semibold bg-[#4D2D61]">
+            {displayName?.[0]?.toUpperCase() || "?"}
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between items-center">
+          <h3 className="text-sm font-semibold truncate text-[#4D2D61]">
+            {displayName}
+          </h3>
+          <span className="text-xs text-gray-500">
+            {dateHandler(chat?.lastMessage?.createdAt)}
+          </span>
+        </div>
+        <p className="text-xs text-gray-500 truncate">
+          {chat?.lastMessage?.content || chat?.lastMessage?.message || "No messages yet"}
+        </p>
+      </div>
+    </div>
   );
-};
-
-const getAvatarUrl = (avatarPath) => {
-  if (!avatarPath) return Avatar;
-  if (avatarPath.startsWith("http")) return avatarPath;
-  return `/api/v1/uploads/users/${avatarPath}`;
-};
+});
 
 const ChatList = () => {
   const dispatch = useDispatch();
@@ -365,6 +431,8 @@ const ChatList = () => {
     setSearchTerm("");
     if (showUserSearch) {
       setShowUserSearch(false);
+      setError(null); // إعادة تعيين حالة الخطأ
+      dispatch({ type: "chat/searchUsers/fulfilled", payload: [] }); // إعادة تعيين نتائج البحث
     }
   };
 
@@ -667,125 +735,14 @@ const ChatList = () => {
                     chat.name
                   );
 
-                  let displayName = chat.name;
-                  let displayPicture = chat.picture;
-
-                  // Handle individual and group chats differently
-                  const isGroupChat = chat.isGroup === true;
-
-                  // For group chats, use the group name
-                  if (isGroupChat) {
-                    displayName = chat.name || "Group";
-                    displayPicture =
-                      chat.picture ||
-                      "https://image.pngaaa.com/78/6179078-middle.png";
-                    console.log(
-                      "Displaying group chat:",
-                      chat._id,
-                      displayName,
-                      displayPicture
-                    );
-                  } else {
-                    // البحث عن المستخدم الآخر في المحادثة للمحادثات الفردية
-                    const otherUser =
-                      chat.otherUser ||
-                      (chat.participants && Array.isArray(chat.participants)
-                        ? chat.participants.find(
-                            (p) => p._id !== currentUser?._id
-                          )
-                        : null);
-
-                    let userData = null;
-                    if (
-                      otherUser &&
-                      otherUser._id &&
-                      chat?.userCache?.[otherUser._id]
-                    ) {
-                      userData = chat.userCache[otherUser._id];
-                    } else if (otherUser && otherUser._id && chat?.userCache) {
-                      userData = chat.userCache[otherUser._id] || null;
-                    }
-
-                    if (
-                      !displayName ||
-                      displayName === "Chat" ||
-                      displayName === "conversation name"
-                    ) {
-                      if (otherUser) {
-                        displayName =
-                          otherUser.fullName ||
-                          `${otherUser.firstName || ""} ${
-                            otherUser.lastName || ""
-                          }`.trim() ||
-                          otherUser.username ||
-                          otherUser.email ||
-                          chat.name ||
-                          "Chat";
-                      } else if (!chat.isGroup) {
-                        displayName = "Chat";
-                      } else {
-                        displayName = "Group Chat";
-                      }
-                    }
-
-                    if (
-                      !displayPicture ||
-                      displayPicture === "default.jpg" ||
-                      displayPicture === "conversation picture" ||
-                      displayPicture === "/src/assets/defaultAvatar.png"
-                    ) {
-                      if (otherUser && isValidImageUrl(otherUser.avatar)) {
-                        displayPicture = getAvatarUrl(otherUser.avatar);
-                      } else {
-                        displayPicture = Avatar;
-                      }
-                    }
-                  }
-
                   return (
-                    <div
-                      className={`relative flex items-center p-3 cursor-pointer hover:bg-gray-100 transition duration-200 ease-in-out ${
-                        activeChat?.id === chat?._id ? "bg-[#4D2D61]/10" : ""
-                      }`}
-                      key={chat?._id || chat?.id}
-                      onClick={() => handleConversationClick(chat)}
-                    >
-                      <div className="relative flex-shrink-0 mr-3">
-                        {isValidImageUrl(displayPicture) ? (
-                          <div className="w-10 h-10 rounded-full overflow-hidden">
-                            <img
-                              src={displayPicture}
-                              alt={displayName || "User"}
-                              loading="lazy"
-                              className="w-10 h-10 rounded-full object-cover"
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = Avatar;
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-semibold bg-[#4D2D61]">
-                            {displayName?.[0]?.toUpperCase() || "?"}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center">
-                          <h3 className="text-sm font-semibold truncate text-[#4D2D61]">
-                            {displayName}
-                          </h3>
-                          <span className="text-xs text-gray-500">
-                            {dateHandler(chat?.lastMessage?.createdAt)}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 truncate">
-                          {chat?.lastMessage?.message ||
-                            chat?.lastMessage?.content ||
-                            "No messages yet"}
-                        </p>
-                      </div>
-                    </div>
+                    <ConversationItem
+                      key={chat._id || chat.id}
+                      chat={chat}
+                      currentUser={currentUser}
+                      isActive={activeChat?.id === chat._id}
+                      onConversationClick={handleConversationClick}
+                    />
                   );
                 })}
               </motion.div>

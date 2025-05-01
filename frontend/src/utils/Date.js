@@ -1,15 +1,17 @@
 import moment from "moment";
 
 export const dateHandler = (date) => {
-  let now = moment();
-  let momentDate = moment(date);
-  let time = momentDate.fromNow(true);
-  let dateByHourAndMin = momentDate.format("HH:mm");
+  const now = moment();
+  const momentDate = moment(date);
+  const time = momentDate.fromNow(true);
+  const dateByHourAndMin = momentDate.format("HH:mm");
 
   const getDay = () => {
-    let days = time.split(" ")[0];
-    if (Number(days) < 8) {
-      return now.subtract(Number(days), "days").format("dddd");
+    const days = parseInt(time.split(" ")[0], 10);
+    if (isNaN(days)) return momentDate.format("DD/MM/YYYY");
+
+    if (days < 8) {
+      return moment().subtract(days, "days").format("dddd");
     } else {
       return momentDate.format("DD/MM/YYYY");
     }
@@ -18,22 +20,24 @@ export const dateHandler = (date) => {
   if (time === "a few seconds") {
     return "Now";
   }
-  if (time.search("minute") !== -1) {
-    let mins = time.split("")[0];
-    if (mins === "a") {
-      return "1 min";
-    } else {
-      return `${mins} min`;
-    }
+
+  if (time.includes("minute")) {
+    const parts = time.split(" ");
+    const mins = parts[0] === "a" ? 1 : parseInt(parts[0], 10);
+    return `${mins} min`;
   }
-  if (time.search("hour") !== -1) {
+
+  if (time.includes("hour")) {
     return dateByHourAndMin;
   }
+
   if (time === "a day") {
     return "Yesterday";
   }
-  if (time.search("days") !== -1) {
+
+  if (time.includes("days")) {
     return getDay();
   }
+
   return time;
 };
