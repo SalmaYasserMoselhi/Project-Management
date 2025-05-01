@@ -99,8 +99,8 @@ exports.getPublicAndMemberWorkspaces = catchAsync(async (req, res, next) => {
     $and: [
       { 'members.user': req.user._id },
       { type: { $ne: 'private' } },
-      { type: { $ne: 'collaboration' } }
-    ]
+      { type: { $ne: 'collaboration' } },
+    ],
   };
 
   // Get total count
@@ -122,7 +122,7 @@ exports.getPublicAndMemberWorkspaces = catchAsync(async (req, res, next) => {
     createdAt: workspace.createdAt,
     updatedAt: workspace.updatedAt,
     settings: workspace.settings,
-    memberCount: workspace.members.length // Now accessible
+    memberCount: workspace.members.length, // Now accessible
   }));
 
   res.status(200).json({
@@ -130,7 +130,7 @@ exports.getPublicAndMemberWorkspaces = catchAsync(async (req, res, next) => {
     total,
     currentPage: parsedPage,
     totalPages: Math.ceil(total / parsedLimit),
-    data: { workspaces: transformedWorkspaces }
+    data: { workspaces: transformedWorkspaces },
   });
 });
 
@@ -160,6 +160,14 @@ exports.createWorkspace = catchAsync(async (req, res, next) => {
 
 // Get user's workspaces
 exports.getUserWorkspaces = catchAsync(async (req, res, next) => {
+  // Set cache control headers to prevent caching
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    Pragma: 'no-cache',
+    Expires: '0',
+    'Last-Modified': new Date().toUTCString(),
+  });
+
   // Get workspaces where user is the creator
   const ownedWorkspaces = await Workspace.find({ createdBy: req.user._id });
 
@@ -208,9 +216,11 @@ exports.getUserWorkspaces = catchAsync(async (req, res, next) => {
     }
   }
 
+  // Add timestamp to response to prevent caching
   res.status(200).json({
     status: 'success',
     result: ownedWorkspaces.length,
+    timestamp: Date.now(),
     data: {
       ownedWorkspaces,
     },
@@ -466,7 +476,7 @@ exports.removeMember = catchAsync(async (req, res, next) => {
 // Get members of a public workspace only
 exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
   const workspace = req.workspace;
-  
+
   // Get query parameters
   const { page = 1, limit = 10, sort = 'joinedAt' } = req.query;
   const parsedPage = Math.max(parseInt(page), 1);
@@ -520,12 +530,12 @@ exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
       currentPage: parsedPage,
       totalPages: Math.ceil(total / parsedLimit),
       itemsPerPage: parsedLimit,
-      totalItems: total
+      totalItems: total,
     },
     data: {
       members: formattedMembers,
-      stats: memberStats
-    }
+      stats: memberStats,
+    },
   });
 });
 
@@ -735,7 +745,7 @@ exports.acceptInvitation = catchAsync(
 exports.getPendingInvitations = catchAsync(async (req, res, next) => {
   const workspace = req.workspace;
   const { page = 1, limit = 10, sort = '-createdAt' } = req.query;
-  
+
   // Parse and validate inputs
   const parsedPage = Math.max(parseInt(page), 1);
   const parsedLimit = Math.min(parseInt(limit), 100);
@@ -753,7 +763,12 @@ exports.getPendingInvitations = catchAsync(async (req, res, next) => {
   // Validate sort field
   const validSortFields = ['createdAt', 'tokenExpiresAt', 'email'];
   if (!validSortFields.includes(sortField)) {
-    return next(new AppError('Invalid sort field. Valid fields: createdAt, tokenExpiresAt, email', 400));
+    return next(
+      new AppError(
+        'Invalid sort field. Valid fields: createdAt, tokenExpiresAt, email',
+        400
+      )
+    );
   }
 
   // Sort invitations
@@ -771,13 +786,13 @@ exports.getPendingInvitations = catchAsync(async (req, res, next) => {
   const paginatedInvitations = pendingInvitations.slice(startIndex, endIndex);
 
   // Format response
-  const formattedInvitations = paginatedInvitations.map(inv => ({
+  const formattedInvitations = paginatedInvitations.map((inv) => ({
     email: inv.email,
     role: inv.role,
     status: inv.status,
     createdAt: inv.createdAt,
     expiresAt: inv.tokenExpiresAt,
-    invitedBy: inv.invitedBy
+    invitedBy: inv.invitedBy,
   }));
 
   res.status(200).json({
@@ -786,11 +801,11 @@ exports.getPendingInvitations = catchAsync(async (req, res, next) => {
       currentPage: parsedPage,
       totalPages: Math.ceil(total / parsedLimit),
       itemsPerPage: parsedLimit,
-      totalItems: total
+      totalItems: total,
     },
     data: {
-      invitations: formattedInvitations
-    }
+      invitations: formattedInvitations,
+    },
   });
 });
 

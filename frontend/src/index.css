@@ -16,8 +16,6 @@ body {
 }
 html,
 body {
-html,
-body {
   overflow-x: hidden;
   font-family: "Inter", sans-serif;
 }
@@ -276,4 +274,3 @@ aside.EmojiPickerReact {
   position: relative;
   z-index: 9999;
 }
-

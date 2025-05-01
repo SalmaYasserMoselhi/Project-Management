@@ -32,9 +32,15 @@ function App() {
   ];
 
   // Check if current page is auth
-  const isAuthPage = authPages.some((path) =>
-    location.pathname.startsWith(path)
-  );
+  const isAuthPage = authPages.some((path) => {
+    const isMatch = location.pathname === path;
+    console.log("Auth page check:", {
+      currentPath: location.pathname,
+      checkingPath: path,
+      isMatch,
+    });
+    return isMatch;
+  });
 
   // Should we render the workspace popup?
   const shouldRenderWorkspacePopup =
@@ -42,6 +48,15 @@ function App() {
     (isWorkspaceOpen ||
       workspaceTransitionState === "opening" ||
       workspaceTransitionState === "closing");
+
+  console.log("Workspace Popup Render Conditions:", {
+    isAuthPage,
+    currentPath: location.pathname,
+    isWorkspaceOpen,
+    workspaceTransitionState,
+    selectedWorkspace,
+    shouldRenderWorkspacePopup,
+  });
 
   return (
     <ChatProvider>
