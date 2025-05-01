@@ -3,7 +3,11 @@ import Column from "./Column";
 import AddListButton from "./AddListButton";
 import drop from "../assets/drop.png";
 
-const Board = () => {
+const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
+
+  console.log("Workspace ID:", workspaceId);
+  console.log("Board ID:", boardId);
+
   const [view, setView] = useState("board");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -13,7 +17,7 @@ const Board = () => {
     { title: "In Review", count: 2 },
     { title: "Done", count: 5 },
   ]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
 
   const addNewList = () => {
     const newList = {
@@ -101,11 +105,12 @@ const Board = () => {
         {/* Board View */}
         {view === "board" && (
           <div className="flex-1 overflow-y-auto pb-4 ">
+           
             <div
-              className={`flex gap-0 min-w-0 h-full ${
-                isSidebarOpen ? "pl-[300px]" : ""
-              } overflow-x-auto max-w-full`}
-            >
+              className={`flex gap-0 min-w-0 h-full -ml-10${
+              isSidebarOpen ? "pl-[300px]" : "pl-0"
+               } overflow-x-auto max-w-full`}
+              >
               {columns.map((col, index) => (
                 <Column
                   key={index}
@@ -135,3 +140,5 @@ const Board = () => {
 };
 
 export default Board;
+
+

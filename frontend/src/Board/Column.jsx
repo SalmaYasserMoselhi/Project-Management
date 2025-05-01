@@ -2,6 +2,7 @@ import vector from "../assets/Vector.png";
 import TaskCard from "./TaskCard";
 import icon from "../assets/icon.png";
 
+
 const Column = ({ title, count, className }) => {
   return (
     <div
@@ -18,7 +19,7 @@ const Column = ({ title, count, className }) => {
               {count}
             </span>
           </h3>
-        </div>
+        </div> 
         <div className="flex items-center">
           <img src={vector} alt="Photo 1" className="w-[18px] h-[4px]" />
         </div>
