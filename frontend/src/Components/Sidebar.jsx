@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import UserPublicSpacesPopup from "../Workspace/user'sPublicSpacesPopup";
 
 import {
   toggleSidebar,
@@ -118,6 +119,7 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const [isMobile, setIsMobile] = useState(false);
   const [isClosingWorkspace, setIsClosingWorkspace] = useState(false);
+  const [isWorkspacePopupOpen, setIsWorkspacePopupOpen] = useState(false);
   const BASE_URL = "http://localhost:3000";
 
   // Get state from Redux store
@@ -308,6 +310,12 @@ const Sidebar = () => {
     };
   }, [dispatch, workspaceTransitionState]);
 
+  // Add handler for workspace popup
+  const handleWorkspacePopupToggle = (e) => {
+    e.stopPropagation();
+    setIsWorkspacePopupOpen(!isWorkspacePopupOpen);
+  };
+
   return (
     <div
       id="sidebar"
@@ -372,25 +380,44 @@ const Sidebar = () => {
       {/* User Workspace Section */}
       {user && (
         <div className="mb-3">
-          {isSidebarOpen ? (
-            <div className="flex items-center justify-between cursor-pointer px-3 py-2.5 rounded-md">
-              <div className="w-6 h-6 flex items-center justify-center bg-[#6A3B82] text-[#fff] font-medium rounded-sm text-sm">
-                {user.firstName.charAt(0).toUpperCase()}
-              </div>
+          <div className="relative">
+            {isSidebarOpen ? (
+              <div
+                className="flex items-center justify-between cursor-pointer px-3 py-2.5 rounded-md"
+                onClick={handleWorkspacePopupToggle}
+              >
+                <div className="w-6 h-6 flex items-center justify-center bg-[#6A3B82] text-[#fff] font-medium rounded-sm text-sm">
+                  {user.firstName.charAt(0).toUpperCase()}
+                </div>
 
-              <span className="text-sm flex-1 px-2 truncate text-white">
-                {user.firstName}&apos;s Workspaces
-              </span>
+                <span className="text-sm flex-1 px-2 truncate text-white">
+                  {user.firstName}&apos;s Workspaces
+                </span>
 
-              <ChevronsUpDown className="h-5 w-5 text-white" />
-            </div>
-          ) : (
-            <div className="flex justify-center">
-              <div className="w-12 px-3 py-2.5 flex items-center justify-center bg-[#6A3B82] text-white font-normal rounded-xl text-sm">
-                {user.firstName.charAt(0).toUpperCase()}
+                <ChevronsUpDown
+                  className={`h-5 w-5 text-white transition-transform duration-200 ${
+                    isWorkspacePopupOpen ? "transform rotate-180" : ""
+                  }`}
+                />
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex justify-center">
+                <div
+                  className="w-12 px-3 py-2.5 flex items-center justify-center bg-[#6A3B82] text-white font-normal rounded-xl text-sm cursor-pointer"
+                  onClick={handleWorkspacePopupToggle}
+                >
+                  {user.firstName.charAt(0).toUpperCase()}
+                </div>
+              </div>
+            )}
+
+            {/* Workspace Popup */}
+            <UserPublicSpacesPopup
+              isOpen={isWorkspacePopupOpen}
+              onClose={() => setIsWorkspacePopupOpen(false)}
+              currentWorkspace={selectedWorkspace}
+            />
+          </div>
 
           {/* Chat */}
           <div className="mt-2 space-y-2">
