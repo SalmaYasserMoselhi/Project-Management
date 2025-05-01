@@ -13,11 +13,11 @@ import {
 import { fetchUserData } from "../features/Slice/userSlice/userSlice";
 
 import {
-  MessageCircle,
-  Grid,
-  Network,
-  Users2,
-  User,
+  // MessageCircle,
+  // Grid,
+  // Network,
+  // Users2,
+  // User,
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
@@ -329,14 +329,14 @@ const Sidebar = () => {
           <img
             src={LogoF}
             alt="Logo"
-            className="h-10 transition-all duration-300"
+            className="h-9 transition-all duration-300"
           />
         ) : (
           <div className="flex justify-center w-full">
             <img
               src={LogoS}
               alt="Small Logo"
-              className="h-8 w-10 transition-all duration-300"
+              className="h-8 transition-all duration-300"
             />
           </div>
         )}
@@ -357,12 +357,12 @@ const Sidebar = () => {
             onClick={() => dispatch(toggleSidebar())}
             className={`absolute ${
               isSidebarOpen ? "right-0" : "-right-7"
-            } top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#57356A] transition-all duration-300 shadow-lg hover:bg-[#65437A] hover:text-white z-10`}
+            } top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full bg-white/90 text-[#57356A] transition-all duration-300 shadow-lg hover:bg-[#65437A] hover:text-white z-10 w-5 h-5`}
           >
             {isSidebarOpen ? (
-              <ChevronLeft size={18} />
+              <ChevronLeft size={15} />
             ) : (
-              <ChevronRight size={18} />
+              <ChevronRight size={15} />
             )}
           </button>
         )}
@@ -396,7 +396,7 @@ const Sidebar = () => {
           <div className="mt-2 space-y-2">
             <div
               className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-                activeItem === "Chat" ? "bg-white/95" : "hover:bg-white/95"
+                activeItem === "Chat" ? "bg-white/90" : "hover:bg-white/90"
               } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
               onClick={(e) => {
                 e.preventDefault();
@@ -428,7 +428,7 @@ const Sidebar = () => {
             {/* Dashboard */}
             <div
               className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-                activeItem === "Dashboard" ? "bg-white/95" : "hover:bg-white/95"
+                activeItem === "Dashboard" ? "bg-white/90" : "hover:bg-white/90"
               } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
               onClick={(e) => {
                 e.preventDefault();
@@ -470,7 +470,7 @@ const Sidebar = () => {
         {/* Workspace */}
         <div
           className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-            activeItem === "Workspace" ? "bg-white/95" : "hover:bg-white/95"
+            activeItem === "Workspace" ? "bg-white/90" : "hover:bg-white/90"
           } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
           onClick={(e) => {
             handleWorkspaceToggle("workspace", e);
@@ -501,7 +501,7 @@ const Sidebar = () => {
         {/* Collaboration */}
         <div
           className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-            activeItem === "Collaboration" ? "bg-white/95" : "hover:bg-white/95"
+            activeItem === "Collaboration" ? "bg-white/90" : "hover:bg-white/90"
           } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
           onClick={(e) => {
             handleWorkspaceToggle("collaboration", e);
@@ -532,7 +532,7 @@ const Sidebar = () => {
         {/* Private */}
         <div
           className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-            activeItem === "Private" ? "bg-white/95" : "hover:bg-white/95"
+            activeItem === "Private" ? "bg-white/90" : "hover:bg-white/90"
           } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
           onClick={(e) => {
             handleWorkspaceToggle("private", e);
