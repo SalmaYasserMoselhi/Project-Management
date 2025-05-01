@@ -210,37 +210,325 @@ exports.getConversations = catchAsync(async (req, res, next) => {
     },
   });
 });
-
 exports.createGroup = catchAsync(async (req, res, next) => {
   const { name, users } = req.body;
-  // Add current user to users
-  users.push(req.user.userId);
-  if (!name || !users) {
-    return next(new AppError('please fill all fields.', 400));
+
+  // Add current user to users if not already included
+  const currentUserId = req.user._id.toString();
+  let usersList = Array.isArray(users) ? [...users] : [];
+
+  // Ensure IDs are valid and convert to string for comparison
+  const validUsers = usersList.filter((id) =>
+    mongoose.Types.ObjectId.isValid(id)
+  );
+
+  // Check if current user is already in the list
+  const currentUserIncluded = validUsers.some(
+    (id) => id.toString() === currentUserId
+  );
+
+  if (!currentUserIncluded) {
+    validUsers.push(req.user._id);
   }
-  if (users.length < 2) {
+
+  if (!name) {
+    return next(new AppError('Please provide a name for the group', 400));
+  }
+
+  if (validUsers.length < 2) {
     return next(
-      new AppError('At least 2 users are required to start a group.', 400)
+      new AppError('At least 2 users are required to start a group', 400)
     );
   }
+
+  // Create conversation data with admin explicitly set
   let convoData = {
     name,
-    users,
+    users: validUsers,
     isGroup: true,
-    admin: req.user.userId,
-    picture: process.env.DEFAULT_GROUP_PICTURE,
+    admin: req.user._id, // Explicitly set the current user as admin
+    picture: req.body.picture || process.env.DEFAULT_GROUP_PICTURE,
   };
+
+  // Log the data being used to create the group
+  console.log('Creating group with data:', {
+    name: convoData.name,
+    usersCount: convoData.users.length,
+    admin: convoData.admin.toString(),
+    isGroup: convoData.isGroup,
+  });
+
   const newConvo = await createConversation(convoData);
+
+  if (!newConvo) {
+    return next(new AppError('Failed to create group conversation', 500));
+  }
+
+  // Verify admin was set
+  if (!newConvo.admin) {
+    newConvo.admin = req.user._id;
+    await newConvo.save();
+    console.log('Fixed missing admin in newly created group');
+  }
+
   const populatedConvo = await populateConversation(
     newConvo._id,
     'users admin',
     '-password'
   );
-  console.log(populatedConvo);
+
   res.status(200).json({
     status: 'success',
     data: {
-      populatedConvo,
+      conversation: populatedConvo,
     },
+  });
+});
+
+/**
+ * Add a user to a group conversation
+ * Only group admin can add users
+ */
+exports.addUserToGroup = catchAsync(async (req, res, next) => {
+  const { conversationId, userId } = req.body;
+
+  // Validate required fields
+  if (!conversationId || !userId) {
+    return next(
+      new AppError('Please provide conversation ID and user ID', 400)
+    );
+  }
+
+  // Ensure IDs are valid ObjectIds
+  if (
+    !mongoose.Types.ObjectId.isValid(conversationId) ||
+    !mongoose.Types.ObjectId.isValid(userId)
+  ) {
+    return next(new AppError('Invalid ID format', 400));
+  }
+
+  // Find the conversation
+  const conversation = await Conversation.findById(conversationId);
+
+  // Check if conversation exists
+  if (!conversation) {
+    return next(new AppError('Conversation not found', 404));
+  }
+
+  // Check if it's a group conversation
+  if (!conversation.isGroup) {
+    return next(new AppError('This is not a group conversation', 400));
+  }
+
+  // Check if the admin field exists
+  if (!conversation.admin) {
+    return next(new AppError('Group conversation has no admin', 500));
+  }
+
+  // Check if the current user is the admin of the group
+  const currentUserId = req.user._id.toString();
+  const adminId = conversation.admin.toString();
+
+  if (currentUserId !== adminId) {
+    return next(new AppError('Only group admin can add users', 403));
+  }
+
+  // Check if user exists
+  const user = await User.findById(userId);
+  if (!user) {
+    return next(new AppError('User not found', 404));
+  }
+
+  // Convert userId to string for comparison
+  const userIdStr = userId.toString();
+
+  // Check if user is already in the group
+  const userExists = conversation.users.some(
+    (u) => u && u.toString() === userIdStr
+  );
+  if (userExists) {
+    return next(new AppError('User is already in this group', 400));
+  }
+
+  // Add user to the group
+  conversation.users.push(userId);
+  await conversation.save();
+
+  // Populate the updated conversation
+  const populatedConversation = await populateConversation(
+    conversationId,
+    'users admin',
+    '-password'
+  );
+
+  res.status(200).json({
+    status: 'success',
+    message: 'User added to group successfully',
+    data: {
+      conversation: populatedConversation,
+    },
+  });
+});
+/**
+ * Remove a user from a group conversation
+ * Only group admin can remove users
+ */
+exports.removeUserFromGroup = catchAsync(async (req, res, next) => {
+  const { conversationId, userId } = req.body;
+
+  // Validate required fields
+  if (!conversationId || !userId) {
+    return next(
+      new AppError('Please provide conversation ID and user ID', 400)
+    );
+  }
+
+  // Ensure IDs are valid ObjectIds
+  if (
+    !mongoose.Types.ObjectId.isValid(conversationId) ||
+    !mongoose.Types.ObjectId.isValid(userId)
+  ) {
+    return next(new AppError('Invalid ID format', 400));
+  }
+
+  // Find the conversation
+  const conversation = await Conversation.findById(conversationId);
+
+  // Check if conversation exists
+  if (!conversation) {
+    return next(new AppError('Conversation not found', 404));
+  }
+
+  // Check if it's a group conversation
+  if (!conversation.isGroup) {
+    return next(new AppError('This is not a group conversation', 400));
+  }
+
+  // Check if the current user is the admin of the group
+  if (conversation.admin.toString() !== req.user._id.toString()) {
+    return next(new AppError('Only group admin can remove users', 403));
+  }
+
+  // Check if user is in the group
+  if (!conversation.users.some((user) => user.toString() === userId)) {
+    return next(new AppError('User is not in this group', 400));
+  }
+
+  // Special handling if admin is removing themselves
+  if (conversation.admin.toString() === userId) {
+    // If admin is the only user, delete the group
+    if (conversation.users.length === 1) {
+      await Conversation.findByIdAndDelete(conversationId);
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'Group deleted as you were the only member',
+      });
+    }
+
+    // Otherwise, transfer admin role to another user
+    const newAdminId = conversation.users.find(
+      (user) => user.toString() !== userId
+    );
+
+    conversation.admin = newAdminId;
+  } // Remove user from the group
+  conversation.users = conversation.users.filter(
+    (user) => user.toString() !== userId
+  );
+
+  await conversation.save();
+
+  // Don't try to populate if the group was deleted
+  if (
+    conversation.admin.toString() === userId &&
+    conversation.users.length <= 1
+  ) {
+    return;
+  }
+
+  // Populate the updated conversation
+  const populatedConversation = await populateConversation(
+    conversationId,
+    'users admin',
+    '-password'
+  );
+
+  res.status(200).json({
+    status: 'success',
+    message: 'User removed from group successfully',
+    data: {
+      conversation: populatedConversation,
+    },
+  });
+});
+/**
+ * Leave group conversation
+ * Any user can leave a group they're part of
+ */
+exports.leaveGroup = catchAsync(async (req, res, next) => {
+  const { conversationId } = req.body;
+  const userId = req.user._id;
+
+  // Validate required field
+  if (!conversationId) {
+    return next(new AppError('Please provide conversation ID', 400));
+  }
+
+  // Ensure ID is a valid ObjectId
+  if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+    return next(new AppError('Invalid conversation ID format', 400));
+  }
+
+  // Find the conversation
+  const conversation = await Conversation.findById(conversationId);
+
+  // Check if conversation exists
+  if (!conversation) {
+    return next(new AppError('Conversation not found', 404));
+  }
+
+  // Check if it's a group conversation
+  if (!conversation.isGroup) {
+    return next(new AppError('This is not a group conversation', 400));
+  }
+
+  // Check if user is in the group
+  if (
+    !conversation.users.some((user) => user.toString() === userId.toString())
+  ) {
+    return next(new AppError('You are not a member of this group', 400));
+  }
+
+  // If admin is leaving, check if there are other users to transfer admin role
+  if (conversation.admin.toString() === userId.toString()) {
+    // If admin is the only user, delete the group
+    if (conversation.users.length === 1) {
+      await Conversation.findByIdAndDelete(conversationId);
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'Group deleted as you were the only member',
+      });
+    }
+
+    // Otherwise, transfer admin role to another user
+    const newAdminId = conversation.users.find(
+      (user) => user.toString() !== userId.toString()
+    );
+
+    conversation.admin = newAdminId;
+  }
+
+  // Remove user from the group
+  conversation.users = conversation.users.filter(
+    (user) => user.toString() !== userId.toString()
+  );
+
+  await conversation.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: 'You have left the group successfully',
   });
 });
