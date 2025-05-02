@@ -1,5 +1,19 @@
 let onlineUsers = [];
+let ioInstance;
+
+
 module.exports = function (socket, io) {
+
+   // Store the io instance for later use
+   if (io && !ioInstance) {
+    ioInstance = io;
+    // Make it available globally if not already done
+    if (!global.io) {
+      global.io = io;
+      console.log('Socket.IO instance set globally from socketServer');
+    }
+  }
+
   // user join or open the chat app
   socket.on('join', (user) => {
     socket.join(user);
@@ -97,4 +111,12 @@ module.exports = function (socket, io) {
     // Broadcast to all user's devices that all notifications were read
     socket.to(userId).emit('all notifications read');
   });
+
+  // Utility method to get the io instance from outside
+  module.exports.getIO = function() {
+    return ioInstance;
+  };
+
+    // Return the socket server for testing purposes
+    return socket;
 };

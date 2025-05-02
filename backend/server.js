@@ -50,6 +50,14 @@ const io = new Server(server, {
 // Make io instance available globally
 global.io = io;
 
+// Make io available to the Express app
+app.io = io
+
+app.set('io', io);
+
+
+
+
 io.on('connection', (socket) => {
   console.log('Socket io connected successfully');
   socketServer(socket, io);

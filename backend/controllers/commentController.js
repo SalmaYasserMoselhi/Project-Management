@@ -5,6 +5,8 @@ const Card = require('../models/cardModel');
 const List = require('../models/listModel');
 const Board = require('../models/boardModel');
 const notificationService = require('../utils/notificationService');
+const User = require('../models/userModel');
+const activityService = require('../utils/activityService');
 
 // Helper function to validate card access
 const validateCardAccess = async (cardId, userId) => {
@@ -43,7 +45,8 @@ exports.createComment = catchAsync(async (req, res, next) => {
   const { text, mentions = [] } = req.body;
 
   // Validate access
-  const { card } = await validateCardAccess(cardId, req.user._id);
+  const { card, board } = await validateCardAccess(cardId, req.user._id);
+  const list = await List.findById(card.list);
 
   const comment = await Comment.create({
     text,
@@ -55,85 +58,68 @@ exports.createComment = catchAsync(async (req, res, next) => {
   // Get the card's members to notify
   const cardMembers = card.members.map((member) => member.user.toString());
 
-  // Send notifications for mentions
-  if (global.io && mentions.length > 0) {
-    const notificationService = require('../utils/notificationService');
-    const User = require('../models/userModel');
+  // 1. Handle mention notifications
+  for (const mentionedUserId of mentions) {
+    // Skip self-mentions
+    if (mentionedUserId.toString() === req.user._id.toString()) continue;
 
-    // Get the board and list for context
-    const List = require('../models/listModel');
-    const list = await List.findById(card.list);
-
-    for (const mentionedUserId of mentions) {
-      // Don't notify yourself
-      if (mentionedUserId.toString() === req.user._id.toString()) {
-        continue;
+    await notificationService.createNotification(
+      req.app.io,
+      mentionedUserId,
+      req.user._id,
+      'mention',
+      'comment',
+      comment._id,
+      {
+        entityType: 'card',
+        entityName: card.title,
+        cardId: card._id,
+        boardId: board._id,
+        boardName: board.name,
+        listId: card.list,
+        listName: list ? list.name : 'Unknown List',
+        commentText: text.substring(0, 100),
       }
-
-      // Check if user exists
-      const mentionedUser = await User.findById(mentionedUserId);
-      if (!mentionedUser) continue;
-
-      await notificationService.createNotification(
-        global.io,
-        mentionedUserId,
-        req.user._id,
-        'mention',
-        'comment',
-        comment._id,
-        {
-          entityType: 'card',
-          entityName: card.title,
-          cardId: card._id,
-          boardId: board._id,
-          boardName: board.name,
-          listId: card.list,
-          listName: list ? list.name : 'Unknown List',
-          commentText: text.substring(0, 100),
-        }
-      );
-    }
+    );
   }
 
-  // Notify card members about the comment
-  if (global.io && cardMembers.length > 0) {
-    for (const memberId of cardMembers) {
-      // Skip author and mentioned users
-      if (
-        memberId === req.user._id.toString() ||
-        mentions.some((id) => id.toString() === memberId)
-      ) {
-        continue;
-      }
+  // 2. Notify card members
+  for (const memberId of cardMembers) {
+    // Skip author and mentioned users
+    if (
+      memberId === req.user._id.toString() ||
+      mentions.includes(memberId)
+    ) continue;
 
-      await notificationService.createNotification(
-        global.io,
-        memberId,
-        req.user._id,
-        'card_comment',
-        'comment',
-        comment._id,
-        {
-          cardTitle: card.title,
-          cardId: card._id,
-          boardId: board._id,
-          boardName: board.name,
-          commentText: text.substring(0, 100),
-        }
-      );
-    }
+    await notificationService.createNotification(
+      req.app.io,
+      memberId,
+      req.user._id,
+      'comment_added',
+      'comment',
+      comment._id,
+      {
+        cardTitle: card.title,
+        cardId: card._id,
+        boardId: board._id,
+        boardName: board.name,
+        listName: list.name,
+        commentText: text.substring(0, 100),
+      }
+    );
   }
 
-  // Log activity in card
-  card.activity.push({
-    action: 'commented',
-    userId: req.user._id,
-    data: {
+  // Log activity in board instead of card
+  await activityService.logCardActivity(
+    board,
+    req.user._id,
+    'comment_added',
+    card._id,
+    {
       commentId: comment._id,
       text: text.substring(0, 50),
-    },
-  });
-  await card.save();
+    }
+  );
 
   const populatedComment = await Comment.findById(comment._id)
     .populate('author', 'email firstName lastName avatar')
@@ -196,7 +182,7 @@ exports.updateComment = catchAsync(async (req, res, next) => {
   }
 
   // Validate access
-  const { card } = await validateCardAccess(comment.cardId, req.user._id);
+  const { card, board } = await validateCardAccess(comment.cardId, req.user._id);
 
   // Verify ownership
   if (comment.author.toString() !== req.user._id.toString()) {
@@ -211,21 +197,49 @@ exports.updateComment = catchAsync(async (req, res, next) => {
   };
   await comment.save();
 
-  // Log activity
-  card.activity.push({
-    action: 'updated_comment',
-    userId: req.user._id,
-    data: {
+  // Log activity in board
+  await activityService.logCardActivity(
+    board,
+    req.user._id,
+    'comment_updated',
+    card._id,
+    {
       commentId: comment._id,
       text: text.substring(0, 50),
-    },
-  });
-  await card.save();
+    }
+  );
 
   const populatedComment = await Comment.findById(id)
     .populate('author', 'email firstName lastName avatar')
     .populate('mentions', 'email firstName lastName');
 
+  // Get card to find members to notify
+  //  card = await Card.findById(comment.cardId);
+  
+  // Get card members excluding the comment author
+  const cardMembers = card.members
+    .filter(member => member.user.toString() !== req.user._id.toString())
+    .map(member => member.user);
+  
+  // Notify card members about the comment update
+  for (const memberId of cardMembers) {
+    await notificationService.createNotification(
+      req.app.io,
+      memberId,
+      req.user._id,
+      'comment_updated',
+      'comment',
+      comment._id,
+      {
+        entityType: 'card',
+        entityName: card.title,
+        cardId: card._id,
+        boardId: board._id,
+        boardName: board.name,
+        commentText: text.substring(0, 100),
+      }
+    );
+  }
   res.status(200).json({
     status: 'success',
     data: {
@@ -243,8 +257,8 @@ exports.deleteComment = catchAsync(async (req, res, next) => {
     return next(new AppError('Comment not found', 404));
   }
 
-  // Validate card access
-  await validateCardAccess(comment.cardId, req.user._id);
+  // Validate card access and get board
+  const { card, board } = await validateCardAccess(comment.cardId, req.user._id);
 
   // Check if user is the comment author
   if (comment.author.toString() !== req.user._id.toString()) {
@@ -259,22 +273,52 @@ exports.deleteComment = catchAsync(async (req, res, next) => {
     });
   }
 
+  // Get card members excluding the comment author
+  const cardMembers = card.members
+    .filter(member => member.user.toString() !== req.user._id.toString())
+    .map(member => member.user);
+  
+  // Store comment text for notification before deletion
+  const commentText = comment.text.substring(0, 100);
+  
+  // Notify card members about the comment deletion
+  for (const memberId of cardMembers) {
+    await notificationService.createNotification(
+      req.app.io,
+      memberId,
+      req.user._id,
+      'comment_deleted',
+      'card', // Changed to card since comment will be deleted
+      card._id,
+      {
+        entityType: 'card',
+        entityName: card.title,
+        boardId: board._id,
+        boardName: board.name,
+        commentText: commentText,
+      }
+    );
+  }
   // Delete the comment
   await comment.deleteOne();
 
-  // Log activity
-  logCommentActivity(entity, req.user._id, {
-    commentId: comment._id,
-    action: 'deleted',
-  });
-
-  await entity.save();
+  // Log activity in board
+  await activityService.logCardActivity(
+    board,
+    req.user._id,
+    'comment_deleted',
+    card._id,
+    {
+      commentId: comment._id,
+    }
+  );
 
   res.status(204).json({
     status: 'success',
     data: null,
   });
 });
+
 
 // Add reply
 exports.replyToComment = catchAsync(async (req, res, next) => {
@@ -292,7 +336,7 @@ exports.replyToComment = catchAsync(async (req, res, next) => {
   }
 
   // Validate access
-  const { card } = await validateCardAccess(parentComment.cardId, req.user._id);
+  const { card, board } = await validateCardAccess(parentComment.cardId, req.user._id);
 
   const reply = await Comment.create({
     text,
@@ -302,17 +346,103 @@ exports.replyToComment = catchAsync(async (req, res, next) => {
     mentions,
   });
 
-  // Log activity
-  card.activity.push({
-    action: 'replied_comment',
-    userId: req.user._id,
-    data: {
+  // Log activity in board
+  await activityService.logCardActivity(
+    board,
+    req.user._id,
+    'comment_replied', // Changed to comment_replied instead of comment_added
+    card._id,
+    {
       commentId: reply._id,
       parentId: parentComment._id,
       text: text.substring(0, 50),
-    },
-  });
-  await card.save();
+      isReply: true,
+    }
+  );
+
+  // Get the list from the card
+  const list = await List.findById(card.list);
+
+  // Send notification to parent comment author if it's not the current user
+  if (parentComment.author._id.toString() !== req.user._id.toString()) {
+    await notificationService.createNotification(
+      req.app.io,
+      parentComment.author._id,
+      req.user._id,
+      'comment_replied', // Changed to comment_replied
+      'comment',
+      reply._id,
+      {
+        entityType: 'card',
+        entityName: card.title,
+        cardId: card._id,
+        boardId: board._id,
+        boardName: board.name,
+        listId: card.list,
+        listName: list ? list.name : 'Unknown List',
+        commentText: text.substring(0, 100),
+        isReply: true
+      }
+    );
+  }
+
+  // Handle mentions (just like in the createComment function)
+  for (const mentionedUserId of mentions) {
+    // Skip self-mentions
+    if (mentionedUserId.toString() === req.user._id.toString()) continue;
+
+    await notificationService.createNotification(
+      req.app.io,
+      mentionedUserId,
+      req.user._id,
+      'mention',
+      'comment',
+      reply._id,
+      {
+        entityType: 'card',
+        entityName: card.title,
+        cardId: card._id,
+        boardId: board._id,
+        boardName: board.name,
+        listId: card.list,
+        listName: list ? list.name : 'Unknown List',
+        commentText: text.substring(0, 100),
+        isReply: true
+      }
+    );
+  }
+
+  // Also notify card members (excluding the commenter and parent comment author)
+  if (card.members && card.members.length > 0) {
+    const cardMembers = card.members
+      .filter(member => 
+        member.user.toString() !== req.user._id.toString() && 
+        member.user.toString() !== parentComment.author._id.toString() &&
+        !mentions.includes(member.user.toString())
+      )
+      .map(member => member.user);
+
+    for (const memberId of cardMembers) {
+      await notificationService.createNotification(
+        req.app.io,
+        memberId,
+        req.user._id,
+        'comment_replied', // Changed to comment_replied
+        'comment',
+        reply._id,
+        {
+          cardTitle: card.title,
+          cardId: card._id,
+          boardId: board._id,
+          boardName: board.name,
+          listName: list ? list.name : 'Unknown List',
+          commentText: text.substring(0, 100),
+          isReply: true
+        }
+      );
+    }
+  }
+
   const populatedReply = await Comment.findById(reply._id)
     .populate('author', 'email firstName lastName avatar')
     .populate('mentions', 'email firstName lastName');
