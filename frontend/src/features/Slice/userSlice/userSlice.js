@@ -55,7 +55,7 @@ export const fetchUserData = createAsyncThunk(
         }
 
         const data = await response.json();
-        console.log("User data response:", data);
+        // console.log("User data response:", data);
 
         // Check for the expected data structure
         if (!data.data?.user) {

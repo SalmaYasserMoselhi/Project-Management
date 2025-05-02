@@ -119,16 +119,16 @@ function Login() {
         {/* Login Form */}
         <div className="w-full lg:w-1/2 max-w-md">
           <div className="bg-white p-8 rounded-lg ">
-            <div className="flex justify-center lg:justify-start mb-6">
+            <div className="mb-6">
               <img
-                src="src/assets/Logo.png"
+                src="src/assets/coloredLogoWithWord.png"
                 alt="Logo"
-                className="h-auto w-auto"
+                className="h-20 w-auto block"
               />
+              <h2 className="text-xl font-bold text-[#57356A] mt-2 text-left m-0">
+                Welcome Back to Nexus!
+              </h2>
             </div>
-            <h2 className="text-2xl font-bold text-[#4D2D61] mb-6 lg:text-left text-center">
-              Sign In
-            </h2>
             {errorMessage && (
               <div className="mb-4 text-red-600 text-center">
                 {errorMessage}
@@ -191,7 +191,7 @@ function Login() {
                     : "hover:bg-[#57356A]"
                 }`}
               >
-                Sign in
+                Login
               </button>
             </form>
 

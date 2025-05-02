@@ -89,11 +89,6 @@ exports.checkPublicWorkspace = catchAsync(async (req, res, next) => {
 });
 
 exports.getPublicAndMemberWorkspaces = catchAsync(async (req, res, next) => {
-  // Parse query parameters
-  const { page = 1, limit = 10, sort = '-createdAt' } = req.query;
-  const parsedPage = Math.max(parseInt(page), 1);
-  const parsedLimit = Math.min(parseInt(limit), 100);
-
   // Build query
   const query = {
     $and: [
@@ -105,31 +100,33 @@ exports.getPublicAndMemberWorkspaces = catchAsync(async (req, res, next) => {
 
   // Get total count
   const total = await Workspace.countDocuments(query);
-
-  // Get paginated results (include members for memberCount calculation)
-  const workspaces = await Workspace.find(query)
-    .sort(sort)
-    .skip((parsedPage - 1) * parsedLimit)
-    .limit(parsedLimit);
+  const workspaces = await Workspace.find(query);
 
   // Transform data
-  const transformedWorkspaces = workspaces.map((workspace) => ({
-    _id: workspace._id,
-    name: workspace.name,
-    description: workspace.description,
-    type: workspace.type,
-    createdBy: workspace.createdBy,
-    createdAt: workspace.createdAt,
-    updatedAt: workspace.updatedAt,
-    settings: workspace.settings,
-    memberCount: workspace.members.length, // Now accessible
-  }));
+  const transformedWorkspaces = workspaces.map((workspace) => {
+    // Find the current user's role in this workspace
+    const userMember = workspace.members.find(
+      (member) => member.user.toString() === req.user._id.toString()
+    );
+
+    return {
+      _id: workspace._id,
+      name: workspace.name,
+      description: workspace.description,
+      type: workspace.type,
+      createdBy: workspace.createdBy,
+      createdAt: workspace.createdAt,
+      updatedAt: workspace.updatedAt,
+      settings: workspace.settings,
+      memberCount: workspace.members.length,
+      userRole: userMember ? userMember.role : null,
+    };
+  });
 
   res.status(200).json({
     status: 'success',
     total,
-    currentPage: parsedPage,
-    totalPages: Math.ceil(total / parsedLimit),
+
     data: { workspaces: transformedWorkspaces },
   });
 });

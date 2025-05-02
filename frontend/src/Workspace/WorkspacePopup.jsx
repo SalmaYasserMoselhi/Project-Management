@@ -172,7 +172,6 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
       }
 
       const fullUrl = `${BASE_URL}${endpoint}?${queryParams.join("&")}`;
-      console.log("Fetching boards from:", fullUrl);
 
       const response = await fetch(fullUrl, {
         method: "GET",
@@ -183,11 +182,9 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
       });
 
       const data = await response.json();
-      console.log("Full API response:", data);
 
       if (data?.status === "success") {
         const allBoards = data.data?.boards || [];
-        console.log("Board data structure:", allBoards[0]); // Log first board's structure
         setTotalBoards(data.data?.stats.total || 0);
         setBoards(allBoards);
       } else {
@@ -225,11 +222,9 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
         throw new Error("Board ID is required");
       }
 
-      console.log("Pin/Unpin board:", { boardId, isStarred });
       const endpoint = `${BASE_URL}/api/v1/boards/user-boards/${boardId}/${
         isStarred ? "unstar" : "star"
       }`;
-      console.log("Using endpoint:", endpoint);
 
       const response = await fetch(endpoint, {
         method: "PATCH",
@@ -240,7 +235,6 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
       });
 
       const data = await response.json();
-      console.log("Pin/Unpin response:", data);
 
       if (data?.status === "success") {
         // Update the local state to reflect the change
@@ -417,7 +411,6 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
             <>
               {/* Board Items */}
               {sortedBoards.map((board) => {
-                console.log("Board in render:", board); // Log each board during render
                 return (
                   <div
                     key={board.id}
@@ -425,7 +418,6 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
                       board.starred ? "bg-purple-50" : ""
                     }`}
                     onClick={() => {
-                      // console.log("Navigating to board:", board);
                       handleBoardClick(board.id)
                     }}
                   >
@@ -436,10 +428,6 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          console.log("Pin button clicked for board:", {
-                            id: board.id,
-                            board,
-                          });
                           if (!board.id) {
                             console.error("Board is missing _id:", board);
                           }
