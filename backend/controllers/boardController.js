@@ -10,7 +10,7 @@ const permissionService = require('../utils/permissionService');
 const activityService = require('../utils/activityService');
 const invitationService = require('../utils/invitationService');
 const { createDefaultLists } = require('../controllers/listController');
-
+const notificationService = require('../utils/notificationService');
 // Helper function to format member data
 const formatMemberData = (member) => ({
   _id: member._id,
@@ -191,7 +191,29 @@ exports.createBoard = catchAsync(
     if (!populatedBoard) {
       throw new Error('Error retrieving board after creation');
     }
+    // Send notification to workspace members
+    if (board.workspace) {
+      const workspace = await Workspace.findById(board.workspace)
+        .populate('members.user');
+      
+      const recipients = workspace.members
+        .filter(member => member.user._id.toString() !== req.user._id.toString());
 
+      for (const recipient of recipients) {
+        await notificationService.createNotification(
+          req.app.io,
+          recipient.user._id,
+          req.user._id,
+          'board_created',
+          'board',
+          board._id,
+          {
+            boardName: board.name,
+            workspaceName: workspace.name
+          }
+        );
+      }
+    }
     res.status(201).json({
       status: 'success',
       data: {
@@ -301,6 +323,26 @@ exports.updateBoard = catchAsync(async (req, res, next) => {
           updatedFields: settings.general ? Object.keys(settings.general) : [],
         }
       );
+
+      const boardMembers = board.members
+      .filter(member => member.user.toString() !== req.user._id.toString())
+      .map(member => member.user);
+    
+    for (const memberId of boardMembers) {
+      await notificationService.createNotification(
+        req.app.io,
+        memberId,
+        req.user._id,
+        'settings_updated',
+        'board',
+        board._id,
+        {
+          entityType: 'board',
+          entityName: board.name,
+          updatedSettings: settings.general ? Object.keys(settings.general) : [],
+        }
+      );
+    }
     }
 
     if (Object.keys(basicFields).length > 0) {
@@ -426,6 +468,24 @@ exports.updateBoard = catchAsync(async (req, res, next) => {
     .populate('workspace', 'name type')
     .populate('lists');
 
+  // Send notification to board members
+  const recipients = board.members
+    .filter(member => member.user._id.toString() !== req.user._id.toString());
+
+  for (const recipient of recipients) {
+    await notificationService.createNotification(
+      req.app.io,
+      recipient.user._id,
+      req.user._id,
+      'board_updated',
+      'board',
+      board._id,
+      {
+        boardName: board.name,
+        updatedFields: Object.keys(req.body)
+      }
+    );
+  }
   res.status(200).json({
     status: 'success',
     data: {
@@ -467,7 +527,23 @@ exports.deleteBoard = catchAsync(async (req, res, next) => {
       { $pull: { boards: board._id } }
     );
   }
+    // Send notification before deleting
+    const recipients = board.members
+    .filter(member => member.user._id.toString() !== req.user._id.toString());
 
+    for (const recipient of recipients) {
+    await notificationService.createNotification(
+      req.app.io,
+      recipient.user._id,
+      req.user._id,
+      'board_deleted',
+      'board',
+      board._id,
+      {
+        boardName: board.name
+      }
+    );
+    }
   // Delete the board itself
   await Board.deleteOne({ _id: board._id });
 
@@ -822,6 +898,8 @@ exports.acceptInvitation = catchAsync(
       req.invitationInfo.workspaceId = collaborationWorkspace._id;
     }
 
+  
+
     // Use invitationService to accept the invitation
     await invitationService.acceptInvitation(board, invitation, user, {
       entityType: 'board',
@@ -837,7 +915,19 @@ exports.acceptInvitation = catchAsync(
         role: invitation.role,
       }
     );
-
+    await notificationService.createNotification(
+      req.app.io,
+      invitation.invitedBy,
+      user._id,
+      'invitation_accepted',
+      'board',
+      board._id,
+      {
+        boardName: board.name,
+        role: invitation.role,
+      }
+    );
+    
     res.status(200).json({
       status: 'success',
       message: 'Successfully joined board',
@@ -904,6 +994,22 @@ exports.cancelInvitation = catchAsync(async (req, res, next) => {
 
   if (!invitation) {
     return next(new AppError(`No pending invitation found for ${email}`, 404));
+  }
+
+  const invitedUser = await User.findOne({ email: invitation.email });
+  if (invitedUser) {
+    await notificationService.createNotification(
+      req.app.io,
+      invitedUser._id,
+      req.user._id,
+      'invitation_cancelled',
+      'board',
+      board._id,
+      {
+        boardName: board.name,
+        role: invitation.role,
+      }
+    );
   }
 
   // Use invitationService to cancel invitation
@@ -973,6 +1079,23 @@ exports.removeMember = catchAsync(async (req, res, next) => {
     user: targetUserId,
     role: targetMember.role,
   };
+
+  if (targetUserId !== req.user._id.toString()) {
+    // Send notification to the removed member
+    await notificationService.createNotification(
+      req.app.io,
+      targetUserId,
+      req.user._id,
+      'member_removed',
+      'board',
+      board._id,
+      {
+        entityType: 'board',
+        entityName: board.name,
+        role: targetMember.role,
+      }
+    );
+  }
 
   // Remove member
   board.members = board.members.filter(

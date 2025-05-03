@@ -9,7 +9,8 @@ const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const cardController = require('./cardController');
 const permissionService = require('../utils/permissionService');
-
+const notificationService = require('../utils/notificationService');
+const activityService = require('../utils/activityService');
 // Helper function to get card with its parent list and board
 const getCardWithContext = async (cardId) => {
   // Find card and verify it exists
@@ -236,7 +237,6 @@ exports.downloadFile = catchAsync(async (req, res, next) => {
   fs.createReadStream(file.path).pipe(res);
 });
 
-// Delete a file (permanent delete with permission checks)
 exports.deleteFile = catchAsync(async (req, res, next) => {
   const {fileId } = req.params;
 
@@ -257,26 +257,45 @@ exports.deleteFile = catchAsync(async (req, res, next) => {
   }
 
   try {
-    // Delete the physical file if it exists
-    if (fs.existsSync(file.path)) {
-      fs.unlinkSync(file.path);
-    } else {
-      console.warn(`Physical file not found at path: ${file.path}`);
-    }
-
-    // Remove the database record
-    await Attachment.findByIdAndDelete(fileId);
-
-      /// Log activity for card attachments
+    // For card attachments, get context for notifications
     if (file.entityType === 'card') {
       try {
-        const { card } = await getCardWithContext(file.entityId);
+        const { card, board } = await getCardWithContext(file.entityId);
         console.log(`Logging activity for card: ${card._id}`);
 
-        cardController.logCardActivity(
-          card,
-          'attachment_removed',
+        // Get all board members to notify - using the pattern that works
+        const boardMembers = board.members
+          .filter(member => member.user.toString() !== req.user._id.toString());
+        
+        // Send notifications to board members
+        for (const member of boardMembers) {
+          await notificationService.createNotification(
+            req.app.io,
+            member.user,
+            req.user._id,
+            'attachment_removed',
+            'card',
+            card._id,
+            {
+              entityType: 'card',
+              entityName: card.title,
+              cardId: card._id,
+              boardId: board._id,
+              boardName: board.name,
+              filename: file.originalName,
+              fileSize: file.formatSize
+                ? file.formatSize()
+                : `${Math.round(file.size / 1024)} KB`
+            }
+          );
+        }
+
+        // Log card activity
+      await  activityService.logCardActivity(
+          board,
           req.user._id,
+          'attachment_removed',
+          card._id,
           {
             fileId: file._id,
             filename: file.originalName,
@@ -291,13 +310,24 @@ exports.deleteFile = catchAsync(async (req, res, next) => {
         // Continue with the operation even if activity logging fails
       }
     }
-        res.status(200).json({
-          status: 'success',
-          message: 'Attachment deleted successfully',
-          data: null,
-        });
-      } catch (error) {
-        console.error('Error logging card activity:', error);
-        return next(new AppError('Error deleting file', 500));
-      }
+
+    // Delete the physical file if it exists
+    if (fs.existsSync(file.path)) {
+      fs.unlinkSync(file.path);
+    } else {
+      console.warn(`Physical file not found at path: ${file.path}`);
+    }
+
+    // Remove the database record
+    await Attachment.findByIdAndDelete(fileId);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Attachment deleted successfully',
+      data: null,
     });
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    return next(new AppError('Error deleting file', 500));
+  }
+});

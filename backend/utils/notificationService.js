@@ -68,9 +68,17 @@ const notificationService = {
         .populate('sender', 'firstName lastName username avatar')
         .populate('recipient', 'firstName lastName username');
 
+          // Determine which io instance to use
+    let ioInstance = io;
+    
+    if (!ioInstance && global.io) {
+      console.log('Using global.io as fallback');
+      ioInstance = global.io;
+    }
+
       // Emit socket event
-      if (io) {
-        io.to(recipientId.toString()).emit(
+      if (ioInstance) {
+        ioInstance.to(recipientId.toString()).emit(
           'new_notification',
           populatedNotification
         );

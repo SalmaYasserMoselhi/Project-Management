@@ -16,6 +16,7 @@ router.get('/board/:boardId/lists/archived', listController.getArchivedLists);
 // List operations
 router.post('/', listController.createList);
 router.patch('/:id', listController.updateList);
+router.delete('/:id', listController.deleteList);
 router.patch('/:id/reorder', listController.reorderList);
 router.patch('/:id/archive', listController.archiveList);
 router.patch('/:id/restore', listController.restoreList);

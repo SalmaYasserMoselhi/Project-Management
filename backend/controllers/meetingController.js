@@ -4,7 +4,8 @@ const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const permissionService = require('../utils/permissionService');
 const activityService = require('../utils/activityService');
-const { sendMeetingNotifications } = require('../utils/meetingEmailService');
+const notificationService = require('../utils/notificationService');
+const {sendMeetingNotifications} = require('../utils/meetingEmailService');
 
 // Helper function to get board and verify permissions
 const getBoardAndVerifyPermission = async (boardId, userId) => {
@@ -65,6 +66,29 @@ exports.createMeeting = catchAsync(async (req, res, next) => {
     .populate('attendees.user', 'firstName lastName username avatar')
     .populate('board', 'name');
   
+  // Get board members to notify about the new meeting (excluding creator)
+  const boardMembers = board.members
+    .filter(member => member.user.toString() !== req.user._id.toString())
+    .map(member => member.user);
+  
+  // Notify board members about the new meeting
+  for (const memberId of boardMembers) {
+    await notificationService.createNotification(
+      req.app.io,
+      memberId,
+      req.user._id,
+      'meeting_created',
+      'meeting',
+      meeting._id,
+      {
+        meetingTitle: meeting.name,
+        boardId: board._id,
+        boardName: board.name,
+        meetingDate: meeting.date,
+        meetingTime: meeting.time,
+      }
+    );
+  }
   res.status(201).json({
     status: 'success',
     data: {
@@ -98,6 +122,28 @@ exports.deleteMeeting = catchAsync(async (req, res, next) => {
   if (!isCreator && !hasAdminPermissions) {
     return next(
       new AppError('Only meeting creator or board admin can delete meetings', 403)
+    );
+  }
+
+  // Get meeting attendees to notify (excluding the user deleting the meeting)
+  const attendees = meeting.attendees
+    .filter(attendee => attendee.user.toString() !== req.user._id.toString())
+    .map(attendee => attendee.user);
+  
+  // Notify attendees about the meeting deletion
+  for (const attendeeId of attendees) {
+    await notificationService.createNotification(
+      req.app.io,
+      attendeeId,
+      req.user._id,
+      'meeting_deleted',
+      'board', // Changed to board since meeting will be deleted
+      board._id,
+      {
+        meetingTitle: meeting.name,
+        boardId: board._id,
+        boardName: board.name,
+      }
     );
   }
   
@@ -175,6 +221,29 @@ exports.updateMeeting = catchAsync(async (req, res, next) => {
     .populate('createdBy', 'firstName lastName username avatar')
     .populate('attendees.user', 'firstName lastName username avatar');
   
+    // Get meeting attendees to notify (excluding the user updating the meeting)
+    const attendees = meeting.attendees
+    .filter(attendee => attendee.user.toString() !== req.user._id.toString())
+    .map(attendee => attendee.user);
+  
+  // Notify attendees about the meeting update
+  for (const attendeeId of attendees) {
+    await notificationService.createNotification(
+      req.app.io,
+      attendeeId,
+      req.user._id,
+      'meeting_updated',
+      'meeting',
+      meeting._id,
+      {
+        meetingTitle: meeting.name,
+        boardId: board._id,
+        boardName: board.name,
+        updatedFields: Object.keys(req.body),
+      }
+    );
+  }
+
   res.status(200).json({
     status: 'success',
     data: {
@@ -452,6 +521,28 @@ exports.addAttendees = catchAsync(async (req, res, next) => {
     .populate('createdBy', 'firstName lastName username avatar')
     .populate('attendees.user', 'firstName lastName username avatar');
   
+  // Send notifications to each new attendee
+  for (const attendeeId of newAttendees) {
+    // Skip sending notification if the attendee is the same as the user adding them
+    if (attendeeId !== req.user._id.toString()) {
+      await notificationService.createNotification(
+        req.app.io,
+        attendeeId,
+        req.user._id,
+        'meeting_attendees_added',
+        'meeting',
+        meeting._id,
+        {
+          meetingTitle: meeting.name,
+          boardId: board._id,
+          boardName: board.name,
+          meetingDate: meeting.date,
+          meetingTime: meeting.time,
+        }
+      );
+    }
+  }
+
   res.status(200).json({
     status: 'success',
     data: {
@@ -506,7 +597,22 @@ exports.removeAttendee = catchAsync(async (req, res, next) => {
   if (meeting.createdBy.toString() === userId) {
     return next(new AppError('Cannot remove meeting creator', 400));
   }
-  
+  if (userId !== req.user._id.toString()) {
+    // Send notification to the removed attendee
+    await notificationService.createNotification(
+      req.app.io,
+      userId,
+      req.user._id,
+      'meeting_attendee_removed',
+      'meeting',
+      meeting._id,
+      {
+        meetingTitle: meeting.name,
+        boardId: board._id,
+        boardName: board.name,
+      }
+    );
+  }
   // Remove attendee
   meeting.attendees.splice(attendeeIndex, 1);
   await meeting.save();

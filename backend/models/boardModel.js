@@ -239,6 +239,7 @@ const boardSchema = new mongoose.Schema(
             'comment_added',
             'comment_updated',
             'comment_deleted',
+            'comment_replied',
             'settings_updated',
             'attachment_added',
             'attachment_removed',

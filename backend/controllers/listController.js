@@ -5,6 +5,7 @@ const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const activityService = require('../utils/activityService');
 const permissionService = require('../utils/permissionService');
+const notificationService = require('../utils/notificationService');
 
 // Helper function to get list and its board with access verification
 const getListWithBoard = async (listId, userId) => {
@@ -222,6 +223,25 @@ exports.createList = catchAsync(async (req, res, next) => {
       }
     );
 
+
+    // Send notification to board members
+  const recipients = board.members
+  .filter(member => member.user._id.toString() !== req.user._id.toString());
+
+for (const recipient of recipients) {
+  await notificationService.createNotification(
+    req.app.io,
+    recipient.user._id,
+    req.user._id,
+    'list_created',
+    'list',
+    list._id,
+    {
+      listName: list.name,
+      boardName: board.name
+    }
+  );
+}
     res.status(201).json({
       status: 'success',
       data: { list },
@@ -275,7 +295,25 @@ exports.updateList = catchAsync(async (req, res, next) => {
       updatedFields: Object.keys(filteredBody),
     }
   );
+// Send notification to board members
+const recipients = board.members
+.filter(member => member.user._id.toString() !== req.user._id.toString());
 
+for (const recipient of recipients) {
+await notificationService.createNotification(
+  req.app.io,
+  recipient.user._id,
+  req.user._id,
+  'list_updated',
+  'list',
+  list._id,
+  {
+    listName: list.name,
+    boardName: board.name,
+    updatedFields: Object.keys(req.body)
+  }
+);
+}
   res.status(200).json({
     status: 'success',
     data: { list: updatedList },
@@ -493,6 +531,24 @@ exports.archiveList = catchAsync(
       archived: false,
     }).sort('position');
 
+    // Send notification to board members
+  const recipients = board.members
+  .filter(member => member.user._id.toString() !== req.user._id.toString());
+
+for (const recipient of recipients) {
+  await notificationService.createNotification(
+    req.app.io,
+    recipient.user._id,
+    req.user._id,
+    'list_archived',
+    'list',
+    list._id,
+    {
+      listName: list.name,
+      boardName: board.name
+    }
+  );
+}
     res.status(200).json({
       status: 'success',
       message: 'List archived successfully',
@@ -588,6 +644,25 @@ exports.restoreList = catchAsync(async (req, res, next) => {
       .populate('labels'),
   ]);
 
+   // Send notification to board members
+   const recipients = board.members
+   .filter(member => member.user._id.toString() !== req.user._id.toString());
+
+ for (const recipient of recipients) {
+   await notificationService.createNotification(
+     req.app.io,
+     recipient.user._id,
+     req.user._id,
+     'list_restored',
+     'list',
+     list._id,
+     {
+       listName: list.name,
+       boardName: board.name
+     }
+   );
+ }
+ 
   res.status(200).json({
     status: 'success',
     message: `List restored successfully${
@@ -682,4 +757,79 @@ exports.getArchivedLists = catchAsync(async (req, res, next) => {
       new AppError(`Error fetching archived lists: ${error.message}`, 500)
     );
   }
+});
+
+
+// deletion with notification
+exports.deleteList = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  
+  // Find the list
+  const list = await List.findById(id);
+  if (!list) {
+    return next(new AppError('List not found', 404));
+  }
+  
+  // Find parent board
+  const board = await Board.findById(list.board);
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
+  
+  // Verify user has permission to delete lists
+  permissionService.verifyPermission(board, req.user._id, 'edit_lists');
+  
+  // Find all cards in the list
+  const cards = await Card.find({ list: list._id });
+  
+  // Delete all cards in the list
+  for (const card of cards) {
+    await Card.findByIdAndDelete(card._id);
+  }
+  
+  // Store list info before deletion for activity log
+  const listInfo = {
+    name: list.name,
+    position: list.position,
+    cardCount: cards.length
+  };
+  
+  // Log activity
+  await activityService.logBoardActivity(
+    board,
+    req.user._id,
+    'list_deleted',
+    {
+      list: listInfo
+    }
+  );
+  
+  // Send notification to board members
+  const boardMembers = board.members
+    .filter(member => member.user.toString() !== req.user._id.toString())
+    .map(member => member.user);
+  
+  for (const memberId of boardMembers) {
+    await notificationService.createNotification(
+      req.app.io,
+      memberId,
+      req.user._id,
+      'list_deleted',
+      'board', // Using board as entity since list will be deleted
+      board._id,
+      {
+        listName: listInfo.name,
+        boardId: board._id,
+        boardName: board.name,
+      }
+    );
+  }
+  
+  // Delete the list
+  await List.findByIdAndDelete(id);
+  
+  res.status(204).json({
+    status: 'success',
+    data: null
+  });
 });
