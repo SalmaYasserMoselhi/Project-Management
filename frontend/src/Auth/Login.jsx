@@ -125,6 +125,14 @@ function Login() {
   const isButtonDisabled = (buttonName) =>
     activeButton !== null && activeButton !== buttonName;
 
+  // Find the first error key and message for login validation
+  const firstErrorKey = emailError
+    ? "email"
+    : passwordError
+    ? "password"
+    : null;
+  const firstErrorMessage = emailError || passwordError || null;
+
   return (
     <div className="w-full h-screen flex items-center justify-center p-0 overflow-hidden">
       <div className="flex flex-row w-full h-screen items-center justify-between">
@@ -140,7 +148,8 @@ function Login() {
               </p>
             </div>
 
-            {errorMessage && (
+            {/* Show server error (e.g., incorrect email or password) as a box above the form */}
+            {errorMessage && !firstErrorMessage && (
               <div className="mb-4 text-red-600 bg-red-50 p-3 rounded-md border border-red-200 text-center">
                 {errorMessage}
               </div>
@@ -159,8 +168,10 @@ function Login() {
                   }`}
                   disabled={isButtonDisabled("signin")}
                 />
-                {emailError && (
-                  <p className="text-red-500 text-sm mt-1">{emailError}</p>
+                {firstErrorKey === "email" && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {firstErrorMessage}
+                  </p>
                 )}
               </div>
 
@@ -176,8 +187,10 @@ function Login() {
                   }`}
                   disabled={isButtonDisabled("signin")}
                 />
-                {passwordError && (
-                  <p className="text-red-500 text-sm mt-1">{passwordError}</p>
+                {firstErrorKey === "password" && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {firstErrorMessage}
+                  </p>
                 )}
               </div>
 
@@ -257,7 +270,7 @@ function Login() {
               <button
                 onClick={() => handleOAuthLogin("google")}
                 disabled={isButtonDisabled("google")}
-                className={`w-full border py-3 px-4 rounded-md flex items-center justify-center transition-all ${
+                className={`w-full border border-gray-200 py-3 px-4 rounded-md flex items-center justify-center transition-all ${
                   isButtonDisabled("google")
                     ? "opacity-50 cursor-not-allowed"
                     : "hover:bg-gray-50 hover:border-[#4D2D61]"
@@ -317,7 +330,7 @@ function Login() {
               <button
                 onClick={() => handleOAuthLogin("github")}
                 disabled={isButtonDisabled("github")}
-                className={`w-full border py-3 px-4 rounded-md flex items-center justify-center transition-all ${
+                className={`w-full border border-gray-200 py-3 px-4 rounded-md flex items-center justify-center transition-all ${
                   isButtonDisabled("github")
                     ? "opacity-50 cursor-not-allowed"
                     : "hover:bg-gray-50 hover:border-[#4D2D61]"
@@ -370,19 +383,17 @@ function Login() {
             )}
 
             {/* Sign Up Link */}
-            <div className="mt-8 text-center text-sm">
-              <span className="text-gray-600">
-                Don&apos;t have an account?{" "}
-              </span>
+            <p className="mt-4 text-center text-xs text-gray-600">
+              Don&apos;t have an account?{" "}
               <a
                 href="/signup"
-                className={`text-[#4D2D61] hover:text-[#57356A] font-medium transition-all duration-300 ${
+                className={`text-[#4D2D61] hover:underline font-semibold transition-all duration-300 ${
                   activeButton !== null ? "pointer-events-none opacity-50" : ""
                 }`}
               >
-                Create one now
+                Create new one
               </a>
-            </div>
+            </p>
           </div>
         </div>
 
@@ -397,12 +408,10 @@ function Login() {
             />
             <div className="animated-circle"></div>
             <div className="animated-circle"></div>
-            <div className="animated-circle"></div>
             <div className="p-4 h-full flex flex-col justify-center w-full max-w-lg mx-auto">
               <h2 className="text-xl font-bold text-white mb-3 text-left">
                 Experience Seamless Collaboration
               </h2>
-
               <div className="feature-card">
                 <div className="flex items-center">
                   <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mr-3">
@@ -431,6 +440,8 @@ function Login() {
 
               <div className="feature-card">
                 <div className="flex items-center">
+                  <div className="animated-circle"></div>
+                  <div className="animated-circle"></div>
                   <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mr-3">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
