@@ -308,12 +308,12 @@ export default function Signup() {
                 disabled={oauthStates.loading || isButtonDisabled("google")}
                 className={`w-full border border-gray-200 py-3 px-4 rounded-md flex items-center justify-center transition-all ${
                   oauthStates.loading && oauthStates.activeProvider === "google"
-                    ? "opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200"
+                    ? ""
                     : "hover:bg-gray-50 hover:border-[#4D2D61]"
                 } ${
                   isButtonDisabled("google")
-                    ? "opacity-50 cursor-not-allowed pointer-events-none"
-                    : ""
+                   ? "opacity-50 cursor-not-allowed"
+                    : "hover:bg-gray-50 hover:border-[#4D2D61]"
                 }`}
               >
                 {oauthStates.loading &&
@@ -372,12 +372,12 @@ export default function Signup() {
                 disabled={oauthStates.loading || isButtonDisabled("github")}
                 className={`w-full border border-gray-200 py-3 px-4 rounded-md flex items-center justify-center transition-all ${
                   oauthStates.loading && oauthStates.activeProvider === "github"
-                    ? "opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200"
+                    ? ""
                     : "hover:bg-gray-50 hover:border-[#4D2D61]"
                 } ${
                   isButtonDisabled("github")
-                    ? "opacity-50 cursor-not-allowed pointer-events-none"
-                    : ""
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:bg-gray-50 hover:border-[#4D2D61]"
                 }`}
               >
                 {oauthStates.loading &&
