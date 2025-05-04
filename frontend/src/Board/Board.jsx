@@ -6,6 +6,7 @@ import AddListButton from "./AddListButton";
 import drop from "../assets/drop.png";
 
 const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
+  const [lists, setLists] = useState([]);
   const [view, setView] = useState("board");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -127,7 +128,14 @@ const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
                 />
               ))}
 
-              <AddListButton addNewList={addNewList} />
+              {/* <AddListButton addNewList={addNewList} /> */}
+              <AddListButton
+          boardId={boardId}
+            onListAdded={(newList) => {
+            // refresh your lists here
+           setLists((prev) => [...prev, newList]);
+  }}
+/>
             </div>
           </div>
         )}
