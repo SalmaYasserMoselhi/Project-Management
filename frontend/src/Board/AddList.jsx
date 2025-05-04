@@ -33,13 +33,13 @@ const AddList = ({ boardId, onClose, onSuccess }) => {
 
   return (
     <div className="fixed inset-0  bg-opacity-20 backdrop-blur-[1px] z-50 flex justify-center items-center">
-      <div className="bg-white rounded-lg p-6 w-[300px] relative">
+      <div className="bg-white rounded-lg p-6 w-[280px] relative">
         <button onClick={onClose} className="absolute right-4 top-4">
           <X />
         </button>
 
-        <h2 className="text-2xl font-bold mb-4">Add list</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <h2 className="text-2xl font-semibold mb-4">Add list</h2>
+        <form onSubmit={handleSubmit} className="space-y-3">
           <input
             type="text"
             placeholder="List name"
@@ -49,7 +49,7 @@ const AddList = ({ boardId, onClose, onSuccess }) => {
             required
           />
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <label className="text-lg font-semibold">Color:</label>
             <input
               type="color"
