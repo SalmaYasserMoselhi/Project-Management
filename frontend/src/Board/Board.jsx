@@ -1,34 +1,45 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
+import axios from "axios";
 import Column from "./Column";
 import AddListButton from "./AddListButton";
 import drop from "../assets/drop.png";
 
 const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
-
-  console.log("Workspace ID:", workspaceId);
-  console.log("Board ID:", boardId);
-
   const [view, setView] = useState("board");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
-  const [columns, setColumns] = useState([
-    { title: "To Do Tasks", count: 3 },
-    { title: "In Process", count: 2 },
-    { title: "In Review", count: 2 },
-    { title: "Done", count: 5 },
-  ]);
-  
+  const [columns, setColumns] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLists = async () => {
+      try {
+        const res = await axios.get(`/api/v1/lists/board/${boardId}/lists`);
+        console.log("cols :",res.data.data)
+        setColumns(res.data.data.lists); // assuming `data` is an array of lists
+      } catch (error) {
+        console.error("Error fetching lists:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (boardId) fetchLists();
+  }, [boardId]);
 
   const addNewList = () => {
     const newList = {
-      title: `New List ${columns.length + 1}`,
-      count: 0,
+      id: `new-${Date.now()}`,
+      name: `New List ${columns.length + 1}`,
     };
     setColumns([...columns, newList]);
   };
 
+  if (loading) return <div className="p-4">Loading board...</div>;
+
   return (
-    <div className="p-6 min-h-screen mt-2 flex flex-col item-center  overflow-y-auto -ml-3">
+    <div className="p-6 min-h-screen mt-2 flex flex-col item-center overflow-y-auto -ml-3">
       <div className="border-l-2 border-t-2 border-b-2 border-[#C7C7C7] p-4 rounded-xl w-full max-w-5xl h-full flex flex-col">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 ">
@@ -51,13 +62,12 @@ const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
           <div className="flex gap-4">
             {view === "board" ? (
               <>
-                {/* Sort By Button with Dropdown */}
                 <div className="relative">
                   <button
                     className="text-sm px-2 py-1 rounded-md text-[#000000D9] font-semibold border-2 border-[#C7C7C7] flex items-center gap-1"
                     onClick={() => setIsSortOpen(!isSortOpen)}
                   >
-                    Sort by{" "}
+                    Sort by
                     <img src={drop} alt="Dropdown" className="w-4 h-4" />
                   </button>
                   {isSortOpen && (
@@ -72,13 +82,12 @@ const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
                   )}
                 </div>
 
-                {/* Filter By Button with Border and Dropdown */}
                 <div className="relative">
                   <button
                     className="text-sm px-2 py-1 rounded-md text-[#000000D9] font-semibold border-2 border-[#C7C7C7] flex items-center gap-1"
                     onClick={() => setIsFilterOpen(!isFilterOpen)}
                   >
-                    Filter by{" "}
+                    Filter by
                     <img src={drop} alt="Dropdown" className="w-4 h-4" />
                   </button>
                   {isFilterOpen && (
@@ -94,7 +103,6 @@ const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
                 </div>
               </>
             ) : (
-              // Add Meeting button for Calendar view
               <button className="bg-[#4D2D61] text-white text-sm px-4 py-2 rounded-md font-semibold">
                 Add Meeting
               </button>
@@ -104,34 +112,29 @@ const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
 
         {/* Board View */}
         {view === "board" && (
-          <div className="flex-1 overflow-y-auto pb-4 ">
-           
+          <div className="flex-1 overflow-y-auto pb-4">
             <div
               className={`flex gap-0 min-w-0 h-full -ml-10${
-              isSidebarOpen ? "pl-[300px]" : "pl-0"
-               } overflow-x-auto max-w-full`}
-              >
-              {columns.map((col, index) => (
+                isSidebarOpen ? "pl-[300px]" : "pl-0"
+              } overflow-x-auto max-w-full`}
+            >
+              {columns.map((col) => (
                 <Column
-                  key={index}
-                  title={col.title}
-                  count={col.count}
+                  key={col.id}
+                  id={col.id}
+                  title={col.name}
                   className="min-w-[300px] h-full"
                 />
               ))}
 
-              {/* Add List Button */}
               <AddListButton addNewList={addNewList} />
             </div>
           </div>
         )}
 
-        {/* Placeholder Views for Timeline and Calendar */}
         {view !== "board" && (
           <div className="text-[#000000D9] text-center py-10 font-semibold text-xl">
-            {`${
-              view.charAt(0).toUpperCase() + view.slice(1)
-            } View Coming Soon...`}
+            {`${view.charAt(0).toUpperCase() + view.slice(1)} View Coming Soon...`}
           </div>
         )}
       </div>
