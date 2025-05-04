@@ -1,4 +1,4 @@
-// components/AddList.tsx
+
 import { useState } from "react";
 import axios from "axios";
 import { X } from "lucide-react";
@@ -59,20 +59,14 @@ const AddList = ({ boardId, onClose, onSuccess }) => {
             />
           </div>
 
-          {/* <button
-            type="submit"
-            disabled={loading}
-            className="bg-[#4D2D61] text-white px-6 py-2 rounded-full "
-          >
-            {loading ? "Adding..." : "Add"}
-          </button> */}
-          <button
-  type="submit"
-  disabled={loading}
-  className="bg-[#4D2D61] text-white px-5 py-2 rounded-lg float-right"
->
-  {loading ? "Adding..." : "Add"}
-</button>
+         
+            <button
+               type="submit"
+                disabled={loading}
+               className="bg-[#4D2D61] text-white px-5 py-2 rounded-lg float-right"
+                >
+              {loading ? "Adding..." : "Add"}
+             </button>
 
         </form>
       </div>
