@@ -1,4 +1,5 @@
 
+
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import vector from "../assets/Vector.png";
@@ -71,10 +72,30 @@ const Column = ({ id, title, className }) => {
     }
   };
 
-  const handleArchive = () => {
-    console.log("Archiving column...");
-    setDropdownVisible(false); // Close the dropdown
+  const handleArchive = async () => {
+    try {
+      setLoading(true);
+  
+      const res = await axios.patch(
+        `${BASE_URL}/api/v1/lists/${id}/archive`,
+        {},
+        {
+          withCredentials: true, // This ensures cookies are sent with the request
+        }
+      );
+  
+      if (res.status === 200) {
+        console.log("List archived successfully");
+        window.location.reload();
+        setDropdownVisible(false);
+      }
+    } catch (err) {
+      console.error("Error archiving list:", err);
+    } finally {
+      setLoading(false);
+    }
   };
+  
 
   const handleDelete = () => {
     console.log("Deleting column...");
@@ -107,7 +128,7 @@ const Column = ({ id, title, className }) => {
             >
               <button
                 onClick={handleArchive}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50"
               >
                 Archive
               </button>
@@ -189,3 +210,4 @@ const Column = ({ id, title, className }) => {
 };
 
 export default Column;
+
