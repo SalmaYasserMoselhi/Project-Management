@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import vector from "../assets/Vector.png";
 import TaskCard from "./TaskCard";
@@ -12,6 +12,9 @@ const Column = ({ id, title, className }) => {
   const [newTitle, setNewTitle] = useState("");
   const [priority, setPriority] = useState("Medium");
   const [loading, setLoading] = useState(false);
+  const [dropdownVisible, setDropdownVisible] = useState(false); // Dropdown visibility state
+  const dropdownRef = useRef(null); // Reference to the dropdown menu
+  const vectorRef = useRef(null); // Reference to the vector icon button
 
   useEffect(() => {
     const fetchCards = async () => {
@@ -26,12 +29,31 @@ const Column = ({ id, title, className }) => {
     if (id) fetchCards();
   }, [id]);
 
+  useEffect(() => {
+    // Close dropdown when clicking outside
+    const handleClickOutside = (event) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        vectorRef.current &&
+        !vectorRef.current.contains(event.target)
+      ) {
+        setDropdownVisible(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const handleAddCard = async () => {
     if (!newTitle.trim()) return;
 
     try {
       setLoading(true);
-      const res = axios.post(`${BASE_URL}/api/v1/cards`, {
+      const res = await axios.post(`${BASE_URL}/api/v1/cards`, {
         title: newTitle,
         listId: id,
         priority,
@@ -49,6 +71,16 @@ const Column = ({ id, title, className }) => {
     }
   };
 
+  const handleArchive = () => {
+    console.log("Archiving column...");
+    setDropdownVisible(false); // Close the dropdown
+  };
+
+  const handleDelete = () => {
+    console.log("Deleting column...");
+    setDropdownVisible(false); // Close the dropdown
+  };
+
   return (
     <div className={`p-2 rounded-lg mb-4 md:mb-0 md:mr-4 ${className} min-w-[300px]`}>
       <div className="flex justify-between items-center mb-4 bg-white p-3 rounded-lg shadow-sm">
@@ -60,8 +92,33 @@ const Column = ({ id, title, className }) => {
             </span>
           </h3>
         </div>
-        <div className="flex items-center">
-          <img src={vector} alt="Options" className="w-[18px] h-[4px]" />
+        <div className="flex items-center relative">
+          <img
+            src={vector}
+            alt="Options"
+            className="w-[18px] h-[4px] cursor-pointer"
+            onClick={() => setDropdownVisible(!dropdownVisible)} // Toggle dropdown visibility
+            ref={vectorRef} // Reference to vector icon
+          />
+          {dropdownVisible && (
+            <div
+              className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10"
+              ref={dropdownRef} // Reference to dropdown menu
+            >
+              <button
+                onClick={handleArchive}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Archive
+              </button>
+              <button
+                onClick={handleDelete}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+              >
+                Delete
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
