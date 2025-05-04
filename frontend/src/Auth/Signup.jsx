@@ -51,6 +51,61 @@ export default function Signup() {
   useEffect(() => {
     // Add animation styles
     addAnimationStyles();
+
+    // Fix for layout issues - remove any overflow hidden classes from body and root
+    document.body.style.overflow = "auto";
+    document.body.style.height = "auto";
+    const rootElement = document.getElementById("root");
+    if (rootElement) {
+      rootElement.style.overflow = "auto";
+      rootElement.style.height = "auto";
+    }
+
+    // Add a style tag to ensure the right panel extends full height
+    const styleTag = document.createElement("style");
+    styleTag.id = "auth-fix-styles";
+    styleTag.innerHTML = `
+      .auth-right-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 50%;
+        background: linear-gradient(135deg, #4d2d61 0%, #7b4397 100%);
+        z-index: 10;
+      }
+      
+      @media (max-width: 768px) {
+        .auth-right-panel {
+          display: none;
+        }
+      }
+      
+      .auth-left-panel {
+        width: 100%;
+        padding: 2rem;
+      }
+      
+      @media (min-width: 768px) {
+        .auth-left-panel {
+          width: 50%;
+          padding: 2rem;
+        }
+      }
+    `;
+
+    // Only add the style tag if it doesn't exist
+    if (!document.getElementById("auth-fix-styles")) {
+      document.head.appendChild(styleTag);
+    }
+
+    return () => {
+      // Clean up the style tag when component unmounts
+      const existingStyle = document.getElementById("auth-fix-styles");
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+    };
   }, []);
 
   const handleOAuthLogin = async (provider) => {
@@ -138,30 +193,136 @@ export default function Signup() {
     activeButton !== null && activeButton !== buttonName;
 
   return (
-    <div className="w-full h-screen flex items-center justify-center p-0 overflow-hidden">
-      <div className="flex flex-row w-full h-screen items-center justify-between">
-        {/* Left Section - Form with slide-in animation */}
-        <div className="w-1/2 h-screen flex items-center justify-center form-container">
-          <div className="bg-white p-4 shadow-lg w-full max-w-md">
-            <div className="mb-4 flex flex-col items-center">
-              <h2 className="text-xl font-bold text-[#4D2D61] text-center mb-1">
+    <div className="relative w-full min-h-screen">
+      {/* Fixed right panel */}
+      <div className="auth-right-panel">
+        <div className="flex flex-col items-center h-full">
+          <img
+            src="src/assets/LogoF.png"
+            alt="Nexus Logo"
+            className="h-14 mt-8 mb-4 mx-auto"
+            style={{ display: "block" }}
+          />
+          <div className="animated-circle"></div>
+          <div className="animated-circle"></div>
+          <div className="animated-circle"></div>
+          <div className="p-4 h-full flex flex-col justify-center w-full max-w-lg mx-auto">
+            <h2 className="text-xl font-bold text-white mb-3 text-left">
+              Experience Seamless Collaboration
+            </h2>
+
+            <div className="feature-card">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mr-3">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                  </svg>
+                </div>
+                <span className="text-white font-medium">
+                  Shared Workspaces
+                </span>
+              </div>
+              <div className="animated-circle"></div>
+              <div className="animated-circle"></div>
+              <p className="text-white/80 text-sm mt-2 ml-11">
+                Collaborate with your team in real-time
+              </p>
+            </div>
+
+            <div className="feature-card">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mr-3">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                  </svg>
+                </div>
+                <span className="text-white font-medium">
+                  Smart Notifications
+                </span>
+              </div>
+              <p className="text-white/80 text-sm mt-2 ml-11">
+                Stay updated with important changes
+              </p>
+            </div>
+
+            <div className="feature-card">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mr-3">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                  </svg>
+                </div>
+                <span className="text-white font-medium">Integrated Chat</span>
+              </div>
+              <p className="text-white/80 text-sm mt-2 ml-11">
+                Communicate without leaving the platform
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Left panel with form */}
+      <div className="auth-left-panel flex flex-col items-center justify-center min-h-screen">
+        {/* Logo at the top - only visible on mobile */}
+        <div className="md:hidden mb-8 mt-4">
+          <img
+            src="src/assets/coloredLogoWithWordBeside.png"
+            alt="Nexus Logo"
+            className="h-14 logo-fade-in"
+          />
+        </div>
+
+        <div className="w-full max-w-md mx-auto px-4">
+          <div className="bg-white p-8 rounded-xl card-shadow form-container">
+            <div className="mb-6 text-center">
+              <h2 className="text-2xl font-bold text-[#57356A] mb-2">
                 Create Your Account
               </h2>
-              <p className="text-gray-600 text-center text-sm">
+              <p className="text-gray-600">
                 Join thousands of teams already using Nexus to boost their
                 productivity.
               </p>
             </div>
 
             {/* Sign-Up Form */}
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {/* Email */}
               <div>
                 <input
                   type="email"
                   placeholder="Email"
                   {...register("email")}
-                  className={`w-full px-4 py-3 border input-animated rounded-md ${
+                  className={`w-full px-4 py-3 border input-animated rounded-lg ${
                     errors.email || emailTaken
                       ? "border-red-500"
                       : "border-gray-300"
@@ -183,7 +344,7 @@ export default function Signup() {
                   type="text"
                   placeholder="Username"
                   {...register("username")}
-                  className={`w-full px-4 py-3 border input-animated rounded-md ${
+                  className={`w-full px-4 py-3 border input-animated rounded-lg ${
                     errors.username ? "border-red-500" : "border-gray-300"
                   }`}
                 />
@@ -196,7 +357,7 @@ export default function Signup() {
                     type="text"
                     placeholder="First Name"
                     {...register("firstName")}
-                    className={`w-full px-4 py-3 border input-animated rounded-md ${
+                    className={`w-full px-4 py-3 border input-animated rounded-lg ${
                       errors.firstName ? "border-red-500" : "border-gray-300"
                     }`}
                   />
@@ -207,7 +368,7 @@ export default function Signup() {
                     type="text"
                     placeholder="Last Name (Optional)"
                     {...register("lastName")}
-                    className={`w-full px-4 py-3 border input-animated rounded-md ${
+                    className={`w-full px-4 py-3 border input-animated rounded-lg ${
                       errors.lastName ? "border-red-500" : "border-gray-300"
                     }`}
                   />
@@ -220,7 +381,7 @@ export default function Signup() {
                   type="password"
                   placeholder="Password"
                   {...register("password")}
-                  className={`w-full px-4 py-3 border input-animated rounded-md ${
+                  className={`w-full px-4 py-3 border input-animated rounded-lg ${
                     errors.password ? "border-red-500" : "border-gray-300"
                   }`}
                 />
@@ -232,7 +393,7 @@ export default function Signup() {
                   type="password"
                   placeholder="Confirm Password"
                   {...register("passwordConfirm")}
-                  className={`w-full px-4 py-3 border input-animated rounded-md ${
+                  className={`w-full px-4 py-3 border input-animated rounded-lg ${
                     errors.passwordConfirm
                       ? "border-red-500"
                       : "border-gray-300"
@@ -257,7 +418,7 @@ export default function Signup() {
               {/* Submit Button */}
               <button
                 type="submit"
-                className={`w-full py-2 px-3 rounded-md bg-gradient-to-r from-[#4d2d61] to-[#7b4397] text-white text-sm transition-all hover:shadow-lg hover:translate-y-[-2px] ${
+                className={`w-full py-2 px-3 rounded-md bg-gradient-to-r from-[#4d2d61] to-[#7b4397] text-white text-sm font-medium transition-all hover:shadow-lg hover:translate-y-[-2px] ${
                   isButtonDisabled("signup")
                     ? "opacity-50 cursor-not-allowed"
                     : ""
@@ -312,7 +473,7 @@ export default function Signup() {
                     : "hover:bg-gray-50 hover:border-[#4D2D61]"
                 } ${
                   isButtonDisabled("google")
-                   ? "opacity-50 cursor-not-allowed"
+                    ? "opacity-50 cursor-not-allowed"
                     : "hover:bg-gray-50 hover:border-[#4D2D61]"
                 }`}
               >
@@ -438,105 +599,6 @@ export default function Signup() {
                 Sign in
               </a>
             </p>
-          </div>
-        </div>
-
-        {/* Right Section - Animated Background */}
-        <div className="w-1/2 h-screen ml-0 flex items-center justify-center">
-          <div className="animated-bg-element w-full h-full flex flex-col items-center">
-            <img
-              src="src/assets/LogoF.png"
-              alt="Nexus Logo"
-              className="h-14 mt-8 mb-4 mx-auto"
-              style={{ display: "block" }}
-            />
-            <div className="animated-circle"></div>
-            <div className="animated-circle"></div>
-            <div className="animated-circle"></div>
-            <div className="p-4 h-full flex flex-col justify-center w-full max-w-lg mx-auto">
-              <h2 className="text-xl font-bold text-white mb-3 text-left">
-                Experience Seamless Collaboration
-              </h2>
-
-              <div className="feature-card">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mr-3">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 text-white"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
-                      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-                    </svg>
-                  </div>
-                  <span className="text-white font-medium">
-                    Shared Workspaces
-                  </span>
-                </div>
-                <div className="animated-circle"></div>
-                <div className="animated-circle"></div>
-                <p className="text-white/80 text-sm mt-2 ml-11">
-                  Collaborate with your team in real-time
-                </p>
-              </div>
-
-              <div className="feature-card">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mr-3">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 text-white"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                      <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                    </svg>
-                  </div>
-                  <span className="text-white font-medium">
-                    Smart Notifications
-                  </span>
-                </div>
-                <p className="text-white/80 text-sm mt-2 ml-11">
-                  Stay updated with important changes
-                </p>
-              </div>
-
-              <div className="feature-card">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mr-3">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 text-white"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                    </svg>
-                  </div>
-                  <span className="text-white font-medium">
-                    Integrated Chat
-                  </span>
-                </div>
-                <p className="text-white/80 text-sm mt-2 ml-11">
-                  Communicate without leaving the platform
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
