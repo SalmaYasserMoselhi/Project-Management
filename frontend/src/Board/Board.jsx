@@ -1,9 +1,9 @@
-
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Column from "./Column";
 import AddListButton from "./AddListButton";
 import drop from "../assets/drop.png";
+import Calendar from "./Calendar";
 
 const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
   const [lists, setLists] = useState([]);
@@ -17,7 +17,7 @@ const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
     const fetchLists = async () => {
       try {
         const res = await axios.get(`/api/v1/lists/board/${boardId}/lists`);
-        console.log("cols :",res.data.data)
+        console.log("cols :", res.data.data);
         setColumns(res.data.data.lists); // assuming `data` is an array of lists
       } catch (error) {
         console.error("Error fetching lists:", error);
@@ -41,7 +41,7 @@ const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
 
   return (
     <div className="p-6 min-h-screen mt-2 flex flex-col item-center overflow-y-auto -ml-3">
-      <div className="border-l-2 border-t-2 border-b-2 border-[#C7C7C7] p-4 rounded-xl w-full max-w-5xl h-full flex flex-col">
+      <div className="border-2 border-[#C7C7C7] p-4 rounded-xl h-full flex flex-col">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 ">
           <div className="flex items-center gap-6 mb-4 md:mb-0">
@@ -130,26 +130,20 @@ const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
 
               {/* <AddListButton addNewList={addNewList} /> */}
               <AddListButton
-          boardId={boardId}
-            onListAdded={(newList) => {
-            // refresh your lists here
-           setLists((prev) => [...prev, newList]);
-  }}
-/>
+                boardId={boardId}
+                onListAdded={(newList) => {
+                  // refresh your lists here
+                  setLists((prev) => [...prev, newList]);
+                }}
+              />
             </div>
           </div>
         )}
 
-        {view !== "board" && (
-          <div className="text-[#000000D9] text-center py-10 font-semibold text-xl">
-            {`${view.charAt(0).toUpperCase() + view.slice(1)} View Coming Soon...`}
-          </div>
-        )}
+        {view == "calendar" && <Calendar />}
       </div>
     </div>
   );
 };
 
 export default Board;
-
-
