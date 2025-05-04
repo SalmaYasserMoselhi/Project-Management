@@ -64,7 +64,7 @@ passport.use(
   )
 );
 
-// GITHUB AUTH
+// GITHUB AUTH - Update this section in your passport.js file
 passport.use(
   new GithubStrategy(
     {
@@ -75,13 +75,7 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        console.log(profile);
-        // 1. First, try to find user by githubId
-        if (!profile.id) {
-          return done(new Error("No GitHub account found"), null);
-        }
-
-        // Require explicit email verification
+        // Get email from GitHub profile
         const email =
           profile.emails && profile.emails.length > 0
             ? profile.emails[0].value
@@ -91,16 +85,31 @@ passport.use(
           return done(new Error("Email access is required"), null);
         }
 
-        let user = await User.findOne({ githubId: profile.id });
+        // 1. First, check if user exists with this email address
+        let user = await User.findOne({ email });
+        
         if (user) {
-          return done(null, user);
-        }
-        let username = profile.username || profile.login;
-        const existingUser = await User.findOne({ username, email });
-        if (existingUser) {
-          return done(null, existingUser);
+          // User with this email already exists
+          if (user.githubId) {
+            // Github account already linked, just log in
+            return done(null, user);
+          } else {
+            // User exists but GitHub not linked - update user to link GitHub
+            user.githubId = profile.id;
+            // Take GitHub profile photo if user doesn't have one
+            if (!user.avatar || user.avatar === 'default.jpg') {
+              user.avatar = profile.photos && profile.photos.length > 0
+                ? profile.photos[0].value
+                : user.avatar;
+            }
+            // Save the updated user with GitHub info
+            await user.save({ validateBeforeSave: false });
+            return done(null, user);
+          }
         }
 
+        // 2. If no user exists with this email, create a new user
+        const username = profile.username || profile.login;
         const names = profile.displayName
           ? profile.displayName.split(" ")
           : [username, ""];
@@ -108,11 +117,13 @@ passport.use(
         const firstName = names[0] || username;
         const lastName = names.length > 1 ? names[names.length - 1] : "";
 
+        // Generate random password for security
         const randomPassword = Math.random().toString(36);
 
+        // Create new user with GitHub data
         user = await User.create({
-          firstName, // Add firstName from Github profile
-          lastName, // Add lastName from Github profile
+          firstName,
+          lastName,
           username,
           githubId: profile.id,
           avatar:
@@ -121,7 +132,8 @@ passport.use(
               : "default.jpg",
           email,
           password: randomPassword,
-          passwordConfirm: randomPassword
+          passwordConfirm: randomPassword,
+          emailVerified: true // Important: mark email as verified since GitHub verifies emails
         });
 
         return done(null, user);

@@ -1,13 +1,21 @@
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const Workspace = require('../models/workspaceModel.js');
 const AppError = require('../utils/appError.js');
 const catchAsync = require('../utils/catchAsync.js');
 const User = require('../models/userModel');
 const sendEmail = require('../utils/email');
-const crypto = require('crypto');
 const Board = require('../models/boardModel');
 const permissionService = require('../utils/permissionService');
 const activityService = require('../utils/activityService');
 const invitationService = require('../utils/invitationService');
+const notificationService = require('../utils/notificationService');
+
+  const signToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN,
+  });
+};
 
 // Helper function to format member data
 const formatMemberData = (member) => ({
@@ -620,8 +628,37 @@ exports.inviteMembers = catchAsync(
           role: invitation.role,
         }
       );
+      // Send in-app notification if user already exists
+      const invitedUser = await User.findOne({ email: invitation.email });
+      if (invitedUser && global.io) {
+        // Get inviter details
+        const inviter = await User.findById(req.user._id).select('firstName lastName username avatar');
+        
+        // Send notification via socket
+        await notificationService.createNotification(
+          global.io,
+          invitedUser._id,
+          req.user._id,
+          'workspace_invitation',
+          'workspace',
+          workspace._id,
+          {
+            workspaceName: workspace.name,
+            role: invitation.role,
+            inviterName: inviter ? 
+              (inviter.firstName && inviter.lastName) ? 
+                `${inviter.firstName} ${inviter.lastName}` : 
+                inviter.username : 
+              'A user',
+            inviteToken: invitation.token  // Include the token for direct access
+          }
+        );
+        
+        console.log(`Notification sent to user ${invitedUser._id} about workspace invitation`);
+      }
     }
 
+    
     // Save the workspace with the new invitations
     await workspace.save();
 
@@ -657,6 +694,10 @@ exports.acceptInvitation = catchAsync(
     // Hash token
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
+
+    // Get frontend URL from environment variables
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
     // Find workspace by token
     const workspace = await Workspace.findOne({
       invitations: {
@@ -672,6 +713,10 @@ exports.acceptInvitation = catchAsync(
       return next(new AppError('Invalid or expired invitation', 400));
     }
 
+    // if (!workspace) {
+    //   // Redirect to frontend with error message
+    //   return res.redirect(`${frontendUrl}/invitation-error?message=Invalid+or+expired+invitation`);
+    // }
     // Verify token
     const invitation = invitationService.verifyInvitationToken(
       workspace,
@@ -681,6 +726,12 @@ exports.acceptInvitation = catchAsync(
     if (!invitation) {
       return next(new AppError('Invalid or expired invitation', 400));
     }
+
+
+    // if (!invitation) {
+    //   // Redirect to frontend with error message
+    //   return res.redirect(`${frontendUrl}/invitation-error?message=Invalid+or+expired+invitation`);
+    // }
 
     // Find user
     let user = await User.findOne({ email: invitation.email });
@@ -706,7 +757,7 @@ exports.acceptInvitation = catchAsync(
     await activityService.logWorkspaceActivity(
       workspace,
       invitation.invitedBy,
-      'member_added',
+      'invitation_accepted',
       {
         user: user._id,
         role: invitation.role,
@@ -714,13 +765,67 @@ exports.acceptInvitation = catchAsync(
       }
     );
 
-    res.status(200).json({
-      status: 'success',
-      message: 'Successfully joined workspace',
-      data: {
-        workspace,
-      },
-    });
+   // Create authentication token and set cookie
+   const jwtToken = signToken(user._id);
+   res.cookie('jwt', jwtToken, {
+     expires: new Date(
+       Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+     ),
+     httpOnly: true,
+     secure: false,
+     sameSite: 'lax',
+     path: '/',
+   });
+
+   // Notify existing workspace members about new member
+   if (global.io) {
+    // Get all workspace members except the inviter and new member
+    const existingMembers = workspace.members.filter(member => 
+      member.user.toString() !== user._id.toString() && 
+      member.user.toString() !== invitation.invitedBy.toString()
+    );
+
+    // Send notification to each existing member
+    for (const member of existingMembers) {
+      await notificationService.createNotification(
+        global.io,
+        member.user,
+        invitation.invitedBy,
+        'member_added',
+        'workspace',
+        workspace._id,
+        {
+          workspaceName: workspace.name,
+          newMemberName: user.firstName ? 
+            `${user.firstName} ${user.lastName || ''}`.trim() : 
+            user.username,
+          role: invitation.role
+        }
+      );
+    }
+    const inviter = await User.findById(user._id).select('firstName lastName username avatar');
+    // Send a welcome notification to the new member
+    await notificationService.createNotification(
+      global.io,
+      user._id,
+      invitation.invitedBy,
+      'workspace_welcome',
+      'workspace',
+      workspace._id,
+      {
+        workspaceName: workspace.name,
+        inviterName: inviter ? 
+          (inviter.firstName && inviter.lastName) ? 
+            `${inviter.firstName} ${inviter.lastName}` : 
+            inviter.username : 
+          'A user',
+        role: invitation.role
+      }
+    );
+  }
+
+   // Redirect to workspace page on frontend
+   return res.redirect(`${frontendUrl}/main/dashboard/${workspace._id}?joined=true`);
   },
   // Cleanup function
   async (req, err) => {

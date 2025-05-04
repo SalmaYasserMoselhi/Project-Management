@@ -19,6 +19,7 @@ const notificationSchema = new mongoose.Schema(
         // Existing types
         'board_invitation',
         'workspace_invitation',
+        'workspace_welcome',
         'card_assignment',
         'card_due_soon',
         'card_comment',
@@ -28,7 +29,6 @@ const notificationSchema = new mongoose.Schema(
         'board_shared',
         'mention',
         'message',
-        // New types
         'board_created',
         'board_updated',
         'board_deleted',
@@ -106,6 +106,8 @@ notificationSchema.statics.generateMessage = function (type, data, sender) {
       return `${senderName} invited you to join the board "${data.boardName}"`;
     case 'workspace_invitation':
       return `${senderName} invited you to join the workspace "${data.workspaceName}"`;
+    case 'workspace_welcome':
+      return `Welcome to the workspace "${data.workspaceName}"! You now have ${data.role} access.`;
     case 'card_assignment':
       return `${senderName} assigned you to the card "${data.cardTitle}"`;
     case 'card_due_soon':

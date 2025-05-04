@@ -9,7 +9,7 @@ const Workspace = require('../models/workspaceModel');
 const passport = require('passport');
 
 // jwt.sign(payload, secretOrPrivateKey, options)
-const signToken = (id) => {
+  const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
@@ -77,8 +77,13 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
     emailVerificationExpires: { $gt: Date.now() },
   });
 
+  // if (!user) {
+  //   return next(new AppError('Invalid or expired verification link', 400));
+  // }
   if (!user) {
-    return next(new AppError('Invalid or expired verification link', 400));
+    // Instead of returning error JSON, redirect to frontend with error parameter
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    return res.redirect(`${frontendUrl}/login?verification=failed`);
   }
 
   // 3) Update user
@@ -87,8 +92,22 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
   user.emailVerificationExpires = undefined;
   await user.save({ validateBeforeSave: false });
 
-  // 4) Log the user in automatically after verification
-  createSendToken(user, 200, req, res);
+ // 4) Create token and set cookie, but DON'T send JSON response
+ const jwtToken = signToken(user._id);
+ res.cookie('jwt', jwtToken, {
+   expires: new Date(
+     Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+   ),
+   httpOnly: true,
+   secure: false,
+   sameSite: 'lax',
+   path: '/',
+ });
+ 
+
+  // 5) Redirect to frontend login page with success parameter
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  return res.redirect(`${frontendUrl}/login?verified=true`);
 });
 
 exports.signup = catchAsync(
@@ -232,12 +251,12 @@ exports.handleCallback = async (req, res) => {
       await Workspace.createDefaultWorkspaces(user._id, user.username);
     }
 
-    // If email not verified, send verification email
+    // Mark email as verified for OAuth users (since provider already verified it)
     if (!user.emailVerified) {
-      const verificationToken = user.createEmailVerificationToken();
+      user.emailVerified = true;
       await user.save({ validateBeforeSave: false });
-      await sendVerificationEmail(user, verificationToken);
     }
+    
     console.log('User data:', user);
 
     // Get the state from Google's response
@@ -559,3 +578,6 @@ exports.logout = (req, res) => {
 
   res.status(200).json({ status: 'success' });
 };
+
+
+// module.exports = {signToken};

@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const Board = require('../models/boardModel');
 const Workspace = require('../models/workspaceModel');
 const User = require('../models/userModel');
@@ -11,6 +12,15 @@ const activityService = require('../utils/activityService');
 const invitationService = require('../utils/invitationService');
 const { createDefaultLists } = require('../controllers/listController');
 const notificationService = require('../utils/notificationService');
+
+  const signToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN,
+  });
+};
+
+
+
 // Helper function to format member data
 const formatMemberData = (member) => ({
   _id: member._id,
@@ -838,6 +848,11 @@ exports.acceptInvitation = catchAsync(
   async (req, res, next) => {
     const { token } = req.params;
 
+
+    
+    // Get frontend URL from environment variables
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
     // Find board by token
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
@@ -855,12 +870,22 @@ exports.acceptInvitation = catchAsync(
       return next(new AppError('Invalid or expired invitation', 400));
     }
 
+    // if (!board) {
+    //   // Redirect to frontend with error message
+    //   return res.redirect(`${frontendUrl}/invitation-error?message=Invalid+or+expired+invitation`);
+    // }
+
     // Use invitationService to verify token
     const invitation = invitationService.verifyInvitationToken(board, token);
 
     if (!invitation) {
       return next(new AppError('Invalid or expired invitation', 400));
     }
+
+    // if (!invitation) {
+    //   // Redirect to frontend with error message
+    //   return res.redirect(`${frontendUrl}/invitation-error?message=Invalid+or+expired+invitation`);
+    // }
 
     // Find user
     let user = await User.findOne({ email: invitation.email });
@@ -928,13 +953,20 @@ exports.acceptInvitation = catchAsync(
       }
     );
     
-    res.status(200).json({
-      status: 'success',
-      message: 'Successfully joined board',
-      data: {
-        board: formatBoardResponse(board, user._id),
-      },
+     // Create authentication token and set cookie
+    const jwtToken = signToken(user._id);
+    res.cookie('jwt', jwtToken, {
+      expires: new Date(
+        Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+      ),
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      path: '/',
     });
+
+    // Redirect to board page on frontend
+    return res.redirect(`${frontendUrl}/board/${board._id}?joined=true`);
   },
   // Cleanup function
   async (req, err) => {
