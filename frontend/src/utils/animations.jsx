@@ -1,31 +1,31 @@
-"use client";
+"use client"
 
-import { useEffect } from "react";
+import { useEffect } from "react"
 
 // Animation utilities for the Nexus application
-export function useSlideInAnimation() {
+export function useSlideInAnimation(direction = "left") {
   useEffect(() => {
     // Add the slide-in class to the form container after a small delay
     const timer = setTimeout(() => {
-      const formContainer = document.querySelector(".form-container");
+      const formContainer = document.querySelector(".form-container")
       if (formContainer) {
-        formContainer.classList.add("slide-in-active");
+        formContainer.classList.add(`slide-in-active-${direction}`)
       }
-    }, 100);
+    }, 100)
 
     return () => {
-      clearTimeout(timer);
-    };
-  }, []);
+      clearTimeout(timer)
+    }
+  }, [direction])
 }
 
 // Add animation styles to the document
 export function addAnimationStyles() {
   // Check if styles are already added to avoid duplicates
-  if (document.getElementById("nexus-animation-styles")) return;
+  if (document.getElementById("nexus-animation-styles")) return
 
-  const style = document.createElement("style");
-  style.id = "nexus-animation-styles";
+  const style = document.createElement("style")
+  style.id = "nexus-animation-styles"
   style.textContent = `
     @keyframes slideInFromLeft {
       0% {
@@ -34,6 +34,17 @@ export function addAnimationStyles() {
       }
       100% {
         transform: translateX(0);
+        opacity: 1;
+      }
+    }
+    
+    @keyframes slideInFromTop {
+      0% {
+        transform: translateY(-30px);
+        opacity: 0;
+      }
+      100% {
+        transform: translateY(0);
         opacity: 1;
       }
     }
@@ -70,13 +81,29 @@ export function addAnimationStyles() {
       }
     }
     
-    .form-container {
-      opacity: 0;
-      transform: translateX(-50px);
+    @keyframes logoFadeIn {
+      0% {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
     
-    .slide-in-active {
+    .form-container {
+      opacity: 0;
+    }
+    
+    .form-container.slide-in-active-left {
+      transform: translateX(-50px);
       animation: slideInFromLeft 0.6s ease forwards;
+    }
+    
+    .form-container.slide-in-active-top {
+      transform: translateY(-30px);
+      animation: slideInFromTop 0.6s ease forwards;
     }
     
     .animated-bg-element {
@@ -151,6 +178,15 @@ export function addAnimationStyles() {
       box-shadow: 0 0 0 3px #eae3f7, 0 0 0 2px #725483;
       outline: none;
     }
-  `;
-  document.head.appendChild(style);
+    
+    .card-shadow {
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    
+    .logo-fade-in {
+      animation: logoFadeIn 1.2s ease-out forwards;
+      opacity: 0;
+    }
+  `
+  document.head.appendChild(style)
 }

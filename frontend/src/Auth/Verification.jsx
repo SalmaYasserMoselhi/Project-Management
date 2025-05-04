@@ -1,5 +1,11 @@
+"use client";
+
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import {
+  useSlideInAnimation,
+  addAnimationStyles,
+} from "../utils/animations.jsx";
 
 const Verification = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -7,14 +13,23 @@ const Verification = () => {
   const [resendDisabled, setResendDisabled] = useState(true);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
   const [isCodeValid, setIsCodeValid] = useState(false);
+  const [buttonDisabled, setButtonDisabled] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const navigate = useNavigate();
   const inputRefs = useRef(Array(6).fill(null));
   const location = useLocation();
   const email = location.state?.email || "";
 
+  // Initialize slide-in animation from top
+  useSlideInAnimation("top");
+
   useEffect(() => {
+    // Add animation styles
+    addAnimationStyles();
+
     const timeout = setTimeout(() => {
       setError("");
       setSuccessMessage("");
@@ -51,9 +66,16 @@ const Verification = () => {
     }
   };
 
+  const handleKeyDown = (e, index) => {
+    // Handle backspace to move to previous input
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
   const handleResend = async () => {
     try {
-      setLoading(true);
+      setResendLoading(true);
       setError("");
       setSuccessMessage("");
 
@@ -73,6 +95,8 @@ const Verification = () => {
       }
 
       if (data.status === "success") {
+        const sentAt = Date.now();
+        localStorage.setItem("verificationSentAt", sentAt);
         setTimer(60);
         setResendDisabled(true);
         setOtp(["", "", "", "", "", ""]);
@@ -81,7 +105,7 @@ const Verification = () => {
     } catch (error) {
       setError(error.message || "Failed to resend code. Please try again.");
     } finally {
-      setLoading(false);
+      setResendLoading(false);
     }
   };
 
@@ -92,7 +116,8 @@ const Verification = () => {
     }
 
     try {
-      setLoading(true);
+      setVerifyLoading(true);
+      setButtonDisabled(true);
       setError("");
       setSuccessMessage("");
       setIsCodeValid(false);
@@ -115,6 +140,7 @@ const Verification = () => {
       if (data.status === "success") {
         setIsCodeValid(true);
         setSuccessMessage("Code verified successfully!");
+        setRedirecting(true);
         setTimeout(() => {
           navigate("/resetpassword", { state: { email } });
         }, 1500);
@@ -123,134 +149,179 @@ const Verification = () => {
       setIsCodeValid(false);
       setError(error.message || "Invalid verification code. Please try again.");
     } finally {
-      setLoading(false);
+      setVerifyLoading(false);
+      setButtonDisabled(false);
     }
   };
 
   return (
-    <div className="flex flex-col md:flex-row items-center justify-center min-h-screen bg-gray-50">
-      {/* Notification Toasts */}
-      <div className="fixed top-4 right-4 space-y-2 z-50">
-        {successMessage && (
-          <div className="flex items-center bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg shadow-lg animate-fade-in-up">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 mr-2"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
-              />
-            </svg>
-            {successMessage}
-            <button
-              onClick={() => setSuccessMessage("")}
-              className="ml-4 text-green-700 hover:text-green-900"
-            >
-              ×
-            </button>
-          </div>
-        )}
-
-        {error && (
-          <div className="flex items-center bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg animate-fade-in-up">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 mr-2"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-            {error}
-            <button
-              onClick={() => setError("")}
-              className="ml-4 text-red-700 hover:text-red-900"
-            >
-              ×
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Left Section - Image */}
-      <div className="hidden md:block w-1/2 p-8 relative">
-        <div className="absolute inset-x-0 top-0 flex justify-center mt-4">
-          <img
-            src="src/assets/Logo.png"
-            alt="Beehive Logo"
-            className="w-33 h-20"
-          />
-        </div>
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gray-50 p-4">
+      {/* Logo at the top */}
+      <div className="mb-8">
         <img
-          src="src/assets/pana.png"
-          alt="Illustration"
-          className="w-full h-auto mt-24"
+          src="src/assets/coloredLogoWithWordBeside.png"
+          alt="Nexus Logo"
+          className="h-14 logo-fade-in"
         />
       </div>
 
-      {/* Right Section - Verification Form */}
-      <div className="w-full md:w-1/2 max-w-md p-8 bg-white rounded-xl shadow-lg">
-        <div className="flex items-center justify-center mb-6">
-          <h1 className="text-2xl font-semibold text-center text-gray-800 mb-4">
-            Verification Code
-          </h1>
-        </div>
+      {/* Centered form with slide-in animation */}
+      <div className="form-container w-full max-w-md">
+        <div className="bg-white p-8 rounded-xl card-shadow">
+          <div className="mb-6 text-center">
+            <h2 className="text-2xl font-bold text-[#57356A] mb-2">
+              Verification Code
+            </h2>
+            <p className="text-gray-600">
+              We have sent a verification code to:
+            </p>
+            <p className="font-medium text-[#4D2D61] mt-1">{email}</p>
+          </div>
 
-        <p className="text-center text-gray-500 mb-6">
-          We have sent the verification code to this email:{" "}
-          <span className="font-bold">{email}</span>
-        </p>
+          {/* Notification Messages */}
+          {successMessage && (
+            <div className="mb-6 p-3 text-green-500 bg-green-50 rounded-lg text-center text-sm">
+              {successMessage}
+            </div>
+          )}
 
-        <div className="flex justify-center gap-2 mb-4">
-          {otp.map((digit, index) => (
-            <input
-              key={index}
-              ref={(el) => (inputRefs.current[index] = el)}
-              id={`otp-${index}`}
-              type="text"
-              value={digit}
-              maxLength={1}
-              onChange={(e) => handleChange(e.target.value, index)}
-              autoComplete="off"
-              className={`w-12 h-12 text-center text-xl border-1 rounded-lg focus:ring-1 transition-all ${
-                isCodeValid
-                  ? "border-green-400 ring-green-400"
-                  : error
-                  ? "border-red-500 ring-red-400"
-                  : "border-gray-400 "
+          {error && (
+            <div className="mb-6 p-3 text-red-500 bg-red-50 rounded-lg text-center text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* OTP Input Fields */}
+          <div className="flex justify-center gap-2 mb-6 mt-6">
+            {otp.map((digit, index) => (
+              <input
+                key={index}
+                ref={(el) => (inputRefs.current[index] = el)}
+                id={`otp-${index}`}
+                type="text"
+                value={digit}
+                maxLength={1}
+                onChange={(e) => handleChange(e.target.value, index)}
+                onKeyDown={(e) => handleKeyDown(e, index)}
+                autoComplete="off"
+                className={`w-12 h-12 text-center text-xl border input-animated rounded-md ${
+                  isCodeValid
+                    ? "border-green-400 ring-green-400"
+                    : error && otp.some((d) => d !== "")
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }`}
+              />
+            ))}
+          </div>
+
+          <div className="text-center mb-6">
+            <div className="text-gray-500 mb-2 font-medium">
+              {`${Math.floor(timer / 60)}:${timer % 60 < 10 ? "0" : ""}${
+                timer % 60
               }`}
-            />
-          ))}
-        </div>
+            </div>
+            <button
+              onClick={handleResend}
+              disabled={
+                resendDisabled || resendLoading || verifyLoading || redirecting
+              }
+              className={`text-[#4D2D61] hover:text-[#57356A] transition-colors text-sm font-medium ${
+                !(
+                  resendDisabled ||
+                  resendLoading ||
+                  verifyLoading ||
+                  redirecting
+                )
+                  ? "cursor-pointer"
+                  : ""
+              } ${
+                resendDisabled || resendLoading || verifyLoading || redirecting
+                  ? "disabled:text-gray-400"
+                  : ""
+              }`}
+            >
+              {resendLoading ? "Sending..." : "Resend code"}
+            </button>
+          </div>
 
-        <div className="text-center mb-4">
-          <span className="text-gray-500 block">{`${Math.floor(timer / 60)}:${
-            timer % 60 < 10 ? "0" : ""
-          }${timer % 60}`}</span>
           <button
-            onClick={handleResend}
-            disabled={resendDisabled || loading}
-            className="mt-1 text-gray-600 hover:text-[#4D2D61] disabled:text-gray-400 transition-colors"
+            onClick={handleSubmit}
+            disabled={
+              verifyLoading || resendLoading || buttonDisabled || redirecting
+            }
+            className={`w-full py-2 px-3 rounded-md bg-gradient-to-r from-[#4d2d61] to-[#7b4397] text-white text-sm font-medium transition-all hover:shadow-lg hover:scale-[1.01] hover:translate-y-[-2px] ${
+              verifyLoading || resendLoading || buttonDisabled || redirecting
+                ? "opacity-50 cursor-not-allowed pointer-events-none"
+                : ""
+            }`}
           >
-            {loading ? "Sending..." : "Resend code"}
+            {verifyLoading ? (
+              <span className="flex items-center justify-center">
+                <svg
+                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Verifying...
+              </span>
+            ) : (
+              "Verify"
+            )}
           </button>
+
+          <div className="mt-6 text-center">
+            <a
+              href="/login"
+              className={`text-[#4D2D61] hover:text-[#57356A] transition-all duration-300 text-sm font-medium ${
+                resendLoading || verifyLoading || buttonDisabled || redirecting
+                  ? "pointer-events-none opacity-50"
+                  : ""
+              }`}
+            >
+              Back to login
+            </a>
+          </div>
         </div>
 
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className="w-full bg-[#4D2D61] text-white py-2 rounded-lg hover:bg-[#57356A] disabled:opacity-50 transition-colors"
-        >
-          {loading ? "Verifying..." : "Verify"}
-        </button>
+        {/* Verification info */}
+        <div className="mt-6 text-center text-gray-500 text-xs">
+          <div className="flex items-center justify-center mb-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 mr-1 text-[#4D2D61]"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            Time Sensitive
+          </div>
+          <p>
+            The verification code will expire in 60 seconds. If you don't
+            receive it, check your spam folder or request a new code.
+          </p>
+        </div>
       </div>
     </div>
   );
