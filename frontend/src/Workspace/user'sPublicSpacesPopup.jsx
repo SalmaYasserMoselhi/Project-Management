@@ -11,6 +11,7 @@ import {
   selectUserWorkspace,
   setSearchTerm,
   setSortOption,
+  selectShouldFetchWorkspaces,
 } from "../features/Slice/WorkspaceSlice/userWorkspacesSlice";
 
 const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
@@ -29,6 +30,9 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     sortOption,
     selectedWorkspace: popupSelectedWorkspace,
   } = useSelector((state) => state.userWorkspaces);
+
+  // Add this at the top level
+  const shouldFetch = useSelector(selectShouldFetchWorkspaces);
 
   // Global click handler to close popup
   useEffect(() => {
@@ -51,12 +55,12 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     };
   }, [isOpen, onClose]);
 
-  // Fetch workspaces when component mounts
+  // Update the fetch effect to use centralized logic
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && shouldFetch) {
       dispatch(fetchUserPublicWorkspaces());
     }
-  }, [dispatch, isOpen]);
+  }, [dispatch, isOpen, shouldFetch]);
 
   // Restore selected workspace from localStorage after workspaces are loaded
   useEffect(() => {

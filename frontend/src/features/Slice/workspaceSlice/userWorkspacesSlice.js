@@ -3,6 +3,12 @@ import toast from "react-hot-toast";
 
 const BASE_URL = "http://localhost:3000";
 
+// Selector to check if we need to refetch workspaces
+export const selectShouldFetchWorkspaces = (state) => {
+  const { workspaces, lastFetched } = state.userWorkspaces;
+  return workspaces.length === 0 || !lastFetched || (Date.now() - lastFetched > 5 * 60 * 1000);
+};
+
 // Async thunk for fetching user's public workspaces
 export const fetchUserPublicWorkspaces = createAsyncThunk(
   "userWorkspaces/fetchUserPublicWorkspaces",
@@ -72,6 +78,7 @@ const userWorkspacesSlice = createSlice({
     isAnimating: false,
     searchTerm: "",
     sortOption: "-updatedAt",
+    lastFetched: null,
   },
   reducers: {
     openUserWorkspacesPopup: (state) => {
@@ -107,6 +114,8 @@ const userWorkspacesSlice = createSlice({
       .addCase(fetchUserPublicWorkspaces.fulfilled, (state, action) => {
         state.workspaces = action.payload;
         state.loading = false;
+        state.error = null;
+        state.lastFetched = Date.now();
       })
       .addCase(fetchUserPublicWorkspaces.rejected, (state, action) => {
         state.loading = false;
