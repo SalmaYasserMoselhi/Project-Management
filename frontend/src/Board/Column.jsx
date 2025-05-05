@@ -1,12 +1,11 @@
 
-
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import vector from "../assets/Vector.png";
 import TaskCard from "./TaskCard";
 import icon from "../assets/icon.png";
 
-const Column = ({ id, title, className }) => {
+const Column = ({ id, title, className, onDelete }) => { // onDelete prop to update parent state
   const BASE_URL = "http://localhost:3000";
   const [cards, setCards] = useState([]);
   const [isAdding, setIsAdding] = useState(false);
@@ -95,11 +94,15 @@ const Column = ({ id, title, className }) => {
       setLoading(false);
     }
   };
-  
+
+
 
   const handleDelete = () => {
-    console.log("Deleting column...");
-    setDropdownVisible(false); // Close the dropdown
+    const confirmDelete = window.confirm("Are you sure you want to delete this list?");
+    if (!confirmDelete) return;
+  
+    setDropdownVisible(false); 
+    onDelete(id); 
   };
 
   return (
@@ -210,4 +213,3 @@ const Column = ({ id, title, className }) => {
 };
 
 export default Column;
-

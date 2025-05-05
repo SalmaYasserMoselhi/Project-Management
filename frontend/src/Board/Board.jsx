@@ -6,6 +6,7 @@ import AddListButton from "./AddListButton";
 import drop from "../assets/drop.png";
 
 const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
+  const BASE_URL = "http://localhost:3000";
   const [lists, setLists] = useState([]);
   const [view, setView] = useState("board");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -29,6 +30,7 @@ const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
     if (boardId) fetchLists();
   }, [boardId]);
 
+
   const addNewList = () => {
     const newList = {
       id: `new-${Date.now()}`,
@@ -38,6 +40,26 @@ const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
   };
 
   if (loading) return <div className="p-4">Loading board...</div>;
+
+  const handleDeleteList = async (listId) => {
+    try {
+      const res = await axios.delete(`${BASE_URL}/api/v1/lists/${listId}`, {
+        withCredentials: true,
+      });
+  
+      if (res.status === 200 || res.status === 204) {
+        console.log("List deleted successfully");
+        window.location.reload();
+        setLists((prevLists) => prevLists.filter((list) => list._id !== listId));
+      } else {
+        console.warn("Unexpected response:", res);
+      }
+    } catch (error) {
+      console.error("Error deleting list:", error);
+      alert("Failed to delete list.");
+    }
+  };
+  
 
   return (
     <div className="p-6 min-h-screen mt-2 flex flex-col item-center overflow-y-auto -ml-3">
@@ -125,6 +147,7 @@ const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
                   id={col.id}
                   title={col.name}
                   className="min-w-[300px] h-full"
+                  onDelete={handleDeleteList}
                 />
               ))}
 
