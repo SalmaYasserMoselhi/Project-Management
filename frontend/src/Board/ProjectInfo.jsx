@@ -1,14 +1,11 @@
-
-
 import CalendarBlank from "../assets/CalendarBlank.png";
 import edit from "../assets/edit.png";
 import share from "../assets/share.png";
 
-
 const ProjectInfo = ({ isSidebarOpen, boardName, boardDescription }) => {
   return (
     <div
-      className={`bg-white p-6 rounded-2xl shadow-md mb-2 mt-7 transition-all duration-300`}
+      className={`bg-white p-6 rounded-2xl shadow-sm mb-2 mt-7 transition-all duration-300`}
       style={{
         width: isSidebarOpen ? "98%" : "100%",
       }}
@@ -37,9 +34,7 @@ const ProjectInfo = ({ isSidebarOpen, boardName, boardDescription }) => {
           </div>
         </div>
       </div>
-      <p className="text-gray-600 mt-4">
-        {boardDescription || "No description provided."}
-      </p>
+      <p className="text-gray-600 mt-4">{boardDescription || null}</p>
     </div>
   );
 };
