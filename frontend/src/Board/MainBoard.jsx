@@ -41,23 +41,18 @@ const MainBoard = () => {
   }, [boardId]);
   
   
-  
-  
-
-  const sidebarWidth = isSidebarOpen ? 20 : 20;
-
   return (
     <div className="min-h-screen flex bg-[#f5f5f5] overflow-hidden">
       
-      <div style={{ width: sidebarWidth }}>
+      <div >
         <Sidebar
-          isSidebarOpen={isSidebarOpen}
-          toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          // isSidebarOpen={isSidebarOpen}
+          // toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         />
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 h-screen overflow-y-auto overflow-x-hidden p-3 transition-all duration-300">
+      <div className="flex-1 h-screen overflow-y-auto overflow-x-hidden p-3 transition-all duration-300 w-[1115px]">
         <ProjectInfo
           isSidebarOpen={isSidebarOpen}
           boardName={boardName}
@@ -74,3 +69,4 @@ const MainBoard = () => {
 };
 
 export default MainBoard;
+

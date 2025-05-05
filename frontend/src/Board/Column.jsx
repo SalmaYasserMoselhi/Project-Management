@@ -106,9 +106,9 @@ const Column = ({ id, title, className, onDelete }) => { // onDelete prop to upd
   };
 
   return (
-    <div className={`p-2 rounded-lg mb-4 md:mb-0 md:mr-4 ${className} min-w-[300px]`}>
+    <div className={`p-2 rounded-lg mb-4 md:mb-0 md:mr-4 ${className} min-w-[250px]`}>
       <div className="flex justify-between items-center mb-4 bg-white p-3 rounded-lg shadow-sm">
-        <div className="flex items-center">
+        <div className="flex items-center w-[190px]">
           <h3 className="text-black font-semibold me-2">
             {title}
             <span className="px-2 py-1 rounded-full text-sm ms-2" style={{ backgroundColor: "#A855F71A" }}>

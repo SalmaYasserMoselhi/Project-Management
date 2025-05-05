@@ -4,8 +4,9 @@ import Column from "./Column";
 import AddListButton from "./AddListButton";
 import drop from "../assets/drop.png";
 import Calendar from "./Calendar";
-
-const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
+import { useSelector } from "react-redux";
+const Board = ({  workspaceId, boardId }) => {
+  const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
   const BASE_URL = "http://localhost:3000";
   const [lists, setLists] = useState([]);
   const [view, setView] = useState("board");
@@ -62,7 +63,8 @@ const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
   
 
   return (
-    <div className="p-6 min-h-screen mt-2 flex flex-col item-center overflow-y-auto -ml-3">
+    <div className="p-6 min-h-screen mt-2 flex flex-col item-center overflow-y-auto -ml-4 ">
+   
       <div className="border-2 border-[#C7C7C7] p-4 rounded-xl h-full flex flex-col">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 ">
@@ -170,3 +172,4 @@ const Board = ({ isSidebarOpen, workspaceId, boardId }) => {
 };
 
 export default Board;
+

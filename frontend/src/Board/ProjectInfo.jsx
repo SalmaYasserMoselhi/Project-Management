@@ -1,14 +1,16 @@
 import CalendarBlank from "../assets/CalendarBlank.png";
 import edit from "../assets/edit.png";
 import share from "../assets/share.png";
+import { useSelector } from "react-redux";
 
-const ProjectInfo = ({ isSidebarOpen, boardName, boardDescription }) => {
+const ProjectInfo = ({ boardName, boardDescription }) => {
+  const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
   return (
     <div
       className={`bg-white p-6 rounded-2xl shadow-sm mb-2 mt-7 transition-all duration-300`}
-      style={{
-        width: isSidebarOpen ? "98%" : "100%",
-      }}
+      // style={{
+      //   width: isSidebarOpen ? "85%" : "98%",
+      // }}
     >
       <div className="flex flex-col md:flex-row justify-between items-start">
         <div>
