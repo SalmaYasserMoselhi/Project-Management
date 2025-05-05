@@ -1,45 +1,84 @@
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import CalendarBlank from "../assets/CalendarBlank.png";
 import edit from "../assets/edit.png";
 import share from "../assets/share.png";
 import vector from "../assets/Vector.png";
 import { useSelector } from "react-redux";
-import ShareModal from "./ShareModal"; // import the modal
+import ShareModal from "./ShareModal";
+import ArchivedPopup from "./ArchivedPopup"; // Ensure this is correctly imported
 
 const ProjectInfo = ({ boardName, boardDescription }) => {
   const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
+
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [showArchivedPopup, setShowArchivedPopup] = useState(false);
+
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleArchivedClick = () => {
+    setShowArchivedPopup(true);
+    setShowDropdown(false);
+  };
 
   return (
-    <div
-      className={`bg-white p-6 rounded-2xl shadow-sm mb-2 mt-7 transition-all duration-300`}
-    >
+    <div className="bg-white p-6 rounded-2xl shadow-sm mb-2 mt-7 transition-all duration-300">
       <div className="flex flex-col md:flex-row justify-between items-start">
         <div>
           <h1 className="text-2xl font-semibold flex items-center gap-2">
             {boardName || "Project Name"}
-            <img
-              src={edit}
-              alt="Edit"
-              className="w-4 h-4 cursor-pointer ms-2"
-            />
+            <img src={edit} alt="Edit" className="w-4 h-4 cursor-pointer ms-2" />
           </h1>
           <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
             <img src={CalendarBlank} alt="Clock" className="w-4 h-4" /> 20 July
           </p>
         </div>
 
-        <div className="flex items-center gap-5 mt-4 md:mt-0 ms-auto">
-          <div className="flex items-center gap-2 cursor-pointer" >
+        <div className="flex items-center gap-5 mt-4 md:mt-0 ms-auto relative" ref={dropdownRef}>
+          {/* Share icon */}
+          <div className="flex items-center gap-2 cursor-pointer">
             <img
               src={share}
               alt="Share"
               className="w-8 h-8 rounded-full border-2 border-white"
               onClick={() => setShowShareModal(true)}
             />
-            <img src={vector} alt="Vector" className="w-5 h-1" />
+            <img
+              src={vector}
+              alt="Options"
+              className="w-5 h-1 cursor-pointer"
+              onClick={() => setShowDropdown((prev) => !prev)}
+            />
           </div>
+
+          {/* Dropdown */}
+          {showDropdown && (
+            <div className="absolute top-12 right-0 bg-white border rounded-md shadow-lg w-48 z-10 border-white">
+              <ul className="text-sm text-gray-700 ">
+                <li
+                  onClick={handleArchivedClick}
+                  className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                >
+                  Archived
+                </li>
+                <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer">Settings</li>
+                <li className="px-4 py-2 hover:bg-gray-100 text-red-600 cursor-pointer">
+                  Delete
+                </li>
+              </ul>
+            </div>
+          )}
         </div>
       </div>
 
@@ -47,6 +86,9 @@ const ProjectInfo = ({ boardName, boardDescription }) => {
 
       {/* Share Modal */}
       <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} />
+
+      {/* Archived Popup */}
+      {showArchivedPopup && <ArchivedPopup onClose={() => setShowArchivedPopup(false)} />}
     </div>
   );
 };
