@@ -142,6 +142,14 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     );
   };
 
+  const defaultPublicWorkspace = workspaces.find(
+    (workspace) => workspace.type === "public"
+  );
+  const workspaceToShow =
+    currentWorkspace ||
+    defaultPublicWorkspace ||
+    (workspaces.length > 0 ? workspaces[0] : null);
+
   if (!isOpen && !isAnimating) return null;
 
   return (
@@ -158,15 +166,15 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center gap-2 mb-2">
           <div className="w-10 h-10 flex items-center justify-center bg-[#6A3B82] text-white rounded-sm text-base font-medium">
-            {getInitial(currentWorkspace?.name)}
+            {getInitial(workspaceToShow?.name)}
           </div>
           <div>
             <h3 className="text-gray-900 font-medium">
-              {currentWorkspace?.name}
+              {workspaceToShow?.name || "No workspace selected"}
             </h3>
             <p className="text-sm text-gray-500">
-              {currentWorkspace?.memberCount || 0} member
-              {(currentWorkspace?.memberCount || 0) > 1 ? "s" : ""}
+              {workspaceToShow?.memberCount || 0} member
+              {(workspaceToShow?.memberCount || 0) > 1 ? "s" : ""}
             </p>
           </div>
         </div>
