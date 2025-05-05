@@ -34,7 +34,7 @@ const AddList = ({ boardId, onClose, onSuccess }) => {
   return (
     <div className="fixed inset-0  bg-opacity-20 backdrop-blur-[1px] z-50 flex justify-center items-center">
       <div className="bg-white rounded-lg p-6 w-[280px] relative">
-        <button onClick={onClose} className="absolute right-4 top-4">
+        <button onClick={onClose} className="absolute right-4 top-4 text-gray-500">
           <X />
         </button>
 
