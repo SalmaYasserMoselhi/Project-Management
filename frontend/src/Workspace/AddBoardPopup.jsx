@@ -1,22 +1,22 @@
-import { useState, useRef } from "react";
-import toast from "react-hot-toast";
+import { useRef } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { createBoard, setBoardName, setBoardDescription } from "../features/Slice/WorkspaceSlice/boardsSlice";
 
 const AddBoardPopup = ({ onClose, workspaceId, fetchBoardsAgain }) => {
-  const [boardName, setBoardName] = useState("");
-  const [description, setDescription] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const dispatch = useDispatch();
   const modalRef = useRef(null);
-  const BASE_URL = "http://localhost:3000";
+  const {
+    boardName,
+    boardDescription,
+    createBoardLoading,
+    createBoardError,
+  } = useSelector((state) => state.boards);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     e.stopPropagation();
 
     try {
-      setLoading(true);
-      setError("");
-
       // Validate workspace ID exists
       if (!workspaceId) {
         throw new Error("No workspace selected. Please try again.");
@@ -27,35 +27,15 @@ const AddBoardPopup = ({ onClose, workspaceId, fetchBoardsAgain }) => {
         throw new Error("Board name is required");
       }
 
-      // API call to create board with the correct endpoint structure
-      const response = await fetch(`${BASE_URL}/api/v1/boards`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          workspace: workspaceId,
+      const resultAction = await dispatch(
+        createBoard({
+          workspaceId,
           name: boardName.trim(),
-          description: description.trim() || undefined,
-        }),
-      });
+          description: boardDescription.trim() || undefined,
+        })
+      );
 
-      const data = await response.json();
-      console.log(" board Response data:", data);
-
-      if (data?.status === "success") {
-        // Show success message
-        console.log("New board created:", data.data.board);
-        toast.success("Board created successfully!", {
-          duration: 3000,
-          position: "top-right",
-          style: {
-            background: "#4B2D73",
-            color: "#fff",
-          },
-        });
-
+      if (createBoard.fulfilled.match(resultAction)) {
         // Refresh parent component's board list
         if (fetchBoardsAgain) {
           fetchBoardsAgain();
@@ -63,26 +43,9 @@ const AddBoardPopup = ({ onClose, workspaceId, fetchBoardsAgain }) => {
 
         // Close the popup
         onClose();
-      } else {
-        throw new Error(data?.message || "Failed to create board");
       }
     } catch (err) {
-      const errorMessage =
-        err.message || "Failed to create board. Please try again.";
-      setError(errorMessage);
-
-      // Show error toast
-      toast.error(errorMessage, {
-        duration: 4000,
-        position: "top-right",
-        style: {
-          background: "#F9E4E4",
-          color: "#DC2626",
-          border: "1px solid #DC2626",
-        },
-      });
-    } finally {
-      setLoading(false);
+      console.error("Error creating board:", err);
     }
   };
 
@@ -115,9 +78,9 @@ const AddBoardPopup = ({ onClose, workspaceId, fetchBoardsAgain }) => {
             Add Board
           </h2>
 
-          {error && (
+          {createBoardError && (
             <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
-              {error}
+              {createBoardError}
             </div>
           )}
 
@@ -134,9 +97,9 @@ const AddBoardPopup = ({ onClose, workspaceId, fetchBoardsAgain }) => {
                 type="text"
                 placeholder="Web Design"
                 value={boardName}
-                onChange={(e) => setBoardName(e.target.value)}
+                onChange={(e) => dispatch(setBoardName(e.target.value))}
                 className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 text-gray-700 text-sm"
-                disabled={loading}
+                disabled={createBoardLoading}
                 required
               />
             </div>
@@ -147,10 +110,10 @@ const AddBoardPopup = ({ onClose, workspaceId, fetchBoardsAgain }) => {
               </label>
               <textarea
                 placeholder="A inventore reiciendis id nemo quo. Voluptatibus rerum fugit explicabo hic aperiam. Veritatis quos aut vero eum omnis."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                value={boardDescription}
+                onChange={(e) => dispatch(setBoardDescription(e.target.value))}
                 className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 text-gray-700 text-sm resize-none h-24"
-                disabled={loading}
+                disabled={createBoardLoading}
               />
             </div>
 
@@ -158,9 +121,9 @@ const AddBoardPopup = ({ onClose, workspaceId, fetchBoardsAgain }) => {
               <button
                 type="submit"
                 className="bg-[#4B2D73] text-white py-2 px-6 rounded-md hover:bg-[#3D2460] font-medium text-sm disabled:opacity-50 transition-colors"
-                disabled={loading}
+                disabled={createBoardLoading}
               >
-                {loading ? (
+                {createBoardLoading ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     Creating...

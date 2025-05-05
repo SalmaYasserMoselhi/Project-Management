@@ -12,13 +12,9 @@ import {
   selectWorkspace,
 } from "../features/Slice/ComponentSlice/sidebarSlice";
 import { fetchUserData } from "../features/Slice/userSlice/userSlice";
+import { fetchUserPublicWorkspaces } from "../features/Slice/WorkspaceSlice/userWorkspacesSlice";
 
 import {
-  // MessageCircle,
-  // Grid,
-  // Network,
-  // Users2,
-  // User,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -133,13 +129,30 @@ const Sidebar = () => {
     workspaceTransitionState,
   } = useSelector((state) => state.sidebar);
   const { user } = useSelector((state) => state.user);
+  const { selectedWorkspace: popupSelectedWorkspace, workspaces: userPublicWorkspaces } = useSelector((state) => state.userWorkspaces);
+
+  // Get selected workspace from localStorage if not in Redux
+  let localStorageSelectedWorkspace = null;
+  try {
+    const saved = localStorage.getItem("selectedPublicWorkspace");
+    if (saved) {
+      localStorageSelectedWorkspace = JSON.parse(saved);
+    }
+  } catch {}
 
   // Determine if user is not the owner of the selected public workspace
+  const isNotOwner = (ws) => ws && ws.type === "public" && user && ws.createdBy !== user._id;
   const hideCollabAndPrivate =
-    selectedWorkspace &&
-    selectedWorkspace.type === "public" &&
-    user &&
-    selectedWorkspace.createdBy !== user._id;
+    (isNotOwner(popupSelectedWorkspace) || isNotOwner(localStorageSelectedWorkspace));
+
+  const handleItemClick = (title, path) => {
+    dispatch(setActiveItem(title));
+    navigate(`/main/${path}`);
+
+    if (isMobile) {
+      dispatch(toggleSidebar());
+    }
+  };
 
   useEffect(() => {
     dispatch(fetchUserData());
@@ -207,10 +220,11 @@ const Sidebar = () => {
           let defaultWS = data.data.workspaces.find(
             (ws) => ws.userRole === "owner" && ws.type === "public"
           );
-          if (!defaultWS) {
-            defaultWS = data.data.workspaces.find((ws) => ws.type === "public");
-          }
-          setDefaultPublicWorkspace(defaultWS || null);
+          // if (!defaultWS) {
+          //   defaultWS = data.data.workspaces.find((ws) => ws.type === "public");
+          // }
+          console.log("Default public workspace:", defaultWS);
+          // setDefaultPublicWorkspace(defaultWS || null);
         }
       } catch (error) {
         setDefaultPublicWorkspace(null);
@@ -219,14 +233,22 @@ const Sidebar = () => {
     if (user) fetchDefaultPublicWorkspace();
   }, [user]);
 
-  const handleItemClick = (title, path) => {
-    dispatch(setActiveItem(title));
-    navigate(`/main/${path}`);
+  // Fallbacks
+  const ownedWorkspace = userPublicWorkspaces.find(w => w.userRole === "owner");
 
-    if (isMobile) {
-      dispatch(toggleSidebar());
-    }
-  };
+  // Sidebar header name logic
+  const sidebarWorkspaceName =
+    (popupSelectedWorkspace && popupSelectedWorkspace.name) ||
+    (localStorageSelectedWorkspace && localStorageSelectedWorkspace.name) ||
+    (ownedWorkspace && ownedWorkspace.name) ||
+    (userPublicWorkspaces.length > 0 && userPublicWorkspaces[0].name) ||
+    (user ? `${user.firstName}'s Workspace` : "Workspace");
+
+  // For avatar: use selected workspace from Redux, then localStorage
+  const selectedOrLocalWorkspace = popupSelectedWorkspace || localStorageSelectedWorkspace;
+  const sidebarAvatarLetter = selectedOrLocalWorkspace
+    ? (selectedOrLocalWorkspace.name ? selectedOrLocalWorkspace.name.charAt(0).toUpperCase() : "?")
+    : (user ? user.firstName.charAt(0).toUpperCase() : "?");
 
   // Handle closing workspace with animation
   const handleCloseWorkspace = () => {
@@ -289,7 +311,8 @@ const Sidebar = () => {
 
       const data = await response.json();
 
-      if (data?.status === "success" && data?.data?.ownedWorkspaces) {
+      const workspaces = data?.data?.ownedWorkspaces || data?.data?.workspaces;
+      if (data?.status === "success" && workspaces) {
         // Map the workspace types to match the API
         const typeMapping = {
           workspace: "public",
@@ -297,7 +320,7 @@ const Sidebar = () => {
           private: "private",
         };
 
-        const workspace = data.data.ownedWorkspaces.find(
+        const workspace = workspaces.find(
           (w) => w.type === typeMapping[workspaceType]
         );
 
@@ -308,6 +331,8 @@ const Sidebar = () => {
             name: workspace.name,
             type: workspace.type,
             description: workspace.description,
+            createdBy: workspace.createdBy,
+            userRole: workspace.userRole,
           };
 
           // If a workspace is currently open, close it first
@@ -381,36 +406,7 @@ const Sidebar = () => {
     }
   };
 
-  useEffect(() => {
-    if (selectedWorkspace) {
-      localStorage.setItem(
-        "selectedWorkspace",
-        JSON.stringify(selectedWorkspace)
-      );
-    }
-  }, [selectedWorkspace]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("selectedWorkspace");
-    if (saved) {
-      try {
-        const ws = JSON.parse(saved);
-        dispatch(selectWorkspace(ws));
-        // Optionally set active workspace type as well
-        if (ws.type === "public") dispatch(setActiveWorkspaceType("workspace"));
-        if (ws.type === "collaboration")
-          dispatch(setActiveWorkspaceType("collaboration"));
-        if (ws.type === "private") dispatch(setActiveWorkspaceType("private"));
-      } catch (e) {
-        // ignore parse errors
-      }
-    }
-  }, [dispatch]);
-
-  useEffect(() => {
-    localStorage.removeItem("selectedWorkspace");
-  }, []);
-
+ 
   return (
     <div
       id="sidebar"
@@ -483,13 +479,11 @@ const Sidebar = () => {
                 data-popup-trigger="true"
               >
                 <div className="w-6 h-6 flex items-center justify-center bg-[#6A3B82] text-[#fff] font-medium rounded-sm text-sm">
-                  {user.firstName.charAt(0).toUpperCase()}
+                  {sidebarAvatarLetter}
                 </div>
 
                 <span className="text-sm flex-1 px-2 truncate text-white">
-                  {(selectedWorkspace && selectedWorkspace.name) ||
-                    (defaultPublicWorkspace && defaultPublicWorkspace.name) ||
-                    `${user.firstName}'s Workspace`}
+                  {sidebarWorkspaceName}
                 </span>
 
                 <ChevronDown
@@ -503,7 +497,7 @@ const Sidebar = () => {
                   onClick={handleWorkspacePopupToggle}
                   data-popup-trigger="true"
                 >
-                  {user.firstName.charAt(0).toUpperCase()}
+                  {sidebarAvatarLetter}
                 </div>
               </div>
             )}
