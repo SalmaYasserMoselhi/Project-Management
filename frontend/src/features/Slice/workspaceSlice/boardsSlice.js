@@ -116,7 +116,7 @@ export const createBoard = createAsyncThunk(
         body: JSON.stringify({
           workspace: workspaceId,
           name: name.trim(),
-          description: description.trim() || undefined,
+          description: (description || '').trim() || undefined,
         }),
       });
 
