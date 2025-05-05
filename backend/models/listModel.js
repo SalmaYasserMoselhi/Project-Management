@@ -45,6 +45,10 @@ const listSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
+    color: {
+      type: String,
+      default: '#f0f0f0',
+    },
   },
   {
     timestamps: true,
