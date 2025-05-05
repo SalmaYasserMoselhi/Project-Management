@@ -154,6 +154,10 @@ const invitationService = {
           const notificationType = 
             entityType === 'board' ? 'board_invitation' : 'workspace_invitation';
           
+          // Get inviter details for the notification
+          const inviter = await User.findById(invitedBy).select('firstName lastName username avatar');
+          
+
           if (io) {
             await notificationService.createNotification(
               io,
@@ -166,6 +170,11 @@ const invitationService = {
                 [`${entityType}Name`]: entity.name,
                 role,
                 inviteToken,
+                inviterName: inviter ? 
+                (inviter.firstName && inviter.lastName) ? 
+                  `${inviter.firstName} ${inviter.lastName}` : 
+                  inviter.username : 
+                'A user'
               }
             );
             console.log(`Notification sent to user ${invitedUser._id} for ${notificationType}`);
@@ -177,7 +186,7 @@ const invitationService = {
         }
 
         // Record successful invitation
-        results.push({ email, role, status: 'sent' });
+        results.push({ email, role, status: 'sent' , inviteToken });
       } catch (error) {
         console.error(`Error processing invitation for ${email}:`, error);
         
@@ -266,7 +275,8 @@ const invitationService = {
       throw new Error('Missing required parameters');
     }
 
-    console.log(`User ${user._id} accepting invitation to ${options.entityType} ${entity.name}`);
+    const entityType = options.entityType || 'entity';
+    console.log(`User ${user._id} accepting invitation to ${entityType} ${entity.name}`);
 
     // Check if user is already a member
     const isAlreadyMember = entity.members.some(
@@ -364,9 +374,31 @@ const invitationService = {
               newMemberName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.username,
               role: invitation.role,
             }
+
+            
           );
           console.log(`Notification sent to member ${memberId} about new member joining`);
         }
+
+         // Send welcome notification to the new member
+         await notificationService.createNotification(
+          io,
+          user._id,
+          invitation.invitedBy,
+          `${entityType}_welcome`,
+          entityType,
+          entity._id,
+          {
+            [`${entityType}Name`]: entity.name,
+            role: invitation.role,
+            inviterName: inviter ? 
+              (inviter.firstName && inviter.lastName) ? 
+                `${inviter.firstName} ${inviter.lastName}` : 
+                inviter.username : 
+              'A user'
+          }
+        );
+        console.log(`Welcome notification sent to new member ${user._id}`);
       } else {
         console.log('Socket IO instance not available, notifications not sent to existing members');
       }
