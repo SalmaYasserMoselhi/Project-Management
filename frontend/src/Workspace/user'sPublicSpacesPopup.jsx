@@ -153,6 +153,13 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     (workspaces.length > 0 && workspaces[0].name) ||
     (user ? `${user.firstName}'s Workspace` : "Workspace");
 
+  const workspaceHeader = popupSelectedWorkspace
+    || localStorageSelectedWorkspace
+    || ownedWorkspace
+    || (workspaces.length > 0 ? workspaces[0] : null);
+
+  // console.log('Popup header workspace:', workspaceHeader);
+
   if (!isOpen && !isAnimating) return null;
 
   return (
@@ -178,8 +185,8 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
               )) : popupHeaderWorkspaceName}
             </h3>
             <p className="text-sm text-gray-500">
-              {loading ? memberCount : workspaceToShow?.memberCount || 0} member
-              {(loading ? memberCount : workspaceToShow?.memberCount || 0) > 1 ? "s" : ""}
+              {loading ? memberCount : workspaceHeader?.memberCount || 0} member
+              {(loading ? memberCount : workspaceHeader?.memberCount || 0) > 1 ? "s" : ""}
             </p>
           </div>
         </div>
