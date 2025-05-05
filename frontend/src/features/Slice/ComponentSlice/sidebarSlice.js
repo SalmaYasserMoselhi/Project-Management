@@ -52,12 +52,15 @@ const sidebarSlice = createSlice({
         state.activeWorkspaceType = null;
       }
     },
+    // Set the type of workspace being viewed (workspace, collaboration, private)
+    // This does NOT change the selected workspace, only filters the view
     setActiveWorkspaceType: (state, action) => {
       state.activeWorkspaceType = action.payload;
     },
     setWorkspaces: (state, action) => {
       state.workspaces = action.payload;
     },
+    // This action changes the actual selected workspace and name in the sidebar
     selectWorkspace: (state, action) => {
       state.selectedWorkspace = action.payload;
     },
