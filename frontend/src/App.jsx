@@ -29,6 +29,8 @@ function App() {
     "/forgetpassword",
     "/verification",
     "/resetpassword",
+    "/verification-success",
+    "/verification-failed",
   ];
 
   // Check if current page is auth
