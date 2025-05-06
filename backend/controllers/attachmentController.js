@@ -218,6 +218,25 @@ exports.downloadFile = catchAsync(async (req, res, next) => {
     } catch (error) {
       return next(error);
     }
+  } else if (file.entityType === 'chat') {
+    // For chat files, verify conversation membership
+    try {
+      const conversation = await Conversation.findById(file.entityId);
+      if (!conversation) {
+        return next(new AppError('Conversation not found', 404));
+      }
+      
+      // Check if user is a member of the conversation
+      const isMember = conversation.users.some(
+        userId => userId.toString() === req.user._id.toString()
+      );
+      
+      if (!isMember) {
+        return next(new AppError('You are not a member of this conversation', 403));
+      }
+    } catch (error) {
+      return next(error);
+    }
   }
 
   // Check if file exists on disk

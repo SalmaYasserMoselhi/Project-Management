@@ -1,4 +1,3 @@
-
 import { useParams } from "react-router-dom";
 import Sidebar from "../Components/Sidebar";
 import ProjectInfo from "./ProjectInfo";
@@ -15,19 +14,21 @@ const MainBoard = () => {
   useEffect(() => {
     const fetchBoardData = async () => {
       try {
-        const response = await fetch(`http://localhost:3000/api/v1/boards/${boardId}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include", 
-        });
-  
+        const response = await fetch(
+          `http://localhost:3000/api/v1/boards/${boardId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+          }
+        );
+
         const data = await response.json();
-  
-        
+
         console.log("Fetched board data:", data);
-  
+
         if (data.status === "success") {
           setBoardName(data.data.board.name);
           setBoardDescription(data.data.board.description || "");
@@ -36,21 +37,12 @@ const MainBoard = () => {
         console.error("Error fetching board data:", error);
       }
     };
-  
+
     if (boardId) fetchBoardData();
   }, [boardId]);
-  
-  
+
   return (
     <div className="min-h-screen flex bg-[#f5f5f5] overflow-hidden">
-      
-      <div >
-        <Sidebar
-          // isSidebarOpen={isSidebarOpen}
-          // toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-        />
-      </div>
-
       {/* Main Content */}
       <div className="flex-1 h-screen overflow-y-auto overflow-x-hidden p-3 transition-all duration-300 w-[1115px]">
         <ProjectInfo
@@ -70,4 +62,3 @@ const MainBoard = () => {
 };
 
 export default MainBoard;
-

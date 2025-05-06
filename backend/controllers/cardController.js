@@ -116,6 +116,16 @@ exports.createCard = catchAsync(async (req, res, next) => {
   // Get position
   const cardPosition = await manageCardPosition(listId);
 
+    // Process subtasks if they exist in the request body
+    if (req.body.subtasks && Array.isArray(req.body.subtasks)) {
+      // Add createdBy to each subtask
+      req.body.subtasks = req.body.subtasks.map((subtask, index) => ({
+        ...subtask,
+        createdBy: req.user._id,
+        position: index
+      }));
+    }
+    
   // Create card
   const card = await Card.create({
     ...req.body,

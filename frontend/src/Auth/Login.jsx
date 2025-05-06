@@ -13,6 +13,7 @@ import {
   loginUser,
 } from "../features/Slice/authSlice/loginSlice"
 import { fetchUserData } from "../features/Slice/userSlice/userSlice"
+import { fetchUserPublicWorkspaces } from "../features/Slice/WorkspaceSlice/userWorkspacesSlice"
 import { useNavigate } from "react-router-dom"
 import { useChat } from "../context/chat-context"
 import { useSlideInAnimation, addAnimationStyles } from "../utils/animations.jsx"
@@ -92,6 +93,34 @@ function Login() {
       document.head.appendChild(styleTag)
     }
 
+    const handleOAuthCallback = async () => {
+      try {
+        await dispatch(fetchUserData())
+        const workspacesResult = await dispatch(fetchUserPublicWorkspaces())
+        const workspaces = workspacesResult.payload
+        if (Array.isArray(workspaces) && workspaces.length > 0) {
+          const publicWorkspace = workspaces.find(w => w.type === "public")
+          if (publicWorkspace) {
+            localStorage.setItem("selectedPublicWorkspace", JSON.stringify({
+              id: publicWorkspace._id,
+              name: publicWorkspace.name,
+              type: publicWorkspace.type,
+              description: publicWorkspace.description,
+              createdBy: publicWorkspace.createdBy,
+              userRole: publicWorkspace.userRole,
+            }))
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user data after OAuth:", error)
+      }
+    }
+
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.get('oauth_callback')) {
+      handleOAuthCallback()
+    }
+
     return () => {
       // Clean up the style tag when component unmounts
       const existingStyle = document.getElementById("auth-fix-styles")
@@ -99,7 +128,7 @@ function Login() {
         existingStyle.remove()
       }
     }
-  }, [currentUser, navigate])
+  }, [currentUser, navigate, dispatch])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -135,6 +164,7 @@ function Login() {
       if (loginUser.fulfilled.match(resultAction)) {
         // Fetch user data after successful login
         await dispatch(fetchUserData())
+        const workspacesResult = await dispatch(fetchUserPublicWorkspaces())
         navigate("/main/dashboard")
       }
     } catch (error) {
@@ -278,7 +308,11 @@ function Login() {
 
             {/* Show server error (e.g., incorrect email or password) as a box above the form */}
             {errorMessage && !firstErrorMessage && (
-              <div className="mb-6 p-3 text-red-500 bg-red-50 rounded-lg text-center text-sm">{errorMessage}</div>
+              <div className="mb-6 p-3 text-red-500 bg-red-50 rounded-lg text-center text-sm">
+                {errorMessage.includes("JSON")
+                  ? "A server error occurred. Please try again later."
+                  : errorMessage}
+              </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">

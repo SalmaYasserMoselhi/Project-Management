@@ -5,7 +5,7 @@ import AddListButton from "./AddListButton";
 import drop from "../assets/drop.png";
 import Calendar from "./Calendar";
 import { useSelector } from "react-redux";
-const Board = ({  workspaceId, boardId }) => {
+const Board = ({ workspaceId, boardId }) => {
   const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
   const BASE_URL = "http://localhost:3000";
   const [lists, setLists] = useState([]);
@@ -31,7 +31,6 @@ const Board = ({  workspaceId, boardId }) => {
     if (boardId) fetchLists();
   }, [boardId]);
 
-
   const addNewList = () => {
     const newList = {
       id: `new-${Date.now()}`,
@@ -47,11 +46,13 @@ const Board = ({  workspaceId, boardId }) => {
       const res = await axios.delete(`${BASE_URL}/api/v1/lists/${listId}`, {
         withCredentials: true,
       });
-  
+
       if (res.status === 200 || res.status === 204) {
         console.log("List deleted successfully");
         window.location.reload();
-        setLists((prevLists) => prevLists.filter((list) => list._id !== listId));
+        setLists((prevLists) =>
+          prevLists.filter((list) => list._id !== listId)
+        );
       } else {
         console.warn("Unexpected response:", res);
       }
@@ -60,11 +61,9 @@ const Board = ({  workspaceId, boardId }) => {
       alert("Failed to delete list.");
     }
   };
-  
 
   return (
     <div className="p-6 min-h-screen mt-2 flex flex-col item-center overflow-y-auto -ml-4 ">
-   
       <div className="border-2 border-[#C7C7C7] p-4 rounded-xl h-full flex flex-col">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 ">
@@ -149,6 +148,8 @@ const Board = ({  workspaceId, boardId }) => {
                   id={col.id}
                   title={col.name}
                   className="min-w-[300px] h-full"
+                  boardId={boardId}
+                  allLists={columns}
                   onDelete={handleDeleteList}
                 />
               ))}
@@ -172,4 +173,3 @@ const Board = ({  workspaceId, boardId }) => {
 };
 
 export default Board;
-

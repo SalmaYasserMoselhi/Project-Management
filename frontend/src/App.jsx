@@ -5,8 +5,6 @@ import Sidebar from "./Components/Sidebar";
 import { useEffect } from "react";
 import { checkAuthStatus } from "./features/Slice/authSlice/loginSlice";
 import { fetchUserData } from "./features/Slice/userSlice/userSlice";
-import WorkspacePopup from "./Workspace/WorkspacePopup"
-import Routing from "./Routing/Routing"
 import "./index.css";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -32,6 +30,8 @@ function App() {
     "/forgetpassword",
     "/verification",
     "/resetpassword",
+    "/verification-success",
+    "/verification-failed",
   ];
 
   // Check if current page is auth

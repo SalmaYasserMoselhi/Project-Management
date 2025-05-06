@@ -12,13 +12,14 @@ import {
   selectWorkspace,
 } from "../features/Slice/ComponentSlice/sidebarSlice";
 import { fetchUserData } from "../features/Slice/userSlice/userSlice";
-import { fetchUserPublicWorkspaces, selectShouldFetchWorkspaces } from "../features/Slice/WorkspaceSlice/userWorkspacesSlice";
+import { logoutUser } from "../features/Slice/authSlice/loginSlice";
 
 import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
   X,
+  LogOut,
 } from "lucide-react";
 
 import Avatar from "../assets/defaultAvatar.png";
@@ -129,9 +130,8 @@ const Sidebar = () => {
     workspaceTransitionState,
   } = useSelector((state) => state.sidebar);
   const { user } = useSelector((state) => state.user);
-  const { selectedWorkspace: popupSelectedWorkspace, workspaces: userPublicWorkspaces } = useSelector((state) => state.userWorkspaces);
 
-  // Get selected workspace from localStorage if not in Redux
+  // Get selected workspace from localStorage if present
   let localStorageSelectedWorkspace = null;
   try {
     const saved = localStorage.getItem("selectedPublicWorkspace");
@@ -140,13 +140,15 @@ const Sidebar = () => {
     }
   } catch {}
 
-  // Add this at the top level
-  const shouldFetch = useSelector(selectShouldFetchWorkspaces);
+  // Always use localStorage selected workspace if available
+  const selectedOrLocalWorkspace = localStorageSelectedWorkspace;
+  const sidebarAvatarLetter = selectedOrLocalWorkspace
+    ? (selectedOrLocalWorkspace.name ? selectedOrLocalWorkspace.name.charAt(0).toUpperCase() : "?")
+    : (user ? user.firstName.charAt(0).toUpperCase() : "?");
 
   // Determine if user is not the owner of the selected public workspace
-  const isNotOwner = (ws) => ws && ws.type === "public" && user && ws.createdBy !== user._id;
-  const hideCollabAndPrivate =
-    (isNotOwner(popupSelectedWorkspace) || isNotOwner(localStorageSelectedWorkspace));
+  const isNotOwner = (ws) => ws && ws.type === "public" && user && (ws.userRole !== "owner" || ws.createdBy !== user._id);
+  const hideCollabAndPrivate = isNotOwner(selectedOrLocalWorkspace);
 
   const handleItemClick = (title, path) => {
     dispatch(setActiveItem(title));
@@ -154,6 +156,31 @@ const Sidebar = () => {
 
     if (isMobile) {
       dispatch(toggleSidebar());
+    }
+  };
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      // Implement direct API call since the Redux action is failing
+      const response = await fetch(`${BASE_URL}/api/v1/users/logout`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+      
+      if (response.ok) {
+        // Clear any local storage items related to user state
+        localStorage.removeItem("selectedPublicWorkspace");
+        // Redirect to login page
+        navigate("/login");
+      } else {
+        console.error("Logout failed:", await response.text());
+      }
+    } catch (error) {
+      console.error("Logout failed:", error);
     }
   };
 
@@ -202,28 +229,10 @@ const Sidebar = () => {
     };
   }, [dispatch, workspaceTransitionState, isClosingWorkspace]);
 
-  useEffect(() => {
-    if (shouldFetch) {
-      dispatch(fetchUserPublicWorkspaces());
-    }
-  }, [dispatch, shouldFetch]);
-
-  // Fallbacks
-  const ownedWorkspace = userPublicWorkspaces.find(w => w.userRole === "owner");
-
   // Sidebar header name logic
   const sidebarWorkspaceName =
-    (popupSelectedWorkspace && popupSelectedWorkspace.name) ||
-    (localStorageSelectedWorkspace && localStorageSelectedWorkspace.name) ||
-    (ownedWorkspace && ownedWorkspace.name) ||
-    (userPublicWorkspaces.length > 0 && userPublicWorkspaces[0].name) ||
+    (selectedOrLocalWorkspace && selectedOrLocalWorkspace.name) ||
     (user ? `${user.firstName}'s Workspace` : "Workspace");
-
-  // For avatar: use selected workspace from Redux, then localStorage
-  const selectedOrLocalWorkspace = popupSelectedWorkspace || localStorageSelectedWorkspace;
-  const sidebarAvatarLetter = selectedOrLocalWorkspace
-    ? (selectedOrLocalWorkspace.name ? selectedOrLocalWorkspace.name.charAt(0).toUpperCase() : "?")
-    : (user ? user.firstName.charAt(0).toUpperCase() : "?");
 
   // Handle closing workspace with animation
   const handleCloseWorkspace = () => {
@@ -324,6 +333,8 @@ const Sidebar = () => {
             dispatch(selectWorkspace(workspaceData));
             dispatch(openWorkspaceStart());
           }
+          // Update localStorage
+          localStorage.setItem("selectedPublicWorkspace", JSON.stringify(workspaceData));
         }
       }
     } catch (error) {
@@ -557,7 +568,7 @@ const Sidebar = () => {
 
       {/* Navigation Items */}
       <nav
-        className="space-y-2 overflow-y-auto"
+        className="space-y-2 overflow-y-auto flex-grow"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {selectedOrLocalWorkspace && user ? (
@@ -666,6 +677,29 @@ const Sidebar = () => {
           <div style={{ height: 120 }} />
         )}
       </nav>
+
+      {/* Logout Button - Add at the bottom of sidebar */}
+      {user && (
+        <div className="mt-auto mb-2">
+          <div
+            className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white/90 ${
+              isSidebarOpen ? "w-full" : "w-12 justify-center"
+            }`}
+            onClick={handleLogout}
+          >
+            <div className="flex items-center gap-3">
+              <LogOut
+                className="h-5 w-5 text-white group-hover:text-[#4D2D61]"
+              />
+              {isSidebarOpen && (
+                <span className="text-sm text-white group-hover:text-[#4D2D61]">
+                  Logout
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
