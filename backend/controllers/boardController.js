@@ -941,7 +941,7 @@ exports.acceptInvitation = catchAsync(
       }
     );
     await notificationService.createNotification(
-      req.app.io,
+      global.io,
       invitation.invitedBy,
       user._id,
       'invitation_accepted',
@@ -1447,6 +1447,91 @@ exports.getMyStarredBoards = catchAsync(async (req, res, next) => {
       boards: formattedBoards,
       stats,
       workspaceStarLimits: Object.values(workspaceStars),
+    },
+  });
+});
+
+
+
+
+// Get archived boards for a specific workspace
+exports.getWorkspaceArchivedBoards = catchAsync(async (req, res, next) => {
+  const { workspaceId } = req.params;
+  const userId = req.user._id;
+
+  // Find the workspace
+  const workspace = await Workspace.findById(workspaceId);
+  if (!workspace) {
+    return next(new AppError('Workspace not found', 404));
+  }
+
+  // Verify user is a workspace member
+  const isMember = workspace.members.some(
+    (member) => member.user.toString() === userId.toString()
+  );
+
+  if (!isMember) {
+    return next(new AppError('You do not have access to this workspace', 403));
+  }
+
+  // Find boards that belong to this workspace AND that the current user has archived
+  const archivedBoards = await Board.find({
+    workspace: workspaceId,
+    'archivedByUsers.user': userId
+  })
+    .populate({
+      path: 'workspace',
+      select: 'name type createdBy',
+      populate: {
+        path: 'createdBy',
+        select: '_id',
+      },
+    })
+    .select(
+      'name description background workspace members lists archivedByUsers viewPreferences settings'
+    )
+    .sort('-archivedByUsers.archivedAt') // Sort by archive date (most recent first)
+    .lean();
+
+  // Format the board responses for the client
+  const formattedBoards = archivedBoards.map((board) => {
+    // Find the user's archive entry to get their specific archivedAt date
+    const userArchiveEntry = board.archivedByUsers.find(
+      (entry) => entry.user.toString() === userId.toString()
+    );
+
+    return {
+      ...formatBoardResponse(board, userId),
+      archivedAt: userArchiveEntry ? userArchiveEntry.archivedAt : null,
+    };
+  });
+
+  // Calculate statistics
+  const stats = {
+    total: formattedBoards.length,
+    byWorkspaceType: {
+      private: archivedBoards.filter(
+        (board) =>
+          board.workspace?.type === 'private' &&
+          board.workspace?.createdBy?._id.toString() === userId.toString()
+      ).length,
+      public: archivedBoards.filter(
+        (board) =>
+          board.workspace?.type === 'public' &&
+          board.workspace?.createdBy?._id.toString() === userId.toString()
+      ).length,
+      collaboration: archivedBoards.filter(
+        (board) =>
+          board.workspace?.createdBy?._id.toString() !== userId.toString()
+      ).length,
+    },
+  };
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      boards: formattedBoards,
+      stats,
     },
   });
 });

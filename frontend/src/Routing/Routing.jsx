@@ -1,17 +1,19 @@
 import "react";
-import { Routes, Route, Navigate } from "react-router-dom";
-import Login from "../Auth/Login";
-import Signup from "../Auth/Signup";
+import { Navigate, Route, Routes } from "react-router-dom";
 import ForgetPassword from "../Auth/ForgetPassword";
-import Verification from "../Auth/Verification";
+import Login from "../Auth/Login";
 import ResetPassword from "../Auth/ResetPassword";
-import Dashboard from "../Main/Dashboard";
+import Signup from "../Auth/Signup";
+import Verification from "../Auth/Verification";
+import VerificationFailed from "../Auth/verification-failed";
+import VerificationSuccess from "../Auth/verification-success";
 import MainBoard from "../Board/MainBoard";
+import Dashboard from "../Main/Dashboard";
 // import WorkspacePopup from "../Workspace/WorkspacePopup";
 
-import Notifications from "../Main/Notifications";
-import Main from "../Main/Main";
 import ChatLayout from "../Chat/ChatLayout";
+import Main from "../Main/Main";
+import Notifications from "../Main/Notifications";
 
 function Routing() {
   return (
@@ -20,6 +22,8 @@ function Routing() {
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/verification-success" element={<VerificationSuccess />} />
+        <Route path="/verification-failed" element={<VerificationFailed />} />
         <Route path="/forgetpassword" element={<ForgetPassword />} />
         <Route path="/verification" element={<Verification />} />
         <Route path="/resetpassword" element={<ResetPassword />} />

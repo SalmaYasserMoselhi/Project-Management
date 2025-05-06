@@ -1,14 +1,13 @@
-import { useSelector } from "react-redux";
-import { useLocation } from "react-router-dom";
-import { Toaster } from "react-hot-toast";
-import Routing from "./Routing/Routing";
-import WorkspacePopup from "./Workspace/WorkspacePopup";
-import Sidebar from "./Components/Sidebar";
 import { useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { Toaster } from "react-hot-toast";
+import { useDispatch, useSelector } from "react-redux";
+import { useLocation } from "react-router-dom";
+import Sidebar from "./Components/Sidebar";
+import { ChatProvider } from "./context/chat-context";
 import { fetchUserData } from "./features/Slice/userSlice/userSlice";
 import "./index.css";
-import { ChatProvider } from "./context/chat-context";
+import Routing from "./Routing/Routing";
+import WorkspacePopup from "./Workspace/WorkspacePopup";
 
 function App() {
   const { isWorkspaceOpen, selectedWorkspace, workspaceTransitionState } =
@@ -29,6 +28,8 @@ function App() {
     "/forgetpassword",
     "/verification",
     "/resetpassword",
+    "/verification-success",
+    "/verification-failed"
   ];
 
   // Check if current page is auth
