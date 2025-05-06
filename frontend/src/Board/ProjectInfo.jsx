@@ -127,7 +127,7 @@ const ProjectInfo = ({ boardName, boardDescription, boardId }) => {
       <p className="text-gray-600 mt-4">{boardDescription || null}</p>
 
       {/* Share Modal */}
-      <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} />
+      <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} boardId ={boardId} />
 
       {/* Archived Popup */}
       {showArchivedPopup && <ArchivedPopup onClose={() => setShowArchivedPopup(false)} />}

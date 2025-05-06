@@ -3,11 +3,12 @@ import { useDispatch, useSelector } from "react-redux";
 import { useLocation } from "react-router-dom";
 import Sidebar from "./Components/Sidebar";
 import { useEffect } from "react";
-import Routing from "./Routing/Routing";
-import WorkspacePopup from "./Workspace/WorkspacePopup";
 import { checkAuthStatus } from "./features/Slice/authSlice/loginSlice";
 import { fetchUserData } from "./features/Slice/userSlice/userSlice";
 import "./index.css";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 
 
 function App() {
@@ -93,6 +94,7 @@ function App() {
       <div className="flex-1 overflow-auto">
         <Routing />
       </div>
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 }
