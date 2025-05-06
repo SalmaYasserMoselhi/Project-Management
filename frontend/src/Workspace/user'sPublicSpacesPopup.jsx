@@ -64,20 +64,56 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
 
   // Restore selected workspace from localStorage after workspaces are loaded
   useEffect(() => {
-    if (workspaces && workspaces.length > 0) {
+    if (workspaces && workspaces.length > 0 && user) {
       const saved = localStorage.getItem("selectedPublicWorkspace");
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          // Check if the saved workspace exists in the loaded list
-          const exists = workspaces.some(ws => ws._id === parsed._id);
+          // Check if the saved workspace exists in the loaded list and is owned by the current user
+          const exists = workspaces.some(ws => ws._id === parsed._id && ws.userRole === "owner" && ws.createdBy === user._id);
           if (exists) {
             dispatch({ type: "userWorkspaces/selectUserWorkspace/fulfilled", payload: parsed });
+          } else {
+            // If not valid, set default to owned workspace
+            const ownedWorkspace = workspaces.find(ws => ws.userRole === "owner" && ws.createdBy === user._id);
+            if (ownedWorkspace) {
+              const workspaceData = {
+                id: ownedWorkspace._id,
+                name: ownedWorkspace.name,
+                type: ownedWorkspace.type,
+                description: ownedWorkspace.description,
+                memberCount: ownedWorkspace.memberCount,
+                createdBy: ownedWorkspace.createdBy,
+                userRole: ownedWorkspace.userRole,
+              };
+              localStorage.setItem("selectedPublicWorkspace", JSON.stringify(workspaceData));
+              dispatch({ type: "userWorkspaces/selectUserWorkspace/fulfilled", payload: workspaceData });
+            } else {
+              localStorage.removeItem("selectedPublicWorkspace");
+            }
           }
-        } catch {}
+        } catch {
+          localStorage.removeItem("selectedPublicWorkspace");
+        }
+      } else {
+        // If no workspace is saved, set the owned workspace as default
+        const ownedWorkspace = workspaces.find(ws => ws.userRole === "owner" && ws.createdBy === user._id);
+        if (ownedWorkspace) {
+          const workspaceData = {
+            id: ownedWorkspace._id,
+            name: ownedWorkspace.name,
+            type: ownedWorkspace.type,
+            description: ownedWorkspace.description,
+            memberCount: ownedWorkspace.memberCount,
+            createdBy: ownedWorkspace.createdBy,
+            userRole: ownedWorkspace.userRole,
+          };
+          localStorage.setItem("selectedPublicWorkspace", JSON.stringify(workspaceData));
+          dispatch({ type: "userWorkspaces/selectUserWorkspace/fulfilled", payload: workspaceData });
+        }
       }
     }
-  }, [workspaces, dispatch]);
+  }, [workspaces, dispatch, user]);
 
   const handleWorkspaceSelect = async (workspace) => {
     if (!workspace) return;

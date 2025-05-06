@@ -278,7 +278,11 @@ function Login() {
 
             {/* Show server error (e.g., incorrect email or password) as a box above the form */}
             {errorMessage && !firstErrorMessage && (
-              <div className="mb-6 p-3 text-red-500 bg-red-50 rounded-lg text-center text-sm">{errorMessage}</div>
+              <div className="mb-6 p-3 text-red-500 bg-red-50 rounded-lg text-center text-sm">
+                {errorMessage.includes("JSON")
+                  ? "A server error occurred. Please try again later."
+                  : errorMessage}
+              </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">

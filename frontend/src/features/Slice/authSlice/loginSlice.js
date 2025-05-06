@@ -79,7 +79,7 @@ export const logoutUser = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await fetch(`${API_BASE_URL}/users/logout`, {
-        method: "POST",
+        method: "GET",
         credentials: "include",
       });
 
