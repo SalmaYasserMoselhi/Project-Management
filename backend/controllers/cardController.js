@@ -267,6 +267,21 @@ exports.updateCard = catchAsync(async (req, res, next) => {
       }
     }
 
+      // Process subtasks if they exist in the update data
+  if (updateData.subtasks && Array.isArray(updateData.subtasks)) {
+    // Add createdBy to each subtask that doesn't have it
+    updateData.subtasks = updateData.subtasks.map((subtask, index) => {
+      if (!subtask.createdBy) {
+        return {
+          ...subtask,
+          createdBy: req.user._id,
+          position: index
+        };
+      }
+      return subtask;
+    });
+  }
+
   // Check if there are card fields to update
   let updatedCard = card;
   if (Object.keys(updateData).length > 0) {
@@ -290,6 +305,8 @@ exports.updateCard = catchAsync(async (req, res, next) => {
         updatedFields: Object.keys(updateData),
       }
     );
+
+ 
 
     // Update card
     updatedCard = await Card.findByIdAndUpdate(cardId, updateData, {
