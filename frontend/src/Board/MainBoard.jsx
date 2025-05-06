@@ -57,6 +57,7 @@ const MainBoard = () => {
           isSidebarOpen={isSidebarOpen}
           boardName={boardName}
           boardDescription={boardDescription}
+          boardId={boardId}
         />
         <Board
           isSidebarOpen={isSidebarOpen}

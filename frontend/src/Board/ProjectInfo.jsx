@@ -6,10 +6,13 @@ import share from "../assets/share.png";
 import vector from "../assets/Vector.png";
 import { useSelector } from "react-redux";
 import ShareModal from "./ShareModal";
-import ArchivedPopup from "./ArchivedPopup"; // Ensure this is correctly imported
+import ArchivedPopup from "./ArchivedPopup";
+import axios from "axios"; // ✅ added
 
-const ProjectInfo = ({ boardName, boardDescription }) => {
+const ProjectInfo = ({ boardName, boardDescription, boardId }) => {
+  const BASE_URL = "http://localhost:3000";
   const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
+  const [showToast, setShowToast] = useState(false);
 
   const [showShareModal, setShowShareModal] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -32,7 +35,39 @@ const ProjectInfo = ({ boardName, boardDescription }) => {
     setShowDropdown(false);
   };
 
+  const handleDeleteBoard = async () => {
+    const confirmDelete = window.confirm("Are you sure you want to delete this board?");
+    if (!confirmDelete) return;
+  
+    try {
+      await axios.delete(
+        `${BASE_URL}/api/v1/boards/user-boards/${boardId}`, 
+        {
+          withCredentials: true, 
+        }
+      );
+      setShowToast(true);
+      setShowDropdown(false); // Optional: hide dropdown after deletion
+  
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (error) {
+      console.error("Error deleting board:", error);
+      alert("Failed to delete board.");
+    }
+  };
+  
+  {showToast && (
+    <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-md shadow-md z-50">
+      Board has been deleted successfully!
+    </div>
+  )}
   return (
+    <>
+    {showToast && (
+      <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-md shadow-md z-50">
+        Board has been deleted successfully!
+      </div>
+    )}
     <div className="bg-white p-6 rounded-2xl shadow-sm mb-2 mt-7 transition-all duration-300">
       <div className="flex flex-col md:flex-row justify-between items-start">
         <div>
@@ -73,7 +108,10 @@ const ProjectInfo = ({ boardName, boardDescription }) => {
                   Archived
                 </li>
                 <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer">Settings</li>
-                <li className="px-4 py-2 hover:bg-gray-100 text-red-600 cursor-pointer">
+                <li
+                  onClick={handleDeleteBoard}
+                  className="px-4 py-2 hover:bg-red-100 text-red-600 cursor-pointer"
+                >
                   Delete
                 </li>
               </ul>
@@ -90,6 +128,7 @@ const ProjectInfo = ({ boardName, boardDescription }) => {
       {/* Archived Popup */}
       {showArchivedPopup && <ArchivedPopup onClose={() => setShowArchivedPopup(false)} />}
     </div>
+    </>
   );
 };
 
