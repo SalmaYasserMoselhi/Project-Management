@@ -7,72 +7,114 @@ import { useMemo } from "react";
 import Avatar from "../assets/defaultAvatar.png";
 import { motion } from "framer-motion";
 import { isValidImageUrl, getAvatarUrl } from "../utils/imageUtils";
+import ImageWithFallback from "../Components/ImageWithFallback"; // Assuming you have this component
+import { Suspense } from "react";
+import { useCallback } from "react";
 
 function ChatHeader({ user, onToggleInfo }) {
   const { currentUser } = useChat();
   const { onlineUsers } = useSelector((state) => state.chat);
   const chatUser = user || {};
 
-  const otherUser = useMemo(() => {
-    if (!chatUser)
-      return { id: null, name: "Chat", avatar: null, isOnline: false };
-
-    // Group Chat
-    if (chatUser.isGroup) {
-      return {
-        id: chatUser.id,
-        name: chatUser.name || "Group Chat",
-        avatar:
-          chatUser.picture || "https://image.pngaaa.com/78/6179078-middle.png",
-        isOnline: false,
-        isGroup: true,
-      };
+  // إنشاء Map للمستخدمين لتحسين الأداء
+  const userMap = useMemo(() => {
+    if (!chatUser.isGroup) {
+      const map = new Map();
+      const users = chatUser.participants || chatUser.users || [];
+      users.forEach((user) => {
+        map.set(user._id, user);
+      });
+      return map;
     }
+    return null;
+  }, [chatUser.participants, chatUser.users]);
 
-    // Private Chat
-    const other =
-      chatUser.otherUser ||
-      (chatUser.participants || chatUser.users || []).find(
-        (u) => u._id !== currentUser?._id
+  // تحسين كشف حالة الاتصال
+  const isUserOnline = useCallback(
+    (userId) => {
+      if (!onlineUsers) return false;
+      return onlineUsers.some((u) => u.userId === userId);
+    },
+    [onlineUsers]
+  );
+
+  const otherUser = useMemo(() => {
+    try {
+      if (!chatUser)
+        return {
+          id: null,
+          name: "Unknown User",
+          avatar: null,
+          isOnline: false,
+        };
+
+      // Group Chat
+      if (chatUser.isGroup) {
+        return {
+          id: chatUser.id,
+          name: chatUser.name || "Group Chat",
+          avatar: chatUser.picture || Avatar,
+          isOnline: false,
+          isGroup: true,
+        };
+      }
+
+      // Private Chat
+      const other = userMap?.get(
+        [...userMap.keys()].find((id) => id !== currentUser?._id)
       );
 
-    if (!other)
-      return { id: null, name: "Chat", avatar: null, isOnline: false };
+      if (!other) {
+        console.warn("User not found in map:", currentUser?._id);
+        return {
+          id: null,
+          name: "Unknown User",
+          avatar: null,
+          isOnline: false,
+        };
+      }
 
-    const displayPicture = isValidImageUrl(other.avatar)
-      ? getAvatarUrl(other.avatar)
-      : Avatar;
+      const displayPicture = isValidImageUrl(other.avatar)
+        ? getAvatarUrl(other.avatar)
+        : Avatar;
 
-    return {
-      id: other._id || other.id || null,
-      name: other.fullName || "User", // ← Full name only
-      avatar: displayPicture,
-      isOnline: onlineUsers?.some(
-        (u) => u.userId === other._id || u.userId === other.id
-      ),
-      isGroup: false,
-    };
-  }, [chatUser, currentUser, onlineUsers]);
+      return {
+        id: other._id || other.id || null,
+        name: other.fullName || other.username || other.email || "Unknown User",
+        avatar: displayPicture,
+        isOnline: isUserOnline(other._id),
+        isGroup: false,
+        admin: chatUser.admin,
+      };
+    } catch (error) {
+      console.error("Error in otherUser calculation:", error);
+      return { id: null, name: "Unknown User", avatar: null, isOnline: false };
+    }
+  }, [chatUser, currentUser?._id, userMap, isUserOnline]);
 
   return (
     <div className="bg-white flex items-center justify-between px-6 py-4">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 relative">
-          {otherUser.avatar ? (
-            <img
-              src={otherUser.avatar}
-              alt={otherUser.name}
-              className="w-full h-full rounded-full object-cover"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = Avatar;
-              }}
-            />
-          ) : (
-            <div className="w-full h-full rounded-full flex items-center justify-center text-white text-lg font-semibold bg-[#4D2D61]">
-              {otherUser.name?.[0]?.toUpperCase() || "?"}
-            </div>
-          )}
+          <Suspense
+            fallback={
+              <div className="w-full h-full rounded-full flex items-center justify-center text-white text-lg font-semibold bg-[#4D2D61]">
+                {otherUser.name?.[0]?.toUpperCase() || "?"}
+              </div>
+            }
+          >
+            {otherUser.avatar ? (
+              <ImageWithFallback
+                src={otherUser.avatar}
+                alt={otherUser.name}
+                className="w-full h-full rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full rounded-full flex items-center justify-center text-white text-lg font-semibold bg-[#4D2D61]">
+                {otherUser.name?.[0]?.toUpperCase() || "?"}
+              </div>
+            )}
+          </Suspense>
           {otherUser.isOnline && !otherUser.isGroup && (
             <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
           )}

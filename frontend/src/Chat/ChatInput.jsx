@@ -29,14 +29,17 @@ const ChatInput = ({ chatId }) => {
   const showEmojiPicker = useSelector((state) => state.chat.showEmojiPicker);
 
   // Handle emoji picker visibility
-  const handleClickOutside = useCallback((event) => {
-    if (
-      emojiPickerRef.current &&
-      !emojiPickerRef.current.contains(event.target)
-    ) {
-      dispatch(closeEmojiPicker());
-    }
-  }, [dispatch]);
+  const handleClickOutside = useCallback(
+    (event) => {
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(event.target)
+      ) {
+        dispatch(closeEmojiPicker());
+      }
+    },
+    [dispatch]
+  );
 
   // Handle typing status
   const handleTyping = useCallback(() => {
@@ -53,66 +56,79 @@ const ChatInput = ({ chatId }) => {
   }, [chatId, isTyping]);
 
   // Handle emoji selection
-  const handleEmojiClick = useCallback((emojiData) => {
-    setMessage((prev) => prev + emojiData.emoji);
-    dispatch(closeEmojiPicker());
-  }, [dispatch]);
+  const handleEmojiClick = useCallback(
+    (emojiData) => {
+      setMessage((prev) => prev + emojiData.emoji);
+      dispatch(closeEmojiPicker());
+    },
+    [dispatch]
+  );
 
   // Handle message submission
-  const handleSubmit = useCallback(async (e) => {
-    e.preventDefault();
+  const handleSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
 
-    const trimmedMessage = message.trim();
-    if (!trimmedMessage) return;
+      const trimmedMessage = message.trim();
+      if (!trimmedMessage) return;
 
-    const tempMessage = {
-      _id: `temp-${Date.now()}`,
-      content: trimmedMessage,
-      sender: { _id: currentUser._id },
-      conversationId: chatId,
-      createdAt: new Date().toISOString(),
-      status: "sending",
-    };
+      const tempMessage = {
+        _id: `temp-${Date.now()}`,
+        content: trimmedMessage,
+        sender: { _id: currentUser._id },
+        conversationId: chatId,
+        createdAt: new Date().toISOString(),
+        status: "sending",
+      };
 
-    dispatch(addMessage(tempMessage));
-    setMessage("");
+      dispatch(addMessage(tempMessage));
+      setMessage("");
 
-    try {
-      const result = await dispatch(
-        sendMessage({
-          conversationId: chatId,
-          content: trimmedMessage,
-          isEmoji: /^[\uD800-\uDBFF][\uDC00-\uDFFF]$/.test(trimmedMessage),
-        })
-      ).unwrap();
-
-      dispatch(
-        updateConversationLastMessage({
-          conversationId: chatId,
-          message: result,
-        })
-      );
-
-      if (conversationFromStore) {
-        dispatch(
-          updateConversationInList({
-            ...conversationFromStore,
-            lastMessage: result,
+      try {
+        const result = await dispatch(
+          sendMessage({
+            conversationId: chatId,
+            content: trimmedMessage,
+            isEmoji: /^[\uD800-\uDBFF][\uDC00-\uDFFF]$/.test(trimmedMessage),
           })
-        );
+        ).unwrap();
+
+        // Batch updates for better performance
+        requestAnimationFrame(() => {
+          dispatch(
+            updateConversationLastMessage({
+              conversationId: chatId,
+              message: result,
+            })
+          );
+
+          if (conversationFromStore) {
+            dispatch(
+              updateConversationInList({
+                ...conversationFromStore,
+                lastMessage: result,
+              })
+            );
+          }
+        });
+      } catch (error) {
+        console.error("❌ Failed to send message:", error);
       }
-    } catch (error) {
-      console.error("❌ Failed to send message:", error);
-    }
-  }, [message, currentUser._id, chatId, dispatch, conversationFromStore]);
+    },
+    [message, currentUser._id, chatId, dispatch, conversationFromStore]
+  );
 
   // Handle keyboard shortcuts
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === "Enter" && !e.shiftKey) { // تم تعديل الشرط هنا
-      e.preventDefault();
-      handleSubmit(e);
-    }
-  }, [handleSubmit]);
+  const handleKeyDown = useCallback(
+    (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        // تم تعديل الشرط هنا
+        e.preventDefault();
+        handleSubmit(e);
+      }
+    },
+    [handleSubmit]
+  );
 
   // Setup textarea auto-resize
   useEffect(() => {

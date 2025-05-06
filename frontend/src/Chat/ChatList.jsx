@@ -1,4 +1,5 @@
 "use client";
+
 import { UserPlus, SquarePen, Search, X, Check, Plus } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -14,92 +15,11 @@ import {
 } from "../features/Slice/ChatSlice/chatSlice";
 import { useChat } from "../context/chat-context";
 import { motion } from "framer-motion";
-import { dateHandler } from "../utils/Date";
+
 import Avatar from "../assets/defaultAvatar.png";
 import { isValidImageUrl, getAvatarUrl } from "../utils/imageUtils";
 import React from "react";
-
-const ConversationItem = React.memo(({ chat, currentUser, isActive, onConversationClick }) => {
-  const { displayName, displayPicture } = useMemo(() => {
-    const isGroupChat = chat.isGroup === true;
-
-    if (isGroupChat) {
-      return {
-        displayName: chat.name || "Group",
-        displayPicture: chat.picture || "https://image.pngaaa.com/78/6179078-middle.png"
-      };
-    }
-
-    // في المحادثات الفردية، نبحث عن بيانات المستخدم الآخر
-    const otherUser = chat.users?.find(user => user._id !== currentUser?._id) ||
-                     chat.participants?.find(user => user._id !== currentUser?._id);
-
-    if (!otherUser) {
-      console.warn('Could not find other user in conversation:', chat._id);
-      return {
-        displayName: "Chat",
-        displayPicture: Avatar
-      };
-    }
-
-    // تكوين اسم العرض من بيانات المستخدم الآخر
-    const displayName = otherUser.fullName || 
-                       `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() ||
-                       otherUser.username ||
-                       otherUser.email ||
-                       "Chat";
-
-    // تحديد الصورة الشخصية للمستخدم الآخر
-    const displayPicture = otherUser.avatar && otherUser.avatar !== "default.jpg" 
-                          ? getAvatarUrl(otherUser.avatar) 
-                          : Avatar;
-
-    return { displayName, displayPicture };
-  }, [chat, currentUser]);
-
-  return (
-    <div
-      className={`relative flex items-center p-3 cursor-pointer hover:bg-gray-100 transition-colors ${
-        isActive ? "bg-[#4D2D61]/10" : ""
-      }`}
-      onClick={() => onConversationClick(chat)}
-    >
-      <div className="relative flex-shrink-0 mr-3">
-        {isValidImageUrl(displayPicture) ? (
-          <div className="w-10 h-10 rounded-full overflow-hidden">
-            <img
-              src={displayPicture}
-              alt={displayName}
-              loading="lazy"
-              className="w-10 h-10 rounded-full object-cover"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = Avatar;
-              }}
-            />
-          </div>
-        ) : (
-          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-semibold bg-[#4D2D61]">
-            {displayName?.[0]?.toUpperCase() || "?"}
-          </div>
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex justify-between items-center">
-          <h3 className="text-sm font-semibold truncate text-[#4D2D61]">
-            {displayName}
-          </h3>
-          <span className="text-xs text-gray-500">
-            {dateHandler(chat?.lastMessage?.createdAt)}
-          </span>
-        </div>
-        <p className="text-xs text-gray-500 truncate">
-          {chat?.lastMessage?.content || chat?.lastMessage?.message || "No messages yet"}
-        </p>
-      </div>
-    </div>
-  );
-});
+import ConversationItem from "./ConversationItem";
 
 const ChatList = () => {
   const dispatch = useDispatch();
@@ -161,10 +81,7 @@ const ChatList = () => {
 
     loadConversations();
 
-    // Set up periodic refresh
-    const refreshInterval = setInterval(loadConversations, 30000); // Refresh every 30 seconds
-
-    return () => clearInterval(refreshInterval);
+    // No need for periodic refresh since we'll update in real-time through socket events
   }, [auth?.isAuthenticated, currentUser?._id, authChecking, dispatch]);
 
   // بديل لـ useEffect الذي يبحث عن المستخدمين
@@ -258,7 +175,7 @@ const ChatList = () => {
         `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
         user.username ||
         user.email ||
-        "Chat";
+        "Unknown User";
 
       const displayPicture =
         user.avatar && user.avatar !== "default.jpg" ? user.avatar : Avatar;
@@ -270,6 +187,7 @@ const ChatList = () => {
         lastSeen: "Recently active",
         isGroup: false,
         otherUser: user,
+        admin: currentUser._id,
       });
 
       setShowUserSearch(false);
@@ -322,8 +240,8 @@ const ChatList = () => {
         return;
       }
 
-      if (!selectedUsers || selectedUsers.length < 1) {
-        setError("Please select at least one user");
+      if (!selectedUsers || selectedUsers.length < 2) {
+        setError("Please select at least 2 users to create a group");
         return;
       }
 
@@ -374,6 +292,8 @@ const ChatList = () => {
 
         // Ensure isGroup is set correctly
         const enhancedConversation = {
+          ...newConversation,
+          admin: currentUser._id,
           id: newConversation._id,
           name: newConversation.name || groupName,
           picture: newConversation.picture,
@@ -411,7 +331,7 @@ const ChatList = () => {
         `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
         user.username ||
         user.email ||
-        "User";
+        "Unknown User";
 
       return [
         ...prev,
@@ -434,16 +354,6 @@ const ChatList = () => {
       setError(null); // إعادة تعيين حالة الخطأ
       dispatch({ type: "chat/searchUsers/fulfilled", payload: [] }); // إعادة تعيين نتائج البحث
     }
-  };
-
-  // Add missing handleSearchChange function
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
-  };
-
-  // Add missing handleRemoveUser function
-  const handleRemoveUser = (userId) => {
-    setSelectedUsers((prev) => prev.filter((user) => user._id !== userId));
   };
 
   const filteredChats = useMemo(() => {
@@ -529,6 +439,7 @@ const ChatList = () => {
       isGroup: isGroupConvo,
       participants: chat.participants || chat.users || [],
       otherUser: !isGroupConvo ? otherUser : null,
+      admin: chat.admin,
     };
 
     console.log("Activating conversation:", conversationData);
@@ -723,7 +634,7 @@ const ChatList = () => {
                 {filteredChats.map((chat) => {
                   // Log each conversation during rendering
                   console.log(
-                    "Rendering conversation:",
+                    `Rendering conversation:`,
                     chat._id,
                     "isGroup:",
                     chat.isGroup,
@@ -732,7 +643,9 @@ const ChatList = () => {
                     "type:",
                     chat.type,
                     "name:",
-                    chat.name
+                    chat.name,
+                    " admin :",
+                    chat.admin
                   );
 
                   return (
@@ -834,7 +747,7 @@ const ChatList = () => {
                           }`.trim() ||
                           user.username ||
                           user.email ||
-                          "User";
+                          "Unknown User";
 
                         return (
                           <div

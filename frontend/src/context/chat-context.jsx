@@ -21,12 +21,11 @@ import {
 } from "../utils/socket";
 import {
   addMessage,
+  updateConversationLastMessage,
   setIsTyping,
   setActiveConversation,
   setOnlineUsers,
 } from "../features/Slice/ChatSlice/chatSlice";
-import { checkAuthStatus } from "../features/Slice/authSlice/loginSlice";
-import { fetchUserData } from "../features/Slice/userSlice/userSlice";
 
 const ChatContext = createContext(null);
 
@@ -39,12 +38,15 @@ export const ChatProvider = ({ children }) => {
     (state) => state.chat?.activeConversation
   );
 
-  // Socket initialization
+  // Socket initialization with connection management
   useEffect(() => {
     let mounted = true;
     let socketInitAttempt = null;
     let retryCount = 0;
-    const maxRetries = 3;
+    const maxRetries = 5;
+    const retryDelay = 2000;
+    const connectionCheckInterval = 30000;
+    const pingInterval = 15000;
 
     const initializeSocket = async () => {
       if (!isAuthenticated || !user?._id || socketInitialized) {
@@ -63,7 +65,26 @@ export const ChatProvider = ({ children }) => {
         if (socket) {
           console.log("Socket initialized successfully");
           setSocketInitialized(true);
-          retryCount = 0; // Reset retry count on successful connection
+          retryCount = 0;
+
+          const ping = setInterval(() => {
+            if (socket?.connected) {
+              socket.emit("ping");
+            }
+          }, pingInterval);
+
+          const checkConnection = setInterval(() => {
+            if (!socket?.connected) {
+              console.log("Socket disconnected, attempting to reconnect...");
+              disconnectSocket();
+              initializeSocket();
+            }
+          }, connectionCheckInterval);
+
+          return () => {
+            clearInterval(ping);
+            clearInterval(checkConnection);
+          };
         }
       } catch (error) {
         console.error("Socket initialization failed:", error);
@@ -72,22 +93,21 @@ export const ChatProvider = ({ children }) => {
           console.log(
             `Retrying socket connection (${retryCount}/${maxRetries})...`
           );
-          socketInitAttempt = setTimeout(initializeSocket, 5000);
+          socketInitAttempt = setTimeout(initializeSocket, retryDelay);
         } else if (retryCount >= maxRetries) {
           console.error("Max retry attempts reached for socket connection");
         }
       }
     };
 
-    initializeSocket();
+    const cleanup = initializeSocket();
 
     return () => {
       mounted = false;
-      if (socketInitAttempt) {
-        clearTimeout(socketInitAttempt);
-      }
+      if (socketInitAttempt) clearTimeout(socketInitAttempt);
       disconnectSocket();
       setSocketInitialized(false);
+      if (typeof cleanup === "function") cleanup();
     };
   }, [isAuthenticated, user?._id]);
 
@@ -97,71 +117,54 @@ export const ChatProvider = ({ children }) => {
 
     console.log("Setting up socket event listeners...");
     const cleanupFunctions = [];
+    const messageBatch = [];
+    let batchTimeout = null;
+    const BATCH_DELAY = 1000;
+    let typingTimeout = null;
+    let onlineTimeout = null;
 
-    try {
-      // Message handler
-      cleanupFunctions.push(
-        onMessage((message) => {
-          console.log("Message received:", message);
-          dispatch(addMessage(message));
-        })
-      );
-
-      // Typing handlers
-      cleanupFunctions.push(
-        onTyping(({ conversationId, userId }) => {
-          if (
-            activeConversation?.id === conversationId &&
-            userId !== user?._id
-          ) {
-            dispatch(setIsTyping(true));
-          }
-        })
-      );
-
-      cleanupFunctions.push(
-        onStopTyping(({ conversationId, userId }) => {
-          if (
-            activeConversation?.id === conversationId &&
-            userId !== user?._id
-          ) {
-            dispatch(setIsTyping(false));
-          }
-        })
-      );
-
-      // Online users handler
-      cleanupFunctions.push(
-        onOnlineUsers((users) => {
-          console.log("Online users updated:", users);
-          dispatch(setOnlineUsers(users));
-        })
-      );
-    } catch (error) {
-      console.error("Failed to setup socket listeners:", error);
-    }
-
-    return () => {
-      console.log("Cleaning up socket listeners...");
-      cleanupFunctions.forEach((cleanup) => cleanup?.());
-    };
-  }, [socketInitialized, dispatch, user?._id, activeConversation?.id]);
-
-  // Authentication check
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const authResult = await dispatch(checkAuthStatus()).unwrap();
-        if (authResult.isAuthenticated) {
-          await dispatch(fetchUserData()).unwrap();
-        }
-      } catch (error) {
-        console.error("Auth check failed:", error);
+    const processMessageBatch = () => {
+      if (messageBatch.length > 0) {
+        dispatch(addMessage(messageBatch));
+        messageBatch.length = 0;
       }
     };
 
-    checkAuth();
-  }, [dispatch]);
+    const handleMessage = (message) => {
+      messageBatch.push(message);
+      if (batchTimeout) clearTimeout(batchTimeout);
+      batchTimeout = setTimeout(processMessageBatch, BATCH_DELAY);
+    };
+
+    const handleTyping = (status) => {
+      if (typingTimeout) clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        dispatch(setIsTyping(false));
+      }, 3000);
+      dispatch(setIsTyping(status));
+    };
+
+    const handleOnlineUsers = (users) => {
+      if (onlineTimeout) clearTimeout(onlineTimeout);
+      onlineTimeout = setTimeout(() => {
+        dispatch(setOnlineUsers(users));
+      }, 1000);
+    };
+
+    cleanupFunctions.push(
+      onMessage(handleMessage),
+      onTyping(handleTyping),
+      onStopTyping(handleTyping),
+      onOnlineUsers(handleOnlineUsers)
+    );
+
+    return () => {
+      cleanupFunctions.forEach((fn) => fn());
+      if (typingTimeout) clearTimeout(typingTimeout);
+      if (onlineTimeout) clearTimeout(onlineTimeout);
+      if (batchTimeout) clearTimeout(batchTimeout);
+    };
+  }, [socketInitialized, dispatch]);
 
   const sendMessage = useCallback(
     (message) => {
