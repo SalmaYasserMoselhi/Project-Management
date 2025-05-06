@@ -7,4 +7,9 @@ const router = express.Router();
 router.post('/', authController.protect, messageController.sendMessage);
 router.get('/:convoId', authController.protect, messageController.getMessages);
 
+// Add a route for downloading message files
+router.get('/download/:fileId', authController.protect, (req, res, next) => {
+    // Redirect to the attachment download route
+    res.redirect(`/api/v1/attachments/download/${req.params.fileId}`);
+  });
 module.exports = router;
