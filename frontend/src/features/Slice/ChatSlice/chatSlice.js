@@ -175,43 +175,69 @@ export const fetchConversations = createAsyncThunk(
 
       const currentUserId = getState().login?.user?._id;
 
-      const processedConversations = conversationsData
-        .filter((conversation) => conversation && conversation._id)
-        .map((conversation) => {
-          const isGroup = conversation.isGroup === true;
-          const participants =
-            conversation.users || conversation.participants || [];
+      // Process conversations to ensure they have consistent format
+      const processedConversations = conversationsData.map((conversation) => {
+        // Determine if it's a group conversation
+        const isGroup =
+          conversation.isGroup === true ||
+          conversation.isGroupChat === true ||
+          conversation.type === "group";
 
-          const otherUser = !isGroup
-            ? participants.find((u) => u._id !== currentUserId)
-            : null;
+        // For group chats, ensure admin data is complete
+        if (isGroup && conversation.admin) {
+          // If admin is just an ID, try to find the full user data
+          if (
+            typeof conversation.admin === "string" ||
+            (conversation.admin &&
+              !conversation.admin.username &&
+              !conversation.admin.email)
+          ) {
+            // Look for admin in the users/participants array
+            const adminUser = conversation.users?.find(
+              (user) =>
+                user._id === conversation.admin ||
+                (conversation.admin && user._id === conversation.admin._id)
+            );
 
-          const name =
-            conversation.name ||
-            (isGroup
-              ? "Group Chat"
-              : otherUser?.fullName ||
-                `${otherUser?.firstName || ""} ${
-                  otherUser?.lastName || ""
-                }`.trim() ||
-                otherUser?.username ||
-                otherUser?.email ||
-                "Chat");
+            if (adminUser) {
+              conversation.admin = adminUser;
+            }
+          }
+        }
 
-          const picture =
-            conversation.picture ||
-            (isGroup
-              ? "https://image.pngaaa.com/78/6179078-middle.png"
-              : otherUser?.avatar || null); // ← استخدم null بدل "default.jpg"
+        const participants =
+          conversation.users || conversation.participants || [];
 
-          return {
-            ...conversation,
-            isGroup,
-            name,
-            picture,
-            otherUser: otherUser || null,
-          };
-        });
+        const otherUser = !isGroup
+          ? participants.find((u) => u._id !== currentUserId)
+          : null;
+
+        const name =
+          conversation.name ||
+          (isGroup
+            ? "Group Chat"
+            : otherUser?.fullName ||
+              `${otherUser?.firstName || ""} ${
+                otherUser?.lastName || ""
+              }`.trim() ||
+              otherUser?.username ||
+              otherUser?.email ||
+              "Chat");
+
+        const picture =
+          conversation.picture ||
+          (isGroup
+            ? "https://image.pngaaa.com/78/6179078-middle.png"
+            : otherUser?.avatar || null); // ← استخدم null بدل "default.jpg"
+
+        return {
+          ...conversation,
+          isGroup,
+          name,
+          picture,
+          otherUser: otherUser || null,
+        };
+      });
 
       return processedConversations;
     } catch (error) {
@@ -327,7 +353,7 @@ export const createConversation = createAsyncThunk(
           dispatch(cacheUserData(userData));
         }
       } catch (error) {
-        // استخدام البيانات المخزنة سابقاً إذا فشل الجلب
+        // استخدام البيانات المخزنة سابقًا إذا فشل الجلب
         userData = userObject;
       }
 
@@ -427,9 +453,9 @@ export const createGroupConversation = createAsyncThunk(
       if (
         !participantIds ||
         !Array.isArray(participantIds) ||
-        participantIds.length < 1
+        participantIds.length < 2
       ) {
-        console.error("At least one participant is required");
+        console.error("At least two participant is required");
         return rejectWithValue("At least one participant is required");
       }
 
@@ -548,6 +574,99 @@ export const createGroupConversation = createAsyncThunk(
         error.response?.data?.message ||
           error.message ||
           "Failed to create group conversation"
+      );
+    }
+  }
+);
+
+export const addUserToGroup = createAsyncThunk(
+  "chat/addUserToGroup",
+  async ({ conversationId, userId }, { rejectWithValue }) => {
+    try {
+      const response = await api.patch("/conversations/group/add-user", {
+        conversationId,
+        userId,
+      });
+
+      // Handle different response formats
+      let updatedConversation = null;
+      if (response.data && response.data.data) {
+        updatedConversation = response.data.data;
+      } else if (response.data && response.data._id) {
+        updatedConversation = response.data;
+      }
+
+      if (!updatedConversation) {
+        throw new Error("Invalid response format");
+      }
+
+      return updatedConversation;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to add user to group"
+      );
+    }
+  }
+);
+
+export const removeUserFromGroup = createAsyncThunk(
+  "chat/removeUserFromGroup",
+  async ({ conversationId, userId }, { rejectWithValue }) => {
+    try {
+      const response = await api.patch("/conversations/group/remove-user", {
+        conversationId,
+        userId,
+      });
+
+      // Handle different response formats
+      let updatedConversation = null;
+      if (response.data && response.data.data) {
+        updatedConversation = response.data.data;
+      } else if (response.data && response.data._id) {
+        updatedConversation = response.data;
+      }
+
+      if (!updatedConversation) {
+        throw new Error("Invalid response format");
+      }
+
+      return updatedConversation;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to remove user from group"
+      );
+    }
+  }
+);
+
+export const leaveGroup = createAsyncThunk(
+  "chat/leaveGroup",
+  async (conversationId, { rejectWithValue, getState }) => {
+    try {
+      const { login } = getState();
+      const userId = login.user._id;
+
+      const response = await api.patch("/conversations/group/leave", {
+        conversationId,
+        userId,
+      });
+
+      // Handle different response formats
+      let conversationData = null;
+      if (response.data && response.data.data) {
+        conversationData = response.data.data;
+      } else if (response.data && response.data._id) {
+        conversationData = response.data;
+      }
+
+      if (!conversationData) {
+        throw new Error("Invalid response format");
+      }
+
+      return conversationData;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to leave group"
       );
     }
   }
@@ -796,6 +915,19 @@ const chatSlice = createSlice({
     },
     setActiveConversation: (state, action) => {
       state.activeConversation = action.payload;
+
+      // If this is a group conversation, ensure admin data is complete
+      if (action.payload && action.payload.isGroup && action.payload.id) {
+        // Find the full conversation in the conversations array
+        const fullConversation = state.conversations.find(
+          (conv) => conv._id === action.payload.id
+        );
+
+        if (fullConversation && fullConversation.admin) {
+          // Update the admin data in activeConversation
+          state.activeConversation.admin = fullConversation.admin;
+        }
+      }
     },
     setCurrentCall: (state, action) => {
       state.currentCall = action.payload;
@@ -933,6 +1065,31 @@ const chatSlice = createSlice({
 
         state.conversations = updatedConversations;
         state.error = null;
+
+        // If there's an active conversation, update it with the latest data
+        if (state.activeConversation && state.activeConversation.id) {
+          const updatedConversation = updatedConversations.find(
+            (conv) => conv._id === state.activeConversation.id
+          );
+
+          if (updatedConversation) {
+            state.activeConversation = {
+              id: updatedConversation._id,
+              name: updatedConversation.name,
+              picture: updatedConversation.picture,
+              isGroup: updatedConversation.isGroup || false,
+              otherUser: updatedConversation.otherUser,
+              admin: updatedConversation.admin, // Ensure admin is included
+              participants:
+                updatedConversation.users ||
+                updatedConversation.participants ||
+                [],
+              lastSeen: updatedConversation.isGroup
+                ? "Group chat"
+                : "Recently active",
+            };
+          }
+        }
       })
       .addCase(fetchConversations.rejected, (state, action) => {
         state.status = "failed";
@@ -1040,7 +1197,7 @@ const chatSlice = createSlice({
 
         console.log("Group conversation created successfully:", action.payload);
 
-        // Ensure conversation has isGroup
+        // Ensure conversation has isGroup and admin
         const enhancedPayload = {
           ...action.payload,
           isGroup: true,
@@ -1062,6 +1219,17 @@ const chatSlice = createSlice({
             conv._id === enhancedPayload._id ? enhancedPayload : conv
           );
           console.log("Updated existing group conversation in state");
+        }
+
+        // If this is the active conversation, update it with admin data
+        if (
+          state.activeConversation &&
+          state.activeConversation.id === enhancedPayload._id
+        ) {
+          state.activeConversation = {
+            ...state.activeConversation,
+            admin: enhancedPayload.admin,
+          };
         }
       })
       .addCase(createGroupConversation.rejected, (state, action) => {
@@ -1159,6 +1327,110 @@ const chatSlice = createSlice({
           }
         }
       })
+      .addCase(addUserToGroup.pending, (state) => {
+        state.status = "loading";
+      })
+      .addCase(addUserToGroup.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        const updatedConversation = action.payload;
+
+        // Update conversation in the list
+        const index = state.conversations.findIndex(
+          (c) => c._id === updatedConversation._id
+        );
+
+        if (index !== -1) {
+          state.conversations[index] = {
+            ...state.conversations[index],
+            ...updatedConversation,
+          };
+        }
+
+        // Update active conversation if it's the same
+        if (
+          state.activeConversation &&
+          state.activeConversation.id === updatedConversation._id
+        ) {
+          state.activeConversation = {
+            ...state.activeConversation,
+            name: updatedConversation.name,
+            picture: updatedConversation.picture,
+            users: updatedConversation.users || [],
+          };
+        }
+
+        state.error = null;
+      })
+      .addCase(addUserToGroup.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload;
+      })
+      // Add cases for removeUserFromGroup
+      .addCase(removeUserFromGroup.pending, (state) => {
+        state.status = "loading";
+      })
+      .addCase(removeUserFromGroup.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        const updatedConversation = action.payload;
+
+        // Update conversation in the list
+        const index = state.conversations.findIndex(
+          (c) => c._id === updatedConversation._id
+        );
+
+        if (index !== -1) {
+          state.conversations[index] = {
+            ...state.conversations[index],
+            ...updatedConversation,
+          };
+        }
+
+        // Update active conversation if it's the same
+        if (
+          state.activeConversation &&
+          state.activeConversation.id === updatedConversation._id
+        ) {
+          state.activeConversation = {
+            ...state.activeConversation,
+            name: updatedConversation.name,
+            picture: updatedConversation.picture,
+            users: updatedConversation.users || [],
+          };
+        }
+
+        state.error = null;
+      })
+      .addCase(removeUserFromGroup.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload;
+      })
+      // Add cases for leaveGroup
+      .addCase(leaveGroup.pending, (state) => {
+        state.status = "loading";
+      })
+      .addCase(leaveGroup.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        const conversationData = action.payload;
+
+        // Remove conversation from the list
+        state.conversations = state.conversations.filter(
+          (c) => c._id !== conversationData._id
+        );
+
+        // Update active conversation if it's the same
+        if (
+          state.activeConversation &&
+          state.activeConversation.id === conversationData._id
+        ) {
+          state.activeConversation = null;
+        }
+
+        state.error = null;
+      })
+      .addCase(leaveGroup.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload;
+      })
       // Add refreshConversation cases
       .addCase(refreshConversation.fulfilled, (state, action) => {
         if (action.payload && action.payload._id) {
@@ -1180,6 +1452,7 @@ const chatSlice = createSlice({
               ...state.activeConversation,
               name: action.payload.name,
               picture: action.payload.picture,
+              admin: action.payload.admin, // Include admin data
             };
           }
         }

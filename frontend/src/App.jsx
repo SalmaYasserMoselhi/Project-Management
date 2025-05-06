@@ -3,11 +3,11 @@ import { Toaster } from "react-hot-toast";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation } from "react-router-dom";
 import Sidebar from "./Components/Sidebar";
-import { ChatProvider } from "./context/chat-context";
+import { useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { checkAuthStatus } from "./features/Slice/authSlice/loginSlice";
 import { fetchUserData } from "./features/Slice/userSlice/userSlice";
 import "./index.css";
-import Routing from "./Routing/Routing";
-import WorkspacePopup from "./Workspace/WorkspacePopup";
 
 function App() {
   const { isWorkspaceOpen, selectedWorkspace, workspaceTransitionState } =
@@ -28,8 +28,6 @@ function App() {
     "/forgetpassword",
     "/verification",
     "/resetpassword",
-    "/verification-success",
-    "/verification-failed"
   ];
 
   // Check if current page is auth
@@ -59,27 +57,40 @@ function App() {
   //   shouldRenderWorkspacePopup,
   // });
 
+  useEffect(() => {
+    const initializeUser = async () => {
+      try {
+        const authResult = await dispatch(checkAuthStatus()).unwrap();
+        if (authResult?.isAuthenticated) {
+          await dispatch(fetchUserData());
+        }
+      } catch (error) {
+        console.error("Failed to initialize user:", error);
+      }
+    };
+
+    initializeUser();
+  }, [dispatch]);
+
   return (
-    <ChatProvider>
-      <div className="w-full h-screen overflow-hidden flex">
-        <Toaster />
+    <div className="w-full h-screen overflow-hidden flex">
+      <Toaster />
 
-        {/* Show Sidebar only if NOT on auth page */}
-        {!isAuthPage && <Sidebar />}
+      {/* Show Sidebar only if NOT on auth page */}
+      {!isAuthPage && <Sidebar />}
 
-        {/* Only show WorkspacePopup if a workspace is selected and in the right state */}
-        {shouldRenderWorkspacePopup && selectedWorkspace && (
-          <WorkspacePopup
-            workspaceId={selectedWorkspace.id}
-            workspaceName={selectedWorkspace.name}
-          />
-        )}
+      {/* Only show WorkspacePopup if a workspace is selected and in the right state */}
+      {shouldRenderWorkspacePopup && selectedWorkspace && (
+        <WorkspacePopup
+          workspaceId={selectedWorkspace.id}
+          workspaceName={selectedWorkspace.name}
+        />
+      )}
 
-        <div className="flex-1 overflow-auto">
-          <Routing />
-        </div>
+      <div className="flex-1 overflow-auto">
+        <Routing />
       </div>
-    </ChatProvider>
+    </div>
   );
 }
 
