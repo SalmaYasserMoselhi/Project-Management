@@ -153,7 +153,7 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
       let queryParams = [];
 
       if (activeTab === "Archived") {
-        endpoint = "/api/v1/boards/user-boards/archived";
+        endpoint = `/api/v1/boards/workspace/${workspaceId}/archived`;
         queryParams.push(
           `sort=${sortOption}`,
           `limit=1000` // Very high limit to get all boards
@@ -356,36 +356,38 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
             All Boards ({totalBoards})
           </span>
 
-          {/* Sort Dropdown */}
-          <div className="relative">
-            <button
-              className="text-sm text-gray-600 hover:text-[#4D2D61] flex items-center gap-1"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              Sort
-              <ChevronDown className="w-4 h-4" />
-            </button>
+          {/* Only show Sort dropdown if not Archived */}
+          {activeTab !== "Archived" && (
+            <div className="relative">
+              <button
+                className="text-sm text-gray-600 hover:text-[#4D2D61] flex items-center gap-1"
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+              >
+                Sort
+                <ChevronDown className="w-4 h-4" />
+              </button>
 
-            {isMenuOpen && (
-              <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                <div className="py-1">
-                  {sortOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => handleSortChange(option.value)}
-                      className={`block w-full text-left px-4 py-2 text-sm ${
-                        sortOption === option.value
-                          ? "bg-purple-50 text-[#4D2D61] font-medium"
-                          : "text-gray-700 hover:bg-gray-50"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
+              {isMenuOpen && (
+                <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                  <div className="py-1">
+                    {sortOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => handleSortChange(option.value)}
+                        className={`block w-full text-left px-4 py-2 text-sm ${
+                          sortOption === option.value
+                            ? "bg-purple-50 text-[#4D2D61] font-medium"
+                            : "text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Boards Container */}
@@ -410,27 +412,24 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
           ) : (
             <>
               {/* Board Items */}
-              {sortedBoards.map((board) => {
-                return (
-                  <div
-                    key={board.id}
-                    className={`flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 group cursor-pointer ${
-                      board.starred ? "bg-purple-50" : ""
-                    }`}
-                    onClick={() => {
-                      handleBoardClick(board.id)
-                    }}
-                  >
-                    <span className="text-sm font-medium text-[#4D2D61] truncate flex-1">
-                      {board.name}
-                    </span>
-                    <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              {sortedBoards.map((board) => (
+                <div
+                  key={board.id}
+                  className={`flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 group cursor-pointer ${
+                    board.starred ? "bg-purple-50" : ""
+                  }`}
+                  onClick={() => {
+                    handleBoardClick(board.id)
+                  }}
+                >
+                  <span className="text-sm font-medium text-[#4D2D61] truncate flex-1">
+                    {board.name}
+                  </span>
+                  <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {activeTab !== "Archived" && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (!board.id) {
-                            console.error("Board is missing _id:", board);
-                          }
                           handlePinBoard(board.id, board.starred, e);
                         }}
                         className={`hover:text-[#6A3B82] transition-colors ${
@@ -444,17 +443,17 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
                           fill={board.starred ? "#4D2D61" : "none"}
                         />
                       </button>
-                      <MoreVertical className="w-[18px] h-[18px] text-[#4D2D61] cursor-pointer hover:text-[#6A3B82]" />
-                    </div>
+                    )}
+                    <MoreVertical className="w-[18px] h-[18px] text-[#4D2D61] cursor-pointer hover:text-[#6A3B82]" />
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </>
           )}
         </div>
 
         {/* Fixed Footer - Only show Add Board button if not a collaboration workspace */}
-        {activeWorkspaceType !== "collaboration" && (
+        {activeTab !== "Archived" && (
           <div className="p-4 mt-auto border-t border-gray-100">
             <button
               onClick={() => setIsAddBoardOpen(true)}

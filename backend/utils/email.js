@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const path = require('path');
 
 const sendEmail = async (options) => {
   // Create Gmail transporter
@@ -16,15 +17,35 @@ const sendEmail = async (options) => {
     },
   });
 
+    
+  
+    // Define logo paths
+    const logoPath = path.join(__dirname, '../assets/nexus-logo.png');
+    // const iconPath = path.join(__dirname, '../assets/nexus-icon.png');
+
   // Email options with HTML template
   const mailOptions = {
     from: {
-      name: 'Beehive',
+      name: 'Nexus',
       address: process.env.GMAIL_USERNAME,
     },
     to: options.email,
     subject: options.subject,
     html: options.message,
+    attachments: [
+      {
+        filename: 'nexus-logo.png',
+        path: logoPath,
+        cid: 'nexus_logo', // Content ID referenced in the HTML
+        contentDisposition: 'inline' // Mark as inline to discourage showing as attachment
+      },
+      // {
+      //   filename: 'nexus-icon.png',
+      //   path: iconPath,
+      //   cid: 'nexus_icon', // Content ID for the footer icon
+      //   contentDisposition: 'inline' // Mark as inline to discourage showing as attachment
+      // }
+    ],
   };
 
   try {

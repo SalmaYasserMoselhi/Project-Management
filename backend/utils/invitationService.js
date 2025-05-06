@@ -58,31 +58,76 @@ const invitationService = {
    */
   async sendInvitationEmail(email, inviteUrl, entityName, role, entityType) {
     const message = `
-      <div style="background-color: #f6f9fc; padding: 20px; font-family: Arial, sans-serif;">
-        <div style="background-color: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 0 auto; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-          <h2 style="color: #4d2d61; text-align: center; font-size: 24px; margin-bottom: 20px;">${
-            entityType.charAt(0).toUpperCase() + entityType.slice(1)
-          } Invitation</h2>
-          <p style="color: #24152d; text-align: center; font-size: 16px;">You've been invited to join "${entityName}" ${entityType}.</p>
-          <p style="color: #24152d; text-align: center; font-size: 14px;">Role: ${role}</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${inviteUrl}" 
-               style="background-color: #4d2d61; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-              Accept Invitation
-            </a>
-          </div>
-          <p style="color: #24152d; text-align: center; font-size: 14px;">
-            ${
-              entityType === 'board'
-                ? "Once accepted, you'll find this board in your collaboration workspace."
-                : ''
-            }
-          </p>
-          <p style="color: #24152d; font-size: 14px; text-align: center; margin-bottom: 20px;">This invitation expires in 7 days.</p>
-          <hr style="border: none; border-top: 1px solid #e6e6e6; margin: 20px 0;">
-          <p style="color: #888; font-size: 12px; text-align: center;">If you didn't expect this invitation, you can safely ignore this email.</p>
-        </div>
-      </div>
+     <body style="background-color: #f6f9fc; margin: 0; padding: 20px; font-family: Arial, Helvetica, sans-serif;">
+  <table cellpadding="0" cellspacing="0" border="0" width="100%">
+    <tr>
+      <td align="center" valign="top">
+        <table cellpadding="0" cellspacing="0" border="0" width="600" style="background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); max-width: 600px;">
+          <!-- Logo Header -->
+          <tr>
+            <td align="center" style="padding: 30px 20px 20px 20px;">
+                <img src="cid:nexus_logo" alt="Nexus Logo" width="160" style="display: block;">
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 0 30px;">
+              <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td style="border-left: 4px solid #4d2d61; padding-left: 15px;">
+                    <h2 style="color: #4d2d61; font-size: 22px; margin-top: 0; margin-bottom: 15px; font-weight: normal; font-family: Arial, Helvetica, sans-serif;">${entityType.charAt(0).toUpperCase() + entityType.slice(1)} Invitation</h2>
+                    <p style="color: #333333; font-size: 16px; line-height: 24px; margin-top: 0; margin-bottom: 10px;">You've been invited to join <strong>"${entityName}"</strong> ${entityType}.</p>
+                    <p style="color: #555555; font-size: 15px; line-height: 22px; margin-top: 0; margin-bottom: 0;">Your designated role will be: <span style="color: #4d2d61; font-weight: bold;">${role}</span></p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Button -->
+          <tr>
+            <td align="center" style="padding: 30px 30px 20px 30px;">
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="background-color: #4d2d61; border-radius: 6px;">
+                    <a href="${inviteUrl}" style="display: inline-block; padding: 12px 30px; color: #ffffff; font-size: 16px; font-weight: bold; text-decoration: none; font-family: Arial, Helvetica, sans-serif;">Accept Invitation</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Additional info -->
+          <tr>
+            <td align="center" style="padding: 10px 30px 30px 30px;">
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f8f5fa; border-radius: 6px;">
+                <tr>
+                  <td align="center" style="padding: 15px;">
+                    <p style="color: #4d2d61; font-size: 14px; line-height: 20px; margin: 0; font-family: Arial, Helvetica, sans-serif; text-align: center;">
+                      ${entityType === 'board' ? "Once accepted, you'll find this board in your collaboration workspace." : ''}
+                      <br>This invitation expires in <strong>7 days</strong>.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 30px 30px 30px; border-top: 1px solid #e6e6e6;">
+              <p style="color: #888888; font-size: 13px; line-height: 18px; margin-top: 0; margin-bottom: 15px; text-align: center; font-family: Arial, Helvetica, sans-serif;">If you didn't expect this invitation, you can safely ignore this email.</p>
+              <div style="text-align: center;">
+              <img src="cid:nexus_logo" alt="Nexus Logo" width="160" style="display: block;">
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
     `;
 
     await sendEmail({

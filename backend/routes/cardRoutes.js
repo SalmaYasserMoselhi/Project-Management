@@ -44,6 +44,12 @@ router.delete('/:cardId/members/:userId', cardController.removeMember);
 // Card moving from list to list routes
 router.patch('/:cardId/move', cardController.moveCard);
 
+
+
+// Card priority routes (NEW)
+router.patch('/:cardId/priority', cardController.updatePriority);
+router.get('/board/:boardId/priority/:priority', cardController.filterCardsByPriority);
+router.get('/board/:boardId/priority-sorted', cardController.getCardsSortedByPriority);
 // Subtask routes
 router
   .route('/:cardId/subtasks')

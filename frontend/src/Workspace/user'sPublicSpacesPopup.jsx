@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   setActiveWorkspaceType,
@@ -6,18 +6,33 @@ import {
   closeWorkspaceStart,
 } from "../features/Slice/ComponentSlice/sidebarSlice";
 import { Settings, Users } from "lucide-react";
+import {
+  fetchUserPublicWorkspaces,
+  selectUserWorkspace,
+  setSearchTerm,
+  setSortOption,
+  selectShouldFetchWorkspaces,
+} from "../features/Slice/WorkspaceSlice/userWorkspacesSlice";
 
 const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
   const dispatch = useDispatch();
   const popupRef = useRef(null);
-  const [workspaces, setWorkspaces] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
   const { user } = useSelector((state) => state.user);
   const { isWorkspaceOpen, workspaceTransitionState } = useSelector(
     (state) => state.sidebar
   );
-  const BASE_URL = "http://localhost:3000";
+  const {
+    workspaces,
+    loading,
+    error,
+    isAnimating,
+    searchTerm,
+    sortOption,
+    selectedWorkspace: popupSelectedWorkspace,
+  } = useSelector((state) => state.userWorkspaces);
+
+  // Add this at the top level
+  const shouldFetch = useSelector(selectShouldFetchWorkspaces);
 
   // Global click handler to close popup
   useEffect(() => {
@@ -40,94 +55,57 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     };
   }, [isOpen, onClose]);
 
-  // Fetch workspaces when the component mounts or when isOpen changes
+  // Update the fetch effect to use centralized logic
   useEffect(() => {
-    if (isOpen) {
-      // Close any open workspace popup before opening this one
-      if (isWorkspaceOpen || workspaceTransitionState === "opening") {
-        dispatch(closeWorkspaceStart());
-      }
-      fetchWorkspaces();
+    if (isOpen && shouldFetch) {
+      dispatch(fetchUserPublicWorkspaces());
     }
-  }, [isOpen, isWorkspaceOpen, workspaceTransitionState, dispatch]);
+  }, [dispatch, isOpen, shouldFetch]);
 
-  // Handle animation states
+  // Restore selected workspace from localStorage after workspaces are loaded
   useEffect(() => {
-    if (isOpen) {
-      setIsAnimating(true);
-    } else {
-      setIsAnimating(true);
-      const timer = setTimeout(() => {
-        setIsAnimating(false);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
-
-  const fetchWorkspaces = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `${BASE_URL}/api/v1/workspaces/public-member`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        }
-      );
-
-      const data = await response.json();
-
-      if (data?.status === "success" && data?.data?.workspaces) {
-        // Sort workspaces to show current user's workspace first
-        const sortedWorkspaces = [...data.data.workspaces]
-          .sort((a, b) => {
-            // If a is owned by current user and b isn't, a comes first
-            if (a.userRole === "owner" && b.userRole !== "owner") return -1;
-            // If b is owned by current user and a isn't, b comes first
-            if (b.userRole === "owner" && a.userRole !== "owner") return 1;
-            // Otherwise maintain original order
-            return 0;
-          })
-          .map((workspace) => ({
-            ...workspace,
-            memberCount:
-              workspace.memberCount || workspace.members?.length || 0,
-          }));
-        setWorkspaces(sortedWorkspaces);
+    if (workspaces && workspaces.length > 0) {
+      const saved = localStorage.getItem("selectedPublicWorkspace");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          // Check if the saved workspace exists in the loaded list
+          const exists = workspaces.some(ws => ws._id === parsed._id);
+          if (exists) {
+            dispatch({ type: "userWorkspaces/selectUserWorkspace/fulfilled", payload: parsed });
+          }
+        } catch {}
       }
-    } catch (error) {
-      console.error("Error fetching workspaces:", error);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [workspaces, dispatch]);
 
-  const handleWorkspaceSelect = (workspace) => {
+  const handleWorkspaceSelect = async (workspace) => {
     if (!workspace) return;
 
-    // Create workspace data object
-    const workspaceData = {
-      id: workspace._id,
-      name: workspace.name,
-      type: workspace.type,
-      description: workspace.description,
-      memberCount: workspace.memberCount,
-    };
+    try {
+      // Save the full workspace object to localStorage for restoration
+      localStorage.setItem("selectedPublicWorkspace", JSON.stringify(workspace));
 
-    // Map API workspace type to sidebar type
-    const typeMapping = {
-      public: "workspace",
-      collaboration: "collaboration",
-      private: "private",
-    };
+      // Select the workspace in userWorkspaces slice
+      const resultAction = await dispatch(selectUserWorkspace(workspace));
+      if (selectUserWorkspace.fulfilled.match(resultAction)) {
+        const workspaceData = resultAction.payload;
 
-    // Select the workspace and close the popup
-    dispatch(setActiveWorkspaceType(typeMapping[workspace.type]));
-    dispatch(selectWorkspace(workspaceData));
-    onClose();
+        // Map API workspace type to sidebar type
+        const typeMapping = {
+          public: "workspace",
+          collaboration: "collaboration",
+          private: "private",
+        };
+
+        // Select the workspace and close the popup
+        dispatch(setActiveWorkspaceType(typeMapping[workspace.type]));
+        dispatch(selectWorkspace(workspaceData));
+        onClose();
+      }
+    } catch (error) {
+      console.error("Error selecting workspace:", error);
+    }
   };
 
   // Get first letter of name for avatar
@@ -141,6 +119,46 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
       workspace && currentWorkspace && workspace._id === currentWorkspace.id
     );
   };
+
+  // Prefer the owned workspace as default
+  const ownedWorkspace = workspaces.find(
+    (workspace) => workspace.userRole === "owner"
+  );
+  const workspaceToShow =
+    currentWorkspace ||
+    ownedWorkspace ||
+    (workspaces.length > 0 ? workspaces[0] : null);
+
+  // Get selected workspace from localStorage if not in Redux
+  let localStorageSelectedWorkspace = null;
+  try {
+    const saved = localStorage.getItem("selectedPublicWorkspace");
+    if (saved) {
+      localStorageSelectedWorkspace = JSON.parse(saved);
+    }
+  } catch {}
+
+  // For avatar and member count: use selected workspace from Redux, then localStorage
+  const selectedOrLocalWorkspace = popupSelectedWorkspace || localStorageSelectedWorkspace;
+  const avatarLetter = selectedOrLocalWorkspace
+    ? getInitial(selectedOrLocalWorkspace.name)
+    : (user ? user.firstName.charAt(0).toUpperCase() : "?");
+  const memberCount = selectedOrLocalWorkspace?.memberCount || 0;
+
+  // Sidebar header name logic for popup
+  const popupHeaderWorkspaceName =
+    (popupSelectedWorkspace && popupSelectedWorkspace.name) ||
+    (localStorageSelectedWorkspace && localStorageSelectedWorkspace.name) ||
+    (ownedWorkspace && ownedWorkspace.name) ||
+    (workspaces.length > 0 && workspaces[0].name) ||
+    (user ? `${user.firstName}'s Workspace` : "Workspace");
+
+  const workspaceHeader = popupSelectedWorkspace
+    || localStorageSelectedWorkspace
+    || ownedWorkspace
+    || (workspaces.length > 0 ? workspaces[0] : null);
+
+  // console.log('Popup header workspace:', workspaceHeader);
 
   if (!isOpen && !isAnimating) return null;
 
@@ -158,15 +176,17 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center gap-2 mb-2">
           <div className="w-10 h-10 flex items-center justify-center bg-[#6A3B82] text-white rounded-sm text-base font-medium">
-            {getInitial(currentWorkspace?.name)}
+            {avatarLetter}
           </div>
           <div>
             <h3 className="text-gray-900 font-medium">
-              {currentWorkspace?.name}
+              {loading ? (localStorageSelectedWorkspace?.name || (
+                <span className="h-5 w-32 bg-gray-200 rounded animate-pulse inline-block"></span>
+              )) : popupHeaderWorkspaceName}
             </h3>
             <p className="text-sm text-gray-500">
-              {currentWorkspace?.memberCount || 0} member
-              {(currentWorkspace?.memberCount || 0) > 1 ? "s" : ""}
+              {loading ? memberCount : workspaceHeader?.memberCount || 0} member
+              {(loading ? memberCount : workspaceHeader?.memberCount || 0) > 1 ? "s" : ""}
             </p>
           </div>
         </div>
@@ -194,29 +214,40 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
         style={{ maxHeight: "calc(100vh - 400px)", minHeight: "100px" }}
       >
         <div className="p-1">
-          {workspaces.map((workspace, index) => (
-            <div
-              key={workspace?._id || index}
-              className="flex items-center justify-between px-3 h-12 cursor-pointer hover:bg-gray-100 group"
-              onClick={() => handleWorkspaceSelect(workspace)}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-8 h-8 flex items-center justify-center bg-[#6A3B82] text-white rounded-sm text-xl font-medium shrink-0">
-                  {getInitial(workspace?.name)}
-                </div>
-                <div className="min-w-0 overflow-hidden">
-                  <span className="text-sm text-gray-700 block truncate">
-                    {workspace?.name}
-                  </span>
-                </div>
-              </div>
-              {workspace.userRole === "owner" && (
-                <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 group-hover:bg-white transition-colors shrink-0">
-                  Owner
-                </span>
-              )}
+          {loading ? (
+            <div className="text-center py-4">
+              <div className="animate-spin h-5 w-5 border-t-2 border-[#4D2D61] rounded-full mx-auto"></div>
+              <p className="mt-2 text-sm text-gray-500">Loading workspaces...</p>
             </div>
-          ))}
+          ) : error ? (
+            <div className="text-center py-4 text-red-500">{error}</div>
+          ) : workspaces.length === 0 ? (
+            <div className="text-center py-4 text-gray-500">No workspaces found</div>
+          ) : (
+            workspaces.map((workspace, index) => (
+              <div
+                key={workspace?._id || index}
+                className="flex items-center justify-between px-3 h-12 cursor-pointer hover:bg-gray-100 group"
+                onClick={() => handleWorkspaceSelect(workspace)}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 flex items-center justify-center bg-[#6A3B82] text-white rounded-sm text-xl font-medium shrink-0">
+                    {getInitial(workspace?.name)}
+                  </div>
+                  <div className="min-w-0 overflow-hidden">
+                    <span className="text-sm text-gray-700 block truncate">
+                      {workspace?.name}
+                    </span>
+                  </div>
+                </div>
+                {workspace.userRole === "owner" && (
+                  <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 group-hover:bg-white transition-colors shrink-0">
+                    Owner
+                  </span>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </div>
 

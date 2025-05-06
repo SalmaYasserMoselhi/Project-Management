@@ -12,13 +12,9 @@ import {
   selectWorkspace,
 } from "../features/Slice/ComponentSlice/sidebarSlice";
 import { fetchUserData } from "../features/Slice/userSlice/userSlice";
+import { fetchUserPublicWorkspaces, selectShouldFetchWorkspaces } from "../features/Slice/WorkspaceSlice/userWorkspacesSlice";
 
 import {
-  // MessageCircle,
-  // Grid,
-  // Network,
-  // Users2,
-  // User,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -121,6 +117,7 @@ const Sidebar = () => {
   const [isClosingWorkspace, setIsClosingWorkspace] = useState(false);
   const [isWorkspacePopupOpen, setIsWorkspacePopupOpen] = useState(false);
   const BASE_URL = "http://localhost:3000";
+  const [defaultPublicWorkspace, setDefaultPublicWorkspace] = useState(null);
 
   // Get state from Redux store
   const {
@@ -132,6 +129,33 @@ const Sidebar = () => {
     workspaceTransitionState,
   } = useSelector((state) => state.sidebar);
   const { user } = useSelector((state) => state.user);
+  const { selectedWorkspace: popupSelectedWorkspace, workspaces: userPublicWorkspaces } = useSelector((state) => state.userWorkspaces);
+
+  // Get selected workspace from localStorage if not in Redux
+  let localStorageSelectedWorkspace = null;
+  try {
+    const saved = localStorage.getItem("selectedPublicWorkspace");
+    if (saved) {
+      localStorageSelectedWorkspace = JSON.parse(saved);
+    }
+  } catch {}
+
+  // Add this at the top level
+  const shouldFetch = useSelector(selectShouldFetchWorkspaces);
+
+  // Determine if user is not the owner of the selected public workspace
+  const isNotOwner = (ws) => ws && ws.type === "public" && user && ws.createdBy !== user._id;
+  const hideCollabAndPrivate =
+    (isNotOwner(popupSelectedWorkspace) || isNotOwner(localStorageSelectedWorkspace));
+
+  const handleItemClick = (title, path) => {
+    dispatch(setActiveItem(title));
+    navigate(`/main/${path}`);
+
+    if (isMobile) {
+      dispatch(toggleSidebar());
+    }
+  };
 
   useEffect(() => {
     dispatch(fetchUserData());
@@ -178,14 +202,28 @@ const Sidebar = () => {
     };
   }, [dispatch, workspaceTransitionState, isClosingWorkspace]);
 
-  const handleItemClick = (title, path) => {
-    dispatch(setActiveItem(title));
-    navigate(`/main/${path}`);
-
-    if (isMobile) {
-      dispatch(toggleSidebar());
+  useEffect(() => {
+    if (shouldFetch) {
+      dispatch(fetchUserPublicWorkspaces());
     }
-  };
+  }, [dispatch, shouldFetch]);
+
+  // Fallbacks
+  const ownedWorkspace = userPublicWorkspaces.find(w => w.userRole === "owner");
+
+  // Sidebar header name logic
+  const sidebarWorkspaceName =
+    (popupSelectedWorkspace && popupSelectedWorkspace.name) ||
+    (localStorageSelectedWorkspace && localStorageSelectedWorkspace.name) ||
+    (ownedWorkspace && ownedWorkspace.name) ||
+    (userPublicWorkspaces.length > 0 && userPublicWorkspaces[0].name) ||
+    (user ? `${user.firstName}'s Workspace` : "Workspace");
+
+  // For avatar: use selected workspace from Redux, then localStorage
+  const selectedOrLocalWorkspace = popupSelectedWorkspace || localStorageSelectedWorkspace;
+  const sidebarAvatarLetter = selectedOrLocalWorkspace
+    ? (selectedOrLocalWorkspace.name ? selectedOrLocalWorkspace.name.charAt(0).toUpperCase() : "?")
+    : (user ? user.firstName.charAt(0).toUpperCase() : "?");
 
   // Handle closing workspace with animation
   const handleCloseWorkspace = () => {
@@ -216,6 +254,17 @@ const Sidebar = () => {
     // Prevent navigation if event is provided
     if (e) e.preventDefault();
 
+    // Only handle for public workspaces
+    if (workspaceType === "workspace") {
+      // If a public workspace is already selected, open it
+      if (selectedWorkspace && selectedWorkspace.type === "public") {
+        dispatch(setActiveWorkspaceType("workspace"));
+        dispatch(selectWorkspace(selectedWorkspace));
+        dispatch(openWorkspaceStart());
+        return;
+      }
+    }
+
     try {
       // If clicking on the same workspace type that's already open, just close it
       if (isWorkspaceOpen && activeWorkspaceType === workspaceType) {
@@ -237,7 +286,8 @@ const Sidebar = () => {
 
       const data = await response.json();
 
-      if (data?.status === "success" && data?.data?.ownedWorkspaces) {
+      const workspaces = data?.data?.ownedWorkspaces || data?.data?.workspaces;
+      if (data?.status === "success" && workspaces) {
         // Map the workspace types to match the API
         const typeMapping = {
           workspace: "public",
@@ -245,7 +295,7 @@ const Sidebar = () => {
           private: "private",
         };
 
-        const workspace = data.data.ownedWorkspaces.find(
+        const workspace = workspaces.find(
           (w) => w.type === typeMapping[workspaceType]
         );
 
@@ -256,6 +306,8 @@ const Sidebar = () => {
             name: workspace.name,
             type: workspace.type,
             description: workspace.description,
+            createdBy: workspace.createdBy,
+            userRole: workspace.userRole,
           };
 
           // If a workspace is currently open, close it first
@@ -401,11 +453,11 @@ const Sidebar = () => {
                 data-popup-trigger="true"
               >
                 <div className="w-6 h-6 flex items-center justify-center bg-[#6A3B82] text-[#fff] font-medium rounded-sm text-sm">
-                  {user.firstName.charAt(0).toUpperCase()}
+                  {sidebarAvatarLetter}
                 </div>
 
                 <span className="text-sm flex-1 px-2 truncate text-white">
-                  {user.firstName}&apos;s Workspaces
+                  {sidebarWorkspaceName}
                 </span>
 
                 <ChevronDown
@@ -419,7 +471,7 @@ const Sidebar = () => {
                   onClick={handleWorkspacePopupToggle}
                   data-popup-trigger="true"
                 >
-                  {user.firstName.charAt(0).toUpperCase()}
+                  {sidebarAvatarLetter}
                 </div>
               </div>
             )}
@@ -429,6 +481,7 @@ const Sidebar = () => {
               isOpen={isWorkspacePopupOpen}
               onClose={() => setIsWorkspacePopupOpen(false)}
               currentWorkspace={selectedWorkspace}
+              defaultPublicWorkspace={defaultPublicWorkspace}
             />
           </div>
 
@@ -507,98 +560,111 @@ const Sidebar = () => {
         className="space-y-2 overflow-y-auto"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
-        {/* Workspace */}
-        <div
-          className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-            activeItem === "Workspace" ? "bg-white/90" : "hover:bg-white/90"
-          } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
-          onClick={(e) => {
-            handleWorkspaceToggle("workspace", e);
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <WorkspaceIcon
-              className={`h-5 w-5 ${
-                activeItem === "Workspace"
-                  ? "text-[#4D2D61]"
-                  : "text-white group-hover:text-[#4D2D61]"
-              }`}
-            />
-            {isSidebarOpen && (
-              <span
-                className={`text-sm ${
-                  activeItem === "Workspace"
-                    ? "text-[#4D2D61]"
-                    : "text-white group-hover:text-[#4D2D61]"
-                }`}
-              >
-                Workspace
-              </span>
-            )}
-          </div>
-        </div>
+        {selectedOrLocalWorkspace && user ? (
+          <>
+            {/* Workspace */}
+            <div
+              className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+                activeItem === "Workspace" ? "bg-white/90" : "hover:bg-white/90"
+              } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
+              onClick={(e) => {
+                handleWorkspaceToggle("workspace", e);
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <WorkspaceIcon
+                  className={`h-5 w-5 ${
+                    activeItem === "Workspace"
+                      ? "text-[#4D2D61]"
+                      : "text-white group-hover:text-[#4D2D61]"
+                  }`}
+                />
+                {isSidebarOpen && (
+                  <span
+                    className={`text-sm ${
+                      activeItem === "Workspace"
+                        ? "text-[#4D2D61]"
+                        : "text-white group-hover:text-[#4D2D61]"
+                    }`}
+                  >
+                    Workspace
+                  </span>
+                )}
+              </div>
+            </div>
 
-        {/* Collaboration */}
-        <div
-          className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-            activeItem === "Collaboration" ? "bg-white/90" : "hover:bg-white/90"
-          } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
-          onClick={(e) => {
-            handleWorkspaceToggle("collaboration", e);
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <CollaborationIcon
-              className={`h-5 w-5 ${
-                activeItem === "Collaboration"
-                  ? "text-[#4D2D61]"
-                  : "text-white group-hover:text-[#4D2D61]"
-              }`}
-            />
-            {isSidebarOpen && (
-              <span
-                className={`text-sm ${
-                  activeItem === "Collaboration"
-                    ? "text-[#4D2D61]"
-                    : "text-white group-hover:text-[#4D2D61]"
-                }`}
-              >
-                Collaboration
-              </span>
-            )}
-          </div>
-        </div>
+            {/* Hide Collaboration and Private if not owner of selected public workspace */}
+            {!hideCollabAndPrivate && (
+              <>
+                {/* Collaboration */}
+                <div
+                  className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+                    activeItem === "Collaboration"
+                      ? "bg-white/90"
+                      : "hover:bg-white/90"
+                  } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
+                  onClick={(e) => {
+                    handleWorkspaceToggle("collaboration", e);
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <CollaborationIcon
+                      className={`h-5 w-5 ${
+                        activeItem === "Collaboration"
+                          ? "text-[#4D2D61]"
+                          : "text-white group-hover:text-[#4D2D61]"
+                      }`}
+                    />
+                    {isSidebarOpen && (
+                      <span
+                        className={`text-sm ${
+                          activeItem === "Collaboration"
+                            ? "text-[#4D2D61]"
+                            : "text-white group-hover:text-[#4D2D61]"
+                        }`}
+                      >
+                        Collaboration
+                      </span>
+                    )}
+                  </div>
+                </div>
 
-        {/* Private */}
-        <div
-          className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-            activeItem === "Private" ? "bg-white/90" : "hover:bg-white/90"
-          } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
-          onClick={(e) => {
-            handleWorkspaceToggle("private", e);
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <PrivateIcon
-              className={`h-5 w-5 ${
-                activeItem === "Private"
-                  ? "text-[#4D2D61]"
-                  : "text-white group-hover:text-[#4D2D61]"
-              }`}
-            />
-            {isSidebarOpen && (
-              <span
-                className={`text-sm ${
-                  activeItem === "Private"
-                    ? "text-[#4D2D61]"
-                    : "text-white group-hover:text-[#4D2D61]"
-                }`}
-              >
-                Private
-              </span>
+                {/* Private */}
+                <div
+                  className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+                    activeItem === "Private" ? "bg-white/90" : "hover:bg-white/90"
+                  } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
+                  onClick={(e) => {
+                    handleWorkspaceToggle("private", e);
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <PrivateIcon
+                      className={`h-5 w-5 ${
+                        activeItem === "Private"
+                          ? "text-[#4D2D61]"
+                          : "text-white group-hover:text-[#4D2D61]"
+                      }`}
+                    />
+                    {isSidebarOpen && (
+                      <span
+                        className={`text-sm ${
+                          activeItem === "Private"
+                            ? "text-[#4D2D61]"
+                            : "text-white group-hover:text-[#4D2D61]"
+                        }`}
+                      >
+                        Private
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </>
             )}
-          </div>
-        </div>
+          </>
+        ) : (
+          <div style={{ height: 120 }} />
+        )}
       </nav>
     </div>
   );

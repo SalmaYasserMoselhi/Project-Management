@@ -825,7 +825,7 @@ exports.acceptInvitation = catchAsync(
   }
 
    // Redirect to workspace page on frontend
-   return res.redirect(`${frontendUrl}/main/dashboard/${workspace._id}?joined=true`);
+   return res.redirect(`${frontendUrl}/main/dashboard?joined=true`);
   },
   // Cleanup function
   async (req, err) => {

@@ -9,7 +9,7 @@ const Workspace = require('../models/workspaceModel');
 const passport = require('passport');
 
 // jwt.sign(payload, secretOrPrivateKey, options)
-  const signToken = (id) => {
+const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
@@ -43,19 +43,78 @@ const sendVerificationEmail = async (user, verificationToken) => {
   const verificationURL = `${process.env.BASE_URL}/users/verifyEmail/${verificationToken}`;
 
   const message = `
-    <div style="background-color: #f6f9fc; padding: 20px; font-family: Arial, sans-serif;">
-      <div style="background-color: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 0 auto; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-        <h2 style="color: #EFC235; text-align: center; font-size: 24px; margin-bottom: 20px;">Verify Your Email Address</h2>
-        <p style="color: #3a2d34; text-align: center; font-size: 16px;">Please click the button below to verify your email address:</p>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${verificationURL}" style="background-color: #EFC235; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Verify Email</a>
-        </div>
-        <p style="color: #3a2d34; font-size: 14px; text-align: center; margin-bottom: 20px;">This link will expire in 10 minutes.</p>
-        <hr style="border: none; border-top: 1px solid #e6e6e6; margin: 20px 0;">
-        <p style="color: #888; font-size: 12px; text-align: center;">If you didn't create an account, please ignore this email.</p>
-      </div>
-    </div>
-  `;
+  <body style="background-color: #f6f9fc; margin: 0; padding: 20px; font-family: Arial, Helvetica, sans-serif;">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%">
+      <tr>
+        <td align="center" valign="top">
+          <table cellpadding="0" cellspacing="0" border="0" width="600" style="background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); max-width: 600px;">
+            
+            <!-- Logo -->
+            <tr>
+              <td align="center" style="padding: 30px 20px 10px 20px;">
+                <img src="cid:nexus_logo" alt="Nexus Logo" width="140" style="display: block;">
+              </td>
+            </tr>
+
+            <!-- Header -->
+            <tr>
+              <td align="center" style="padding: 0 20px;">
+                <h2 style="color: #4d2d61; font-size: 24px; margin: 10px 0 20px; font-weight: bold;">Verify Your Email Address</h2>
+              </td>
+            </tr>
+
+            <!-- Body -->
+            <tr>
+              <td style="padding: 0 30px;">
+                <p style="color: #4d2d61; font-size: 16px; text-align: center; margin: 0 0 20px 0;">Please click the button below to verify your email address:</p>
+              </td>
+            </tr>
+
+            <!-- Button -->
+            <tr>
+              <td align="center" style="padding: 0 30px 20px 30px;">
+                <table cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="center" style="background-color: #4d2d61; border-radius: 6px;">
+                      <a href="${verificationURL}" style="display: inline-block; padding: 12px 30px; color: #ffffff; font-size: 16px; font-weight: bold; text-decoration: none;">Verify Email</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Expiry Note -->
+            <tr>
+              <td style="padding: 0 30px;">
+                <p style="color: #4d2d61; font-size: 14px; text-align: center; margin-bottom: 20px;">This link will expire in 10 minutes.</p>
+              </td>
+            </tr>
+
+            <!-- Divider -->
+            <tr>
+              <td style="padding: 0 30px;">
+                <hr style="border: none; border-top: 1px solid #e6e6e6; margin: 20px 0;">
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="padding: 0 30px 20px 30px;">
+                <p style="color: #888888; font-size: 12px; text-align: center; margin: 0 0 15px;">If you didn't create an account, please ignore this email.</p>
+                <div style="text-align: center;">
+                  <img src="cid:nexus_logo" alt="Nexus Logo" width="100" style="display: block;">
+                </div>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+`;
+
+  
 
   await sendEmail({
     email: user.email,
@@ -83,7 +142,9 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
   if (!user) {
     // Instead of returning error JSON, redirect to frontend with error parameter
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    return res.redirect(`${frontendUrl}/login?verification=failed`);
+    return res.redirect(
+      `${frontendUrl}/verification-failed?verification=failed`
+    );
   }
 
   // 3) Update user
@@ -92,22 +153,21 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
   user.emailVerificationExpires = undefined;
   await user.save({ validateBeforeSave: false });
 
- // 4) Create token and set cookie, but DON'T send JSON response
- const jwtToken = signToken(user._id);
- res.cookie('jwt', jwtToken, {
-   expires: new Date(
-     Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
-   ),
-   httpOnly: true,
-   secure: false,
-   sameSite: 'lax',
-   path: '/',
- });
- 
+  // 4) Create token and set cookie, but DON'T send JSON response
+  const jwtToken = signToken(user._id);
+  res.cookie('jwt', jwtToken, {
+    expires: new Date(
+      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+    ),
+    httpOnly: true,
+    secure: false,
+    sameSite: 'lax',
+    path: '/',
+  });
 
   // 5) Redirect to frontend login page with success parameter
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-  return res.redirect(`${frontendUrl}/login?verified=true`);
+  return res.redirect(`${frontendUrl}/verification-success?verified=true`);
 });
 
 exports.signup = catchAsync(
@@ -256,7 +316,7 @@ exports.handleCallback = async (req, res) => {
       user.emailVerified = true;
       await user.save({ validateBeforeSave: false });
     }
-    
+
     console.log('User data:', user);
 
     // Get the state from Google's response
@@ -578,6 +638,5 @@ exports.logout = (req, res) => {
 
   res.status(200).json({ status: 'success' });
 };
-
 
 // module.exports = {signToken};

@@ -85,6 +85,7 @@ const recalculatePositions = async (
 // Create Card
 exports.createCard = catchAsync(async (req, res, next) => {
   const listId = req.body.list;
+  const priority = req.body.priority;
 
   // Find the list and its parent board
   const list = await List.findById(listId);
@@ -99,6 +100,15 @@ exports.createCard = catchAsync(async (req, res, next) => {
 
   // Check permissions
   permissionService.verifyPermission(board, req.user._id, 'create_cards');
+
+
+   // Validate priority if provided
+   if (priority) {
+    const validPriorityLevels = ['none', 'low', 'medium', 'high'];
+    if (!validPriorityLevels.includes(priority)) {
+      return next(new AppError(`Invalid priority level. Must be one of: ${validPriorityLevels.join(', ')}`, 400));
+    }
+  }
 
   // Check list card limit
   await checkListCardLimit(listId);
@@ -164,6 +174,7 @@ exports.createCard = catchAsync(async (req, res, next) => {
     {
       title: card.title,
       listId: listId,
+      priority: priority || 'none',
     }
   );
 
@@ -237,6 +248,14 @@ exports.updateCard = catchAsync(async (req, res, next) => {
   delete updateData.createdBy;
   delete updateData.list;
   delete updateData.position;
+
+    // Validate priority if it's being updated
+    if (updateData.priority) {
+      const validPriorityLevels = ['none', 'low', 'medium', 'high'];
+      if (!validPriorityLevels.includes(updateData.priority)) {
+        return next(new AppError(`Invalid priority level. Must be one of: ${validPriorityLevels.join(', ')}`, 400));
+      }
+    }
 
   // Check if there are card fields to update
   let updatedCard = card;
@@ -1690,5 +1709,169 @@ exports.deleteArchivedCard = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     message: 'Archived card deleted successfully',
+  });
+});
+
+
+
+// Add these functions to cardController.js
+
+// Update card priority
+exports.updatePriority = catchAsync(async (req, res, next) => {
+  const { cardId } = req.params;
+  const { priority } = req.body;
+  
+  // Validate priority level
+  const validPriorityLevels = ['none', 'low', 'medium', 'high'];
+  if (!validPriorityLevels.includes(priority)) {
+    return next(new AppError(`Invalid priority level. Must be one of: ${validPriorityLevels.join(', ')}`, 400));
+  }
+  
+  // Get card with context and verify access
+  const { card, board } = await getCardWithContext(cardId, req.user._id);
+  
+  // Verify permission to edit this card
+  permissionService.verifyCardEdit(board, card, req.user._id);
+  
+  // Store original priority for activity log
+  const originalPriority = card.priority;
+  
+  // Update the priority
+  card.priority = priority;
+  await card.save();
+  
+  // Log activity
+  await activityService.logCardActivity(
+    board,
+    req.user._id,
+    'card_updated',
+    card._id,
+    {
+      field: 'priority',
+      from: originalPriority,
+      to: priority
+    }
+  );
+  
+  res.status(200).json({
+    status: 'success',
+    data: {
+      card
+    }
+  });
+});
+
+// Filter cards by priority in a list/board
+exports.filterCardsByPriority = catchAsync(async (req, res, next) => {
+  const { boardId } = req.params;
+  const { priority } = req.params;
+  
+  // Validate priority level
+  const validPriorityLevels = ['none', 'low', 'medium', 'high'];
+  if (!validPriorityLevels.includes(priority)) {
+    return next(new AppError(`Invalid priority level. Must be one of: ${validPriorityLevels.join(', ')}`, 400));
+  }
+  
+  // Find the board
+  const board = await Board.findById(boardId);
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
+  
+  // Verify access
+  permissionService.verifyPermission(board, req.user._id, 'view_board');
+  
+  // Find all lists in this board
+  const lists = await List.find({ board: boardId });
+  const listIds = lists.map(list => list._id);
+  
+  // Build query
+  const query = {
+    priority: priority,
+    list: { $in: listIds },
+    archived: false
+  };
+  
+  // Get cards
+  const cards = await Card.find(query)
+    .sort('position')
+    .populate('members.user', 'email firstName lastName avatar username')
+    .populate('createdBy', 'email firstName lastName avatar username')
+    .populate('list', 'name');
+  
+  // Always return a response, even if no cards match the priority
+  res.status(200).json({
+    status: 'success',
+    results: cards.length,
+    data: {
+      cards
+    }
+  });
+});
+
+// Sort cards by priority
+exports.getCardsSortedByPriority = catchAsync(async (req, res, next) => {
+  const { boardId } = req.params;
+  const { order = 'desc' } = req.query; // desc = highest priority first
+  
+  // Find the board
+  const board = await Board.findById(boardId);
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
+  
+  // Verify access
+  permissionService.verifyPermission(board, req.user._id, 'view_board');
+  
+  // Find all lists in this board
+  const lists = await List.find({ board: boardId, archived: false });
+  const listIds = lists.map(list => list._id);
+  
+  // Get all non-archived cards in the board
+  const cards = await Card.find({ 
+    list: { $in: listIds },
+    archived: false
+  }).populate('list', 'name');
+  
+  // Sort by priority level
+  const priorityMap = {
+    'none': 0,
+    'low': 1,
+    'medium': 2,
+    'high': 3
+  };
+  
+  const sortedCards = cards.sort((a, b) => {
+    const valA = priorityMap[a.priority] || 0;
+    const valB = priorityMap[b.priority] || 0;
+    
+    return order === 'asc' ? valA - valB : valB - valA;
+  });
+  
+  // Group by list for easier frontend display
+  const cardsByList = {};
+  
+  sortedCards.forEach(card => {
+    const listId = card.list._id.toString();
+    const listName = card.list.name;
+    
+    if (!cardsByList[listId]) {
+      cardsByList[listId] = {
+        listId,
+        listName,
+        cards: []
+      };
+    }
+    
+    cardsByList[listId].cards.push(card);
+  });
+  
+  res.status(200).json({
+    status: 'success',
+    results: sortedCards.length,
+    data: {
+      cards: sortedCards,
+      cardsByList: Object.values(cardsByList)
+    }
   });
 });

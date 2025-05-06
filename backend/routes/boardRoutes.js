@@ -92,6 +92,7 @@ router
 
 // Get archived boards
 router.get('/user-boards/archived', boardController.getArchivedBoards);
+router.get('/workspace/:workspaceId/archived', boardController.getWorkspaceArchivedBoards);
 
 // Star/unstar routes
 router
