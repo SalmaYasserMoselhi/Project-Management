@@ -7,7 +7,8 @@ import vector from "../assets/Vector.png";
 import { useSelector } from "react-redux";
 import ShareModal from "./ShareModal";
 import ArchivedPopup from "./ArchivedPopup";
-import axios from "axios"; // ✅ added
+import axios from "axios"; 
+import { useNavigate } from 'react-router-dom';
 
 const ProjectInfo = ({ boardName, boardDescription, boardId }) => {
   const BASE_URL = "http://localhost:3000";
@@ -17,6 +18,7 @@ const ProjectInfo = ({ boardName, boardDescription, boardId }) => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showArchivedPopup, setShowArchivedPopup] = useState(false);
+  const navigate = useNavigate();
 
   const dropdownRef = useRef(null);
 
@@ -46,10 +48,12 @@ const ProjectInfo = ({ boardName, boardDescription, boardId }) => {
           withCredentials: true, 
         }
       );
+      navigate('/main/dashboard');
       setShowToast(true);
       setShowDropdown(false); // Optional: hide dropdown after deletion
   
       setTimeout(() => setShowToast(false), 3000);
+
     } catch (error) {
       console.error("Error deleting board:", error);
       alert("Failed to delete board.");

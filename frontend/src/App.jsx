@@ -7,7 +7,10 @@ import Routing from "./Routing/Routing";
 import WorkspacePopup from "./Workspace/WorkspacePopup";
 import { checkAuthStatus } from "./features/Slice/authSlice/loginSlice";
 import { fetchUserData } from "./features/Slice/userSlice/userSlice";
+import WorkspacePopup from "./Workspace/WorkspacePopup"
+import Routing from "./Routing/Routing"
 import "./index.css";
+
 
 function App() {
   const { isWorkspaceOpen, selectedWorkspace, workspaceTransitionState } =
