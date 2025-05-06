@@ -7,6 +7,7 @@ import sidebarReducer from "../Slice/ComponentSlice/sidebarSlice";
 import chatReducer from "../Slice/ChatSlice/chatSlice";
 import userWorkspacesReducer from "../Slice/WorkspaceSlice/userWorkspacesSlice";
 import boardsReducer from "../Slice/WorkspaceSlice/boardsSlice";
+import cardDetailsReducer from "../Slice/cardSlice/cardDetailsSlice";
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
     chat: chatReducer,
     userWorkspaces: userWorkspacesReducer,
     boards: boardsReducer,
+    cardDetails: cardDetailsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
