@@ -12,7 +12,6 @@ import {
   selectWorkspace,
 } from "../features/Slice/ComponentSlice/sidebarSlice";
 import { fetchUserData } from "../features/Slice/userSlice/userSlice";
-import { fetchUserPublicWorkspaces, selectShouldFetchWorkspaces } from "../features/Slice/WorkspaceSlice/userWorkspacesSlice";
 import { logoutUser } from "../features/Slice/authSlice/loginSlice";
 
 import {
@@ -131,9 +130,8 @@ const Sidebar = () => {
     workspaceTransitionState,
   } = useSelector((state) => state.sidebar);
   const { user } = useSelector((state) => state.user);
-  const { selectedWorkspace: popupSelectedWorkspace, workspaces: userPublicWorkspaces } = useSelector((state) => state.userWorkspaces);
 
-  // Get selected workspace from localStorage if not in Redux
+  // Get selected workspace from localStorage if present
   let localStorageSelectedWorkspace = null;
   try {
     const saved = localStorage.getItem("selectedPublicWorkspace");
@@ -142,12 +140,15 @@ const Sidebar = () => {
     }
   } catch {}
 
-  // Add this at the top level
-  const shouldFetch = useSelector(selectShouldFetchWorkspaces);
+  // Always use localStorage selected workspace if available
+  const selectedOrLocalWorkspace = localStorageSelectedWorkspace;
+  const sidebarAvatarLetter = selectedOrLocalWorkspace
+    ? (selectedOrLocalWorkspace.name ? selectedOrLocalWorkspace.name.charAt(0).toUpperCase() : "?")
+    : (user ? user.firstName.charAt(0).toUpperCase() : "?");
 
   // Determine if user is not the owner of the selected public workspace
   const isNotOwner = (ws) => ws && ws.type === "public" && user && (ws.userRole !== "owner" || ws.createdBy !== user._id);
-  const hideCollabAndPrivate = isNotOwner(selectedWorkspace);
+  const hideCollabAndPrivate = isNotOwner(selectedOrLocalWorkspace);
 
   const handleItemClick = (title, path) => {
     dispatch(setActiveItem(title));
@@ -228,34 +229,10 @@ const Sidebar = () => {
     };
   }, [dispatch, workspaceTransitionState, isClosingWorkspace]);
 
-  useEffect(() => {
-    if (shouldFetch) {
-      dispatch(fetchUserPublicWorkspaces());
-    }
-  }, [dispatch, shouldFetch]);
-
-  useEffect(() => {
-    if (user) {
-      dispatch(fetchUserPublicWorkspaces());
-    }
-  }, [user, dispatch]);
-
-  // Fallbacks
-  const ownedWorkspace = userPublicWorkspaces.find(w => w.userRole === "owner");
-
   // Sidebar header name logic
   const sidebarWorkspaceName =
-    (popupSelectedWorkspace && popupSelectedWorkspace.name) ||
-    (localStorageSelectedWorkspace && localStorageSelectedWorkspace.name) ||
-    (ownedWorkspace && ownedWorkspace.name) ||
-    (userPublicWorkspaces.length > 0 && userPublicWorkspaces[0].name) ||
+    (selectedOrLocalWorkspace && selectedOrLocalWorkspace.name) ||
     (user ? `${user.firstName}'s Workspace` : "Workspace");
-
-  // For avatar: use selected workspace from Redux, then localStorage
-  const selectedOrLocalWorkspace = popupSelectedWorkspace || localStorageSelectedWorkspace;
-  const sidebarAvatarLetter = selectedOrLocalWorkspace
-    ? (selectedOrLocalWorkspace.name ? selectedOrLocalWorkspace.name.charAt(0).toUpperCase() : "?")
-    : (user ? user.firstName.charAt(0).toUpperCase() : "?");
 
   // Handle closing workspace with animation
   const handleCloseWorkspace = () => {
@@ -356,6 +333,8 @@ const Sidebar = () => {
             dispatch(selectWorkspace(workspaceData));
             dispatch(openWorkspaceStart());
           }
+          // Update localStorage
+          localStorage.setItem("selectedPublicWorkspace", JSON.stringify(workspaceData));
         }
       }
     } catch (error) {

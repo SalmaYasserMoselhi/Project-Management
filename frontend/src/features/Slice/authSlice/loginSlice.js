@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { fetchUserData } from "../userSlice/userSlice";
+import { fetchUserPublicWorkspaces } from "../WorkspaceSlice/userWorkspacesSlice";
 
 const API_BASE_URL = "/api/v1";
 
@@ -64,6 +65,8 @@ export const loginUser = createAsyncThunk(
 
       // Fetch user data after successful login
       const userDataResponse = await dispatch(fetchUserData()).unwrap();
+      // Fetch user workspaces after successful login
+      await dispatch(fetchUserPublicWorkspaces());
       return { ...data, user: userDataResponse };
     } catch (error) {
       console.error("Login error:", error);
