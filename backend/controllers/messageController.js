@@ -3,6 +3,13 @@ const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const Conversation = require('../models/conversationModel');
 const mongoose = require('mongoose');
+const Attachment = require('../models/attachmentModel');
+const { uploadMultipleFiles } = require('../Middlewares/fileUploadMiddleware');
+
+
+// Add the middleware for file uploads
+exports.uploadMessageFiles = uploadMultipleFiles().array('files', 5);
+
 
 const createMessage = async (data) => {
   let newMessage = await Message.create(data);
@@ -47,11 +54,43 @@ const updateLastMessage = async (convoId, msg) => {
 exports.sendMessage = catchAsync(async (req, res, next) => {
   const userId = req.user._id;
   const { message, convoId, files } = req.body;
-  if (!convoId || (!message && !files)) {
+  if (!convoId) {
     return next(
-      new AppError('Please provide a conversation id and a message body', 400)
-    );
+      new AppError('Please provide a conversation id', 400)    );
   }
+
+    // Check if there's either a message or files
+    if (!message && (!req.files || req.files.length === 0)) {
+      return next(
+        new AppError('Please provide a message or files', 400)
+      );
+    }
+
+  // Process uploaded files if any
+  let fileAttachments = [];
+  if (req.files && req.files.length > 0) {
+    for (const file of req.files) {
+      const newFile = await Attachment.create({
+        originalName: file.originalname,
+        filename: file.filename,
+        mimetype: file.mimetype,
+        size: file.size,
+        path: file.path,
+        entityType: 'chat',
+        entityId: convoId,
+        uploadedBy: userId,
+      });
+      
+      fileAttachments.push({
+        _id: newFile._id,
+        originalName: newFile.originalName,
+        mimetype: newFile.mimetype,
+        size: newFile.size,
+        url: `/api/v1/files/${newFile._id}/download`
+      });
+    }
+  }
+  
   const msgData = {
     sender: userId,
     message,
