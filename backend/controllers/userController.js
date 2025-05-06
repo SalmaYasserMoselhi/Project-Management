@@ -123,8 +123,14 @@ exports.updateMe = catchAsync(async (req, res, next) => {
   });
 });
 exports.getMe = (req, res, next) => {
-  req.params.id = req.user.id;
-  next();
+  const user = req.user;
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      user,
+    },
+    })
 };
 
 exports.searchUsers = catchAsync(async (req, res, next) => {

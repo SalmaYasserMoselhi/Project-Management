@@ -626,17 +626,29 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
   // 4) Log user in, send JWT
   createSendToken(user, 200, req, res);
 });
+// Single, effective approach for logout in authController.js
+
+// authController.js - Verified JWT logout solution
 
 exports.logout = (req, res) => {
+  // Force express to expire and clear the cookie properly
   res.cookie('jwt', '', {
-    expires: new Date(Date.now() + 10 * 1000),
     httpOnly: true,
-    secure: false,
+    secure: false, // Set to true if using HTTPS
     sameSite: 'lax',
     path: '/',
+    expires: new Date(0), // Forces immediate expiration
+    maxAge: 0 // Belt and suspenders - explicitly set maxAge to 0
   });
 
-  res.status(200).json({ status: 'success' });
+  // Explicitly send cache headers to prevent browser caching
+  res.set('Cache-Control', 'no-store');
+  
+  // Respond with 200 status and clear body content
+  res.status(200).json({
+    status: 'success',
+    message: 'Logged out successfully'
+  });
 };
 
 // module.exports = {signToken};
