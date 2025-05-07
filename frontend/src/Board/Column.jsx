@@ -159,10 +159,15 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
         {cards.map((card) => (
           <TaskCard
             key={card.id}
+            id={card.id || card._id}
             title={card.title}
             priority={card.priority || "Medium"}
             fileCount={card.attachments?.length || 0}
             commentCount={card.commentCount || 0}
+            listId={id}
+            boardId={boardId}
+            allLists={allLists}
+            labels={card.labels || []}
           />
         ))}
 
