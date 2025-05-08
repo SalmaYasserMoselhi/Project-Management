@@ -69,8 +69,8 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          // Check if the saved workspace exists in the loaded list and is owned by the current user
-          const exists = workspaces.some(ws => ws._id === parsed._id && ws.userRole === "owner" && ws.createdBy === user._id);
+          // Check if the saved workspace exists in the loaded list
+          const exists = workspaces.some(ws => ws._id === parsed._id);
           if (exists) {
             dispatch({ type: "userWorkspaces/selectUserWorkspace/fulfilled", payload: parsed });
           } else {
@@ -119,8 +119,10 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     if (!workspace) return;
 
     try {
-      // Save the full workspace object to localStorage for restoration
-      localStorage.setItem("selectedPublicWorkspace", JSON.stringify(workspace));
+      // Only save to localStorage if it's a public workspace
+      if (workspace.type === "public") {
+        localStorage.setItem("selectedPublicWorkspace", JSON.stringify(workspace));
+      }
 
       // Select the workspace in userWorkspaces slice
       const resultAction = await dispatch(selectUserWorkspace(workspace));
@@ -134,9 +136,11 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
           private: "private",
         };
 
-        // Select the workspace and close the popup
-        dispatch(setActiveWorkspaceType(typeMapping[workspace.type]));
-        dispatch(selectWorkspace(workspaceData));
+        // Only update the sidebar workspace if it's a public workspace
+        if (workspace.type === "public") {
+          dispatch(setActiveWorkspaceType(typeMapping[workspace.type]));
+          dispatch(selectWorkspace(workspaceData));
+        }
         onClose();
       }
     } catch (error) {
@@ -149,19 +153,12 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     return name ? name.charAt(0).toUpperCase() : "?";
   };
 
-  // Determine if a workspace is the current workspace
-  const isCurrentWorkspace = (workspace) => {
-    return (
-      workspace && currentWorkspace && workspace._id === currentWorkspace.id
-    );
-  };
 
   // Prefer the owned workspace as default
   const ownedWorkspace = workspaces.find(
     (workspace) => workspace.userRole === "owner"
   );
   const workspaceToShow =
-    currentWorkspace ||
     ownedWorkspace ||
     (workspaces.length > 0 ? workspaces[0] : null);
 
