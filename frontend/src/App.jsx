@@ -10,6 +10,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Routing from "./Routing/Routing";
 import WorkspacePopup from "./Workspace/WorkspacePopup";
+import { fetchUserPublicWorkspaces } from "./features/Slice/WorkspaceSlice/userWorkspacesSlice";
 
 
 
@@ -20,8 +21,22 @@ function App() {
   const location = useLocation();
   const dispatch = useDispatch();
 
+  const currentUser = useSelector(state => state.auth?.user);
+  const userWorkspaces = useSelector(state => state.userWorkspaces.workspaces);
+
   useEffect(() => {
-    dispatch(fetchUserData());
+    const initializeUser = async () => {
+      try {
+        const authResult = await dispatch(checkAuthStatus()).unwrap();
+        if (authResult?.isAuthenticated) {
+          await dispatch(fetchUserData());
+          await dispatch(fetchUserPublicWorkspaces());
+        }
+      } catch (error) {
+        console.error("Failed to initialize user:", error);
+      }
+    };
+    initializeUser();
   }, [dispatch]);
 
   // List of auth pages where we don't want Sidebar and WorkspacePopup
@@ -64,19 +79,23 @@ function App() {
   // });
 
   useEffect(() => {
-    const initializeUser = async () => {
-      try {
-        const authResult = await dispatch(checkAuthStatus()).unwrap();
-        if (authResult?.isAuthenticated) {
-          await dispatch(fetchUserData());
-        }
-      } catch (error) {
-        console.error("Failed to initialize user:", error);
-      }
-    };
-
-    initializeUser();
+    dispatch(checkAuthStatus());
   }, [dispatch]);
+
+  useEffect(() => {
+    console.log("App.jsx: Checking to fetch workspaces", currentUser?._id, userWorkspaces);
+    if (
+      currentUser?._id &&
+      (!Array.isArray(userWorkspaces) || userWorkspaces.length === 0)
+    ) {
+      console.log("App.jsx: Dispatching fetchUserPublicWorkspaces");
+      dispatch(fetchUserPublicWorkspaces());
+    }
+  }, [currentUser?._id, userWorkspaces, dispatch]);
+
+  useEffect(() => {
+    console.log("App.jsx: currentUser", currentUser);
+  }, [currentUser]);
 
   return (
     <div className="w-full h-screen overflow-hidden flex">
