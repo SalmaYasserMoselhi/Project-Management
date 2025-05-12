@@ -155,7 +155,7 @@ export default function CardSubtasks() {
         </div>
       ) : (
         <button
-          className="mt-3 flex items-center gap-1 py-2 px-4 bg-[#4D2D61] text-white rounded-md text-sm font-medium"
+          className="mt-3 flex items-center gap-1 py-2 px-4 bg-gradient-to-r from-[#4d2d61] to-[#7b4397] hover:shadow-lg hover:scale-[1.01] hover:translate-y-[-2px] text-white rounded-md text-sm font-medium"
           onClick={() => setIsAdding(true)}
         >
           <Plus size={16} />

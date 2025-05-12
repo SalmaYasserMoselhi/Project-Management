@@ -390,7 +390,7 @@ export default function CardDetails({
               <button
                 onClick={handleDone}
                 disabled={saveLoading}
-                className={`bg-[#4D2D61] hover:bg-[#57356A] text-white font-medium py-2 px-6 rounded-md transition-colors ${
+                className={`bg-gradient-to-r from-[#4d2d61] to-[#7b4397] hover:shadow-lg hover:scale-[1.01] hover:translate-y-[-2px] text-white font-medium py-2 px-6 rounded-md transition-colors ${
                   saveLoading ? "opacity-70 cursor-not-allowed" : ""
                 }`}
               >
