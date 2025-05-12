@@ -17,20 +17,34 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
   const dropdownRef = useRef(null);
   const vectorRef = useRef(null);
 
-  useEffect(() => {
-    const fetchCards = async () => {
-      try {
-        const res = await axios.get(
-          `${BASE_URL}/api/v1/cards/list/${id}/cards?include=attachments,comments`
-        );
+  const fetchCards = async () => {
+    try {
+      const res = await axios.get(
+        `${BASE_URL}/api/v1/cards/list/${id}/cards?include=attachments,comments`
+      );
+      setCards(res.data.data.cards || []);
+    } catch (err) {
+      console.error("Error loading cards:", err);
+    }
+  };
 
-        setCards(res.data.data.cards || []);
-      } catch (err) {
-        console.error("Error loading cards:", err);
+  useEffect(() => {
+    if (id) fetchCards();
+  }, [id]);
+
+  // Add event listener to refresh the column when a card is moved to/from it
+  useEffect(() => {
+    const handleRefreshList = (event) => {
+      if (event.detail && event.detail.listId === id) {
+        fetchCards();
       }
     };
 
-    if (id) fetchCards();
+    window.addEventListener("refreshList", handleRefreshList);
+
+    return () => {
+      window.removeEventListener("refreshList", handleRefreshList);
+    };
   }, [id]);
 
   // Close dropdown when clicking outside
@@ -63,8 +77,8 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
         priority,
       });
 
-      // Append new card to local list
-      setCards([...cards, res.data.data]);
+      // Refresh the cards list after adding a new card
+      await fetchCards();
       setNewTitle("");
       setPriority("Medium");
       setIsAdding(false);
@@ -109,6 +123,27 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
     onDelete(id);
   };
 
+  const handleCardUpdate = async (originalListId, newListId) => {
+    // Refresh the cards list when a card is updated
+    await fetchCards();
+
+    // If the card was moved to/from another list, notify the parent to refresh that list too
+    if (
+      originalListId &&
+      newListId &&
+      (originalListId === id || newListId === id)
+    ) {
+      // Find the other list ID that needs refreshing
+      const otherListId = originalListId === id ? newListId : originalListId;
+
+      // Emit an event to refresh the other list
+      const event = new CustomEvent("refreshList", {
+        detail: { listId: otherListId },
+      });
+      window.dispatchEvent(event);
+    }
+  };
+
   return (
     <div
       className={`p-2 rounded-lg mb-4 md:mb-0 md:mr-4 ${className} min-w-[300px]`}
@@ -126,13 +161,22 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
           </h3>
         </div>
         <div className="flex items-center relative">
-          <img
-            src={vector}
-            alt="Options"
-            className="w-[18px] h-[4px] cursor-pointer"
-            onClick={() => setDropdownVisible(!dropdownVisible)} // Toggle dropdown visibility
-            ref={vectorRef} // Reference to vector icon
-          />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            yy
+            viewBox="0 0 18 24"
+          >
+            <path
+              fill="none"
+              stroke="#4D2D61"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0-2 0m7 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0m7 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0"
+            />
+          </svg>
           {dropdownVisible && (
             <div
               className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10"
@@ -168,6 +212,7 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
             boardId={boardId}
             allLists={allLists}
             labels={card.labels || []}
+            onCardUpdate={handleCardUpdate}
           />
         ))}
 
@@ -177,6 +222,7 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
             currentListId={id}
             boardId={boardId}
             allLists={allLists}
+            onCardSaved={handleCardUpdate}
           />
         )}
       </div>

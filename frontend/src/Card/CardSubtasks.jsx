@@ -25,20 +25,19 @@ export default function CardSubtasks() {
   const [error, setError] = useState(null);
 
   // Debug logging
-  useEffect(() => {
-    console.log("CardSubtasks - Current card ID:", cardId);
-    console.log("CardSubtasks - Current subtasks:", subtasks);
-  }, [cardId, subtasks]);
+  // useEffect(() => {
+  //   console.log("CardSubtasks - Current card ID:", cardId);
+  //   console.log("CardSubtasks - Current subtasks:", subtasks);
+  // }, [cardId, subtasks]);
 
   // جلب المهام الفرعية عند تحميل المكون إذا كان هناك معرف بطاقة
   useEffect(() => {
     if (cardId) {
-      console.log(`Fetching subtasks for card ${cardId}`);
       dispatch(fetchCardSubtasks(cardId))
         .unwrap()
-        .then((data) => {
-          console.log("Subtasks fetched successfully:", data);
-        })
+        // .then((data) => {
+        //   console.log("Subtasks fetched successfully:", data);
+        // })
         .catch((error) => {
           console.error("Error fetching subtasks:", error);
         });
@@ -57,7 +56,7 @@ export default function CardSubtasks() {
 
     if (cardId) {
       // إذا كان هناك معرف بطاقة، استخدم API
-      console.log(`Adding subtask to card ${cardId}:`, trimmedTitle);
+      // console.log(`Adding subtask to card ${cardId}:`, trimmedTitle);
 
       dispatch(
         addCardSubtask({
@@ -67,7 +66,7 @@ export default function CardSubtasks() {
       )
         .unwrap()
         .then((response) => {
-          console.log("Subtask added successfully:", response);
+          // console.log("Subtask added successfully:", response);
           setNewTaskText("");
           setIsAdding(false);
         })
@@ -93,13 +92,13 @@ export default function CardSubtasks() {
   const handleToggleSubtask = (id) => {
     if (cardId) {
       // استخدم API
-      console.log(`Toggling subtask ${id} for card ${cardId}`);
+      // console.log(`Toggling subtask ${id} for card ${cardId}`);
       setLoadingTaskId(id);
       dispatch(toggleCardSubtask({ cardId, subtaskId: id }))
         .unwrap()
-        .then((response) => {
-          console.log("Subtask toggled successfully:", response);
-        })
+        // .then((response) => {
+        //   console.log("Subtask toggled successfully:", response);
+        // })
         .catch((err) => {
           console.error("Error toggling subtask:", err);
           setError(typeof err === "string" ? err : JSON.stringify(err));
@@ -114,13 +113,13 @@ export default function CardSubtasks() {
   const handleRemoveSubtask = (id) => {
     if (cardId) {
       // استخدم API
-      console.log(`Removing subtask ${id} from card ${cardId}`);
+      // console.log(`Removing subtask ${id} from card ${cardId}`);
       setLoadingTaskId(id);
       dispatch(deleteCardSubtask({ cardId, subtaskId: id }))
         .unwrap()
-        .then(() => {
-          console.log("Subtask deleted successfully");
-        })
+        // .then(() => {
+        //   console.log("Subtask deleted successfully");
+        // })
         .catch((err) => {
           console.error("Error deleting subtask:", err);
           setError(typeof err === "string" ? err : JSON.stringify(err));

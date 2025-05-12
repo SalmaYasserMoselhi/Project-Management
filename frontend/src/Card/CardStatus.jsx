@@ -1,16 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  updateListId,
-  updateCardList,
-} from "../features/Slice/cardSlice/cardDetailsSlice";
+import { updateListId } from "../features/Slice/cardSlice/cardDetailsSlice";
 
 export default function CardStatus({ boardId, lists = [], currentListId }) {
   const [isOpen, setIsOpen] = useState(false);
   const [boardLists, setBoardLists] = useState([]);
   const [selectedList, setSelectedList] = useState(null);
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const dropdownRef = useRef(null);
   const dispatch = useDispatch();
@@ -133,33 +129,12 @@ export default function CardStatus({ boardId, lists = [], currentListId }) {
     };
   }, [isOpen]);
 
-  // تحديث القائمة المحددة وإرسال التغيير إلى الخادم إذا كانت البطاقة موجودة
-  const handleListChange = async (list) => {
+  // تحديث القائمة المحددة في Redux فقط، دون إرسال التغييرات إلى الخادم
+  const handleListChange = (list) => {
     setSelectedList(list);
 
-    // تحديث Redux أولاً
+    // تحديث Redux فقط
     dispatch(updateListId(list.id));
-
-    // إذا كانت البطاقة موجودة، قم بتحديثها على الخادم
-    if (cardId) {
-      setIsSaving(true);
-      setError(null);
-      try {
-        // استخدام async thunk لتحديث القائمة
-        await dispatch(
-          updateCardList({
-            cardId,
-            listId: list.id,
-          })
-        ).unwrap();
-      } catch (err) {
-        console.error("Error updating card list:", err);
-        setError("Could not update list");
-      } finally {
-        setIsSaving(false);
-      }
-    }
-
     setIsOpen(false);
   };
 
@@ -195,9 +170,6 @@ export default function CardStatus({ boardId, lists = [], currentListId }) {
           onClick={() => setIsOpen(!isOpen)}
         >
           {selectedList ? selectedList.name : "Select a list"}
-          {isSaving && (
-            <span className="text-xs text-gray-400 ml-1">Saving...</span>
-          )}
           <svg
             className="w-4 h-4"
             fill="none"

@@ -18,8 +18,11 @@ const TaskCard = ({
   allLists,
   listId,
   labels = [],
+  onCardUpdate,
 }) => {
   const [isCardDetailsOpen, setIsCardDetailsOpen] = useState(false);
+  // Maximum number of labels to display before showing "+N"
+  const MAX_VISIBLE_LABELS = 2;
 
   // Update priority styles to match CardPriority component
   const priorityColors = {
@@ -42,6 +45,23 @@ const TaskCard = ({
     setIsCardDetailsOpen(true);
   };
 
+  // فقط إغلاق البطاقة دون تحديث القائمة
+  const handleCardClose = () => {
+    setIsCardDetailsOpen(false);
+  };
+
+  // تحديث القائمة فقط عند حفظ البطاقة
+  const handleCardSaved = (originalListId, newListId) => {
+    if (onCardUpdate) {
+      // If we have both original and new list IDs, it means the card was moved
+      if (originalListId && newListId && originalListId !== newListId) {
+        onCardUpdate(originalListId, newListId);
+      } else {
+        onCardUpdate();
+      }
+    }
+  };
+
   return (
     <>
       <div
@@ -58,11 +78,21 @@ const TaskCard = ({
         <div className="bg-white text-black p-3 rounded-r-lg flex-grow w-full">
           <div className="flex justify-between items-center">
             <h4 className="font-semibold mt-1 mb-3">{title}</h4>
-            <img
-              src={vector}
-              className="w-[18px] h-[4px] cursor-pointer hover:opacity-70"
-              alt="Options"
-            />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 18 24"
+            >
+              <path
+                fill="none"
+                stroke="#4D2D61"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0-2 0m7 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0m7 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0"
+              />
+            </svg>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -77,9 +107,10 @@ const TaskCard = ({
                 normalizedPriority.slice(1)}
             </span>
 
-            {/* Display actual labels instead of static "UI" label */}
-            {labels && labels.length > 0
-              ? labels.map((label, index) => (
+            {/* Display limited number of labels with +N indicator */}
+            {labels && labels.length > 0 && (
+              <>
+                {labels.slice(0, MAX_VISIBLE_LABELS).map((label, index) => (
                   <span
                     key={label.id || index}
                     className="px-2 py-1 text-xs font-medium rounded-lg"
@@ -90,8 +121,16 @@ const TaskCard = ({
                   >
                     {label.name}
                   </span>
-                ))
-              : null}
+                ))}
+
+                {/* Show +N indicator if there are more labels than the limit */}
+                {labels.length > MAX_VISIBLE_LABELS && (
+                  <span className="px-2 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-600">
+                    +{labels.length - MAX_VISIBLE_LABELS}
+                  </span>
+                )}
+              </>
+            )}
           </div>
 
           <div className="flex justify-between items-center mt-4">
@@ -145,10 +184,11 @@ const TaskCard = ({
       {isCardDetailsOpen && (
         <CardDetails
           cardId={id}
-          onClose={() => setIsCardDetailsOpen(false)}
           currentListId={listId}
           boardId={boardId}
           allLists={allLists}
+          onClose={handleCardClose}
+          onCardSaved={handleCardSaved}
         />
       )}
     </>
