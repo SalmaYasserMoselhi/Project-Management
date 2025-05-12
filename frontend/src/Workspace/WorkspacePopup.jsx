@@ -17,13 +17,28 @@ import {
 import { usePopupAnimation, setupWorkspaceAnimation } from "../utils/popup-animations"
 
 const WorkspacePopup = ({ workspaceId, workspaceName }) => {
-  const navigate = useNavigate()
+  // Get workspace data from Redux store
+  const { selectedWorkspace } = useSelector((state) => state.sidebar);
+  
+  // Use Redux store data if props are undefined
+  const currentWorkspaceId = workspaceId || selectedWorkspace?._id;
+  const currentWorkspaceName = workspaceName || selectedWorkspace?.name;
 
-  const handleBoardClick = (boardId) => {
-    handleClose()
-    navigate(`/main/workspaces/${workspaceId}/boards/${boardId}`)
+  // DEBUG: Log props on every render
+  console.log("[WorkspacePopup] Rendered with:", { 
+    workspaceId: currentWorkspaceId, 
+    workspaceName: currentWorkspaceName,
+    fromProps: { workspaceId, workspaceName },
+    fromRedux: selectedWorkspace
+  });
+
+  // Early return if no workspaceId
+  if (!currentWorkspaceId) {
+    console.log("[WorkspacePopup] No workspace ID available, returning null");
+    return null;
   }
 
+  const navigate = useNavigate()
   const dispatch = useDispatch()
   const [boards, setBoards] = useState([])
   const [loading, setLoading] = useState(false)
@@ -56,6 +71,17 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
     }
   }, [isSidebarOpen])
 
+  // DEBUG: Log when component mounts
+  useEffect(() => {
+    console.log("[WorkspacePopup] Mounted with workspaceId:", currentWorkspaceId);
+    return () => console.log("[WorkspacePopup] Unmounted");
+  }, [currentWorkspaceId]);
+
+  // DEBUG: Log when workspaceId changes
+  useEffect(() => {
+    console.log("[WorkspacePopup] workspaceId changed:", currentWorkspaceId);
+  }, [currentWorkspaceId]);
+
   // Handle animation end events for proper state transitions
   const handleAnimationEnd = useCallback(
     (transitionState) => {
@@ -72,7 +98,7 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
             sessionStorage.removeItem("pendingWorkspace")
 
             dispatch(setActiveWorkspaceType(type))
-            dispatch(selectWorkspace(data))
+            dispatch(selectWorkspace({ ...data }))
 
             // Small delay before starting the next opening animation
             setTimeout(() => {
@@ -111,8 +137,9 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
 
   // Main function to fetch ALL boards at once with sorting and search
   const fetchBoards = useCallback(async () => {
+    console.log("[WorkspacePopup] fetchBoards called for:", currentWorkspaceId);
     try {
-      if (!workspaceId) {
+      if (!currentWorkspaceId) {
         setError("Workspace not selected")
         return
       }
@@ -125,13 +152,13 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
       const queryParams = []
 
       if (activeTab === "Archived") {
-        endpoint = `/api/v1/boards/workspace/${workspaceId}/archived`
+        endpoint = `/api/v1/boards/workspace/${currentWorkspaceId}/archived`
         queryParams.push(
           `sort=${sortOption}`,
           `limit=1000`, // Very high limit to get all boards
         )
       } else {
-        endpoint = `/api/v1/boards/workspace/${workspaceId}/boards`
+        endpoint = `/api/v1/boards/workspace/${currentWorkspaceId}/boards`
         queryParams.push(
           `sort=${sortOption}`,
           `limit=1000`, // Very high limit to get all boards
@@ -144,6 +171,7 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
       }
 
       const fullUrl = `${BASE_URL}${endpoint}?${queryParams.join("&")}`
+      console.log("[WorkspacePopup] Fetching boards from:", fullUrl);
 
       const response = await fetch(fullUrl, {
         method: "GET",
@@ -159,20 +187,22 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
         const allBoards = data.data?.boards || []
         setTotalBoards(data.data?.stats.total || 0)
         setBoards(allBoards)
+        console.log("[WorkspacePopup] Boards fetched:", allBoards);
       } else {
         setBoards([])
+        console.log("[WorkspacePopup] No boards found or error in response");
       }
     } catch (err) {
-      console.error("Error fetching boards:", err)
+      console.error("[WorkspacePopup] Error fetching boards:", err)
       setError(err.message || "Failed to load boards")
     } finally {
       setLoading(false)
     }
-  }, [workspaceId, activeTab, sortOption, searchTerm])
+  }, [currentWorkspaceId, activeTab, sortOption, searchTerm])
 
   // Fetch boards when inputs change - with debouncing for search
   useEffect(() => {
-    if (workspaceId) {
+    if (currentWorkspaceId) {
       const delaySearch = setTimeout(
         () => {
           fetchBoards()
@@ -182,7 +212,12 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
 
       return () => clearTimeout(delaySearch)
     }
-  }, [workspaceId, activeTab, sortOption, searchTerm, fetchBoards])
+  }, [currentWorkspaceId, activeTab, sortOption, searchTerm, fetchBoards])
+
+  const handleBoardClick = (boardId) => {
+    handleClose()
+    navigate(`/main/workspaces/${currentWorkspaceId}/boards/${boardId}`)
+  }
 
   // Handle pinning/unpinning a board
   const handlePinBoard = async (boardId, isStarred, e) => {
@@ -271,7 +306,7 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
       >
         {/* Fixed Header */}
         <div className="p-4 space-y-4 border-b border-gray-100">
-          <h1 className="text-lg font-bold text-[#4D2D61]">{workspaceName}</h1>
+          <h1 className="text-lg font-bold text-[#4D2D61]">{currentWorkspaceName}</h1>
 
           {/* Search Input */}
           <div className="relative">
@@ -402,7 +437,7 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
         </div>
 
         {/* Fixed Footer - Only show Add Board button if not a collaboration workspace */}
-        {activeTab !== "Archived" && workspaceName !== "Collaboration Space" && (
+        {activeTab !== "Archived" && currentWorkspaceName !== "Collaboration Space" && (
           <div className="p-4 mt-auto border-t border-gray-100">
             <button
               onClick={() => setIsAddBoardOpen(true)}
@@ -430,7 +465,7 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
       {isAddBoardOpen && (
         <AddBoardPopup
           onClose={() => setIsAddBoardOpen(false)}
-          workspaceId={workspaceId}
+          workspaceId={currentWorkspaceId}
           fetchBoardsAgain={() => {
             setActiveTab("Active")
             setSearchTerm("")

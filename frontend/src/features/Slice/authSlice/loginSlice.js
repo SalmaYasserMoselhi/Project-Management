@@ -46,6 +46,7 @@ export const loginUser = createAsyncThunk(
   "auth/loginUser",
   async ({ email, password }, { rejectWithValue, dispatch }) => {
     try {
+      console.log("Starting login process...");
       const response = await fetch(`${API_BASE_URL}/users/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -62,11 +63,16 @@ export const loginUser = createAsyncThunk(
       }
 
       const data = await response.json();
+      console.log("Login successful, fetching user data...");
 
       // Fetch user data after successful login
       const userDataResponse = await dispatch(fetchUserData()).unwrap();
+      console.log("User data fetched, now fetching workspaces...");
+      
       // Fetch user workspaces after successful login
       await dispatch(fetchUserPublicWorkspaces());
+      console.log("Workspaces fetch dispatched");
+      
       return { ...data, user: userDataResponse };
     } catch (error) {
       console.error("Login error:", error);
