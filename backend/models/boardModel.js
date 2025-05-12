@@ -243,10 +243,12 @@ const boardSchema = new mongoose.Schema(
             'settings_updated',
             'attachment_added',
             'attachment_removed',
+            'subtask_added',
+            'subtask_removed',
             'meeting_created',
             'meeting_deleted',
             'meeting_updated',
-            'meeting_attendees_added',  
+            'meeting_attendees_added',
             'meeting_attendee_removed',
           ],
         },
@@ -313,7 +315,7 @@ boardSchema.virtual('cardsDueSoon').get(function () {
   if (!this.lists || !Array.isArray(this.lists)) {
     return [];
   }
-  
+
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
 
@@ -322,7 +324,7 @@ boardSchema.virtual('cardsDueSoon').get(function () {
     if (!list.cards || !Array.isArray(list.cards)) {
       return cards;
     }
-    
+
     return cards.concat(
       list.cards.filter(
         (card) => card.dueDate && card.dueDate <= tomorrow && !card.completed

@@ -5,9 +5,6 @@ import {
   toggleSubtask,
   removeSubtask,
   fetchCardSubtasks,
-  addCardSubtask,
-  toggleCardSubtask,
-  deleteCardSubtask,
 } from "../features/Slice/cardSlice/cardDetailsSlice";
 import { Check, Plus, X, Loader2 } from "lucide-react";
 
@@ -21,23 +18,13 @@ export default function CardSubtasks() {
   const subtasksError = useSelector((state) => state.cardDetails.subtasksError);
   const [newTaskText, setNewTaskText] = useState("");
   const [isAdding, setIsAdding] = useState(false);
-  const [loadingTaskId, setLoadingTaskId] = useState(null);
   const [error, setError] = useState(null);
-
-  // Debug logging
-  // useEffect(() => {
-  //   console.log("CardSubtasks - Current card ID:", cardId);
-  //   console.log("CardSubtasks - Current subtasks:", subtasks);
-  // }, [cardId, subtasks]);
 
   // جلب المهام الفرعية عند تحميل المكون إذا كان هناك معرف بطاقة
   useEffect(() => {
     if (cardId) {
       dispatch(fetchCardSubtasks(cardId))
         .unwrap()
-        // .then((data) => {
-        //   console.log("Subtasks fetched successfully:", data);
-        // })
         .catch((error) => {
           console.error("Error fetching subtasks:", error);
         });
@@ -54,81 +41,27 @@ export default function CardSubtasks() {
 
     setError(null);
 
-    if (cardId) {
-      // إذا كان هناك معرف بطاقة، استخدم API
-      // console.log(`Adding subtask to card ${cardId}:`, trimmedTitle);
-
-      dispatch(
-        addCardSubtask({
-          cardId,
-          title: trimmedTitle,
-        })
-      )
-        .unwrap()
-        .then((response) => {
-          // console.log("Subtask added successfully:", response);
-          setNewTaskText("");
-          setIsAdding(false);
-        })
-        .catch((err) => {
-          console.error("Error adding subtask:", err);
-          setError(typeof err === "string" ? err : JSON.stringify(err));
-        });
-    } else {
-      // استخدم الإجراء المحلي للمهام المؤقتة
-      dispatch(
-        addSubtask({
-          id: Date.now(),
-          text: trimmedTitle,
-          title: trimmedTitle, // تخزين العنوان أيضًا لتجهيزه للإرسال لاحقًا
-          completed: false,
-        })
-      );
-      setNewTaskText("");
-      setIsAdding(false);
-    }
+    // استخدم الإجراء المحلي دائماً، بغض النظر عن وجود معرف بطاقة
+    dispatch(
+      addSubtask({
+        id: Date.now(), // استخدم معرف مؤقت
+        text: trimmedTitle,
+        title: trimmedTitle,
+        completed: false,
+      })
+    );
+    setNewTaskText("");
+    setIsAdding(false);
   };
 
   const handleToggleSubtask = (id) => {
-    if (cardId) {
-      // استخدم API
-      // console.log(`Toggling subtask ${id} for card ${cardId}`);
-      setLoadingTaskId(id);
-      dispatch(toggleCardSubtask({ cardId, subtaskId: id }))
-        .unwrap()
-        // .then((response) => {
-        //   console.log("Subtask toggled successfully:", response);
-        // })
-        .catch((err) => {
-          console.error("Error toggling subtask:", err);
-          setError(typeof err === "string" ? err : JSON.stringify(err));
-        })
-        .finally(() => setLoadingTaskId(null));
-    } else {
-      // استخدم الإجراء المحلي
-      dispatch(toggleSubtask(id));
-    }
+    // استخدم الإجراء المحلي دائماً
+    dispatch(toggleSubtask(id));
   };
 
   const handleRemoveSubtask = (id) => {
-    if (cardId) {
-      // استخدم API
-      // console.log(`Removing subtask ${id} from card ${cardId}`);
-      setLoadingTaskId(id);
-      dispatch(deleteCardSubtask({ cardId, subtaskId: id }))
-        .unwrap()
-        // .then(() => {
-        //   console.log("Subtask deleted successfully");
-        // })
-        .catch((err) => {
-          console.error("Error deleting subtask:", err);
-          setError(typeof err === "string" ? err : JSON.stringify(err));
-        })
-        .finally(() => setLoadingTaskId(null));
-    } else {
-      // استخدم الإجراء المحلي
-      dispatch(removeSubtask(id));
-    }
+    // استخدم الإجراء المحلي دائماً
+    dispatch(removeSubtask(id));
   };
 
   // تحديد ما إذا كانت المهمة مكتملة استنادًا إلى API أو واجهة المستخدم
@@ -141,7 +74,7 @@ export default function CardSubtasks() {
     return task.title || task.text;
   };
 
-  if (subtasksLoading && !loadingTaskId && subtasks.length === 0) {
+  if (subtasksLoading && subtasks.length === 0) {
     return (
       <div className="mt-3 flex justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
@@ -169,11 +102,8 @@ export default function CardSubtasks() {
                   : "border-gray-400"
               } flex items-center justify-center mr-2`}
               onClick={() => handleToggleSubtask(task._id || task.id)}
-              disabled={loadingTaskId === (task._id || task.id)}
             >
-              {loadingTaskId === (task._id || task.id) ? (
-                <Loader2 size={10} className="animate-spin text-white" />
-              ) : isTaskCompleted(task) ? (
+              {isTaskCompleted(task) ? (
                 <Check size={12} className="text-white" />
               ) : null}
             </button>
@@ -189,13 +119,8 @@ export default function CardSubtasks() {
             <button
               className="text-gray-400 hover:text-red-500"
               onClick={() => handleRemoveSubtask(task._id || task.id)}
-              disabled={loadingTaskId === (task._id || task.id)}
             >
-              {loadingTaskId === (task._id || task.id) ? (
-                <Loader2 size={12} className="animate-spin" />
-              ) : (
-                <X size={14} />
-              )}
+              <X size={14} />
             </button>
           </div>
         ))

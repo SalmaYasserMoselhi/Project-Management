@@ -27,13 +27,18 @@ export const saveCard = createAsyncThunk(
     { cardId, cardData, pendingFiles = [], originalListId = null },
     { dispatch, rejectWithValue }
   ) => {
-    // console.log("Save Card - Card ID:", cardId);
-    // console.log("Save Card - Card Data:", cardData);
-    // console.log("Save Card - Pending Files:", pendingFiles.length);
-
     // التحقق من وجود listId صالح
     if (!cardData.listId) {
       return rejectWithValue("A valid list ID is required");
+    }
+
+    // التحقق من وجود عنوان للبطاقة
+    if (
+      !cardData.title ||
+      cardData.title.trim() === "" ||
+      cardData.title === "Card name"
+    ) {
+      return rejectWithValue("Card title is required");
     }
 
     try {
@@ -70,7 +75,7 @@ export const saveCard = createAsyncThunk(
             `${BASE_URL}/api/v1/cards/${cardId}/move`,
             {
               listId: cardData.listId,
-              position: 0, // Add to the top of the list
+              position: 999999, // Use a large number to ensure it's placed at the end
             }
           );
 
@@ -443,7 +448,7 @@ export const deleteAttachment = createAsyncThunk(
 
 const initialState = {
   id: null,
-  title: "Card name",
+  title: "",
   dueDate: {
     startDate: formatDateForAPI(today),
     endDate: formatDateForAPI(defaultEndDate),
@@ -575,6 +580,9 @@ const cardDetailsSlice = createSlice({
           reply.edited = true;
         }
       }
+    },
+    setSaveError: (state, action) => {
+      state.saveError = action.payload;
     },
     resetCardDetails: () => initialState,
   },
@@ -906,6 +914,7 @@ export const {
   addReply,
   removeReply,
   editReply,
+  setSaveError,
   resetCardDetails,
 } = cardDetailsSlice.actions;
 

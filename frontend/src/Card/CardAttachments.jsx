@@ -14,6 +14,8 @@ import {
 } from "../features/Slice/cardSlice/cardDetailsSlice";
 import { Plus, X, Upload, FileText, Check, AlertCircle } from "lucide-react";
 
+const MAX_FILES_PER_UPLOAD = 5;
+
 const CardAttachments = forwardRef(({ cardId }, ref) => {
   const dispatch = useDispatch();
   const {
@@ -28,6 +30,7 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
   const [isPendingMode, setIsPendingMode] = useState(false);
   const [localAttachments, setLocalAttachments] = useState([]);
   const [deletedAttachmentIds, setDeletedAttachmentIds] = useState([]);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // توفير وظائف لمكون الوالد عبر ref
   useImperativeHandle(ref, () => ({
@@ -53,6 +56,33 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
   const handleFileChange = (event) => {
     const files = event.target.files;
     if (!files.length) return;
+
+    // تحقق من عدد الملفات التي يتم رفعها
+    if (files.length > MAX_FILES_PER_UPLOAD) {
+      setErrorMessage(
+        `You can only upload up to ${MAX_FILES_PER_UPLOAD} files at a time.`
+      );
+      // إعادة تعيين حقل الإدخال
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    // التحقق من إجمالي عدد الملفات المعلقة
+    if (pendingFiles.length + files.length > MAX_FILES_PER_UPLOAD) {
+      setErrorMessage(
+        `You can only have ${MAX_FILES_PER_UPLOAD} pending files at a time.`
+      );
+      // إعادة تعيين حقل الإدخال
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    // مسح رسالة الخطأ إذا كانت موجودة
+    setErrorMessage("");
 
     // إضافة الملفات إلى قائمة الملفات المعلقة
     const newPendingFiles = [...pendingFiles];
@@ -91,6 +121,9 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
     if (newPendingFiles.length === 0) {
       setIsPendingMode(false);
     }
+
+    // مسح رسالة الخطأ إذا كانت موجودة
+    setErrorMessage("");
   };
 
   // تنزيل مرفق
@@ -133,7 +166,9 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
         <button
           className="w-6 h-6 flex items-center justify-center bg-[#4D2D611A] text-[#4D2D61] rounded-md"
           onClick={() => fileInputRef.current.click()}
-          disabled={uploadingAttachments}
+          disabled={
+            uploadingAttachments || pendingFiles.length >= MAX_FILES_PER_UPLOAD
+          }
         >
           {uploadingAttachments ? (
             <Upload className="w-4 h-4 animate-pulse" />
@@ -148,15 +183,28 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
           onChange={handleFileChange}
           multiple
         />
+
+        {/* إضافة نص توضيحي للحد الأقصى */}
+        <span className="text-xs text-gray-400">
+          (Max {MAX_FILES_PER_UPLOAD} files at a time)
+        </span>
       </div>
 
+      {/* عرض رسالة الخطأ إذا كانت موجودة */}
+      {errorMessage && (
+        <div className="flex items-center text-red-500 text-sm mb-2">
+          <AlertCircle className="w-4 h-4 mr-1" />
+          {errorMessage}
+        </div>
+      )}
+
       {/* قائمة المرفقات */}
-      <div className="flex flex-wrap gap-3">
-        {/* عرض المرفقات الموجودة */}
-        {localAttachments.map((file) => (
+      <div className="flex flex-col gap-2 mt-2">
+        {/* عرض المرفقات المخزنة على الخادم */}
+        {localAttachments.map((attachment) => (
           <div
-            key={file.id}
-            className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-gray-50 shadow-sm w-full max-w-full"
+            key={attachment.id}
+            className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white shadow-sm w-full max-w-full"
           >
             <div className="flex items-center gap-3 flex-grow overflow-hidden">
               {/* أيقونة الملف */}
@@ -167,15 +215,15 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
               <div className="overflow-hidden">
                 <p
                   className="text-sm font-medium text-gray-800 truncate"
-                  title={file.name}
+                  title={attachment.name}
                 >
-                  {file.name}
+                  {attachment.name}
                 </p>
                 <div className="flex text-xs text-gray-500 items-center gap-2">
-                  <span>{file.size}</span>
-                  {file.uploadDate && (
+                  <span>{attachment.size || "Unknown size"}</span>
+                  {attachment.uploadDate && (
                     <span>
-                      • {new Date(file.uploadDate).toLocaleDateString()}
+                      {new Date(attachment.uploadDate).toLocaleDateString()}
                     </span>
                   )}
                 </div>
@@ -184,35 +232,34 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
 
             <div className="flex gap-2 ml-2">
               {/* زر التنزيل */}
-              {file.url && (
-                <button
-                  className="text-gray-500 hover:text-blue-500 transition"
-                  onClick={() => handleDownloadAttachment(file.url, file.name)}
-                  title="Download"
+              <button
+                className="text-blue-500 hover:text-blue-700 transition"
+                onClick={() =>
+                  handleDownloadAttachment(attachment.url, attachment.name)
+                }
+                title="Download"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
+                  <path
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                  >
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                </button>
-              )}
-
+                    strokeWidth="2"
+                    d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 0 0 4.561 21h14.878a2 2 0 0 0 1.94-1.515L22 17"
+                  />
+                </svg>
+              </button>
               {/* زر الحذف */}
               <button
                 className="text-gray-500 hover:text-red-500 transition"
-                onClick={() => handleDeleteLocalAttachment(file.id)}
-                title="Delete"
+                onClick={() => handleDeleteLocalAttachment(attachment.id)}
+                title="Remove"
               >
                 <X className="w-4 h-4" />
               </button>

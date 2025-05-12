@@ -8,6 +8,7 @@ import {
   resetCardDetails,
   uploadAttachments,
   deleteAttachment,
+  setSaveError,
 } from "../features/Slice/cardSlice/cardDetailsSlice";
 import CardHeader from "./CardHeader";
 import CardDueDate from "./CardDueDate";
@@ -28,9 +29,16 @@ export default function CardDetails({
   onCardSaved,
 }) {
   const [isOpen, setIsOpen] = useState(true);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [hasUserChanges, setHasUserChanges] = useState(false);
+  const [initialCardState, setInitialCardState] = useState(null);
+
+  const cardRef = useRef(null);
   const attachmentsRef = useRef();
+  const hasUserChangesRef = useRef(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const cardDetails = useSelector((state) => state.cardDetails);
   const {
     id,
     title,
@@ -46,19 +54,25 @@ export default function CardDetails({
     error,
     saveLoading,
     saveError,
-  } = useSelector((state) => state.cardDetails);
+  } = cardDetails;
 
   // إعادة تعيين حالة البطاقة عند فتح البطاقة
   useEffect(() => {
-    // طباعة للتصحيح
-    // console.log("CardDetails - Props:", { currentListId, boardId, cardId });
-
     // إذا كانت بطاقة جديدة، نقوم بإعادة تعيين الحالة وتعيين القائمة الافتراضية
     if (!cardId) {
       dispatch(resetCardDetails());
       if (currentListId) {
         dispatch(updateListId(currentListId));
       }
+
+      // Initialize empty state for new cards
+      setInitialCardState({
+        title: "",
+        description: "",
+        listId: currentListId,
+        priority: "medium",
+        subtasksLength: 0,
+      });
     }
     // إذا كانت بطاقة موجودة، نقوم بجلب بياناتها
     else {
@@ -71,14 +85,135 @@ export default function CardDetails({
     };
   }, [dispatch, cardId, currentListId, boardId]);
 
+  // حفظ الحالة الأولية بعد تحميل البيانات
+  useEffect(() => {
+    // Only update initial state for existing cards (new cards are handled in the first effect)
+    if (!loading && id && !initialCardState && cardId) {
+      // نسخ الحالة الحالية كحالة أولية للمقارنة لاحقاً
+      setInitialCardState({
+        title,
+        description,
+        listId,
+        priority,
+        subtasksLength: subtasks?.length || 0,
+      });
+    }
+  }, [
+    loading,
+    id,
+    title,
+    description,
+    listId,
+    priority,
+    subtasks,
+    initialCardState,
+    cardId,
+  ]);
+
+  // تتبع التغييرات التي يقوم بها المستخدم
+  useEffect(() => {
+    // لا نتحقق من التغييرات إلا بعد تحميل البيانات الأولية
+    if (!initialCardState) return;
+
+    // For new cards, check if user has added any content
+    if (!cardId && !id) {
+      const hasContent =
+        (title && title !== "Card name" && title.trim() !== "") ||
+        (description && description.trim() !== "") ||
+        subtasks?.length > 0;
+
+      setHasUserChanges(hasContent);
+      console.log("New card changes detected:", hasContent);
+      return;
+    }
+
+    // For existing cards, check if there are differences from initial state
+    const hasChanged =
+      title !== initialCardState.title ||
+      description !== initialCardState.description ||
+      listId !== initialCardState.listId ||
+      priority !== initialCardState.priority ||
+      (subtasks?.length || 0) !== initialCardState.subtasksLength;
+
+    setHasUserChanges(hasChanged);
+    console.log("Changes detected:", hasChanged);
+  }, [
+    title,
+    description,
+    listId,
+    priority,
+    subtasks,
+    initialCardState,
+    loading,
+    cardId,
+    id,
+  ]);
+
+  // Update ref when hasUserChanges changes
+  useEffect(() => {
+    hasUserChangesRef.current = hasUserChanges;
+  }, [hasUserChanges]);
+
+  // إضافة مستمع لإغلاق الكارد عند النقر خارجه
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (cardRef.current && !cardRef.current.contains(event.target)) {
+        handleCloseAttempt();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // إضافة مستمع لمفتاح Escape
+  useEffect(() => {
+    const handleEscKey = (e) => {
+      if (e.key === "Escape" && isOpen) {
+        handleCloseAttempt();
+      }
+    };
+
+    window.addEventListener("keydown", handleEscKey);
+    return () => {
+      window.removeEventListener("keydown", handleEscKey);
+    };
+  }, [isOpen]);
+
+  // التحقق من التغييرات قبل الإغلاق
+  const handleCloseAttempt = () => {
+    console.log("Close attempt, has changes:", hasUserChangesRef.current);
+    if (hasUserChangesRef.current) {
+      setShowConfirmDialog(true);
+    } else {
+      handleClose();
+    }
+  };
+
   const handleClose = () => {
     setIsOpen(false);
-    // Just close without saving changes
     if (onClose) onClose();
   };
 
   // معالجة النقر على زر "تم" - حفظ البطاقة باستخدام async thunk
   const handleDone = async () => {
+    // التحقق من وجود عنوان للبطاقة
+    if (!title || title.trim() === "" || title === "Card name") {
+      // تحديد عنصر العنوان وتمرير إليه
+      const titleElement = document.getElementById("card-title-container");
+      if (titleElement) {
+        titleElement.scrollIntoView({ behavior: "smooth" });
+      }
+
+      // Set save error for title
+      dispatch(setSaveError("Card title is required"));
+
+      return;
+    }
+
     // جمع كافة بيانات البطاقة من Redux
     const cardData = {
       title,
@@ -92,9 +227,6 @@ export default function CardDetails({
       subtasks,
       comments,
     };
-
-    // طباعة البيانات للتصحيح
-    // console.log("Sending card data:", cardData);
 
     // التحقق من وجود listId صالح
     if (!listId) {
@@ -145,8 +277,6 @@ export default function CardDetails({
         }
       }
 
-      // console.log("Card saved successfully:", savedCard);
-
       // Notify parent component that card was saved
       if (onCardSaved) {
         // If list was changed, pass information about both lists that need refreshing
@@ -156,6 +286,9 @@ export default function CardDetails({
           onCardSaved();
         }
       }
+
+      // إعادة تعيين علامة التغييرات
+      setHasUserChanges(false);
 
       // Close the dialog only after everything is complete
       handleClose();
@@ -174,20 +307,6 @@ export default function CardDetails({
     }
   };
 
-  // معالجة مفتاح الخروج من لوحة المفاتيح
-  useEffect(() => {
-    const handleEscKey = (e) => {
-      if (e.key === "Escape" && isOpen) {
-        handleClose();
-      }
-    };
-
-    window.addEventListener("keydown", handleEscKey);
-    return () => {
-      window.removeEventListener("keydown", handleEscKey);
-    };
-  }, [isOpen]);
-
   // عرض شاشة التحميل أثناء جلب بيانات البطاقة
   if (loading && cardId) {
     return (
@@ -204,19 +323,30 @@ export default function CardDetails({
     <>
       {isOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4">
-          <div className="w-full max-w-[550px] max-h-[90vh] bg-white shadow-lg rounded-lg border border-gray-300 flex flex-col relative">
+          <div
+            ref={cardRef}
+            className="w-full max-w-[550px] max-h-[90vh] bg-white shadow-lg rounded-lg border border-gray-300 flex flex-col relative"
+          >
             {/* زر الإغلاق في الأعلى على اليمين */}
             <button
               className="absolute top-2 right-3 text-gray-500 hover:text-gray-700 text-2xl z-10"
-              onClick={handleClose}
+              onClick={handleCloseAttempt}
             >
               &times;
             </button>
 
             {/* الرأس - يبقى ثابتًا في الأعلى */}
-            <div className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2">
+            <div
+              className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2"
+              id="card-title-container"
+            >
               <div className="flex-grow">
-                <CardHeader cardId={cardId || id} />
+                <CardHeader
+                  cardId={cardId || id}
+                  externalError={
+                    saveError && saveError.includes("title") ? saveError : null
+                  }
+                />
               </div>
             </div>
 
@@ -268,6 +398,40 @@ export default function CardDetails({
               </button>
             </div>
           </div>
+
+          {/* مربع حوار التأكيد */}
+          {showConfirmDialog && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-[60]">
+              <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+                <h3 className="text-lg font-bold mb-2">Unsaved Changes</h3>
+                <p className="mb-6">
+                  {cardId
+                    ? "You have unsaved changes. Do you want to save your changes before closing?"
+                    : "This card hasn't been saved yet. Do you want to save it before closing?"}
+                </p>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100"
+                    onClick={() => {
+                      setShowConfirmDialog(false);
+                      handleClose();
+                    }}
+                  >
+                    {cardId ? "Discard Changes" : "Discard Card"}
+                  </button>
+                  <button
+                    className="px-4 py-2 bg-[#4D2D61] text-white rounded-md hover:bg-[#57356A]"
+                    onClick={() => {
+                      setShowConfirmDialog(false);
+                      handleDone();
+                    }}
+                  >
+                    Save {cardId ? "Changes" : "Card"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>
