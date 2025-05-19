@@ -287,19 +287,15 @@ export const sendFileMessage = createAsyncThunk(
   async ({ conversationId, file }, { rejectWithValue }) => {
     try {
       const formData = new FormData();
-      formData.append("file", file);
-      formData.append("type", "file");
+      formData.append("files", file);
+      formData.append("convoId", conversationId);
 
-      const response = await api.post(
-        `/conversations/${conversationId}/messages`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-      return response.data.message;
+      const response = await api.post(`/message`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response.data.data.populatedMessage;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to send file"
