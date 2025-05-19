@@ -33,9 +33,12 @@ function Login() {
 
   const auth = useSelector((state) => state.auth)
   const currentUser = auth?.user
+  const userWorkspaces = useSelector((state) => state.userWorkspaces.workspaces)
 
   // Initialize slide-in animation
   useSlideInAnimation()
+
+  console.log("Login.jsx mounted");
 
   useEffect(() => {
     // Add animation styles
@@ -129,6 +132,46 @@ function Login() {
       }
     }
   }, [currentUser, navigate, dispatch])
+
+  useEffect(() => {
+    console.log("Checking to fetch workspaces", currentUser?._id, userWorkspaces);
+    if (
+      currentUser?._id &&
+      (!Array.isArray(userWorkspaces) || userWorkspaces.length === 0)
+    ) {
+      console.log("Dispatching fetchUserPublicWorkspaces");
+      dispatch(fetchUserPublicWorkspaces());
+    }
+  }, [currentUser?._id, userWorkspaces, dispatch]);
+
+  useEffect(() => {
+    if (
+      currentUser?._id &&
+      Array.isArray(userWorkspaces) && userWorkspaces.length > 0 &&
+      !localStorage.getItem("selectedPublicWorkspace")
+    ) {
+      const publicWorkspace = userWorkspaces.find(ws => ws.type === "public")
+      const ownedWorkspace = userWorkspaces.find(ws => ws.userRole === "owner" && ws.createdBy === currentUser._id)
+      const workspaceToSet = publicWorkspace || ownedWorkspace || userWorkspaces[0]
+      if (workspaceToSet) {
+        const workspaceData = {
+          id: workspaceToSet._id,
+          name: workspaceToSet.name,
+          type: workspaceToSet.type,
+          description: workspaceToSet.description,
+          memberCount: workspaceToSet.memberCount,
+          createdBy: workspaceToSet.createdBy,
+          userRole: workspaceToSet.userRole,
+        }
+        localStorage.setItem("selectedPublicWorkspace", JSON.stringify(workspaceData))
+        dispatch({ type: "userWorkspaces/selectUserWorkspace/fulfilled", payload: workspaceData })
+      }
+    }
+  }, [currentUser?._id, userWorkspaces, dispatch])
+
+  useEffect(() => {
+    console.log("userWorkspaces after login:", userWorkspaces);
+  }, [userWorkspaces]);
 
   const handleSubmit = async (e) => {
     e.preventDefault()

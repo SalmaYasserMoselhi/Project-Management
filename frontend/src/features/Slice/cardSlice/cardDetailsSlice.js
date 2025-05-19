@@ -24,36 +24,79 @@ export const fetchCardDetails = createAsyncThunk(
 export const saveCard = createAsyncThunk(
   "card/saveCard",
   async (
-    { cardId, cardData, pendingFiles = [] },
+    { cardId, cardData, pendingFiles = [], originalListId = null },
     { dispatch, rejectWithValue }
   ) => {
-    console.log("Save Card - Card ID:", cardId);
-    console.log("Save Card - Card Data:", cardData);
-    console.log("Save Card - Pending Files:", pendingFiles.length);
-
     // التحقق من وجود listId صالح
     if (!cardData.listId) {
       return rejectWithValue("A valid list ID is required");
     }
 
+    // التحقق من وجود عنوان للبطاقة
+    if (
+      !cardData.title ||
+      cardData.title.trim() === "" ||
+      cardData.title === "Card name"
+    ) {
+      return rejectWithValue("Card title is required");
+    }
+
     try {
       let response;
+      let savedCardId;
+
+      // Check if this is an existing card and the list has changed
+      const isMovingList =
+        cardId && originalListId && originalListId !== cardData.listId;
+
       if (cardId) {
         // تحديث بطاقة موجودة
-        console.log(`Updating card ${cardId}`);
+        // console.log(`Updating card ${cardId}`);
 
         // نسخ البيانات وتغيير listId إلى list للباكند
         const backendData = { ...cardData };
-        backendData.list = backendData.listId;
-        delete backendData.listId;
 
-        response = await axios.patch(
-          `${BASE_URL}/api/v1/cards/${cardId}`,
-          backendData
-        );
+        // If we're moving the card to a different list, we need to use the move endpoint
+        if (isMovingList) {
+          // First update the card details without the list change
+          delete backendData.listId;
+
+          // Update the card details
+          response = await axios.patch(
+            `${BASE_URL}/api/v1/cards/${cardId}`,
+            backendData
+          );
+
+          savedCardId =
+            response.data.data.card._id || response.data.data.card.id || cardId;
+
+          // Then move the card to the new list using the dedicated endpoint
+          const moveResponse = await axios.patch(
+            `${BASE_URL}/api/v1/cards/${cardId}/move`,
+            {
+              listId: cardData.listId,
+              position: 999999, // Use a large number to ensure it's placed at the end
+            }
+          );
+
+          // Update the response with the moved card data
+          response = moveResponse;
+        } else {
+          // Normal update without list change
+          backendData.list = backendData.listId;
+          delete backendData.listId;
+
+          response = await axios.patch(
+            `${BASE_URL}/api/v1/cards/${cardId}`,
+            backendData
+          );
+
+          savedCardId =
+            response.data.data.card._id || response.data.data.card.id || cardId;
+        }
       } else {
         // إنشاء بطاقة جديدة
-        console.log(`Creating new card in list ${cardData.listId}`);
+        // console.log(`Creating new card in list ${cardData.listId}`);
 
         // نسخ البيانات وتغيير listId إلى list للباكند
         const backendData = { ...cardData };
@@ -62,19 +105,16 @@ export const saveCard = createAsyncThunk(
 
         // استخدام المسار الصحيح للبطاقات وفقا لما هو مسجل في الباكند
         response = await axios.post(`${BASE_URL}/api/v1/cards`, backendData);
+        savedCardId = response.data.data.card._id || response.data.data.card.id;
       }
 
       console.log("Card saved successfully:", response.data);
 
-      // الحصول على معرف البطاقة الجديدة
-      const savedCardId =
-        response.data.data.card._id || response.data.data.card.id || cardId;
-
       // رفع الملفات المعلقة بعد حفظ البطاقة إذا كانت موجودة
       if (pendingFiles && pendingFiles.length > 0 && savedCardId) {
-        console.log(
-          `Uploading ${pendingFiles.length} pending files for card ${savedCardId}`
-        );
+        // console.log(
+        //   `Uploading ${pendingFiles.length} pending files for card ${savedCardId}`
+        // );
         try {
           await dispatch(
             uploadAttachments({
@@ -82,7 +122,7 @@ export const saveCard = createAsyncThunk(
               files: pendingFiles,
             })
           ).unwrap();
-          console.log("Pending files uploaded successfully");
+          // console.log("Pending files uploaded successfully");
         } catch (err) {
           console.error("Error uploading pending files after card save:", err);
         }
@@ -347,11 +387,11 @@ export const uploadAttachments = createAsyncThunk(
         formData.append("files", files);
       }
 
-      console.log(
-        `Uploading attachments for card ${cardId}, file count: ${
-          Array.isArray(files) ? files.length : 1
-        }`
-      );
+      // console.log(
+      //   `Uploading attachments for card ${cardId}, file count: ${
+      //     Array.isArray(files) ? files.length : 1
+      //   }`
+      // );
 
       // استخدام نقطة نهاية PATCH للبطاقة لرفع المرفقات لأنها تستخدم attachmentController.uploadAttachments كوسيط
       const response = await axios.patch(
@@ -408,7 +448,7 @@ export const deleteAttachment = createAsyncThunk(
 
 const initialState = {
   id: null,
-  title: "Card name",
+  title: "",
   dueDate: {
     startDate: formatDateForAPI(today),
     endDate: formatDateForAPI(defaultEndDate),
@@ -540,6 +580,9 @@ const cardDetailsSlice = createSlice({
           reply.edited = true;
         }
       }
+    },
+    setSaveError: (state, action) => {
+      state.saveError = action.payload;
     },
     resetCardDetails: () => initialState,
   },
@@ -871,6 +914,7 @@ export const {
   addReply,
   removeReply,
   editReply,
+  setSaveError,
   resetCardDetails,
 } = cardDetailsSlice.actions;
 

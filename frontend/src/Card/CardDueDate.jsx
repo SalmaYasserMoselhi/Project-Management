@@ -2,10 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  updateDueDate,
-  updateCardDueDate,
-} from "../features/Slice/cardSlice/cardDetailsSlice";
+import { updateDueDate } from "../features/Slice/cardSlice/cardDetailsSlice";
 
 export default function CardDueDate({ cardId }) {
   const dispatch = useDispatch();
@@ -14,7 +11,6 @@ export default function CardDueDate({ cardId }) {
   );
   const datePickerRef = useRef(null);
   const BASE_URL = "http://localhost:3000";
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
 
   // تنسيق التاريخ بتنسيق MM/DD/YYYY (للإرسال إلى API)
@@ -51,47 +47,22 @@ export default function CardDueDate({ cardId }) {
   const [endDate, setEndDate] = useState(getEndDateFromStored());
   const [isOpen, setIsOpen] = useState(false);
 
-  // تحديث التاريخ في Redux وإرساله إلى API
-  useEffect(() => {
+  // تحديث التاريخ في Redux فقط
+  const updateLocalDueDate = (date) => {
     // إنشاء كائن dueDate مع startDate تلقائي (اليوم) وendDate المحدد
     const dueDateObject = {
       startDate: formatDateForAPI(today),
-      endDate: formatDateForAPI(endDate),
+      endDate: formatDateForAPI(date),
     };
 
+    // تحديث في Redux فقط
     dispatch(updateDueDate(dueDateObject));
+  };
 
-    // إذا كانت البطاقة موجودة، قم بتحديث التاريخ على الخادم
-    const updateServerDueDate = async () => {
-      const currentCardId = cardId || storedCardId;
-      if (!currentCardId) return;
-
-      setIsSaving(true);
-      setError(null);
-
-      try {
-        // استخدام async thunk لتحديث التاريخ
-        await dispatch(
-          updateCardDueDate({
-            cardId: currentCardId,
-            dueDate: dueDateObject,
-          })
-        ).unwrap();
-      } catch (err) {
-        console.error("Error updating due date:", err);
-        setError("Could not save date");
-      } finally {
-        setIsSaving(false);
-      }
-    };
-
-    // تأخير التحديث لثانية واحدة لتجنب الطلبات المتكررة
-    const timeoutId = setTimeout(updateServerDueDate, 1000);
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [endDate, dispatch, cardId, storedCardId]);
+  // تحديث التاريخ في Redux عند تغيير endDate
+  useEffect(() => {
+    updateLocalDueDate(endDate);
+  }, [endDate]);
 
   // إضافة مستمع للنقر لإغلاق منتقي التاريخ عند النقر خارجه
   useEffect(() => {
@@ -152,9 +123,6 @@ export default function CardDueDate({ cardId }) {
           onClick={() => setIsOpen(!isOpen)}
         >
           <span className="mr-1">{formatDateForDisplay(endDate)}</span>
-          {isSaving && (
-            <span className="text-xs text-gray-400 ml-1">Saving...</span>
-          )}
           <svg
             className="w-4 h-4 text-gray-500 ml-auto"
             fill="none"

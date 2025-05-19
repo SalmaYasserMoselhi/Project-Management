@@ -260,18 +260,27 @@ const Sidebar = () => {
   };
 
   const handleWorkspaceToggle = async (workspaceType, e) => {
-    // Prevent navigation if event is provided
     if (e) e.preventDefault();
 
-    // Only handle for public workspaces
     if (workspaceType === "workspace") {
-      // If a public workspace is already selected, open it
-      if (selectedWorkspace && selectedWorkspace.type === "public") {
+      // Always use the workspace from localStorage if it exists
+      let localStorageSelectedWorkspace = null;
+      try {
+        const saved = localStorage.getItem("selectedPublicWorkspace");
+        if (saved) {
+          localStorageSelectedWorkspace = JSON.parse(saved);
+        }
+      } catch {}
+
+      if (localStorageSelectedWorkspace) {
         dispatch(setActiveWorkspaceType("workspace"));
-        dispatch(selectWorkspace(selectedWorkspace));
+        dispatch(selectWorkspace(localStorageSelectedWorkspace));
         dispatch(openWorkspaceStart());
         return;
       }
+
+  
+      return;
     }
 
     try {
@@ -317,6 +326,7 @@ const Sidebar = () => {
             description: workspace.description,
             createdBy: workspace.createdBy,
             userRole: workspace.userRole,
+            memberCount: workspace.memberCount,
           };
 
           // If a workspace is currently open, close it first
@@ -333,8 +343,6 @@ const Sidebar = () => {
             dispatch(selectWorkspace(workspaceData));
             dispatch(openWorkspaceStart());
           }
-          // Update localStorage
-          localStorage.setItem("selectedPublicWorkspace", JSON.stringify(workspaceData));
         }
       }
     } catch (error) {

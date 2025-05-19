@@ -5,9 +5,6 @@ import {
   addLabel,
   updateLabel,
   removeLabel,
-  addCardLabel,
-  updateCardLabel,
-  deleteCardLabel,
 } from "../features/Slice/cardSlice/cardDetailsSlice";
 
 export default function CardLabels({ cardId }) {
@@ -50,9 +47,8 @@ export default function CardLabels({ cardId }) {
     };
   }, []);
 
-  const handleAddOrUpdateLabel = async () => {
+  const handleAddOrUpdateLabel = () => {
     if (labelName.trim()) {
-      const currentCardId = cardId || storedCardId;
       setError(null);
 
       // Prepare the label data
@@ -63,40 +59,17 @@ export default function CardLabels({ cardId }) {
 
       try {
         if (editingLabel) {
-          // Update existing label
-          if (currentCardId && editingLabel.id) {
-            // If we have a card ID and label ID, update via API
-            await dispatch(
-              updateCardLabel({
-                cardId: currentCardId,
-                labelId: editingLabel.id,
-                labelData,
-              })
-            ).unwrap();
-          } else {
-            // Otherwise update locally
-            dispatch(
-              updateLabel({
-                index: labels.findIndex((l) => l === editingLabel),
-                name: labelName,
-                color: selectedColor,
-              })
-            );
-          }
+          // Update existing label locally
+          dispatch(
+            updateLabel({
+              index: labels.findIndex((l) => l === editingLabel),
+              name: labelName,
+              color: selectedColor,
+            })
+          );
         } else {
-          // Add new label
-          if (currentCardId) {
-            // If we have a card ID, add via API
-            await dispatch(
-              addCardLabel({
-                cardId: currentCardId,
-                labelData,
-              })
-            ).unwrap();
-          } else {
-            // Otherwise add locally
-            dispatch(addLabel(labelData));
-          }
+          // Add new label locally
+          dispatch(addLabel(labelData));
         }
 
         // Close popup and reset form
@@ -118,30 +91,9 @@ export default function CardLabels({ cardId }) {
     setIsOpen(true);
   };
 
-  const handleRemoveLabel = async () => {
-    const currentCardId = cardId || storedCardId;
-
-    try {
-      if (currentCardId && editingLabel && editingLabel.id) {
-        // If we have card ID and label ID, delete via API
-        await dispatch(
-          deleteCardLabel({
-            cardId: currentCardId,
-            labelId: editingLabel.id,
-          })
-        ).unwrap();
-      } else {
-        // Otherwise remove locally
-        dispatch(removeLabel(labels.findIndex((l) => l === editingLabel)));
-      }
-
-      setIsOpen(false);
-      setEditingLabel(null);
-      setLabelName("");
-    } catch (err) {
-      console.error("Error removing label:", err);
-      setError("Failed to remove label");
-    }
+  const handleRemoveLabel = (index) => {
+    dispatch(removeLabel(index));
+    setIsOpen(false);
   };
 
   return (
@@ -213,10 +165,6 @@ export default function CardLabels({ cardId }) {
               &times;
             </button>
 
-            {/* <h3 className="text-lg font-medium mb-2">
-              {editingLabel ? "Edit Label" : "Add Label"}
-            </h3> */}
-
             <input
               type="text"
               placeholder="Label name"
@@ -250,30 +198,24 @@ export default function CardLabels({ cardId }) {
 
             {error && <div className="text-red-500 text-xs mb-2">{error}</div>}
 
-            {saveError && (
-              <div className="text-red-500 text-xs mb-2">{saveError}</div>
-            )}
-
             <div className="flex justify-evenly gap-2">
               {editingLabel && (
                 <button
-                  onClick={handleRemoveLabel}
-                  disabled={saveLoading}
-                  className={`py-1 w-full bg-gray-300 text-red-600 rounded-md cursor-pointer ${
-                    saveLoading ? "opacity-70 cursor-not-allowed" : ""
-                  }`}
+                  onClick={() =>
+                    handleRemoveLabel(
+                      labels.findIndex((l) => l === editingLabel)
+                    )
+                  }
+                  className="py-1 w-full bg-gray-300 text-red-600 rounded-md cursor-pointer"
                 >
                   Remove
                 </button>
               )}
               <button
                 onClick={handleAddOrUpdateLabel}
-                disabled={saveLoading}
-                className={`py-1 w-full bg-[#4D2D61] text-white rounded-md cursor-pointer ${
-                  saveLoading ? "opacity-70 cursor-not-allowed" : ""
-                }`}
+                className="py-1 w-full bg-[#4D2D61] text-white rounded-md cursor-pointer"
               >
-                {saveLoading ? "Saving..." : "Save"}
+                Save
               </button>
             </div>
           </div>

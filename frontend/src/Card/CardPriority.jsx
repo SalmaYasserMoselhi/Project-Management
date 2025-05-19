@@ -1,9 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  updatePriority,
-  updateCardPriority,
-} from "../features/Slice/cardSlice/cardDetailsSlice";
+import { updatePriority } from "../features/Slice/cardSlice/cardDetailsSlice";
 
 export default function CardPriority() {
   const dispatch = useDispatch();
@@ -40,16 +37,10 @@ export default function CardPriority() {
     };
   }, []);
 
-  // دالة لتحديث الأولوية محليًا وعبر API
+  // دالة لتحديث الأولوية محليًا فقط
   const handleUpdatePriority = (newPriority) => {
-    // أولاً، قم بتحديث الحالة المحلية للاستجابة الفورية
+    // تحديث الحالة المحلية فقط
     dispatch(updatePriority(newPriority));
-
-    // ثم قم بتحديث API إذا كان هناك معرف بطاقة
-    if (cardId) {
-      dispatch(updateCardPriority({ cardId, priority: newPriority }));
-    }
-
     setIsOpen(false);
   };
 

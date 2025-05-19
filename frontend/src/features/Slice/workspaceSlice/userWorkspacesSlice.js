@@ -28,8 +28,9 @@ export const fetchUserPublicWorkspaces = createAsyncThunk(
       const data = await response.json();
 
       // Accept both ownedWorkspaces and workspaces for compatibility
-      const workspaces = data?.data?.ownedWorkspaces || data?.data?.workspaces;
+      const workspaces = data?.data?.workspaces;
       if (data?.status === "success" && workspaces) {
+        console.log(workspaces);
         return workspaces;
       } else {
         return rejectWithValue(data?.message || "Failed to fetch workspaces");
