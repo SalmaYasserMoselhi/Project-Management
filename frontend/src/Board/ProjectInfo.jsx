@@ -13,6 +13,7 @@ const ProjectInfo = ({ boardName, boardDescription, boardId }) => {
   const BASE_URL = "http://localhost:3000";
   const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
   const [showToast, setShowToast] = useState(false);
+  const [lists, setLists] = useState([]); 
 
   const [showShareModal, setShowShareModal] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -35,7 +36,8 @@ const ProjectInfo = ({ boardName, boardDescription, boardId }) => {
     setShowArchivedPopup(true);
     setShowDropdown(false);
   };
-
+  
+  
   const handleDeleteBoard = async () => {
     const confirmDelete = window.confirm(
       "Are you sure you want to delete this board?"
@@ -155,7 +157,10 @@ const ProjectInfo = ({ boardName, boardDescription, boardId }) => {
 
         {/* Archived Popup */}
         {showArchivedPopup && (
-          <ArchivedPopup onClose={() => setShowArchivedPopup(false)} />
+          <ArchivedPopup 
+          onClose={() => setShowArchivedPopup(false)}  
+          boardId={boardId}
+           />
         )}
       </div>
     </>
