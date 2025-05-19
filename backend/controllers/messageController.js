@@ -6,10 +6,8 @@ const mongoose = require('mongoose');
 const Attachment = require('../models/attachmentModel');
 const { uploadMultipleFiles } = require('../Middlewares/fileUploadMiddleware');
 
-
 // Add the middleware for file uploads
 exports.uploadMessageFiles = uploadMultipleFiles().array('files', 5);
-
 
 const createMessage = async (data) => {
   let newMessage = await Message.create(data);
@@ -55,16 +53,13 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   const userId = req.user._id;
   const { message, convoId, files } = req.body;
   if (!convoId) {
-    return next(
-      new AppError('Please provide a conversation id', 400)    );
+    return next(new AppError('Please provide a conversation id', 400));
   }
 
-    // Check if there's either a message or files
-    if (!message && (!req.files || req.files.length === 0)) {
-      return next(
-        new AppError('Please provide a message or files', 400)
-      );
-    }
+  // Check if there's either a message or files
+  if (!message && (!req.files || req.files.length === 0)) {
+    return next(new AppError('Please provide a message or files', 400));
+  }
 
   // Process uploaded files if any
   let fileAttachments = [];
@@ -80,22 +75,22 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
         entityId: convoId,
         uploadedBy: userId,
       });
-      
+
       fileAttachments.push({
         _id: newFile._id,
         originalName: newFile.originalName,
         mimetype: newFile.mimetype,
         size: newFile.size,
-        url: `/api/v1/files/${newFile._id}/download`
+        url: `/api/v1/files/${newFile._id}/download`,
       });
     }
   }
-  
+
   const msgData = {
     sender: userId,
     message,
     conversation: convoId,
-    files: files || [],
+    files: fileAttachments,
   };
   let newMessage = await createMessage(msgData);
   let populatedMessage = await populateMessage(newMessage._id);
