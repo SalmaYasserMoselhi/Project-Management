@@ -8,6 +8,8 @@ import { fetchUserData } from "./features/Slice/userSlice/userSlice";
 import "./index.css";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import Routing from "./Routing/Routing";
+import WorkspacePopup from "./Workspace/WorkspacePopup"
 
 
 
