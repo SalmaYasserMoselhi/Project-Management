@@ -224,7 +224,7 @@ const ShareModal = ({ isOpen, onClose, boardId }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-opacity-20 backdrop-blur-[1px] z-50 flex items-center justify-center rounded-md">
+    <div className="fixed inset-0  bg-black/50 z-50 flex items-center justify-center rounded-md">
       <div className="bg-white rounded-lg w-[90%] md:w-[600px] p-6 relative shadow-lg" ref={modalRef}>
         <button className="absolute top-4 right-4" onClick={onClose}>
           <X className="w-5 h-5 text-gray-500" />

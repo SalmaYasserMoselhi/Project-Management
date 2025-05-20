@@ -5,7 +5,7 @@ import AddListButton from "./AddListButton";
 import drop from "../assets/drop.png";
 import Calendar from "./Calendar";
 import { useSelector } from "react-redux";
-const Board = ({ workspaceId, boardId }) => {
+const Board = ({ workspaceId, boardId,restoredLists }) => {
   const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
   const BASE_URL = "http://localhost:3000";
   const [lists, setLists] = useState([]);
@@ -14,6 +14,16 @@ const Board = ({ workspaceId, boardId }) => {
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
+
+
+  const handleListRestored = (restoredList) => {
+  setColumns((prevColumns) => [...prevColumns, restoredList]);
+};
+   useEffect(() => {
+  if (restoredLists && restoredLists.length > 0) {
+    setColumns((prev) => [...prev, ...restoredLists]);
+  }
+}, [restoredLists]);
 
   useEffect(() => {
     const fetchLists = async () => {
