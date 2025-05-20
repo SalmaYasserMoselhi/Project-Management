@@ -11,7 +11,7 @@ import Avatar3 from '../assets/Avatar3.png';
 import Avatar4 from '../assets/Avatar4.png';
 import defaultAvatar from '../assets/defaultAvatar.png';
 import ReactDOM from 'react-dom';
-import MembersModal from './MembersModal';
+import MembersModal from '../Components/MembersModal';
 
 const mockWorkspace = {
   name: "Samaa's Workspace",
@@ -19,12 +19,12 @@ const mockWorkspace = {
     "A inventore reiciendis id nemo quo. Voluptatibus rerum fugit explicabo hic aperiam. Veritatis quos aut vero eum omnis.",
   type: "private",
   members: [
-    { id: 1, avatar: Avatar1, name: "User 1", role: "Owner" },
-    { id: 2, avatar: Avatar2, name: "User 2", role: "Admin" },
-    { id: 3, avatar: Avatar3, name: "User 3", role: "Member" },
-    { id: 4, avatar: Avatar4, name: "User 4", role: "Member" },
-    { id: 5, avatar: defaultAvatar, name: "User 5", role: "Member" },
-    { id: 6, avatar: defaultAvatar, name: "User 6", role: "Member" },
+    { id: 1, avatar: Avatar1, name: "User 1", role: "owner" },
+    { id: 2, avatar: Avatar2, name: "User 2", role: "admin" },
+    { id: 3, avatar: Avatar3, name: "User 3", role: "member" },
+    { id: 4, avatar: Avatar4, name: "User 4", role: "member" },
+    { id: 5, avatar: defaultAvatar, name: "User 5", role: "member" },
+    { id: 6, avatar: defaultAvatar, name: "User 6", role: "member" },
   ],
   settings: {
     inviteRestriction: "owner",
@@ -40,6 +40,18 @@ const whoOptions = [
 ]
 
 function WorkspaceSettings() {
+  // عرف الدالة هنا أولاً
+  const getSelectedPublicWorkspaceId = () => {
+    try {
+      const selected = localStorage.getItem('selectedPublicWorkspace');
+      if (!selected) return null;
+      const parsed = JSON.parse(selected);
+      return parsed?._id || parsed?.id || null;
+    } catch {
+      return null;
+    }
+  };
+
   const [workspace, setWorkspace] = useState(null)
   const [form, setForm] = useState({
     name: "",
@@ -61,11 +73,13 @@ function WorkspaceSettings() {
   const boardDropdownRef = useRef(null)
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(null)
-  const [membersState, setMembersState] = useState(mockWorkspace.members)
+  const [membersState, setMembersState] = useState([])
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
   const dropdownBtnRef = useRef();
-  const modalRef = useRef(null);
   const membersScrollRef = useRef(null);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [errorMembers, setErrorMembers] = useState(null);
+  const [workspaceId, setWorkspaceId] = useState(getSelectedPublicWorkspaceId());
 
   // Lighter purple for open border
   const openBorder = 'border-[#D6C3EA]';
@@ -195,6 +209,33 @@ function WorkspaceSettings() {
     }
   }, [roleDropdownOpen]);
 
+  useEffect(() => {
+    setWorkspaceId(getSelectedPublicWorkspaceId());
+  }, []);
+
+  useEffect(() => {
+    if (workspaceId) {
+      setLoadingMembers(true);
+      setErrorMembers(null);
+      const url = `/api/v1/workspaces/${workspaceId}/members`;
+      console.log('Fetching members from:', url);
+      fetch(url)
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch members');
+          return res.json();
+        })
+        .then(data => {
+          setMembersState(data.data?.members || data.members || []);
+        })
+        .catch(err => setErrorMembers(err.message))
+        .finally(() => setLoadingMembers(false));
+    }
+  }, [workspaceId]);
+
+  useEffect(() => {
+    console.log('workspaceId:', workspaceId);
+  }, [workspaceId]);
+
   if (!workspace) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#1E1E2E]">
@@ -261,18 +302,18 @@ function WorkspaceSettings() {
             </button>
           </div>
           <div className="flex items-center">
-            {members.slice(0, 4).map((m, i, arr) => (
+            {membersState.slice(0, 4).map((m, i) => (
               <img
-                key={m.id}
-                src={m.avatar}
-                alt={m.name}
+                key={m._id}
+                src={m.user?.avatar || defaultAvatar}
+                alt={m.user?.username || m.user?.email || 'User'}
                 className={`h-10 w-10 rounded-full object-cover ${i !== 0 ? '-ml-4' : ''}`}
                 style={{ zIndex: i + 1 }}
               />
             ))}
-            {extraCount > 0 && (
-              <span className="-ml-4 h-10 w-10 flex items-center justify-center rounded-full bg-[#F5F5F7] text-gray-500 text-base font-bold" style={{ zIndex: members.slice(0, 4).length + 2 }}>
-                +{extraCount}
+            {membersState.length > 4 && (
+              <span className="-ml-4 h-10 w-10 flex items-center justify-center rounded-full bg-[#F5F5F7] text-gray-500 text-base font-bold" style={{ zIndex: membersState.slice(0, 4).length + 2 }}>
+                +{membersState.length - 4}
               </span>
             )}
           </div>
@@ -291,6 +332,12 @@ function WorkspaceSettings() {
             setDropdownPos={setDropdownPos}
             updateDropdownPosition={updateDropdownPosition}
             membersScrollRef={membersScrollRef}
+            entityId={workspaceId}
+            entityType="workspace"
+            loadingMembers={loadingMembers}
+            errorMembers={errorMembers}
+            setLoadingMembers={setLoadingMembers}
+            setErrorMembers={setErrorMembers}
           />
         )}
 
@@ -394,41 +441,6 @@ function WorkspaceSettings() {
           </button>
         </div>
       </div>
-      {roleDropdownOpen !== null && ReactDOM.createPortal(
-        <div
-          className="bg-white rounded-lg shadow-lg border border-[#E5D6F3] z-[9999] animate-fade-in"
-          style={{
-            position: 'fixed',
-            top: dropdownPos.top,
-            left: dropdownPos.left,
-            width: dropdownPos.width,
-          }}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          {['Owner', 'Admin', 'Member'].map(opt => (
-            <button
-              key={opt}
-              type="button"
-              className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${membersState.find(mem => mem.id === roleDropdownOpen)?.role === opt ? 'font-semibold text-[#6A3B82]' : ''}`}
-              onMouseDown={e => e.stopPropagation()}
-              onClick={() => {
-                setMembersState(prev =>
-                  prev.map(mem => mem.id === roleDropdownOpen ? { ...mem, role: opt } : mem)
-                );
-                setRoleDropdownOpen(null);
-                window.removeEventListener('scroll', updateDropdownPosition, true);
-                document.removeEventListener('scroll', updateDropdownPosition, true);
-                if (membersScrollRef.current) {
-                  membersScrollRef.current.removeEventListener('scroll', updateDropdownPosition, true);
-                }
-              }}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>,
-        document.body
-      )}
     </div>
   )
 }
