@@ -51,9 +51,18 @@ const fileSchema = new mongoose.Schema(
 
 // Virtual to get URL for download
 fileSchema.virtual('url').get(function () {
-  return `${process.env.BASE_FILE_URL}/attachments/${this._id}/download`;
+  return `/attachments/${this._id}/download`;
 });
 
+
+
+// // FIXED: Improved the post-init hook to be more reliable
+// fileSchema.post('init', function(doc) {
+//   if (doc.filename && !doc.filename.startsWith('http')) {
+//     // Only modify if it's not already a URL
+//     doc.displayUrl = `${process.env.BASE_FILE_URL}/attachments/download/${doc._id}`;
+//   }
+// });
 fileSchema.post('init', (doc) => {
   // http://localhost:3000/attachments/attach-add7c5fd-f4e1-45d4-9625-ecbe485e9101-1745619165369.png
     if (doc.filename)

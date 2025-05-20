@@ -1,7 +1,18 @@
 import { Link, useLocation } from "react-router-dom";
 
-const Breadcrumb = () => {
+const Breadcrumb = ({ customLabel }) => {
   const location = useLocation();
+  if (customLabel) {
+    return (
+      <nav className="text-sm font-medium text-gray-600">
+        <ul className="flex items-center space-x-2">
+          <li>
+            <span className="text-gray-500 capitalize">{customLabel}</span>
+          </li>
+        </ul>
+      </nav>
+    );
+  }
   const paths = location.pathname
     .split("/")
     .filter((path) => path)

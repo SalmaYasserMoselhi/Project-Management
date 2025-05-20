@@ -1,5 +1,7 @@
 const fs = require('fs');
 const path = require('path');
+const mime = require('mime-types'); // Add this package to your dependencies if not already present
+
 const Attachment = require('../models/attachmentModel');
 const Card = require('../models/cardModel');
 const List = require('../models/listModel');
@@ -244,16 +246,49 @@ exports.downloadFile = catchAsync(async (req, res, next) => {
     return next(new AppError('File not found on server', 404));
   }
 
+    const stats = fs.statSync(file.path);
+     // Double-check mimetype based on file extension
+  const fileExt = path.extname(file.path).toLowerCase();
+  let detectedMimetype = mime.lookup(fileExt) || file.mimetype || 'application/octet-stream';
+
+ // Handle specific file types differently
+  if (fileExt === '.png') {
+    detectedMimetype = 'image/png';
+  } else if (fileExt === '.jpg' || fileExt === '.jpeg') {
+    detectedMimetype = 'image/jpeg';
+  } else if (fileExt === '.pdf') {
+    detectedMimetype = 'application/pdf';
+  }
+
+   const encodedFilename = encodeURIComponent(file.originalName)
+    .replace(/['()]/g, escape) // Handle special characters
+    .replace(/\*/g, '%2A');
+
+    // CRITICAL: Set proper headers
+  res.setHeader('Content-Type', detectedMimetype);
+  res.setHeader('Content-Length', stats.size);
   // Set appropriate headers
   res.setHeader(
     'Content-Disposition',
-    `attachment; filename="${encodeURIComponent(file.originalName)}"`
+    `attachment;  filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`
   );
-  res.setHeader('Content-Type', file.mimetype);
-  res.setHeader('Content-Length', file.size);
 
-  // Create read stream and pipe to response
-  fs.createReadStream(file.path).pipe(res);
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  
+  try {
+    // ALTERNATIVE APPROACH: Read the entire file and send as a buffer
+    // This avoids potential issues with streaming
+    const fileBuffer = fs.readFileSync(file.path);
+    console.log('File read successfully, file size:', fileBuffer.length);
+    
+    // Send the file directly as a buffer
+    return res.send(fileBuffer);
+  } catch (err) {
+    console.error('Error reading file:', err);
+    return next(new AppError('Error reading file from disk', 500));
+  }
 });
 
 exports.deleteFile = catchAsync(async (req, res, next) => {
