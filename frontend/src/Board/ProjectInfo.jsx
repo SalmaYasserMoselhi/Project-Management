@@ -9,7 +9,7 @@ import ArchivedPopup from "./ArchivedPopup";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
-const ProjectInfo = ({ boardName, boardDescription, boardId }) => {
+const ProjectInfo = ({ boardName, boardDescription, boardId,onListRestored }) => {
   const BASE_URL = "http://localhost:3000";
   const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
   const [showToast, setShowToast] = useState(false);
@@ -21,6 +21,10 @@ const ProjectInfo = ({ boardName, boardDescription, boardId }) => {
   const navigate = useNavigate();
 
   const dropdownRef = useRef(null);
+ 
+  const handleListRestored = (restoredList) => {
+  onListRestored(restoredList);
+}; 
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -160,6 +164,7 @@ const ProjectInfo = ({ boardName, boardDescription, boardId }) => {
           <ArchivedPopup 
           onClose={() => setShowArchivedPopup(false)}  
           boardId={boardId}
+          // onListRestored={handleListRestored}
            />
         )}
       </div>
