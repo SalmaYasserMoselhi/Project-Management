@@ -11,6 +11,7 @@ import Avatar3 from '../assets/Avatar3.png';
 import Avatar4 from '../assets/Avatar4.png';
 import defaultAvatar from '../assets/defaultAvatar.png';
 import ReactDOM from 'react-dom';
+import MembersModal from './MembersModal';
 
 const mockWorkspace = {
   name: "Samaa's Workspace",
@@ -279,62 +280,18 @@ function WorkspaceSettings() {
 
         {/* Members Modal Popup */}
         {showMembersModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1E1E2E]/30" onClick={() => setShowMembersModal(false)}>
-            <div ref={modalRef} className="bg-white rounded-xl shadow-xl w-full max-w-xl p-6 relative" onClick={e => e.stopPropagation()}>
-              <div className="mb-2 text-gray-700 text-sm font-medium">People with access ({members.length})</div>
-              <div
-                ref={membersScrollRef}
-                className="space-y-2 max-h-60 overflow-y-auto pr-1"
-              >
-                {membersState.map((m) => (
-                  <div key={m.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
-                    <img src={m.avatar} alt={m.name} className="h-8 w-8 rounded-full object-cover" />
-                    <span className="flex-1 text-gray-900 text-sm">{m.name}</span>
-                    <div className="relative w-28" id={`role-dropdown-${m.id}`}> 
-                      <button
-                        id={`role-dropdown-btn-${m.id}`}
-                        type="button"
-                        className={`w-full flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none border-[#BFA8D9] hover:border-[#6A3B82] focus:border-[#BFA8D9]`}
-                        onClick={e => {
-                          if (roleDropdownOpen === m.id) {
-                            setRoleDropdownOpen(null);
-                            window.removeEventListener('scroll', updateDropdownPosition, true);
-                            if (membersScrollRef.current) {
-                              membersScrollRef.current.removeEventListener('scroll', updateDropdownPosition, true);
-                            }
-                          } else {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setDropdownPos({
-                              top: rect.bottom,
-                              left: rect.left,
-                              width: rect.width,
-                            });
-                            setRoleDropdownOpen(m.id);
-                            setTimeout(() => {
-                              window.addEventListener('scroll', updateDropdownPosition, true);
-                              document.addEventListener('scroll', updateDropdownPosition, true);
-                              if (membersScrollRef.current) {
-                                membersScrollRef.current.addEventListener('scroll', updateDropdownPosition, true);
-                              }
-                            }, 0);
-                          }
-                        }}
-                      >
-                        <span className="text-gray-900">{m.role}</span>
-                        <ChevronDown className={`ml-2 transition-transform ${roleDropdownOpen === m.id ? 'rotate-180' : ''} text-gray-400`} size={18} />
-                      </button>
-                    </div>
-                    <button
-                      className="w-24 py-1 px-4 rounded-lg border border-red-200 text-red-500 text-sm font-medium transition-all duration-150 bg-white hover:border-red-400 hover:bg-red-50 focus:outline-none focus:border-red-400 focus:bg-red-50"
-                      aria-label="Remove member"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <MembersModal
+            open={showMembersModal}
+            onClose={() => setShowMembersModal(false)}
+            members={membersState}
+            setMembers={setMembersState}
+            roleDropdownOpen={roleDropdownOpen}
+            setRoleDropdownOpen={setRoleDropdownOpen}
+            dropdownPos={dropdownPos}
+            setDropdownPos={setDropdownPos}
+            updateDropdownPosition={updateDropdownPosition}
+            membersScrollRef={membersScrollRef}
+          />
         )}
 
         {/* Notifications */}
