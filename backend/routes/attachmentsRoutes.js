@@ -14,8 +14,8 @@ router.use(authController.protect);
 // );
 
 // // SPECIFIC ROUTES FIRST
-// // Download a file
-// router.get('/download/:fileId', attachmentController.downloadFile);
+// Download a file
+router.get('/:fileId/download', attachmentController.downloadFile);
 
 // // Delete a file (permanent delete)
 router.delete('/:fileId', attachmentController.deleteFile);
