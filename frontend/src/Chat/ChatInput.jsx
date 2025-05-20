@@ -240,7 +240,7 @@ const ChatInput = ({ chatId }) => {
               setMessage(e.target.value);
               handleTyping();
             }}
-            onKeyDown={handleKeyDown} // تم تأكيد تواجد هذا الحدث
+            onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             className="flex-1 bg-white rounded-lg px-3 py-2 outline-none resize-none max-h-32 text-gray-800 placeholder-gray-400 text-sm"
             rows={1}

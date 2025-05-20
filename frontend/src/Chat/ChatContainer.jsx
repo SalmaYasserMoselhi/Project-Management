@@ -19,7 +19,7 @@ import { onMessage, onTyping, onStopTyping } from "../utils/socket";
 import { useChat } from "../context/chat-context";
 import defaultAvatar from "../assets/defaultAvatar.png";
 import { isValidImageUrl } from "../utils/imageUtils";
-import { Plus, X, Trash } from "lucide-react";
+import { Plus, X, Minus } from "lucide-react";
 
 const ChatContainer = () => {
   const dispatch = useDispatch();
@@ -296,7 +296,7 @@ const ChatContainer = () => {
                       className="text-red-500 hover:text-red-700"
                       title="Remove User"
                     >
-                      <Trash className="h-5 w-5" />
+                      <Minus className="h-5 w-5" />
                     </button>
                   )}
               </li>
