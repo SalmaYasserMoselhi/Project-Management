@@ -145,8 +145,12 @@ exports.createCard = catchAsync(async (req, res, next) => {
   let uploadedFiles = [];
   if (req.files && req.files.length > 0) {
     for (const file of req.files) {
+     // Store originalName in a Buffer to preserve UTF-8 encoding
+      const originalNameBuffer = Buffer.from(file.originalname, 'binary');
+      const originalName = originalNameBuffer.toString('utf8');
+
       const newFile = await Attachment.create({
-        originalName: file.originalname,
+        originalName: originalName,
         filename: file.filename,
         mimetype: file.mimetype,
         size: file.size,
@@ -347,9 +351,12 @@ exports.updateCard = catchAsync(async (req, res, next) => {
 
     for (const file of req.files) {
       console.log(`Creating attachment record for file: ${file.originalname}`);
+ // Store originalName in a Buffer to preserve UTF-8 encoding
+      const originalNameBuffer = Buffer.from(file.originalname, 'binary');
+      const originalName = originalNameBuffer.toString('utf8');
 
       const newFile = await Attachment.create({
-        originalName: file.originalname,
+        originalName: originalName,
         filename: file.filename,
         mimetype: file.mimetype,
         size: file.size,

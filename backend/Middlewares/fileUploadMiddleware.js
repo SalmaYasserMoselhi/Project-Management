@@ -41,6 +41,47 @@ exports.uploadMultipleFiles = () => {
     },
   });
 
+
+  // IMPROVED: Add proper file type detection
+  const fileFilter = (req, file, cb) => {
+    // Get the file extension
+    const ext = path.extname(file.originalname).toLowerCase();
+    
+    // Set the correct mimetype based on extension for common types
+    // This helps ensure files are served with the right Content-Type
+    switch (ext) {
+      case '.jpg':
+      case '.jpeg':
+        file.mimetype = 'image/jpeg';
+        break;
+      case '.png':
+        file.mimetype = 'image/png';
+        break;
+      case '.gif':
+        file.mimetype = 'image/gif';
+        break;
+      case '.pdf':
+        file.mimetype = 'application/pdf';
+        break;
+      case '.doc':
+      case '.docx':
+        file.mimetype = 'application/msword';
+        break;
+      case '.xls':
+      case '.xlsx':
+        file.mimetype = 'application/vnd.ms-excel';
+        break;
+      case '.zip':
+        file.mimetype = 'application/zip';
+        break;
+      case '.txt':
+        file.mimetype = 'text/plain';
+        break;
+      // Add more types as needed
+    }
+    
+    cb(null, true);
+  };
   const upload = multer({
     storage,
     limits: {
@@ -50,4 +91,11 @@ exports.uploadMultipleFiles = () => {
   });
 
   return upload;
+};
+
+
+// Add this function to properly handle the filename encoding
+exports.sanitizeFilename = function(originalname) {
+  // Return the untouched originalname - we'll handle encoding at display time
+  return originalname;
 };

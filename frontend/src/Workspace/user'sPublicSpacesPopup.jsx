@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import {
   setActiveWorkspaceType,
   selectWorkspace,
@@ -17,6 +18,7 @@ import {
 const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
   const dispatch = useDispatch();
   const popupRef = useRef(null);
+  const navigate = useNavigate();
   const { user } = useSelector((state) => state.user);
   const { isWorkspaceOpen, workspaceTransitionState } = useSelector(
     (state) => state.sidebar
@@ -193,6 +195,9 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
 
   // console.log('Popup header workspace:', workspaceHeader);
 
+  // Only show settings if user is owner or admin
+  const canEditSettings = selectedOrLocalWorkspace && ["owner", "admin"].includes(selectedOrLocalWorkspace.userRole);
+
   if (!isOpen && !isAnimating) return null;
 
   return (
@@ -226,10 +231,20 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
 
         {/* Action buttons */}
         <div className="grid grid-cols-2 gap-2 mt-3 max-w-[280px]">
-          <button className="flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-200 rounded-md bg-gray-100 transition-colors w-full h-7 cursor-pointer">
-            <Settings className="w-3.5 h-3.5" />
-            <span>Settings</span>
-          </button>
+          {canEditSettings && (
+            <button
+              className="flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-200 rounded-md bg-gray-100 transition-colors w-full h-7 cursor-pointer"
+              onClick={() => {
+                if (selectedOrLocalWorkspace) {
+                  navigate(`/main/workspaces/${selectedOrLocalWorkspace.id || selectedOrLocalWorkspace._id}/settings`);
+                  onClose();
+                }
+              }}
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>Settings</span>
+            </button>
+          )}
           <button className="flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-200 rounded-md bg-gray-100 transition-colors h-7 w-full cursor-pointer">
             <Users className="w-3.5 h-3.5" />
             <span>Invite members</span>
