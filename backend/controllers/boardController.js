@@ -22,18 +22,38 @@ const notificationService = require('../utils/notificationService');
 
 
 // Helper function to format member data
-const formatMemberData = (member) => ({
-  _id: member._id,
-  user: {
-    _id: member.user._id,
-    username: member.user.username,
-    email: member.user.email,
-    avatar: member.user.avatar,
-  },
-  role: member.role,
-  permissions: member.permissions,
-  joinedAt: member.joinedAt,
-});
+const formatMemberData = (member) => {
+  // Check if member or member.user is null/undefined
+  if (!member || !member.user) {
+    console.warn('Warning: Received invalid member data:', member);
+    return {
+      _id: member?._id || null,
+      user: {
+        _id: null,
+        username: 'Unknown User',
+        email: '',
+        avatar: '',
+      },
+      role: member?.role || 'member',
+      permissions: member?.permissions || [],
+      joinedAt: member?.joinedAt || new Date(),
+    };
+  }
+
+  // Normal case when member.user exists
+  return {
+    _id: member._id,
+    user: {
+      _id: member.user._id,
+      username: member.user.username,
+      email: member.user.email,
+      avatar: member.user.avatar,
+    },
+    role: member.role,
+    permissions: member.permissions,
+    joinedAt: member.joinedAt,
+  };
+};
 
 // Helper function to format board response
 const formatBoardResponse = (board, userId) => ({
@@ -710,8 +730,34 @@ exports.getBoardMembers = catchAsync(async (req, res, next) => {
   const pageNum = parseInt(page, 10) || 1;
   const limitNum = parseInt(limit, 10) || 10;
   const skip = (pageNum - 1) * limitNum;
+  
+    // Populate user details to get firstName and lastName
+  const populatedBoard = await Board.findById(board._id).populate({
+    path: 'members.user',
+    select: '_id username email avatar firstName lastName'
+  });
 
-  const members = board.members.map(formatMemberData);
+  // Filter out invalid members before mapping
+  // const validMembers = board.members.filter(member => member && member.user);
+  
+    // Filter out invalid members before mapping
+  const validMembers = populatedBoard.members.filter(member => member && member.user);
+  
+  // Apply formatMemberData and include firstName and lastName
+  const members = validMembers.map(member => {
+    const formattedMember = formatMemberData(member);
+    
+    // Add firstName and lastName to the formatted member data
+    if (member.user) {
+      formattedMember.user.firstName = member.user.firstName || '';
+      formattedMember.user.lastName = member.user.lastName || '';
+    }
+    
+    return formattedMember;
+  });
+
+  // Apply formatMemberData only to valid members
+  // const members = validMembers.map(formatMemberData);
 
   // Sorting logic
   const sortField = sort.startsWith('-') ? sort.slice(1) : sort;
@@ -731,7 +777,7 @@ exports.getBoardMembers = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     data: {
-      members: paginatedMembers.map(formatMemberData),
+      members: paginatedMembers,
       pagination: {
         total: totalMembers,
         page: pageNum,
