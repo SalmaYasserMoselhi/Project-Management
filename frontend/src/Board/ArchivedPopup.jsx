@@ -211,7 +211,7 @@ const handleRestore = async (listId) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/10 backdrop-blur-sm flex justify-end items-start">
+    <div className="fixed inset-0 z-50 bg-black/10  flex justify-end items-start">
       <div
         ref={popupRef}
         className={`bg-white w-[330px] h-screen overflow-hidden shadow-2xl rounded-none transform transition-all duration-200 ease-in-out ${
