@@ -132,3 +132,22 @@ exports.getMessages = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+exports.deleteMessage = catchAsync(async (req, res, next) => {
+  const messageId = req.params.messageId;
+  const userId = req.user.id;
+  const message = await Message.findById(messageId);
+  if (!message) {
+    return next(new AppError('Message not found', 404));
+  }
+  if (message.sender.toString() !== userId) {
+    return next(
+      new AppError('You are not authorized to delete this message', 401)
+    );
+  }
+  await Message.findByIdAndDelete(messageId);
+  res.status(200).json({
+    status: 'success',
+    message: 'Message deleted successfully',
+  });
+});

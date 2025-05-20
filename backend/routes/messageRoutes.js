@@ -4,12 +4,23 @@ const authController = require('../controllers/authController');
 
 const router = express.Router();
 
-router.post('/', authController.protect, messageController.uploadMessageFiles, messageController.sendMessage);
+router.post(
+  '/',
+  authController.protect,
+  messageController.uploadMessageFiles,
+  messageController.sendMessage
+);
 router.get('/:convoId', authController.protect, messageController.getMessages);
+router.delete(
+  '/:messageId',
+  authController.protect,
+  messageController.deleteMessage
+);
 
 // Add a route for downloading message files
 router.get('/download/:fileId', authController.protect, (req, res, next) => {
-    // Redirect to the attachment download route
-    res.redirect(`/api/v1/attachments/download/${req.params.fileId}`);
-  });
+  // Redirect to the attachment download route
+  res.redirect(`/api/v1/attachments/download/${req.params.fileId}`);
+});
+
 module.exports = router;

@@ -1,11 +1,9 @@
 let onlineUsers = [];
 let ioInstance;
 
-
 module.exports = function (socket, io) {
-
-   // Store the io instance for later use
-   if (io && !ioInstance) {
+  // Store the io instance for later use
+  if (io && !ioInstance) {
     ioInstance = io;
     // Make it available globally if not already done
     if (!global.io) {
@@ -47,6 +45,17 @@ module.exports = function (socket, io) {
       socket.in(user._id).emit('receive message', message);
     });
   });
+
+  socket.on('delete message', (data) => {
+    const { messageId, conversationId, deletedBy } = data;
+
+    console.log(
+      `Message ${messageId} deleted from conversation ${conversationId} by user ${deletedBy}`
+    );
+
+    socket.to(conversationId).emit('message deleted', messageId);
+  });
+
   // typing
   socket.on('typing', (conversation) => {
     socket.in(conversation).emit('typing', conversation);
@@ -113,10 +122,10 @@ module.exports = function (socket, io) {
   });
 
   // Utility method to get the io instance from outside
-  module.exports.getIO = function() {
+  module.exports.getIO = function () {
     return ioInstance;
   };
 
-    // Return the socket server for testing purposes
-    return socket;
+  // Return the socket server for testing purposes
+  return socket;
 };
