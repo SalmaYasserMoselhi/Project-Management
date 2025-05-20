@@ -4,7 +4,7 @@ const authController = require('../controllers/authController');
 
 const router = express.Router();
 
-router.post('/', authController.protect, messageController.sendMessage);
+router.post('/', authController.protect, messageController.uploadMessageFiles, messageController.sendMessage);
 router.get('/:convoId', authController.protect, messageController.getMessages);
 
 // Add a route for downloading message files

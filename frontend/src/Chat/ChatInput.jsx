@@ -9,6 +9,7 @@ import {
   updateConversationInList,
   toggleEmojiPicker,
   closeEmojiPicker,
+  sendFileMessage,
 } from "../features/Slice/ChatSlice/chatSlice";
 import { emitTyping, emitStopTyping } from "../utils/socket";
 import { useChat } from "../context/chat-context";
@@ -22,6 +23,7 @@ const ChatInput = ({ chatId }) => {
   const typingTimeoutRef = useRef(null);
   const observerRef = useRef(null);
   const emojiPickerRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const conversationFromStore = useSelector((state) =>
     state.chat.conversations.find((c) => c._id === chatId)
@@ -63,6 +65,38 @@ const ChatInput = ({ chatId }) => {
     },
     [dispatch]
   );
+
+  // Handle file selection
+  const handleFileSelect = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const result = await dispatch(
+        sendFileMessage({
+          conversationId: chatId,
+          file: file,
+        })
+      ).unwrap();
+
+      // Update conversation with the new message
+      if (conversationFromStore) {
+        dispatch(
+          updateConversationInList({
+            ...conversationFromStore,
+            lastMessage: result,
+          })
+        );
+      }
+    } catch (error) {
+      console.error("Failed to send file:", error);
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   // Handle message submission
   const handleSubmit = useCallback(
@@ -188,9 +222,16 @@ const ChatInput = ({ chatId }) => {
             type="button"
             className="p-1 text-[#4D2D61] transition-colors hover:text-[#57356A] mr-2"
             title="Attach File"
+            onClick={() => fileInputRef.current?.click()}
           >
             <Paperclip className="w-5 h-5" />
           </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            onChange={handleFileSelect}
+          />
 
           <textarea
             ref={textareaRef}

@@ -165,8 +165,10 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
             xmlns="http://www.w3.org/2000/svg"
             width="24"
             height="24"
-            yy
             viewBox="0 0 18 24"
+            onClick={() => setDropdownVisible(!dropdownVisible)} // Toggle dropdown visibility
+            ref={vectorRef} // Reference to vector icon
+            className="cursor-pointer"
           >
             <path
               fill="none"
@@ -179,7 +181,7 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
           </svg>
           {dropdownVisible && (
             <div
-              className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10"
+              className="absolute right-0 top-full w-auto bg-white border border-gray-200 rounded-lg shadow-lg z-10"
               ref={dropdownRef} // Reference to dropdown menu
             >
               <button

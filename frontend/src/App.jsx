@@ -9,8 +9,12 @@ import "./index.css";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Routing from "./Routing/Routing";
+<<<<<<< HEAD
+import WorkspacePopup from "./Workspace/WorkspacePopup"
+=======
 import WorkspacePopup from "./Workspace/WorkspacePopup";
 import { fetchUserPublicWorkspaces } from "./features/Slice/WorkspaceSlice/userWorkspacesSlice";
+>>>>>>> d071d3f706fc4f8691d97602d3bc733501e5e3ab
 
 
 
