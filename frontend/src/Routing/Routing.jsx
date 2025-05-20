@@ -9,7 +9,7 @@ import VerificationFailed from "../Auth/verification-failed";
 import VerificationSuccess from "../Auth/verification-success";
 import MainBoard from "../Board/MainBoard";
 import Dashboard from "../Main/Dashboard";
-// import WorkspacePopup from "../Workspace/WorkspacePopup";
+import WorkspaceSettings from "../Main/WorkspaceSettings";
 
 import ChatLayout from "../Chat/ChatLayout";
 import Main from "../Main/Main";
@@ -37,6 +37,10 @@ function Routing() {
           <Route
             path="workspaces/:workspaceId/boards/:boardId"
             element={<MainBoard />}
+          />
+          <Route
+            path="workspaces/:workspaceId/settings"
+            element={<WorkspaceSettings />}
           />
         </Route>
       </Routes>

@@ -471,7 +471,7 @@ const Sidebar = () => {
                 onClick={handleWorkspacePopupToggle}
                 data-popup-trigger="true"
               >
-                <div className="w-6 h-6 flex items-center justify-center bg-[#6A3B82] text-[#fff] font-medium rounded-sm text-sm">
+                <div className="w-6 h-6 flex items-center justify-center bg-[#6A3B82] text-[#fff] font-medium rounded-lg text-sm">
                   {sidebarAvatarLetter}
                 </div>
 
@@ -486,7 +486,7 @@ const Sidebar = () => {
             ) : (
               <div className="flex justify-center">
                 <div
-                  className="w-12 px-3 py-2.5 flex items-center justify-center bg-[#6A3B82] text-white font-normal rounded-xl text-sm"
+                  className="w-12 px-3 py-2.5 flex items-center justify-center bg-[#6A3B82] text-white font-normal rounded-lg text-sm"
                   onClick={handleWorkspacePopupToggle}
                   data-popup-trigger="true"
                 >
