@@ -13,7 +13,7 @@ import {
 } from "../features/Slice/ChatSlice/chatSlice";
 import { emitTyping, emitStopTyping } from "../utils/socket";
 import { useChat } from "../context/chat-context";
-
+import { toast } from "react-hot-toast";
 const ChatInput = ({ chatId }) => {
   const dispatch = useDispatch();
   const { currentUser } = useChat();
@@ -68,14 +68,14 @@ const ChatInput = ({ chatId }) => {
 
   // Handle file selection
   const handleFileSelect = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
 
     try {
       const result = await dispatch(
         sendFileMessage({
           conversationId: chatId,
-          file: file,
+          files: files,
         })
       ).unwrap();
 
@@ -90,6 +90,12 @@ const ChatInput = ({ chatId }) => {
       }
     } catch (error) {
       console.error("Failed to send file:", error);
+      toast.error(error || "Failed to send file");
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
 
     // Reset file input

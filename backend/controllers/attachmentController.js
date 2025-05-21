@@ -6,6 +6,7 @@ const Attachment = require('../models/attachmentModel');
 const Card = require('../models/cardModel');
 const List = require('../models/listModel');
 const Board = require('../models/boardModel');
+const Conversation = require('../models/conversationModel');
 const { uploadMultipleFiles } = require('../Middlewares/fileUploadMiddleware');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
@@ -227,14 +228,16 @@ exports.downloadFile = catchAsync(async (req, res, next) => {
       if (!conversation) {
         return next(new AppError('Conversation not found', 404));
       }
-      
+
       // Check if user is a member of the conversation
       const isMember = conversation.users.some(
-        userId => userId.toString() === req.user._id.toString()
+        (userId) => userId.toString() === req.user._id.toString()
       );
-      
+
       if (!isMember) {
-        return next(new AppError('You are not a member of this conversation', 403));
+        return next(
+          new AppError('You are not a member of this conversation', 403)
+        );
       }
     } catch (error) {
       return next(error);
@@ -246,12 +249,13 @@ exports.downloadFile = catchAsync(async (req, res, next) => {
     return next(new AppError('File not found on server', 404));
   }
 
-    const stats = fs.statSync(file.path);
-     // Double-check mimetype based on file extension
+  const stats = fs.statSync(file.path);
+  // Double-check mimetype based on file extension
   const fileExt = path.extname(file.path).toLowerCase();
-  let detectedMimetype = mime.lookup(fileExt) || file.mimetype || 'application/octet-stream';
+  let detectedMimetype =
+    mime.lookup(fileExt) || file.mimetype || 'application/octet-stream';
 
- // Handle specific file types differently
+  // Handle specific file types differently
   if (fileExt === '.png') {
     detectedMimetype = 'image/png';
   } else if (fileExt === '.jpg' || fileExt === '.jpeg') {
@@ -260,11 +264,11 @@ exports.downloadFile = catchAsync(async (req, res, next) => {
     detectedMimetype = 'application/pdf';
   }
 
-   const encodedFilename = encodeURIComponent(file.originalName)
+  const encodedFilename = encodeURIComponent(file.originalName)
     .replace(/['()]/g, escape) // Handle special characters
     .replace(/\*/g, '%2A');
 
-    // CRITICAL: Set proper headers
+  // CRITICAL: Set proper headers
   res.setHeader('Content-Type', detectedMimetype);
   res.setHeader('Content-Length', stats.size);
   // Set appropriate headers
@@ -276,13 +280,13 @@ exports.downloadFile = catchAsync(async (req, res, next) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
-  
+
   try {
     // ALTERNATIVE APPROACH: Read the entire file and send as a buffer
     // This avoids potential issues with streaming
     const fileBuffer = fs.readFileSync(file.path);
     console.log('File read successfully, file size:', fileBuffer.length);
-    
+
     // Send the file directly as a buffer
     return res.send(fileBuffer);
   } catch (err) {
@@ -292,7 +296,7 @@ exports.downloadFile = catchAsync(async (req, res, next) => {
 });
 
 exports.deleteFile = catchAsync(async (req, res, next) => {
-  const {fileId } = req.params;
+  const { fileId } = req.params;
 
   // Find the file
   const file = await Attachment.findById(fileId);
@@ -318,9 +322,10 @@ exports.deleteFile = catchAsync(async (req, res, next) => {
         console.log(`Logging activity for card: ${card._id}`);
 
         // Get all board members to notify - using the pattern that works
-        const boardMembers = board.members
-          .filter(member => member.user.toString() !== req.user._id.toString());
-        
+        const boardMembers = board.members.filter(
+          (member) => member.user.toString() !== req.user._id.toString()
+        );
+
         // Send notifications to board members
         for (const member of boardMembers) {
           await notificationService.createNotification(
@@ -339,13 +344,13 @@ exports.deleteFile = catchAsync(async (req, res, next) => {
               filename: file.originalName,
               fileSize: file.formatSize
                 ? file.formatSize()
-                : `${Math.round(file.size / 1024)} KB`
+                : `${Math.round(file.size / 1024)} KB`,
             }
           );
         }
 
         // Log card activity
-      await  activityService.logCardActivity(
+        await activityService.logCardActivity(
           board,
           req.user._id,
           'attachment_removed',
