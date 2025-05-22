@@ -108,11 +108,9 @@ exports.uploadAttachments = catchAsync(async (req, res, next) => {
     }))
   );
 
-  // Get card context and verify permissions
   try {
     const { card, list, board } = await getCardWithContext(entityId);
 
-    // Check if user can edit this card using permissionService
     if (!permissionService.canEditCard(board, card, req.user._id)) {
       return next(
         new AppError(
@@ -122,7 +120,6 @@ exports.uploadAttachments = catchAsync(async (req, res, next) => {
       );
     }
 
-    // Create file records for each uploaded file
     const uploadedFiles = [];
 
     for (const file of req.files) {
@@ -135,10 +132,8 @@ exports.uploadAttachments = catchAsync(async (req, res, next) => {
         cwd: process.cwd(),
       });
 
-      // Ensure we have the correct path
       let filePath = file.path;
       if (!fs.existsSync(filePath)) {
-        // Try alternative paths
         const alternativePaths = [
           path.resolve(filePath),
           path.join(process.cwd(), filePath),
@@ -162,12 +157,14 @@ exports.uploadAttachments = catchAsync(async (req, res, next) => {
         }
       }
 
+      const relativePath = path.relative(process.cwd(), filePath);
+
       const newFile = await Attachment.create({
         originalName: file.originalname,
         filename: file.filename,
         mimetype: file.mimetype,
         size: file.size,
-        path: filePath, // Use the verified path
+        path: relativePath, // ✅ Store relative path
         entityType,
         entityId,
         uploadedBy: req.user._id,
@@ -176,12 +173,11 @@ exports.uploadAttachments = catchAsync(async (req, res, next) => {
       console.log('File saved to database:', {
         id: newFile._id,
         path: newFile.path,
-        pathExists: fs.existsSync(newFile.path),
+        pathExists: fs.existsSync(path.resolve(newFile.path)), // ✅ تأكد بالـ resolve
       });
 
       uploadedFiles.push(newFile);
 
-      // Add activity log for the card
       try {
         cardController.logCardActivity(card, 'attachment_added', req.user._id, {
           fileId: newFile._id,
