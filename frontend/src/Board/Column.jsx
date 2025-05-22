@@ -19,10 +19,9 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
 
   const fetchCards = async () => {
     try {
-      const res = await axios.get(
-        `${BASE_URL}/api/v1/cards/list/${id}/cards?include=attachments,comments`
-      );
-      setCards(res.data.data.cards || []);
+      const res = await axios.get(`${BASE_URL}/api/v1/cards/list/${id}/cards`);
+      const cards = res.data.data.cards || [];
+      setCards(cards);
     } catch (err) {
       console.error("Error loading cards:", err);
     }

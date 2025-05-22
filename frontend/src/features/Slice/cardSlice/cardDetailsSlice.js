@@ -75,7 +75,7 @@ export const saveCard = createAsyncThunk(
             `${BASE_URL}/api/v1/cards/${cardId}/move`,
             {
               listId: cardData.listId,
-              position: 999999, // Use a large number to ensure it's placed at the end
+              position: Date.now(), // Use timestamp to ensure unique, increasing position values
             }
           );
 
@@ -460,6 +460,7 @@ const initialState = {
   subtasks: [],
   comments: [],
   listId: null,
+  boardId: null,
   loading: false,
   saveLoading: false,
   error: null,
@@ -496,6 +497,9 @@ const cardDetailsSlice = createSlice({
     },
     updateListId: (state, action) => {
       state.listId = action.payload;
+    },
+    setBoardId: (state, action) => {
+      state.boardId = action.payload;
     },
     addAttachment: (state, action) => {
       state.attachments.push(action.payload);
@@ -598,6 +602,11 @@ const cardDetailsSlice = createSlice({
         // تحديث حالة البطاقة بالبيانات المجلوبة
         const cardData = action.payload.card;
         const attachmentsData = action.payload.attachments;
+
+        // Store board ID if available
+        if (action.payload.boardId) {
+          state.boardId = action.payload.boardId;
+        }
 
         // التعامل بشكل خاص مع dueDate للتأكد من هيكل البيانات الصحيح
         if (cardData.dueDate) {
@@ -903,6 +912,7 @@ export const {
   updatePriority,
   updateDescription,
   updateListId,
+  setBoardId,
   addAttachment,
   removeAttachment,
   addSubtask,

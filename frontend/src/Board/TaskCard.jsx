@@ -1,19 +1,19 @@
 import drag from "../assets/drag-icon.png";
-import vector from "../assets/Vector.png";
 import avatar3 from "../assets/Avatar3.png";
 import addButton from "../assets/Add Button.png";
 import List from "../assets/prime_list.png";
 import File from "../assets/file_present.png";
 import third from "../assets/third.png";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
 import CardDetails from "../Card/CardDetails";
 
 const TaskCard = ({
   id,
   title = "Task",
   priority,
-  fileCount = 3,
-  commentCount = 5,
+  fileCount = 0,
+  commentCount = 0,
   boardId,
   allLists,
   listId,
@@ -21,8 +21,34 @@ const TaskCard = ({
   onCardUpdate,
 }) => {
   const [isCardDetailsOpen, setIsCardDetailsOpen] = useState(false);
+  const [actualFileCount, setActualFileCount] = useState(fileCount);
   // Maximum number of labels to display before showing "+N"
   const MAX_VISIBLE_LABELS = 2;
+
+  // Fetch file count if needed
+  useEffect(() => {
+    // Only fetch if we have a card ID
+    if (id) {
+      const fetchAttachments = async () => {
+        try {
+          const response = await axios.get(`/api/v1/cards/${id}`);
+          if (
+            response.data &&
+            response.data.data &&
+            response.data.data.attachments
+          ) {
+            setActualFileCount(response.data.data.attachments.length);
+          }
+        } catch (err) {
+          console.error("Error fetching attachments:", err);
+        }
+      };
+
+      fetchAttachments();
+    } else {
+      setActualFileCount(fileCount);
+    }
+  }, [id, fileCount]);
 
   // Update priority styles to match CardPriority component
   const priorityColors = {
@@ -163,7 +189,7 @@ const TaskCard = ({
                   alt="Files"
                 />
                 <span className="text-sm text-gray-600 font-bold mt-1">
-                  {fileCount}
+                  {actualFileCount}
                 </span>
               </div>
               <div className="flex items-center gap-1">
