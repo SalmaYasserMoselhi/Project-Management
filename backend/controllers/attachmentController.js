@@ -298,7 +298,10 @@ exports.downloadFile = catchAsync(async (req, res, next) => {
   }
 
   // ENHANCED: Better path handling and debugging
-  const absolutePath = path.join(process.cwd(), file.path);
+  const absolutePath = path.isAbsolute(file.path)
+    ? file.path
+    : path.join(process.cwd(), 'uploads', 'attachments', file.filename);
+
   console.log('Checking absolute file path:', absolutePath);
 
   console.log('Path debugging:', {
@@ -374,7 +377,6 @@ exports.downloadFile = catchAsync(async (req, res, next) => {
     // CRITICAL: Set proper headers
     res.setHeader('Content-Type', detectedMimetype);
     res.setHeader('Content-Length', stats.size);
-    // Set appropriate headers
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`
@@ -385,11 +387,9 @@ exports.downloadFile = catchAsync(async (req, res, next) => {
     res.setHeader('Expires', '0');
 
     // ALTERNATIVE APPROACH: Read the entire file and send as a buffer
-    // This avoids potential issues with streaming
     const fileBuffer = fs.readFileSync(existingPath);
     console.log('File read successfully, file size:', fileBuffer.length);
 
-    // Send the file directly as a buffer
     return res.send(fileBuffer);
   } catch (err) {
     console.error('Error reading file:', err);
