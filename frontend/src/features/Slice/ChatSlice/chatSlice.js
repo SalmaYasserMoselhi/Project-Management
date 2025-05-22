@@ -284,22 +284,46 @@ export const sendMessage = createAsyncThunk(
 
 export const sendFileMessage = createAsyncThunk(
   "chat/sendFileMessage",
-  async ({ conversationId, file }, { rejectWithValue }) => {
+  async ({ conversationId, files }, { rejectWithValue }) => {
     try {
       const formData = new FormData();
-      formData.append("files", file);
+      // Ensure files are appended correctly (array or FileList)
+      if (Array.isArray(files) || files instanceof FileList) {
+        Array.from(files).forEach((file) => {
+          formData.append("files", file);
+        });
+      } else {
+        formData.append("files", files);
+      }
       formData.append("convoId", conversationId);
-
       const response = await api.post(`/message`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+          console.log(`Upload Progress: ${percentCompleted}%`);
+        },
       });
+      if (!response.data.data.populatedMessage) {
+        throw new Error("Failed to send file");
+      }
       return response.data.data.populatedMessage;
     } catch (error) {
-      return rejectWithValue(
-        error.response?.data?.message || "Failed to send file"
-      );
+      console.error("Error sending file:", error);
+      let errorMessage = "Failed to send file";
+      if (error.response) {
+        if (error.response.status === 413) {
+          errorMessage = "File size too large";
+        } else if (error.response.status === 415) {
+          errorMessage = "Unsupported file type";
+        } else if (error.response.data?.message) {
+          errorMessage = error.response.data.message;
+        }
+      }
+      return rejectWithValue(errorMessage);
     }
   }
 );

@@ -82,6 +82,7 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
         mimetype: newFile.mimetype,
         size: newFile.size,
         url: `/api/v1/files/${newFile._id}/download`,
+        filename: newFile.filename,
       });
     }
   }

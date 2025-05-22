@@ -6,6 +6,7 @@ const Attachment = require('../models/attachmentModel');
 const Card = require('../models/cardModel');
 const List = require('../models/listModel');
 const Board = require('../models/boardModel');
+const Conversation = require('../models/conversationModel');
 const { uploadMultipleFiles } = require('../Middlewares/fileUploadMiddleware');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
