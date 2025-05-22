@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const mime = require('mime-types'); // Add this package to your dependencies if not already present
-const Conversation = require('../models/conversationModel');
 const Attachment = require('../models/attachmentModel');
 const Card = require('../models/cardModel');
 const List = require('../models/listModel');
