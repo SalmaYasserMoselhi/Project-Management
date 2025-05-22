@@ -210,6 +210,7 @@ exports.getConversations = catchAsync(async (req, res, next) => {
     },
   });
 });
+
 exports.createGroup = catchAsync(async (req, res, next) => {
   const { name, users } = req.body;
 

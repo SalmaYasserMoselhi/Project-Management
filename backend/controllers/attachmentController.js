@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const mime = require('mime-types'); // Add this package to your dependencies if not already present
-
+const Conversation = require('../models/conversationModel');
 const Attachment = require('../models/attachmentModel');
 const Card = require('../models/cardModel');
 const List = require('../models/listModel');
@@ -77,11 +77,8 @@ const checkDeletePermission = async (req, file) => {
     return false;
   }
 };
-
-exports.uploadAttachments = uploadMultipleFiles().array('files', 5);
-
 // Upload files with improved permission checks
-exports.uploadFiles = catchAsync(async (req, res, next) => {
+exports.uploadAttachments = catchAsync(async (req, res, next) => {
   const { entityType, entityId } = req.body;
 
   if (!entityType || !entityId) {
@@ -97,6 +94,19 @@ exports.uploadFiles = catchAsync(async (req, res, next) => {
   if (!req.files || req.files.length === 0) {
     return next(new AppError('No files uploaded', 400));
   }
+
+  // DEBUG: Log multer file information
+  console.log(
+    'Multer files:',
+    req.files.map((file) => ({
+      originalname: file.originalname,
+      filename: file.filename,
+      path: file.path,
+      mimetype: file.mimetype,
+      size: file.size,
+      destination: file.destination,
+    }))
+  );
 
   // Get card context and verify permissions
   try {
@@ -116,15 +126,57 @@ exports.uploadFiles = catchAsync(async (req, res, next) => {
     const uploadedFiles = [];
 
     for (const file of req.files) {
+      // DEBUG: Check if file exists at the path multer provided
+      console.log('File upload debug:', {
+        originalPath: file.path,
+        pathExists: fs.existsSync(file.path),
+        resolvedPath: path.resolve(file.path),
+        resolvedExists: fs.existsSync(path.resolve(file.path)),
+        cwd: process.cwd(),
+      });
+
+      // Ensure we have the correct path
+      let filePath = file.path;
+      if (!fs.existsSync(filePath)) {
+        // Try alternative paths
+        const alternativePaths = [
+          path.resolve(filePath),
+          path.join(process.cwd(), filePath),
+          path.join(process.cwd(), 'uploads', file.filename),
+        ];
+
+        for (const altPath of alternativePaths) {
+          if (fs.existsSync(altPath)) {
+            filePath = altPath;
+            console.log(`Found file at alternative path: ${altPath}`);
+            break;
+          }
+        }
+
+        if (!fs.existsSync(filePath)) {
+          console.error('File not found at any expected location:', {
+            originalPath: file.path,
+            alternatives: alternativePaths,
+          });
+          return next(new AppError('File upload failed - file not found', 500));
+        }
+      }
+
       const newFile = await Attachment.create({
         originalName: file.originalname,
         filename: file.filename,
         mimetype: file.mimetype,
         size: file.size,
-        path: file.path,
+        path: filePath, // Use the verified path
         entityType,
         entityId,
         uploadedBy: req.user._id,
+      });
+
+      console.log('File saved to database:', {
+        id: newFile._id,
+        path: newFile.path,
+        pathExists: fs.existsSync(newFile.path),
       });
 
       uploadedFiles.push(newFile);
@@ -201,7 +253,6 @@ exports.getCardFiles = catchAsync(async (req, res, next) => {
   }
 });
 
-// Download a file
 exports.downloadFile = catchAsync(async (req, res, next) => {
   const { fileId } = req.params;
 
@@ -209,80 +260,139 @@ exports.downloadFile = catchAsync(async (req, res, next) => {
   if (!file) {
     return next(new AppError('File not found', 404));
   }
+  console.log('Raw file.path from DB:', file);
+
+  // DEBUG: Log file information
+  console.log('File details:', {
+    id: file._id,
+    originalName: file.originalName,
+    path: path.join('uploads', 'attachments', file.filename),
+    mimetype: file.mimetype,
+    entityType: file.entityType,
+    entityId: file.entityId,
+  });
 
   // For card files, verify permissions
   if (file.entityType === 'card') {
     try {
       const { card, list, board } = await getCardWithContext(file.entityId);
-
-      // Verify user has permission to view the board
       permissionService.verifyPermission(board, req.user._id, 'view_board');
     } catch (error) {
       return next(error);
     }
   } else if (file.entityType === 'chat') {
-    // For chat files, verify conversation membership
     try {
       const conversation = await Conversation.findById(file.entityId);
       if (!conversation) {
         return next(new AppError('Conversation not found', 404));
       }
-      
-      // Check if user is a member of the conversation
+
       const isMember = conversation.users.some(
-        userId => userId.toString() === req.user._id.toString()
+        (userId) => userId.toString() === req.user._id.toString()
       );
-      
+
       if (!isMember) {
-        return next(new AppError('You are not a member of this conversation', 403));
+        return next(
+          new AppError('You are not a member of this conversation', 403)
+        );
       }
     } catch (error) {
       return next(error);
     }
   }
 
-  // Check if file exists on disk
-  if (!fs.existsSync(file.path)) {
+  // ENHANCED: Better path handling and debugging
+  const absolutePath = path.join(process.cwd(), file.path);
+  console.log('Checking absolute file path:', absolutePath);
+
+  console.log('Path debugging:', {
+    originalPath: file.path,
+    absolutePath: absolutePath,
+    currentWorkingDir: process.cwd(),
+    pathExists: fs.existsSync(absolutePath),
+  });
+
+  // Try different path variations
+  const pathVariations = [
+    absolutePath,
+    file.path,
+    path.join(process.cwd(), file.path),
+    path.join(process.cwd(), 'uploads', path.basename(file.path)),
+    path.join(__dirname, '..', file.path),
+    path.join(__dirname, '..', 'uploads', path.basename(file.path)),
+  ];
+
+  let existingPath = null;
+  for (const pathVar of pathVariations) {
+    console.log(`Trying path: ${pathVar} - Exists: ${fs.existsSync(pathVar)}`);
+    if (fs.existsSync(pathVar)) {
+      existingPath = pathVar;
+      break;
+    }
+  }
+
+  if (!existingPath) {
+    console.error('File not found in any expected location');
+
+    // List files in common directories for debugging
+    const commonDirs = [
+      path.join(process.cwd(), 'uploads'),
+      path.join(__dirname, '..', 'uploads'),
+      path.dirname(file.path),
+    ];
+
+    for (const dir of commonDirs) {
+      if (fs.existsSync(dir)) {
+        console.log(`Files in ${dir}:`, fs.readdirSync(dir));
+      } else {
+        console.log(`Directory does not exist: ${dir}`);
+      }
+    }
+
     return next(new AppError('File not found on server', 404));
   }
 
-    const stats = fs.statSync(file.path);
-     // Double-check mimetype based on file extension
-  const fileExt = path.extname(file.path).toLowerCase();
-  let detectedMimetype = mime.lookup(fileExt) || file.mimetype || 'application/octet-stream';
+  console.log(`File found at: ${existingPath}`);
 
- // Handle specific file types differently
-  if (fileExt === '.png') {
-    detectedMimetype = 'image/png';
-  } else if (fileExt === '.jpg' || fileExt === '.jpeg') {
-    detectedMimetype = 'image/jpeg';
-  } else if (fileExt === '.pdf') {
-    detectedMimetype = 'application/pdf';
-  }
+  try {
+    const stats = fs.statSync(existingPath);
 
-   const encodedFilename = encodeURIComponent(file.originalName)
-    .replace(/['()]/g, escape) // Handle special characters
-    .replace(/\*/g, '%2A');
+    // Double-check mimetype based on file extension
+    const fileExt = path.extname(existingPath).toLowerCase();
+    let detectedMimetype =
+      mime.lookup(fileExt) || file.mimetype || 'application/octet-stream';
+
+    // Handle specific file types differently
+    if (fileExt === '.png') {
+      detectedMimetype = 'image/png';
+    } else if (fileExt === '.jpg' || fileExt === '.jpeg') {
+      detectedMimetype = 'image/jpeg';
+    } else if (fileExt === '.pdf') {
+      detectedMimetype = 'application/pdf';
+    }
+
+    const encodedFilename = encodeURIComponent(file.originalName)
+      .replace(/['()]/g, escape) // Handle special characters
+      .replace(/\*/g, '%2A');
 
     // CRITICAL: Set proper headers
-  res.setHeader('Content-Type', detectedMimetype);
-  res.setHeader('Content-Length', stats.size);
-  // Set appropriate headers
-  res.setHeader(
-    'Content-Disposition',
-    `attachment;  filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`
-  );
+    res.setHeader('Content-Type', detectedMimetype);
+    res.setHeader('Content-Length', stats.size);
+    // Set appropriate headers
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`
+    );
 
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  
-  try {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     // ALTERNATIVE APPROACH: Read the entire file and send as a buffer
     // This avoids potential issues with streaming
-    const fileBuffer = fs.readFileSync(file.path);
+    const fileBuffer = fs.readFileSync(existingPath);
     console.log('File read successfully, file size:', fileBuffer.length);
-    
+
     // Send the file directly as a buffer
     return res.send(fileBuffer);
   } catch (err) {
@@ -292,7 +402,7 @@ exports.downloadFile = catchAsync(async (req, res, next) => {
 });
 
 exports.deleteFile = catchAsync(async (req, res, next) => {
-  const {fileId } = req.params;
+  const { fileId } = req.params;
 
   // Find the file
   const file = await Attachment.findById(fileId);
@@ -318,9 +428,10 @@ exports.deleteFile = catchAsync(async (req, res, next) => {
         console.log(`Logging activity for card: ${card._id}`);
 
         // Get all board members to notify - using the pattern that works
-        const boardMembers = board.members
-          .filter(member => member.user.toString() !== req.user._id.toString());
-        
+        const boardMembers = board.members.filter(
+          (member) => member.user.toString() !== req.user._id.toString()
+        );
+
         // Send notifications to board members
         for (const member of boardMembers) {
           await notificationService.createNotification(
@@ -339,13 +450,13 @@ exports.deleteFile = catchAsync(async (req, res, next) => {
               filename: file.originalName,
               fileSize: file.formatSize
                 ? file.formatSize()
-                : `${Math.round(file.size / 1024)} KB`
+                : `${Math.round(file.size / 1024)} KB`,
             }
           );
         }
 
         // Log card activity
-      await  activityService.logCardActivity(
+        await activityService.logCardActivity(
           board,
           req.user._id,
           'attachment_removed',
@@ -366,8 +477,9 @@ exports.deleteFile = catchAsync(async (req, res, next) => {
     }
 
     // Delete the physical file if it exists
-    if (fs.existsSync(file.path)) {
-      fs.unlinkSync(file.path);
+    const absolutePath = path.resolve(__dirname, '..', '..', file.path);
+    if (fs.existsSync(absolutePath)) {
+      fs.unlinkSync(absolutePath);
     } else {
       console.warn(`Physical file not found at path: ${file.path}`);
     }
