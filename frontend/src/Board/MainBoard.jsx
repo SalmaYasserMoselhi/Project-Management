@@ -7,9 +7,14 @@ import { useEffect, useState } from "react";
 const MainBoard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const { workspaceId, boardId } = useParams();
+  const [restoredLists, setRestoredLists] = useState([]);
 
   const [boardName, setBoardName] = useState("");
   const [boardDescription, setBoardDescription] = useState("");
+
+  const handleListRestored = (restoredList) => {
+  setRestoredLists((prev) => [...prev, restoredList]);
+};
 
   useEffect(() => {
     const fetchBoardData = async () => {
@@ -50,11 +55,13 @@ const MainBoard = () => {
           boardName={boardName}
           boardDescription={boardDescription}
           boardId={boardId}
+          // onListRestored={handleListRestored}
         />
         <Board
           isSidebarOpen={isSidebarOpen}
           workspaceId={workspaceId}
           boardId={boardId}
+          restoredLists={restoredLists}
         />
       </div>
     </div>

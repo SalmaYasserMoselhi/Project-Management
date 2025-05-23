@@ -13,7 +13,7 @@ import {
 } from "../features/Slice/ChatSlice/chatSlice";
 import { emitTyping, emitStopTyping } from "../utils/socket";
 import { useChat } from "../context/chat-context";
-
+import { toast } from "react-hot-toast";
 const ChatInput = ({ chatId }) => {
   const dispatch = useDispatch();
   const { currentUser } = useChat();
@@ -68,14 +68,14 @@ const ChatInput = ({ chatId }) => {
 
   // Handle file selection
   const handleFileSelect = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
 
     try {
       const result = await dispatch(
         sendFileMessage({
           conversationId: chatId,
-          file: file,
+          files: files,
         })
       ).unwrap();
 
@@ -90,6 +90,12 @@ const ChatInput = ({ chatId }) => {
       }
     } catch (error) {
       console.error("Failed to send file:", error);
+      toast.error(error || "Failed to send file");
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
 
     // Reset file input
@@ -240,7 +246,7 @@ const ChatInput = ({ chatId }) => {
               setMessage(e.target.value);
               handleTyping();
             }}
-            onKeyDown={handleKeyDown} // تم تأكيد تواجد هذا الحدث
+            onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             className="flex-1 bg-white rounded-lg px-3 py-2 outline-none resize-none max-h-32 text-gray-800 placeholder-gray-400 text-sm"
             rows={1}

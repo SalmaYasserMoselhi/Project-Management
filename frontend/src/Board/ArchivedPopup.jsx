@@ -1,23 +1,25 @@
 
 
+
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import axios from "axios";
 
 const BASE_URL = "http://localhost:3000";
 
-const ArchivedPopup = ({ onClose, boardId , onListRestored  }) => {
+const ArchivedPopup = ({ onClose, boardId, onListRestored, onCardRestored }) => {
   const popupRef = useRef(null);
   const dropdownRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState("Card");
   const [archivedLists, setArchivedLists] = useState([]);
+  const [archivedCards, setArchivedCards] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [openDropdownId, setOpenDropdownId] = useState(null);
-  const [isVisible, setIsVisible] = useState(true); // for animation
+  const [isVisible, setIsVisible] = useState(true);
 
-  // Close on outside click
+  // Handle clicks outside popup and dropdown to close them
   useEffect(() => {
     const handleClickOutside = (event) => {
       const clickedOutsidePopup =
@@ -26,16 +28,11 @@ const ArchivedPopup = ({ onClose, boardId , onListRestored  }) => {
         dropdownRef.current && !dropdownRef.current.contains(event.target);
 
       if (clickedOutsidePopup) {
-        setIsVisible(false); // trigger animation
-        setTimeout(onClose, 200); // wait for animation
+        setIsVisible(false);
+        setTimeout(onClose, 200);
       }
 
-      // Only close dropdown if it's open and clicked outside
-      if (
-        openDropdownId &&
-        clickedOutsideDropdown &&
-        !event.target.closest("svg")
-      ) {
+      if (openDropdownId && clickedOutsideDropdown && !event.target.closest("svg")) {
         setOpenDropdownId(null);
       }
     };
@@ -44,9 +41,12 @@ const ArchivedPopup = ({ onClose, boardId , onListRestored  }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [onClose, openDropdownId]);
 
+  // Fetch archived data based on active tab
   useEffect(() => {
     if (activeTab === "List") {
       fetchArchivedLists();
+    } else {
+      fetchArchivedCards();
     }
   }, [activeTab]);
 
@@ -57,9 +57,11 @@ const ArchivedPopup = ({ onClose, boardId , onListRestored  }) => {
         `${BASE_URL}/api/v1/lists/board/${boardId}/lists/archived`,
         { withCredentials: true }
       );
+
       const lists = Array.isArray(response.data.data)
         ? response.data.data
         : response.data.data?.lists || [];
+
       setArchivedLists(lists);
       setError("");
     } catch (err) {
@@ -70,43 +72,43 @@ const ArchivedPopup = ({ onClose, boardId , onListRestored  }) => {
     }
   };
 
-  // const handleRestore = async (listId) => {
-  //   try {
-  //     await axios.patch(
-  //       `${BASE_URL}/api/v1/lists/${listId}/restore`,
-  //       {},
-  //       { withCredentials: true }
-  //     );
-  //     fetchArchivedLists();
-  //      if (res?.data?.data) {
-  //     onListRestored?.(res.data.data); // pass restored list
-  //   }
-  //   } catch (error) {
-  //     console.error("Failed to restore list:", error);
-  //   }
-  // };
+  const fetchArchivedCards = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(
+        `${BASE_URL}/api/v1/cards/board/${boardId}/archived`,
+        { withCredentials: true }
+      );
 
+      const cards = Array.isArray(response.data.data.archivedCards)
+        ? response.data.data.archivedCards
+        : [];
 
-const handleRestore = async (listId) => {
-  try {
-    const res = await axios.patch(
-      `${BASE_URL}/api/v1/lists/${listId}/restore`,
-      {},
-      { withCredentials: true }
-    );
-
-    // Remove restored list from the archive list state
-    setArchivedLists((prev) => prev.filter((l) => l._id !== listId));
-
-    // Inform parent about restored list
-    if (res?.data?.data) {
-      onListRestored?.(res.data.data); // ✅ safe optional chaining
+      setArchivedCards(cards);
+      setError("");
+    } catch (err) {
+      console.error("Failed to fetch archived cards:", err);
+      setError("Failed to load archived cards");
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Failed to restore list:", error);
-  }
-};
+  };
 
+  // Restore and delete handlers for lists
+  const handleRestoreList = async (listId) => {
+    try {
+      const res = await axios.patch(
+        `${BASE_URL}/api/v1/lists/${listId}/restore`,
+        {},
+        { withCredentials: true }
+      );
+
+      setArchivedLists((prev) => prev.filter((l) => l._id !== listId));
+      if (res?.data?.data) onListRestored?.(res.data.data);
+    } catch (error) {
+      console.error("Failed to restore list:", error);
+    }
+  };
 
   const handleDeleteList = async (listId) => {
     try {
@@ -115,12 +117,8 @@ const handleRestore = async (listId) => {
       });
 
       if (res.status === 200 || res.status === 204) {
-        setArchivedLists((prev) =>
-          prev.filter((list) => list._id !== listId)
-        );
+        setArchivedLists((prev) => prev.filter((list) => list._id !== listId));
         setOpenDropdownId(null);
-      } else {
-        console.warn("Unexpected response:", res);
       }
     } catch (error) {
       console.error("Error deleting list:", error);
@@ -128,40 +126,55 @@ const handleRestore = async (listId) => {
     }
   };
 
-  const Dropdown = ({ listId }) => (
-    <div
-      ref={dropdownRef}
-      className="absolute right-2 top-9 w-32 bg-white border border-gray-200 rounded shadow z-50"
-    >
-      <button
-        onClick={() => {
-          handleRestore(listId);
-          setOpenDropdownId(null);
-        }}
-        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-      >
-        Unarchive
-      </button>
-      <button
-        onClick={() => handleDeleteList(listId)}
-        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-      >
-        Delete
-      </button>
-    </div>
-  );
+  // Restore and delete handlers for cards
+  const handleRestoreCard = async (cardId) => {
+    try {
+      const res = await axios.patch(
+        `${BASE_URL}/api/v1/cards/${cardId}/restore`,
+        {},
+        { withCredentials: true }
+      );
 
+      setArchivedCards((prev) => prev.filter((c) => c._id !== cardId));
+      if (res?.data?.data) onCardRestored?.(res.data.data);
+    } catch (error) {
+      console.error("Failed to restore card:", error);
+    }
+  };
+
+  const handleDeleteCard = async (cardId) => {
+    try {
+      const res = await axios.delete(`${BASE_URL}/api/v1/cards/${cardId}`, {
+        withCredentials: true,
+      });
+
+      if (res.status === 200 || res.status === 204) {
+        setArchivedCards((prev) => prev.filter((c) => c._id !== cardId));
+        setOpenDropdownId(null);
+      }
+    } catch (error) {
+      console.error("Error deleting card:", error);
+      alert("Failed to delete card.");
+    }
+  };
+
+  // Render list or card items
   const renderContent = () => {
     if (loading) {
-      return (
-        <div className="text-center text-gray-400 py-10">Loading...</div>
-      );
+      return <div className="text-center text-gray-400 py-10">Loading...</div>;
     }
     if (error) {
       return <div className="text-center text-red-400 py-10">{error}</div>;
     }
 
-    const items = activeTab === "List" ? archivedLists : [];
+    const items =
+      activeTab === "List"
+        ? Array.isArray(archivedLists)
+          ? archivedLists
+          : []
+        : Array.isArray(archivedCards)
+        ? archivedCards
+        : [];
 
     if (items.length === 0) {
       return (
@@ -178,8 +191,11 @@ const handleRestore = async (listId) => {
       >
         <div className="flex justify-between items-center">
           <div>
-            <div className="font-medium text-gray-800">{item.name}</div>
-            <div className="text-sm text-gray-500">{activeTab}</div>
+            {/* <div className="font-medium text-gray-800">{item.name}</div>
+             */}
+             <div className="font-medium text-gray-800">
+               {activeTab === "List" ? item.name : item.title}
+               </div>
           </div>
 
           <svg
@@ -188,9 +204,7 @@ const handleRestore = async (listId) => {
             height="24"
             viewBox="0 0 18 24"
             onClick={() =>
-              setOpenDropdownId((prev) =>
-                prev === item._id ? null : item._id
-              )
+              setOpenDropdownId((prev) => (prev === item._id ? null : item._id))
             }
             className="cursor-pointer"
           >
@@ -204,14 +218,41 @@ const handleRestore = async (listId) => {
             />
           </svg>
 
-          {openDropdownId === item._id && <Dropdown listId={item._id} />}
+          {openDropdownId === item._id && (
+            <div
+              ref={dropdownRef}
+              className="absolute right-2 top-9 w-32 bg-white border border-gray-200 rounded shadow z-50"
+            >
+              <button
+                onClick={() => {
+                  activeTab === "List"
+                    ? handleRestoreList(item._id)
+                    : handleRestoreCard(item._id);
+                  setOpenDropdownId(null);
+                }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+              >
+                Unarchive
+              </button>
+              <button
+                onClick={() =>
+                  activeTab === "List"
+                    ? handleDeleteList(item._id)
+                    : handleDeleteCard(item._id)
+                }
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+              >
+                Delete
+              </button>
+            </div>
+          )}
         </div>
       </div>
     ));
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/10 backdrop-blur-sm flex justify-end items-start">
+    <div className="fixed inset-0 z-50 bg-black/10 flex justify-end items-start">
       <div
         ref={popupRef}
         className={`bg-white w-[330px] h-screen overflow-hidden shadow-2xl rounded-none transform transition-all duration-200 ease-in-out ${

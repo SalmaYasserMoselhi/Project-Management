@@ -41,12 +41,11 @@ exports.uploadMultipleFiles = () => {
     },
   });
 
-
   // IMPROVED: Add proper file type detection
   const fileFilter = (req, file, cb) => {
     // Get the file extension
     const ext = path.extname(file.originalname).toLowerCase();
-    
+
     // Set the correct mimetype based on extension for common types
     // This helps ensure files are served with the right Content-Type
     switch (ext) {
@@ -79,11 +78,13 @@ exports.uploadMultipleFiles = () => {
         break;
       // Add more types as needed
     }
-    
+
     cb(null, true);
   };
+
   const upload = multer({
     storage,
+    fileFilter, // ADD THIS LINE - was missing!
     limits: {
       fieldSize: 10 * 1024 * 1024, // 10MB
       files: 5,
@@ -93,9 +94,8 @@ exports.uploadMultipleFiles = () => {
   return upload;
 };
 
-
 // Add this function to properly handle the filename encoding
-exports.sanitizeFilename = function(originalname) {
+exports.sanitizeFilename = function (originalname) {
   // Return the untouched originalname - we'll handle encoding at display time
   return originalname;
 };

@@ -8,7 +8,6 @@ const permissionService = require('../utils/permissionService');
 const activityService = require('../utils/activityService');
 const notificationService = require('../utils/notificationService');
 
-
 // Helper function to safely get io instance
 const getIO = (req) => {
   if (req && req.app && req.app.io) return req.app.io;
@@ -101,12 +100,18 @@ exports.createCard = catchAsync(async (req, res, next) => {
   // Check permissions
   permissionService.verifyPermission(board, req.user._id, 'create_cards');
 
-
-   // Validate priority if provided
-   if (priority) {
+  // Validate priority if provided
+  if (priority) {
     const validPriorityLevels = ['none', 'low', 'medium', 'high'];
     if (!validPriorityLevels.includes(priority)) {
-      return next(new AppError(`Invalid priority level. Must be one of: ${validPriorityLevels.join(', ')}`, 400));
+      return next(
+        new AppError(
+          `Invalid priority level. Must be one of: ${validPriorityLevels.join(
+            ', '
+          )}`,
+          400
+        )
+      );
     }
   }
 
@@ -116,16 +121,16 @@ exports.createCard = catchAsync(async (req, res, next) => {
   // Get position
   const cardPosition = await manageCardPosition(listId);
 
-    // Process subtasks if they exist in the request body
-    if (req.body.subtasks && Array.isArray(req.body.subtasks)) {
-      // Add createdBy to each subtask
-      req.body.subtasks = req.body.subtasks.map((subtask, index) => ({
-        ...subtask,
-        createdBy: req.user._id,
-        position: index
-      }));
-    }
-    
+  // Process subtasks if they exist in the request body
+  if (req.body.subtasks && Array.isArray(req.body.subtasks)) {
+    // Add createdBy to each subtask
+    req.body.subtasks = req.body.subtasks.map((subtask, index) => ({
+      ...subtask,
+      createdBy: req.user._id,
+      position: index,
+    }));
+  }
+
   // Create card
   const card = await Card.create({
     ...req.body,
@@ -145,7 +150,7 @@ exports.createCard = catchAsync(async (req, res, next) => {
   let uploadedFiles = [];
   if (req.files && req.files.length > 0) {
     for (const file of req.files) {
-     // Store originalName in a Buffer to preserve UTF-8 encoding
+      // Store originalName in a Buffer to preserve UTF-8 encoding
       const originalNameBuffer = Buffer.from(file.originalname, 'binary');
       const originalName = originalNameBuffer.toString('utf8');
 
@@ -154,7 +159,7 @@ exports.createCard = catchAsync(async (req, res, next) => {
         filename: file.filename,
         mimetype: file.mimetype,
         size: file.size,
-        path: file.path,
+        path: path.join('uploads', 'attachments', req.file.filename),
         entityType: 'card',
         entityId: card._id,
         uploadedBy: req.user._id,
@@ -194,8 +199,8 @@ exports.createCard = catchAsync(async (req, res, next) => {
 
   // Get board members to notify about the new card
   const boardMembers = board.members
-    .filter(member => member.user.toString() !== req.user._id.toString())
-    .map(member => member.user);
+    .filter((member) => member.user.toString() !== req.user._id.toString())
+    .map((member) => member.user);
 
   // Notify all board members except the card creator
   for (const memberId of boardMembers) {
@@ -210,7 +215,7 @@ exports.createCard = catchAsync(async (req, res, next) => {
         cardTitle: card.title,
         listName: list.name,
         boardName: board.name,
-        boardId: board._id
+        boardId: board._id,
       }
     );
   }
@@ -263,15 +268,22 @@ exports.updateCard = catchAsync(async (req, res, next) => {
   delete updateData.list;
   delete updateData.position;
 
-    // Validate priority if it's being updated
-    if (updateData.priority) {
-      const validPriorityLevels = ['none', 'low', 'medium', 'high'];
-      if (!validPriorityLevels.includes(updateData.priority)) {
-        return next(new AppError(`Invalid priority level. Must be one of: ${validPriorityLevels.join(', ')}`, 400));
-      }
+  // Validate priority if it's being updated
+  if (updateData.priority) {
+    const validPriorityLevels = ['none', 'low', 'medium', 'high'];
+    if (!validPriorityLevels.includes(updateData.priority)) {
+      return next(
+        new AppError(
+          `Invalid priority level. Must be one of: ${validPriorityLevels.join(
+            ', '
+          )}`,
+          400
+        )
+      );
     }
+  }
 
-      // Process subtasks if they exist in the update data
+  // Process subtasks if they exist in the update data
   if (updateData.subtasks && Array.isArray(updateData.subtasks)) {
     // Add createdBy to each subtask that doesn't have it
     updateData.subtasks = updateData.subtasks.map((subtask, index) => {
@@ -279,7 +291,7 @@ exports.updateCard = catchAsync(async (req, res, next) => {
         return {
           ...subtask,
           createdBy: req.user._id,
-          position: index
+          position: index,
         };
       }
       return subtask;
@@ -310,17 +322,16 @@ exports.updateCard = catchAsync(async (req, res, next) => {
       }
     );
 
- 
-
     // Update card
     updatedCard = await Card.findByIdAndUpdate(cardId, updateData, {
       new: true,
       runValidators: true,
     });
     // Get all board members to notify - using the pattern that works
-    const boardMembers = board.members
-      .filter(member => member.user.toString() !== req.user._id.toString());
-    
+    const boardMembers = board.members.filter(
+      (member) => member.user.toString() !== req.user._id.toString()
+    );
+
     // Send notifications to board members
     for (const member of boardMembers) {
       await notificationService.createNotification(
@@ -334,14 +345,12 @@ exports.updateCard = catchAsync(async (req, res, next) => {
           cardTitle: card.title,
           boardId: board._id,
           boardName: board.name,
-          updatedFields: Object.keys(updateData)
+          updatedFields: Object.keys(updateData),
         }
       );
     }
-  
   }
 
- 
   // Process uploaded files
   let uploadedFiles = [];
   if (req.files && req.files.length > 0) {
@@ -351,7 +360,7 @@ exports.updateCard = catchAsync(async (req, res, next) => {
 
     for (const file of req.files) {
       console.log(`Creating attachment record for file: ${file.originalname}`);
- // Store originalName in a Buffer to preserve UTF-8 encoding
+      // Store originalName in a Buffer to preserve UTF-8 encoding
       const originalNameBuffer = Buffer.from(file.originalname, 'binary');
       const originalName = originalNameBuffer.toString('utf8');
 
@@ -383,9 +392,10 @@ exports.updateCard = catchAsync(async (req, res, next) => {
         }
       );
       // Get all board members to notify - using the pattern that works
-      const boardMembers = board.members
-        .filter(member => member.user.toString() !== req.user._id.toString());
-      
+      const boardMembers = board.members.filter(
+        (member) => member.user.toString() !== req.user._id.toString()
+      );
+
       // Send attachment notifications to board members
       for (const member of boardMembers) {
         await notificationService.createNotification(
@@ -404,13 +414,13 @@ exports.updateCard = catchAsync(async (req, res, next) => {
             filename: newFile.originalName,
             fileSize: newFile.formatSize
               ? newFile.formatSize()
-              : `${Math.round(newFile.size / 1024)} KB`
+              : `${Math.round(newFile.size / 1024)} KB`,
           }
         );
       }
     }
 
-    console.log(`Successfully processed ${uploadedFiles.length} files`)
+    console.log(`Successfully processed ${uploadedFiles.length} files`);
   }
 
   // Get updated card with populated fields if needed
@@ -418,7 +428,6 @@ exports.updateCard = catchAsync(async (req, res, next) => {
     .populate('members.user', 'firstName lastName email avatar username')
     .populate('createdBy', 'firstName lastName email avatar username');
 
-    
   res.status(200).json({
     status: 'success',
     data: {
@@ -443,11 +452,11 @@ exports.deleteCard = catchAsync(async (req, res, next) => {
     permissionService.verifyPermission(board, req.user._id, 'delete_cards');
   }
 
-    // Store card info for notifications
-    const cardInfo = {
-      title: card.title,
-      listId: card.list
-    };
+  // Store card info for notifications
+  const cardInfo = {
+    title: card.title,
+    listId: card.list,
+  };
 
   // Log activity before deletion
   await activityService.logCardActivity(
@@ -461,13 +470,14 @@ exports.deleteCard = catchAsync(async (req, res, next) => {
     }
   );
 
-   // Get all board members to notify - this is the key change
+  // Get all board members to notify - this is the key change
   // This follows the pattern from your working board notifications
-  const boardMembers = board.members
-    .filter(member => member.user.toString() !== req.user._id.toString());
-  
+  const boardMembers = board.members.filter(
+    (member) => member.user.toString() !== req.user._id.toString()
+  );
+
   console.log(`Found ${boardMembers.length} board members to notify`);
-  
+
   await card.deleteOne();
 
   // Send notifications to all board members
@@ -482,7 +492,7 @@ exports.deleteCard = catchAsync(async (req, res, next) => {
       {
         cardTitle: cardInfo.title,
         boardId: board._id,
-        boardName: board.name
+        boardName: board.name,
       }
     );
   }
@@ -547,9 +557,10 @@ exports.toggleCard = catchAsync(async (req, res, next) => {
   );
 
   // Get all board members to notify
-  const boardMembers = board.members
-    .filter(member => member.user.toString() !== req.user._id.toString());
-  
+  const boardMembers = board.members.filter(
+    (member) => member.user.toString() !== req.user._id.toString()
+  );
+
   // Send notifications
   for (const member of boardMembers) {
     await notificationService.createNotification(
@@ -564,7 +575,7 @@ exports.toggleCard = catchAsync(async (req, res, next) => {
         boardId: board._id,
         boardName: board.name,
         newStatus: card.state.current,
-        from: currentState
+        from: currentState,
       }
     );
   }
@@ -634,7 +645,6 @@ exports.moveCard = catchAsync(async (req, res, next) => {
   const sourceList = await List.findById(oldList);
   const destListName = destList ? destList.name : 'Unknown List';
   const sourceListName = sourceList ? sourceList.name : 'Unknown List';
-  
 
   // Log activity
   await activityService.logCardActivity(
@@ -655,9 +665,10 @@ exports.moveCard = catchAsync(async (req, res, next) => {
   );
 
   // Get all board members to notify - using the pattern that works
-  const boardMembers = board.members
-    .filter(member => member.user.toString() !== req.user._id.toString());
-  
+  const boardMembers = board.members.filter(
+    (member) => member.user.toString() !== req.user._id.toString()
+  );
+
   // Send notifications to board members
   for (const member of boardMembers) {
     await notificationService.createNotification(
@@ -672,7 +683,7 @@ exports.moveCard = catchAsync(async (req, res, next) => {
         boardId: board._id,
         boardName: board.name,
         fromList: sourceListName,
-        toList: destListName
+        toList: destListName,
       }
     );
   }
@@ -1420,13 +1431,12 @@ exports.archiveCard = catchAsync(async (req, res, next) => {
   // Use existing recalculatePositions function to adjust positions
   // Decrement positions of cards after the archived card
   await recalculatePositions(card.list, currentPosition, false);
-   
-   // Get card members to notify (excluding the user archiving the card)
-   const cardMembers = card.members
-   .filter(member => member.user.toString() !== req.user._id.toString())
-   .map(member => member.user);
 
- 
+  // Get card members to notify (excluding the user archiving the card)
+  const cardMembers = card.members
+    .filter((member) => member.user.toString() !== req.user._id.toString())
+    .map((member) => member.user);
+
   // Log the activity
   await activityService.logCardActivity(
     board,
@@ -1441,9 +1451,10 @@ exports.archiveCard = catchAsync(async (req, res, next) => {
   );
 
   // Get all board members to notify - using the pattern that works
-  const boardMembers = board.members
-    .filter(member => member.user.toString() !== req.user._id.toString());
-  
+  const boardMembers = board.members.filter(
+    (member) => member.user.toString() !== req.user._id.toString()
+  );
+
   // Send notifications to board members
   for (const member of boardMembers) {
     await notificationService.createNotification(
@@ -1457,7 +1468,7 @@ exports.archiveCard = catchAsync(async (req, res, next) => {
         cardTitle: card.title,
         boardId: board._id,
         boardName: board.name,
-        listName: list.name
+        listName: list.name,
       }
     );
   }
@@ -1472,7 +1483,6 @@ exports.archiveCard = catchAsync(async (req, res, next) => {
     .populate('createdBy', 'username email avatar')
     .populate('labels');
 
-    
   res.status(200).json({
     status: 'success',
     message: 'Card archived successfully',
@@ -1563,9 +1573,10 @@ exports.restoreCard = catchAsync(async (req, res, next) => {
   );
 
   // Get all board members to notify - using the pattern that works
-  const boardMembers = board.members
-    .filter(member => member.user.toString() !== req.user._id.toString());
-  
+  const boardMembers = board.members.filter(
+    (member) => member.user.toString() !== req.user._id.toString()
+  );
+
   // Send notifications to board members
   for (const member of boardMembers) {
     await notificationService.createNotification(
@@ -1579,11 +1590,11 @@ exports.restoreCard = catchAsync(async (req, res, next) => {
         cardTitle: card.title,
         boardId: board._id,
         boardName: board.name,
-        listName: list.name
+        listName: list.name,
       }
     );
   }
-  
+
   // Get all cards in the list to send back updated positions
   const allCards = await Card.find({
     list: card.list,
@@ -1746,34 +1757,39 @@ exports.deleteArchivedCard = catchAsync(async (req, res, next) => {
   });
 });
 
-
-
 // Add these functions to cardController.js
 
 // Update card priority
 exports.updatePriority = catchAsync(async (req, res, next) => {
   const { cardId } = req.params;
   const { priority } = req.body;
-  
+
   // Validate priority level
   const validPriorityLevels = ['none', 'low', 'medium', 'high'];
   if (!validPriorityLevels.includes(priority)) {
-    return next(new AppError(`Invalid priority level. Must be one of: ${validPriorityLevels.join(', ')}`, 400));
+    return next(
+      new AppError(
+        `Invalid priority level. Must be one of: ${validPriorityLevels.join(
+          ', '
+        )}`,
+        400
+      )
+    );
   }
-  
+
   // Get card with context and verify access
   const { card, board } = await getCardWithContext(cardId, req.user._id);
-  
+
   // Verify permission to edit this card
   permissionService.verifyCardEdit(board, card, req.user._id);
-  
+
   // Store original priority for activity log
   const originalPriority = card.priority;
-  
+
   // Update the priority
   card.priority = priority;
   await card.save();
-  
+
   // Log activity
   await activityService.logCardActivity(
     board,
@@ -1783,15 +1799,15 @@ exports.updatePriority = catchAsync(async (req, res, next) => {
     {
       field: 'priority',
       from: originalPriority,
-      to: priority
+      to: priority,
     }
   );
-  
+
   res.status(200).json({
     status: 'success',
     data: {
-      card
-    }
+      card,
+    },
   });
 });
 
@@ -1799,47 +1815,54 @@ exports.updatePriority = catchAsync(async (req, res, next) => {
 exports.filterCardsByPriority = catchAsync(async (req, res, next) => {
   const { boardId } = req.params;
   const { priority } = req.params;
-  
+
   // Validate priority level
   const validPriorityLevels = ['none', 'low', 'medium', 'high'];
   if (!validPriorityLevels.includes(priority)) {
-    return next(new AppError(`Invalid priority level. Must be one of: ${validPriorityLevels.join(', ')}`, 400));
+    return next(
+      new AppError(
+        `Invalid priority level. Must be one of: ${validPriorityLevels.join(
+          ', '
+        )}`,
+        400
+      )
+    );
   }
-  
+
   // Find the board
   const board = await Board.findById(boardId);
   if (!board) {
     return next(new AppError('Board not found', 404));
   }
-  
+
   // Verify access
   permissionService.verifyPermission(board, req.user._id, 'view_board');
-  
+
   // Find all lists in this board
   const lists = await List.find({ board: boardId });
-  const listIds = lists.map(list => list._id);
-  
+  const listIds = lists.map((list) => list._id);
+
   // Build query
   const query = {
     priority: priority,
     list: { $in: listIds },
-    archived: false
+    archived: false,
   };
-  
+
   // Get cards
   const cards = await Card.find(query)
     .sort('position')
     .populate('members.user', 'email firstName lastName avatar username')
     .populate('createdBy', 'email firstName lastName avatar username')
     .populate('list', 'name');
-  
+
   // Always return a response, even if no cards match the priority
   res.status(200).json({
     status: 'success',
     results: cards.length,
     data: {
-      cards
-    }
+      cards,
+    },
   });
 });
 
@@ -1847,65 +1870,65 @@ exports.filterCardsByPriority = catchAsync(async (req, res, next) => {
 exports.getCardsSortedByPriority = catchAsync(async (req, res, next) => {
   const { boardId } = req.params;
   const { order = 'desc' } = req.query; // desc = highest priority first
-  
+
   // Find the board
   const board = await Board.findById(boardId);
   if (!board) {
     return next(new AppError('Board not found', 404));
   }
-  
+
   // Verify access
   permissionService.verifyPermission(board, req.user._id, 'view_board');
-  
+
   // Find all lists in this board
   const lists = await List.find({ board: boardId, archived: false });
-  const listIds = lists.map(list => list._id);
-  
+  const listIds = lists.map((list) => list._id);
+
   // Get all non-archived cards in the board
-  const cards = await Card.find({ 
+  const cards = await Card.find({
     list: { $in: listIds },
-    archived: false
+    archived: false,
   }).populate('list', 'name');
-  
+
   // Sort by priority level
   const priorityMap = {
-    'none': 0,
-    'low': 1,
-    'medium': 2,
-    'high': 3
+    none: 0,
+    low: 1,
+    medium: 2,
+    high: 3,
   };
-  
+
   const sortedCards = cards.sort((a, b) => {
     const valA = priorityMap[a.priority] || 0;
     const valB = priorityMap[b.priority] || 0;
-    
+
     return order === 'asc' ? valA - valB : valB - valA;
   });
-  
+
   // Group by list for easier frontend display
   const cardsByList = {};
-  
-  sortedCards.forEach(card => {
+
+  sortedCards.forEach((card) => {
     const listId = card.list._id.toString();
     const listName = card.list.name;
-    
+
     if (!cardsByList[listId]) {
       cardsByList[listId] = {
         listId,
         listName,
-        cards: []
+        cards: [],
       };
     }
-    
+
     cardsByList[listId].cards.push(card);
   });
-  
+
   res.status(200).json({
     status: 'success',
     results: sortedCards.length,
     data: {
       cards: sortedCards,
-      cardsByList: Object.values(cardsByList)
-    }
+      cardsByList: Object.values(cardsByList),
+    },
   });
 });

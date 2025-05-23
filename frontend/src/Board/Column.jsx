@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import vector from "../assets/Vector.png";
@@ -5,8 +6,15 @@ import TaskCard from "./TaskCard";
 import icon from "../assets/icon.png";
 import CardDetails from "../Card/CardDetails";
 
-const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
-  // onDelete prop to update parent state
+const Column = ({
+  id,
+  title,
+  className,
+  onDelete,
+  onArchive,
+  boardId,
+  allLists,
+}) => {
   const BASE_URL = "http://localhost:3000";
   const [cards, setCards] = useState([]);
   const [isAdding, setIsAdding] = useState(false);
@@ -31,7 +39,7 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
     if (id) fetchCards();
   }, [id]);
 
-  // Add event listener to refresh the column when a card is moved to/from it
+  // Refresh list on card move events
   useEffect(() => {
     const handleRefreshList = (event) => {
       if (event.detail && event.detail.listId === id) {
@@ -40,7 +48,6 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
     };
 
     window.addEventListener("refreshList", handleRefreshList);
-
     return () => {
       window.removeEventListener("refreshList", handleRefreshList);
     };
@@ -70,13 +77,12 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
 
     try {
       setLoading(true);
-      const res = await axios.post(`${BASE_URL}/api/v1/cards`, {
+      await axios.post(`${BASE_URL}/api/v1/cards`, {
         title: newTitle,
         listId: id,
         priority,
       });
 
-      // Refresh the cards list after adding a new card
       await fetchCards();
       setNewTitle("");
       setPriority("Medium");
@@ -102,7 +108,7 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
 
       if (res.status === 200) {
         console.log("List archived successfully");
-        window.location.reload();
+        if (onArchive) onArchive(id); // Notify parent to update state
         setDropdownVisible(false);
       }
     } catch (err) {
@@ -119,23 +125,19 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
     if (!confirmDelete) return;
 
     setDropdownVisible(false);
-    onDelete(id);
+    if (onDelete) onDelete(id);
   };
 
   const handleCardUpdate = async (originalListId, newListId) => {
-    // Refresh the cards list when a card is updated
     await fetchCards();
 
-    // If the card was moved to/from another list, notify the parent to refresh that list too
     if (
       originalListId &&
       newListId &&
       (originalListId === id || newListId === id)
     ) {
-      // Find the other list ID that needs refreshing
       const otherListId = originalListId === id ? newListId : originalListId;
 
-      // Emit an event to refresh the other list
       const event = new CustomEvent("refreshList", {
         detail: { listId: otherListId },
       });
@@ -165,23 +167,23 @@ const Column = ({ id, title, className, onDelete, boardId, allLists }) => {
             width="24"
             height="24"
             viewBox="0 0 18 24"
-            onClick={() => setDropdownVisible(!dropdownVisible)} // Toggle dropdown visibility
-            ref={vectorRef} // Reference to vector icon
+            onClick={() => setDropdownVisible(!dropdownVisible)}
+            ref={vectorRef}
             className="cursor-pointer"
           >
             <path
               fill="none"
               stroke="#4D2D61"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
               d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0-2 0m7 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0m7 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0"
             />
           </svg>
           {dropdownVisible && (
             <div
               className="absolute right-0 top-full w-auto bg-white border border-gray-200 rounded-lg shadow-lg z-10"
-              ref={dropdownRef} // Reference to dropdown menu
+              ref={dropdownRef}
             >
               <button
                 onClick={handleArchive}
