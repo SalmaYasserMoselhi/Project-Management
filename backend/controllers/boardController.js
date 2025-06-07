@@ -64,29 +64,63 @@ const formatBoardResponse = (board, userId) => ({
   createdBy: board.createdBy,
   memberCount: board.members ? board.members.length : 0,
   lastActivity: board.updatedAt,
-  // Check if the board is starred for this specific user
   starred:
     board.starredByUsers &&
     board.starredByUsers.some(
       (entry) => entry.user.toString() === userId.toString()
     ),
-  // Check if the board is archived for this specific user
   archived:
     board.archivedByUsers &&
     board.archivedByUsers.some(
       (entry) => entry.user.toString() === userId.toString()
     ),
-  // lists: Array.isArray(board.lists)
-  //   ? board.lists.map((list) => ({
-  //       id: list._id,
-  //       name: list.name,
-  //       position: list.position,
-  //       cardLimit: list.cardLimit || null,
-  //       archived: list.archived || false,
-  //     }))
-  //   : [],
+  members: board.members ? board.members.map(formatMemberData) : [],
+  lists: Array.isArray(board.lists)
+    ? board.lists.map((list) => ({
+        id: list._id,
+        name: list.name,
+        position: list.position,
+        cardLimit: list.cardLimit || null,
+        archived: list.archived || false,
+        cards: Array.isArray(list.cards)
+          ? list.cards.map((card) => ({
+              id: card._id,
+              title: card.title,
+              description: card.description,
+              position: card.position,
+              dueDate: card.dueDate,
+              state: card.state,
+              members: card.members ? card.members.map(formatMemberData) : [],
+              labels: card.labels || [],
+              createdBy: card.createdBy,
+              createdAt: card.createdAt,
+              updatedAt: card.updatedAt,
+              archived: card.archived || false,
+              subtasks: card.subtasks ? card.subtasks.map(subtask => ({
+                id: subtask._id,
+                title: subtask.title,
+                completed: subtask.completed,
+                completedAt: subtask.completedAt,
+                completedBy: subtask.completedBy,
+                position: subtask.position,
+                assignedTo: subtask.assignedTo ? formatMemberData(subtask.assignedTo) : null,
+                dueDate: subtask.dueDate,
+                createdAt: subtask.createdAt,
+                updatedAt: subtask.updatedAt
+              })) : [],
+              subtaskStats: card.subtasks ? {
+                total: card.subtasks.length,
+                completed: card.subtasks.filter(st => st.completed).length,
+                inProgress: card.subtasks.filter(st => !st.completed).length
+              } : { total: 0, completed: 0, inProgress: 0 }
+            }))
+          : []
+      }))
+    : [],
   settings: board.settings,
   activities: board.activities,
+  background: board.background,
+  viewPreferences: board.viewPreferences
 });
 
 // Middleware for checking board permissions with optional population
@@ -124,7 +158,41 @@ exports.getBoardById = catchAsync(async (req, res, next) => {
 
   // Fetch lists if they're not already populated
   const populatedBoard = !board.lists
-    ? await Board.findById(board._id).populate('lists')
+    ? await Board.findById(board._id)
+        .populate('workspace', 'name type')
+        .populate('createdBy', 'username email avatar firstName lastName')
+        .populate('members.user', 'username email avatar firstName lastName')
+        .populate({
+          path: 'lists',
+          match: { archived: false },
+          options: { sort: { position: 1 } },
+          populate: {
+            path: 'cards',
+            match: { archived: false },
+            options: { sort: { position: 1 } },
+            populate: [
+              {
+                path: 'members.user',
+                select: 'username email avatar firstName lastName'
+              },
+              {
+                path: 'labels'
+              },
+              {
+                path: 'createdBy',
+                select: 'username email avatar firstName lastName'
+              },
+              {
+                path: 'subtasks',
+                options: { sort: { position: 1 } },
+                populate: {
+                  path: 'assignedTo.user',
+                  select: 'username email avatar firstName lastName'
+                }
+              }
+            ]
+          }
+        })
     : board;
 
   res.status(200).json({
