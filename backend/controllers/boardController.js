@@ -119,8 +119,8 @@ const formatBoardResponse = (board, userId) => ({
     : [],
   settings: board.settings,
   activities: board.activities,
-  background: board.background,
-  viewPreferences: board.viewPreferences
+  // background: board.background,
+  // viewPreferences: board.viewPreferences
 });
 
 // Middleware for checking board permissions with optional population
