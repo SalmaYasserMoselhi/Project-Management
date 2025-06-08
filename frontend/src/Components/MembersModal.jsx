@@ -22,6 +22,13 @@ const MembersModal = ({
 }) => {
   const observerRef = useRef(null);
   const [updatingRoleId, setUpdatingRoleId] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
+
+  // Ensure members is always an array
+  const membersArray = useMemo(() => {
+    if (!members) return [];
+    return Array.isArray(members) ? members : [];
+  }, [members]);
 
   // Get workspaceId from localStorage if not provided
   const workspaceId = useMemo(() => {
@@ -62,7 +69,7 @@ const MembersModal = ({
   }, [roleDropdownOpen, setRoleDropdownOpen, membersScrollRef]);
 
   useEffect(() => {
-    if (entityId && entityType) {
+    if (open && entityId && entityType) {
       setLoadingMembers(true);
       setErrorMembers(null);
       let url = '';
@@ -86,14 +93,19 @@ const MembersModal = ({
         .catch(err => setErrorMembers(err.message))
         .finally(() => setLoadingMembers(false));
     }
-  }, [entityId, entityType]);
+  }, [open, entityId, entityType]);
 
 
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1E1E2E]/30" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-xl p-6 relative" onClick={e => e.stopPropagation()}>
-        <div className="mb-2 text-gray-700 text-sm font-medium">People with access ({members.length})</div>
+        {successMessage && (
+          <div className="mb-3 px-4 py-2 bg-green-50 border border-green-200 text-green-800 rounded-lg text-center font-medium">
+            {successMessage}
+          </div>
+        )}
+        <div className="mb-2 text-gray-700 text-sm font-medium">People with access ({membersArray.length})</div>
         <div
           ref={membersScrollRef}
           className="space-y-2 max-h-60 overflow-y-auto pr-1"
@@ -102,10 +114,10 @@ const MembersModal = ({
             <div className="text-center py-8 text-gray-400">Loading members...</div>
           ) : errorMembers ? (
             <div className="text-center py-8 text-red-500">{errorMembers}</div>
-          ) : members.length === 0 ? (
+          ) : membersArray.length === 0 ? (
             <div className="text-center py-8 text-gray-400">No members found.</div>
           ) : (
-            members.map((m) => (
+            membersArray.map((m) => (
               <div key={m.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
                 {(m.avatar || m.user?.avatar) ? (
                   <img src={m.avatar || m.user?.avatar} alt={m.name || m.user?.username} className="h-8 w-8 rounded-full object-cover" />
@@ -192,20 +204,22 @@ const MembersModal = ({
             <button
               key={opt}
               type="button"
-              className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${members.find(mem => mem.id === roleDropdownOpen)?.role?.toLowerCase() === opt ? 'font-semibold text-[#6A3B82]' : ''}`}
+              className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${membersArray.find(mem => mem.id === roleDropdownOpen)?.role?.toLowerCase() === opt ? 'font-semibold text-[#6A3B82]' : ''}`}
               onMouseDown={e => e.stopPropagation()}
               disabled={updatingRoleId === roleDropdownOpen}
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (updatingRoleId === roleDropdownOpen) return;
                 const memberId = roleDropdownOpen;
                 const newRole = opt;
-                const member = members.find(mem => mem.id === memberId);
+                const member = membersArray.find(mem => mem.id === memberId);
                 const userId = member?.user?._id;
                 if (member?.role?.toLowerCase() === newRole.toLowerCase()) {
                   setRoleDropdownOpen(null);
                   return;
                 }
                 setUpdatingRoleId(memberId);
+                setLoadingMembers(true);
                 setMembers(prev =>
                   prev.map(mem => mem.id === memberId ? { ...mem, role: newRole } : mem)
                 );
@@ -230,9 +244,9 @@ const MembersModal = ({
                   .then((data) => {
                     let url = '';
                     if (entityType === 'workspace') {
-                      url = `/api/v1/workspaces/${entityId}`;
+                      url = `/api/v1/workspaces/${entityId}/members`;
                     } else if (entityType === 'board') {
-                      url = `/api/v1/boards/user-boards/${entityId}`;
+                      url = `/api/v1/boards/${entityId}/members`;
                     }
                     fetch(url)
                       .then(res => res.json())
@@ -242,14 +256,17 @@ const MembersModal = ({
                           id: m.id || m._id
                         }));
                         setMembers(members);
-                      });
-                    alert('Role updated successfully!');
+                      })
+                      .finally(() => setLoadingMembers(false));
+                    setSuccessMessage('Role updated successfully!');
+                    setTimeout(() => setSuccessMessage(null), 3000);
                   })
                   .catch((err) => {
                     setMembers(prev =>
                       prev.map(mem => mem.id === memberId ? { ...mem, role: member?.role } : mem)
                     );
-                    alert('Failed to update role');
+                    setSuccessMessage('Failed to update role');
+                    setTimeout(() => setSuccessMessage(null), 3000);
                   })
                   .finally(() => {
                     setUpdatingRoleId(null);

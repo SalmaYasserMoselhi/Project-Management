@@ -82,12 +82,19 @@ export default function WorkspaceSettings() {
 
         const workspaceInfo = workspaceData.data.workspace;
         
+        // Ensure members is an array and transform the data
+        const membersArray = Array.isArray(membersData.data.members) 
+          ? membersData.data.members 
+          : Array.isArray(membersData.members) 
+            ? membersData.members 
+            : [];
+        
         // Update workspace state with fetched data
         setWorkspace({
           ...workspaceInfo,
-          members: membersData.data.members.map(m => ({
+          members: membersArray.map(m => ({
             ...m,
-            id: m._id,
+            id: m._id || m.id,
             name: m.user?.username || m.user?.email || "Unknown",
             avatar: m.user?.avatar,
             email: m.user?.email
@@ -335,7 +342,7 @@ export default function WorkspaceSettings() {
                 </button>
               </div>
               <div className="flex items-center -space-x-2">
-                {workspace.members.slice(0, 5).map((member, index) => (
+                {Array.isArray(workspace?.members) && workspace.members.slice(0, 5).map((member, index) => (
                   <div
                     key={member.id}
                     className="w-10 h-10 rounded-full border-2 border-white flex items-center justify-center overflow-hidden"
@@ -361,7 +368,7 @@ export default function WorkspaceSettings() {
                     )}
                   </div>
                 ))}
-                {workspace.members.length > 5 && (
+                {Array.isArray(workspace?.members) && workspace.members.length > 5 && (
                   <div className="w-10 h-10 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-sm font-medium text-gray-600">
                     +{workspace.members.length - 5}
                   </div>
