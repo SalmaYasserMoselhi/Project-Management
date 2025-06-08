@@ -1,13 +1,15 @@
 const express = require('express');
 const messageController = require('../controllers/messageController.js');
 const authController = require('../controllers/authController');
+const attachmentController = require('../controllers/attachmentController');
 
 const router = express.Router();
 
 router.post(
   '/',
   authController.protect,
-  messageController.uploadMessageFiles,
+  // messageController.uploadMessageFiles,
+  attachmentController.uploadAttachments,
   messageController.sendMessage
 );
 router.get('/:convoId', authController.protect, messageController.getMessages);

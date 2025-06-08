@@ -276,6 +276,8 @@ exports.getUserMeetings = catchAsync(async (req, res, next) => {
     // Add date filtering
     if (upcoming === 'true') {
       // Only show meetings from today onwards
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
       query.date = { $gte: new Date() };
     } else if (startDate || endDate) {
       query.date = {};
@@ -284,8 +286,7 @@ exports.getUserMeetings = catchAsync(async (req, res, next) => {
     }
     
     // Calculate pagination
-    const skip = (page - 1) * limit;
-    
+    const skip = (page - 1) * parseInt(limit);
     // Execute query with pagination
     const meetings = await Meeting.find(query)
       .sort(sort)
