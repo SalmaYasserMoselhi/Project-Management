@@ -127,18 +127,36 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
   };
 
   // تنزيل مرفق
-  const handleDownloadAttachment = (url, fileName) => {
-    if (!url) return;
+  // const handleDownloadAttachment = (url, fileName) => {
+  //   if (!url) return;
 
-    // إنشاء رابط وتنزيل الملف
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    link.target = "_blank";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  //   // إنشاء رابط وتنزيل الملف
+  //   const link = document.createElement("a");
+  //   link.href = url;
+  //   link.download = fileName;
+  //   link.target = "_blank";
+  //   document.body.appendChild(link);
+  //   link.click();
+  //   document.body.removeChild(link);
+  // };
+// تنزيل مرفق - SIMPLIFIED VERSION that directly opens the file
+const handleDownloadAttachment = (url, fileName) => {
+  if (!url) {
+    console.error("Missing URL for file download");
+    return;
+  }
+  
+  console.log("Opening file:", fileName, "from URL:", url);
+  
+  try {
+    // Direct approach: Open file in a new tab/window
+    // This will let the browser handle the file display natively
+    window.open(url, '_blank');
+  } catch (error) {
+    console.error("Error opening file:", error);
+    setErrorMessage(`Failed to open ${fileName}. Please try again.`);
+  }
+};
 
   return (
     <div className="mt-4">

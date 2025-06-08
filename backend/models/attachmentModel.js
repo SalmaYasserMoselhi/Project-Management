@@ -49,10 +49,16 @@ const fileSchema = new mongoose.Schema(
 // fileSchema.index({ uploadedBy: 1 });
 // fileSchema.index({ isDeleted: 1 });
 
-// Virtual to get URL for download
+// Virtual للـ download URL
 fileSchema.virtual('url').get(function () {
-  return `/attachments/${this._id}/download`;
+  return `/api/v1/attachments/${this._id}/download`;
 });
+
+// Virtual للـ display URL (للعرض في الواجهة)
+fileSchema.virtual('displayUrl').get(function () {
+  return `${process.env.BASE_FILE_URL}/api/v1/attachments/${this._id}/download`;
+});
+
 
 
 

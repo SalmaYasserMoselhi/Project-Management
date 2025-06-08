@@ -35,17 +35,28 @@ exports.uploadMultipleFiles = () => {
       cb(null, uploadDir);
     },
     filename: function (req, file, cb) {
+      const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
       const fileName = `attach-${uuidv4()}-${Date.now()}`;
-      const ext = path.extname(file.originalname);
+      const ext = path.extname(originalName);
+      
+      // Store the properly decoded filename for later use
+      file.decodedOriginalName = originalName;
+
       cb(null, `${fileName}${ext}`);
     },
   });
 
+
   // IMPROVED: Add proper file type detection
   const fileFilter = (req, file, cb) => {
-    // Get the file extension
-    const ext = path.extname(file.originalname).toLowerCase();
 
+    // Fix: Properly decode the filename before processing
+    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    file.decodedOriginalName = originalName;
+    
+    // Get the file extension
+    const ext = path.extname(originalName).toLowerCase();
+    
     // Set the correct mimetype based on extension for common types
     // This helps ensure files are served with the right Content-Type
     switch (ext) {
@@ -78,13 +89,11 @@ exports.uploadMultipleFiles = () => {
         break;
       // Add more types as needed
     }
-
+    
     cb(null, true);
   };
-
   const upload = multer({
     storage,
-    fileFilter, // ADD THIS LINE - was missing!
     limits: {
       fieldSize: 10 * 1024 * 1024, // 10MB
       files: 5,
@@ -94,8 +103,18 @@ exports.uploadMultipleFiles = () => {
   return upload;
 };
 
-// Add this function to properly handle the filename encoding
-exports.sanitizeFilename = function (originalname) {
-  // Return the untouched originalname - we'll handle encoding at display time
-  return originalname;
+
+// Updated function to properly handle filename encoding
+exports.sanitizeFilename = function(originalname) {
+  try {
+    // Try to decode if it's been encoded as latin1
+    const decoded = Buffer.from(originalname, 'latin1').toString('utf8');
+    // Check if decoding was successful (Arabic characters should be properly displayed)
+    if (decoded.includes('Ø') && originalname.includes('Ø')) {
+      return decoded;
+    }
+    return originalname;
+  } catch (error) {
+    return originalname;
+  }
 };
