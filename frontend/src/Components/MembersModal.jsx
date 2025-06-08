@@ -88,7 +88,6 @@ const MembersModal = ({
     }
   }, [entityId, entityType]);
 
-  console.log('MembersModal rendered', { roleDropdownOpen, members });
 
   if (!open) return null;
   return (
@@ -108,7 +107,16 @@ const MembersModal = ({
           ) : (
             members.map((m) => (
               <div key={m.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
-                <img src={m.avatar || m.user?.avatar} alt={m.name || m.user?.username} className="h-8 w-8 rounded-full object-cover" />
+                {(m.avatar || m.user?.avatar) ? (
+                  <img src={m.avatar || m.user?.avatar} alt={m.name || m.user?.username} className="h-8 w-8 rounded-full object-cover" />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600">
+                    {(m.name && m.name.charAt(0).toUpperCase()) ||
+                     (m.user?.username && m.user.username.charAt(0).toUpperCase()) ||
+                     (m.user?.email && m.user.email.charAt(0).toUpperCase()) ||
+                     "?"}
+                  </div>
+                )}
                 <span className="flex-1 text-gray-900 text-sm">{m.name || m.user?.username}</span>
                 {m.role?.toLowerCase() === 'owner' ? (
                   <div className="w-24 py-1 px-4 rounded-lg border border-[#BFA8D9] text-[#6A3B82] text-sm font-semibold flex items-center justify-center bg-white ml-2">
@@ -122,7 +130,6 @@ const MembersModal = ({
                         type="button"
                         className={`w-full flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none border-[#BFA8D9] hover:border-[#6A3B82] focus:border-[#BFA8D9]`}
                         onClick={e => {
-                          console.log('Dropdown button clicked', m.id);
                           if (roleDropdownOpen === m.id) {
                             setRoleDropdownOpen(null);
                             window.removeEventListener('scroll', updateDropdownPosition, true);
@@ -189,27 +196,20 @@ const MembersModal = ({
               onMouseDown={e => e.stopPropagation()}
               disabled={updatingRoleId === roleDropdownOpen}
               onClick={() => {
-                console.log('Role button clicked', { opt, roleDropdownOpen });
                 if (updatingRoleId === roleDropdownOpen) return;
                 const memberId = roleDropdownOpen;
                 const newRole = opt;
                 const member = members.find(mem => mem.id === memberId);
                 const userId = member?.user?._id;
-                console.log('Current role:', member?.role, 'New role:', newRole);
                 if (member?.role?.toLowerCase() === newRole.toLowerCase()) {
                   setRoleDropdownOpen(null);
-                  console.log('Role is the same, not sending request');
                   return;
                 }
                 setUpdatingRoleId(memberId);
                 setMembers(prev =>
                   prev.map(mem => mem.id === memberId ? { ...mem, role: newRole } : mem)
                 );
-                console.log('PATCH body:', {
-                  members: [
-                    { user: userId, role: newRole }
-                  ]
-                });
+                
                 fetch(`/api/v1/workspaces/${workspaceId}`, {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
@@ -220,17 +220,14 @@ const MembersModal = ({
                   }),
                 })
                   .then(res => {
-                    console.log('PATCH response status:', res.status);
                     if (!res.ok) {
                       res.text().then(text => {
-                        console.error('PATCH error response:', text);
                       });
                       throw new Error('Failed to update role');
                     }
                     return res.json();
                   })
                   .then((data) => {
-                    console.log('PATCH success data:', data);
                     let url = '';
                     if (entityType === 'workspace') {
                       url = `/api/v1/workspaces/${entityId}`;
@@ -249,14 +246,12 @@ const MembersModal = ({
                     alert('Role updated successfully!');
                   })
                   .catch((err) => {
-                    console.log('PATCH error:', err);
                     setMembers(prev =>
                       prev.map(mem => mem.id === memberId ? { ...mem, role: member?.role } : mem)
                     );
                     alert('Failed to update role');
                   })
                   .finally(() => {
-                    console.log('PATCH finally');
                     setUpdatingRoleId(null);
                     setRoleDropdownOpen(null);
                     window.removeEventListener('scroll', updateDropdownPosition, true);

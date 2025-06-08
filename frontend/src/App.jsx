@@ -54,11 +54,6 @@ function App() {
   // Check if current page is auth
   const isAuthPage = authPages.some((path) => {
     const isMatch = location.pathname === path;
-    // console.log("Auth page check:", {
-    //   currentPath: location.pathname,
-    //   checkingPath: path,
-    //   isMatch,
-    // });
     return isMatch;
   });
 
@@ -69,32 +64,20 @@ function App() {
       workspaceTransitionState === "opening" ||
       workspaceTransitionState === "closing");
 
-  // console.log("Workspace Popup Render Conditions:", {
-  //   isAuthPage,
-  //   currentPath: location.pathname,
-  //   isWorkspaceOpen,
-  //   workspaceTransitionState,
-  //   selectedWorkspace,
-  //   shouldRenderWorkspacePopup,
-  // });
-
   useEffect(() => {
     dispatch(checkAuthStatus());
   }, [dispatch]);
 
   useEffect(() => {
-    console.log("App.jsx: Checking to fetch workspaces", currentUser?._id, userWorkspaces);
     if (
       currentUser?._id &&
       (!Array.isArray(userWorkspaces) || userWorkspaces.length === 0)
     ) {
-      console.log("App.jsx: Dispatching fetchUserPublicWorkspaces");
       dispatch(fetchUserPublicWorkspaces());
     }
   }, [currentUser?._id, userWorkspaces, dispatch]);
 
   useEffect(() => {
-    console.log("App.jsx: currentUser", currentUser);
   }, [currentUser]);
 
   return (

@@ -1,59 +1,9 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { Edit, ChevronDown, Menu, Clock, Users, Bell, Shield, Save } from "lucide-react"
 import MembersModal from "../Components/MembersModal"
 import Breadcrumb from "../Components/Breadcrumb"
-
-const mockWorkspace = {
-  name: "Samaa's Workspace",
-  description:
-    "A inventore reiciendis id nemo quo. Voluptatibus rerum fugit explicabo hic aperiam. Veritatis quos aut vero eum omnis.",
-  type: "private",
-  members: [
-    { id: 1, avatar: "/placeholder.svg?height=40&width=40", name: "User 1", role: "owner", email: "user1@example.com" },
-    { id: 2, avatar: "/placeholder.svg?height=40&width=40", name: "User 2", role: "admin", email: "user2@example.com" },
-    {
-      id: 3,
-      avatar: "/placeholder.svg?height=40&width=40",
-      name: "User 3",
-      role: "member",
-      email: "user3@example.com",
-    },
-    {
-      id: 4,
-      avatar: "/placeholder.svg?height=40&width=40",
-      name: "User 4",
-      role: "member",
-      email: "user4@example.com",
-    },
-    {
-      id: 5,
-      avatar: "/placeholder.svg?height=40&width=40",
-      name: "User 5",
-      role: "member",
-      email: "user5@example.com",
-    },
-    {
-      id: 6,
-      avatar: "/placeholder.svg?height=40&width=40",
-      name: "User 6",
-      role: "member",
-      email: "user6@example.com",
-    },
-  ],
-  settings: {
-    inviteRestriction: "owner",
-    boardCreation: "admin",
-    notificationsEnabled: true,
-  },
-}
-
-const roleOptions = [
-  { value: "owner", label: "Owner", description: "Full access to workspace" },
-  { value: "admin", label: "Admin", description: "Can manage members and boards" },
-  { value: "member", label: "Member", description: "Can view and edit boards" },
-]
 
 const permissionOptions = [
   { value: "owner", label: "Owner" },
@@ -62,13 +12,15 @@ const permissionOptions = [
 ]
 
 export default function WorkspaceSettings() {
-  const [workspace, setWorkspace] = useState(mockWorkspace)
+  const [workspace, setWorkspace] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [form, setForm] = useState({
-    name: mockWorkspace.name,
-    description: mockWorkspace.description,
-    inviteRestriction: mockWorkspace.settings.inviteRestriction,
-    boardCreation: mockWorkspace.settings.boardCreation,
-    notificationsEnabled: mockWorkspace.settings.notificationsEnabled,
+    name: '',
+    description: '',
+    inviteRestriction: 'owner',
+    boardCreation: 'admin',
+    notificationsEnabled: true,
   })
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -83,6 +35,82 @@ export default function WorkspaceSettings() {
   const boardDropdownRef = useRef(null)
   const nameInputRef = useRef(null)
   const membersScrollRef = useRef(null)
+  const [loadingMembers, setLoadingMembers] = useState(false)
+  const [errorMembers, setErrorMembers] = useState(null)
+
+  // Get workspaceId from localStorage
+  const workspaceId = useMemo(() => {
+    try {
+      // Prefer selectedPublicWorkspace if available
+      const publicSelected = localStorage.getItem('selectedPublicWorkspace');
+      if (publicSelected) {
+        const parsed = JSON.parse(publicSelected);
+        return parsed?._id || parsed?.id || null;
+      }
+      // Fallback to selectedWorkspace
+      const selected = localStorage.getItem('selectedWorkspace');
+      if (!selected) return null;
+      const parsed = JSON.parse(selected);
+      return parsed?._id || parsed?.id || null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Fetch workspace data
+  useEffect(() => {
+    const fetchWorkspace = async () => {
+      if (!workspaceId) {
+        setError('No workspace selected');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch workspace details
+        const workspaceRes = await fetch(`/api/v1/workspaces/${workspaceId}`);
+        if (!workspaceRes.ok) throw new Error('Failed to fetch workspace');
+        const workspaceData = await workspaceRes.json();
+        
+        // Fetch workspace members
+        const membersRes = await fetch(`/api/v1/workspaces/${workspaceId}/members`);
+        if (!membersRes.ok) throw new Error('Failed to fetch members');
+        const membersData = await membersRes.json();
+
+        const workspaceInfo = workspaceData.data.workspace;
+        
+        // Update workspace state with fetched data
+        setWorkspace({
+          ...workspaceInfo,
+          members: membersData.data.members.map(m => ({
+            ...m,
+            id: m._id,
+            name: m.user?.username || m.user?.email || "Unknown",
+            avatar: m.user?.avatar,
+            email: m.user?.email
+          }))
+        });
+
+        // Update form state
+        setForm({
+          name: workspaceInfo.name,
+          description: workspaceInfo.description,
+          inviteRestriction: workspaceInfo.settings?.inviteRestriction || 'owner',
+          boardCreation: workspaceInfo.settings?.boardCreation || 'admin',
+          notificationsEnabled: workspaceInfo.settings?.notificationsEnabled ?? true,
+        });
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWorkspace();
+  }, [workspaceId]);
 
   useEffect(() => {
     const checkIfMobile = () => {
@@ -115,16 +143,44 @@ export default function WorkspaceSettings() {
   }, [])
 
   const handleSave = async (e) => {
-    e.preventDefault()
-    setSaving(true)
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
 
-    // Simulate API call
-    setTimeout(() => {
-      setSaving(false)
-      setSuccess(true)
-      setTimeout(() => setSuccess(false), 3000)
-    }, 1200)
-  }
+    try {
+      const response = await fetch(`/api/v1/workspaces/${workspaceId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: form.name,
+          description: form.description,
+          settings: {
+            inviteRestriction: form.inviteRestriction,
+            boardCreation: form.boardCreation,
+            notificationsEnabled: form.notificationsEnabled,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update workspace');
+      }
+
+      const data = await response.json();
+      setWorkspace(prev => ({
+        ...prev,
+        ...data.data.workspace,
+      }));
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const toggleEditName = () => setEditingName((v) => !v)
   const handleNameBlur = () => setEditingName(false)
@@ -149,12 +205,34 @@ export default function WorkspaceSettings() {
   // Lighter purple for open border
   const openBorder = "border-[#D6C3EA]"
 
-  if (!workspace) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#F5F5F7]">
         <div className="animate-spin h-8 w-8 border-t-2 border-[#6A3B82] rounded-full"></div>
       </div>
-    )
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#F5F5F7]">
+        <div className="text-red-500 text-center">
+          <p className="text-lg font-medium mb-2">Error loading workspace</p>
+          <p className="text-sm">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!workspace) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#F5F5F7]">
+        <div className="text-gray-500 text-center">
+          <p className="text-lg font-medium">No workspace selected</p>
+          <p className="text-sm">Please select a workspace to view its settings</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -260,16 +338,26 @@ export default function WorkspaceSettings() {
                 {workspace.members.slice(0, 5).map((member, index) => (
                   <div
                     key={member.id}
-                    className="w-10 h-10 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center overflow-hidden"
+                    className="w-10 h-10 rounded-full border-2 border-white flex items-center justify-center overflow-hidden"
+                    style={{ background: (member.avatar && member.avatar !== "null" && member.avatar !== "undefined" && member.avatar !== "") ? undefined : '#4D2D61' }}
                   >
-                    {member.avatar ? (
+                    {((member.avatar && member.avatar !== "null" && member.avatar !== "undefined" && member.avatar !== "") ||
+                      (member.user?.avatar && member.user.avatar !== "null" && member.user.avatar !== "undefined" && member.user.avatar !== "")) ? (
                       <img
-                        src={member.avatar || "/placeholder.svg"}
+                        src={member.avatar || member.user?.avatar}
                         alt={member.name}
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-sm font-medium">{member.name.charAt(0)}</span>
+                      <span className="text-sm font-medium text-white">
+                        {(member.name && member.name.charAt(0).toUpperCase()) ||
+                         (member.email && member.email.charAt(0).toUpperCase()) ||
+                         (member.user?.username && member.user.username.charAt(0).toUpperCase()) ||
+                         (member.user?.email && member.user.email.charAt(0).toUpperCase()) ||
+                         (member.user?.firstName && member.user.firstName.charAt(0).toUpperCase()) ||
+                         (member.user?.lastName && member.user.lastName.charAt(0).toUpperCase()) ||
+                         "?"}
+                      </span>
                     )}
                   </div>
                 ))}
@@ -437,6 +525,10 @@ export default function WorkspaceSettings() {
         membersScrollRef={membersScrollRef}
         entityId={workspace.id}
         entityType="workspace"
+        loadingMembers={loadingMembers}
+        setLoadingMembers={setLoadingMembers}
+        errorMembers={errorMembers}
+        setErrorMembers={setErrorMembers}
       />
     </div>
   )
