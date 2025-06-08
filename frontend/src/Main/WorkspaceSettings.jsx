@@ -39,6 +39,7 @@ export default function WorkspaceSettings() {
   const membersScrollRef = useRef(null)
   const [loadingMembers, setLoadingMembers] = useState(false)
   const [errorMembers, setErrorMembers] = useState(null)
+  const [activities, setActivities] = useState([])
   const dispatch = useDispatch()
 
   // Get workspaceId from localStorage
@@ -100,9 +101,61 @@ export default function WorkspaceSettings() {
             id: m._id || m.id,
             name: m.user?.username || m.user?.email || "Unknown",
             avatar: m.user?.avatar,
-            email: m.user?.email
+            email: m.user?.email,
+            userId: m.user?._id || m.user || m.userId || m.id || m._id
           }))
         });
+
+        // Build userId to name/email map
+        const userMap = {};
+        membersArray.forEach(m => {
+          const userId = m.user?._id || m.user || m.userId || m.id || m._id;
+          userMap[userId] = m.user?.username || m.user?.email || "Unknown";
+        });
+
+        // Set activities from workspace data
+        if (workspaceInfo.activities) {
+          setActivities(workspaceInfo.activities.map(activity => {
+            // User name
+            const userName = userMap[activity.user] || "Unknown";
+            // Action details
+            let actionText = "";
+            switch (activity.action) {
+              case "invitation_sent":
+                actionText = `invited ${activity.data?.email || ''} as ${activity.data?.role || ''}`;
+                break;
+              case "invitation_accepted":
+                actionText = `invitation accepted by ${userMap[activity.data?.user] || activity.data?.user || ''}`;
+                break;
+              case "board_created":
+                actionText = `created board '${activity.data?.board?.name || ''}'`;
+                break;
+              case "member_role_updated":
+                actionText = `changed role of ${userMap[activity.data?.targetUser] || activity.data?.targetUser || ''} from ${activity.data?.from} to ${activity.data?.to}`;
+                break;
+              case "workspace_settings_updated":
+                actionText = `updated workspace settings (${(activity.data?.updatedFields || []).join(', ')})`;
+                break;
+              case "workspace_updated":
+                actionText = `updated workspace (${(activity.data?.updatedFields || []).join(', ')})`;
+                break;
+              default:
+                actionText = activity.action.replace(/_/g, ' ');
+            }
+            // Capitalize first letter
+            actionText = actionText.charAt(0).toUpperCase() + actionText.slice(1);
+            return {
+              user: userName,
+              action: actionText,
+              time: new Date(activity.createdAt).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: 'numeric'
+              })
+            };
+          }));
+        }
 
         // Update form state
         setForm({
@@ -470,27 +523,25 @@ export default function WorkspaceSettings() {
             </h2>
             <p className="text-sm text-gray-500 mb-4">Latest workspace activity and changes</p>
             <div className="space-y-3 max-h-[260px] overflow-y-auto">
-              {[
-                { user: "Jane Cooper", action: "updated board permissions", time: "2 hours ago" },
-                { user: "John Doe", action: "invited new member", time: "5 hours ago" },
-                { user: "Sarah Wilson", action: "created new board", time: "1 day ago" },
-                { user: "Michael Smith", action: "archived a board", time: "2 days ago" },
-                { user: "Emily Clark", action: "added a new task", time: "3 days ago" },
-                { user: "David Lee", action: "commented on a card", time: "4 days ago" },
-                { user: "Anna Kim", action: "changed board background", time: "5 days ago" },
-              ].map((activity, index) => (
-                <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs">
-                    {activity.user.charAt(0)}
+              {activities.length > 0 ? (
+                activities.map((activity, index) => (
+                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs">
+                      {activity.user.charAt(0)}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm">
+                        <span className="font-medium">{activity.user}</span> {activity.action}
+                      </p>
+                      <p className="text-xs text-gray-500">{activity.time}</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm">
-                      <span className="font-medium">{activity.user}</span> {activity.action}
-                    </p>
-                    <p className="text-xs text-gray-500">{activity.time}</p>
-                  </div>
+                ))
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  No recent activity
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>
