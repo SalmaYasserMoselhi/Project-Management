@@ -70,6 +70,10 @@ const permissionService = {
       return true;
     }
 
+    // Get board settings
+    const settings = board.settings || {};
+    const generalSettings = settings.general || {};
+
     // Check member permissions settings based on role and board settings
     if (member.role === 'admin') {
       // Admins have most permissions by default
@@ -77,15 +81,20 @@ const permissionService = {
       if (adminRestrictions.includes(permission)) {
         return false;
       }
+
+      // Special handling for card editing and moving permissions
+      if (permission === 'edit_other_cards') {
+        return generalSettings.cardEditing === 'admins_only' || generalSettings.cardEditing === 'all_members';
+      }
+      if (permission === 'move_other_cards') {
+        return generalSettings.cardMoving === 'admins_only' || generalSettings.cardMoving === 'all_members';
+      }
+
       return true;
     }
 
     // For regular members, check the board settings
     if (member.role === 'member') {
-      // Make sure board settings exists and has general property
-      const settings = board.settings || {};
-      const generalSettings = settings.general || {};
-
       switch (permission) {
         case 'create_lists':
           return generalSettings.memberListCreation === 'enabled';
