@@ -18,6 +18,7 @@ import {
   onTyping,
   onStopTyping,
   onOnlineUsers,
+  emitDeleteMessage,
 } from "../utils/socket";
 import {
   addMessage,
@@ -25,6 +26,7 @@ import {
   setIsTyping,
   setActiveConversation,
   setOnlineUsers,
+  handleMessageDeleted,
 } from "../features/Slice/ChatSlice/chatSlice";
 
 const ChatContext = createContext(null);
@@ -151,12 +153,23 @@ export const ChatProvider = ({ children }) => {
       }, 1000);
     };
 
+    const handleMessageDeleted = (data) => {
+      dispatch(handleMessageDeleted(data));
+    };
+
     cleanupFunctions.push(
       onMessage(handleMessage),
       onTyping(handleTyping),
       onStopTyping(handleTyping),
       onOnlineUsers(handleOnlineUsers)
     );
+
+    if (window.socket) {
+      window.socket.on("message deleted", handleMessageDeleted);
+      cleanupFunctions.push(() => {
+        window.socket.off("message deleted", handleMessageDeleted);
+      });
+    }
 
     return () => {
       cleanupFunctions.forEach((fn) => fn());
@@ -173,6 +186,18 @@ export const ChatProvider = ({ children }) => {
         emitMessage(message);
       } catch (error) {
         console.error("Send message failed:", error);
+      }
+    },
+    [socketInitialized]
+  );
+
+  const deleteMessage = useCallback(
+    (messageId, conversationId) => {
+      if (!socketInitialized || !messageId || !conversationId) return;
+      try {
+        emitDeleteMessage({ messageId, conversationId });
+      } catch (error) {
+        console.error("Delete message failed:", error);
       }
     },
     [socketInitialized]
@@ -196,6 +221,7 @@ export const ChatProvider = ({ children }) => {
       activeChat: activeConversation,
       sendMessage,
       notifyTyping,
+      deleteMessage,
       setActiveConversation: (conversation) =>
         dispatch(setActiveConversation(conversation)),
       socketInitialized,
@@ -204,6 +230,7 @@ export const ChatProvider = ({ children }) => {
       user,
       sendMessage,
       notifyTyping,
+      deleteMessage,
       activeConversation,
       dispatch,
       socketInitialized,

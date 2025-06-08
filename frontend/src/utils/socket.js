@@ -319,7 +319,14 @@ export const endCall = async (data) => {
   const result = await emitWithAck("end call", data);
   return result.success;
 };
-
+export const emitDeleteMessage = async (data) => {
+  // Delete message is important, so use acknowledgement
+  const result = await emitWithAck("delete message", {
+    ...data,
+    timestamp: Date.now(),
+  });
+  return result.success;
+};
 // Initialize socket with improved setup
 export const connectSocket = async () => {
   return new Promise((resolve, reject) => {

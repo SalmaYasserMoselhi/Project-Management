@@ -1,7 +1,7 @@
 "use client";
 
 import { useSelector } from "react-redux";
-import { FiPhone, FiVideo, FiMoreVertical } from "react-icons/fi";
+import { FiMoreVertical } from "react-icons/fi";
 import { useChat } from "../context/chat-context";
 import { useMemo } from "react";
 import Avatar from "../assets/defaultAvatar.png";
@@ -144,20 +144,6 @@ function ChatHeader({ user, onToggleInfo }) {
       </div>
 
       <div className="flex items-center gap-3">
-        <button
-          className="p-2 hover:bg-gray-100 rounded-full text-[#4D2D61]"
-          title="Voice Call"
-        >
-          <FiPhone className="w-5 h-5" />
-        </button>
-
-        <button
-          className="p-2 hover:bg-gray-100 rounded-full text-[#4D2D61]"
-          title="Video Call"
-        >
-          <FiVideo className="w-5 h-5" />
-        </button>
-
         <button
           className="p-2 hover:bg-gray-100 rounded-full text-[#4D2D61]"
           title="More Options"
