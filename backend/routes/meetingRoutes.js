@@ -7,9 +7,9 @@ const router = express.Router({ mergeParams: true });
 // Protect all routes
 router.use(authController.protect);
 
-// User meetings routes
-router.get('/user-meetings', meetingController.getUserMeetings);
-router.get('/user-meetings/upcoming', meetingController.getUpcomingMeetings);
+// User-specific meeting routes (add these before the board-specific routes)
+router.get('/my-meetings', meetingController.getUserMeetings);
+router.get('/upcoming', meetingController.getUpcomingMeetings);
 
 // Routes for board-specific meetings
 router.get('/board/:boardId/meetings', meetingController.getBoardMeetings);

@@ -254,117 +254,161 @@ exports.updateMeeting = catchAsync(async (req, res, next) => {
 
 
 
-  // Get all meetings for the current user
+// Get all meetings where the current user is an attendee
 exports.getUserMeetings = catchAsync(async (req, res, next) => {
-    const userId = req.user._id;
+  const userId = req.user._id;
+  
+  // Optional query parameters for filtering and sorting
+  const { 
+    startDate, 
+    endDate, 
+    sort = '-date', // Default to most recent first
+    limit = 50,
+    page = 1 
+  } = req.query;
+  
+  // Build query to find meetings where user is an attendee
+  let query = {
+    'attendees.user': userId
+  };
+  
+  // Add date filtering if provided
+  if (startDate || endDate) {
+    query.date = {};
+    if (startDate) query.date.$gte = new Date(startDate);
+    if (endDate) query.date.$lte = new Date(endDate);
+  }
+  
+  // Calculate pagination
+  const skip = (page - 1) * limit;
+  
+  // Query meetings
+  const meetings = await Meeting.find(query)
+    .sort(sort)
+    .limit(parseInt(limit))
+    .skip(skip)
+    .populate('createdBy', 'firstName lastName username avatar')
+    .populate('attendees.user', 'firstName lastName username avatar')
+    .populate('board', 'name')
+    .lean();
+  
+  // Get total count for pagination
+  const total = await Meeting.countDocuments(query);
+  
+  res.status(200).json({
+    status: 'success',
+    results: meetings.length,
+    totalResults: total,
+    pagination: {
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      hasNextPage: page * limit < total,
+      hasPrevPage: page > 1
+    },
+    data: {
+      meetings,
+    },
+  });
+});
+
+// Get upcoming meetings for the current week (next 7 days)
+exports.getUpcomingMeetings = catchAsync(async (req, res, next) => {
+  const userId = req.user._id;
+  
+  // Calculate date range for the next 7 days
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Start of today
+  
+  const nextWeek = new Date(today);
+  nextWeek.setDate(today.getDate() + 7); // 7 days from today
+  nextWeek.setHours(23, 59, 59, 999); // End of the 7th day
+  
+  // Build query to find upcoming meetings where user is an attendee
+  const query = {
+    'attendees.user': userId,
+    date: {
+      $gte: today,
+      $lte: nextWeek
+    }
+  };
+  
+  // Query meetings sorted by date and time
+  const meetings = await Meeting.find(query)
+    .sort('date time.startTime') // Sort by date first, then by start time
+    .populate('createdBy', 'firstName lastName username avatar')
+    .populate('attendees.user', 'firstName lastName username avatar')
+    .populate('board', 'name')
+    .lean();
+  
+  // Group meetings by date for better organization
+  const groupedMeetings = meetings.reduce((acc, meeting) => {
+    const dateKey = meeting.date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    if (!acc[dateKey]) {
+      acc[dateKey] = {
+        date: meeting.date,
+        meetings: []
+      };
+    }
+    
+    acc[dateKey].meetings.push(meeting);
+    return acc;
+  }, {});
+  
+  // Convert grouped meetings to array and sort by date
+  const organizedMeetings = Object.values(groupedMeetings)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  
+  res.status(200).json({
+    status: 'success',
+    results: meetings.length,
+    dateRange: {
+      from: today,
+      to: nextWeek
+    },
+    data: {
+      meetings, // All meetings in flat array
+      organizedByDate: organizedMeetings // Grouped by date
+    },
+  });
+});
+
+  // Get all meetings for a board
+  exports.getBoardMeetings = catchAsync(async (req, res, next) => {
+    const { boardId } = req.params;
     
     // Optional query parameters
-    const { 
-      upcoming = 'true', // Only show upcoming meetings by default
-      startDate, 
-      endDate, 
-      sort = 'date', 
-      limit = 50, 
-      page = 1 
-    } = req.query;
+    const { startDate, endDate, sort = 'date' } = req.query;
     
-    // Build query - find meetings where the user is an invitee
-    let query = {
-    'attendees.user': userId
-    };
+    // Verify board access
+    await getBoardAndVerifyPermission(boardId, req.user._id);
     
-    // Add date filtering
-    if (upcoming === 'true') {
-      // Only show meetings from today onwards
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      query.date = { $gte: new Date() };
-    } else if (startDate || endDate) {
+    // Build query
+    let query = { board: boardId };
+    
+    // Add date filtering if provided
+    if (startDate || endDate) {
       query.date = {};
       if (startDate) query.date.$gte = new Date(startDate);
       if (endDate) query.date.$lte = new Date(endDate);
     }
     
-    // Calculate pagination
-    const skip = (page - 1) * parseInt(limit);
-    // Execute query with pagination
+    // Query meetings
     const meetings = await Meeting.find(query)
       .sort(sort)
-      .skip(skip)
-      .limit(parseInt(limit))
       .populate('createdBy', 'firstName lastName username avatar')
-      .populate('board', 'name')
       .populate('attendees.user', 'firstName lastName username avatar')
-      .lean();
-    
-    // Get total count for pagination
-    const totalCount = await Meeting.countDocuments(query);
+      .lean()
     
     res.status(200).json({
       status: 'success',
       results: meetings.length,
-      totalCount,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(totalCount / limit)
+      data: {
+        meetings,
       },
-      data: {
-        meetings
-      }
     });
   });
 
-
-  // Get upcoming meetings for the current user (for dashboard)
-exports.getUpcomingMeetings = catchAsync(async (req, res, next) => {
-    const userId = req.user._id;
-    const { limit = 5 } = req.query;
-    
-    // Get current date at start of day
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    // Get date 7 days from now at end of day (for upcoming week)
-    const oneWeekLater = new Date(today);
-    oneWeekLater.setDate(oneWeekLater.getDate() + 7);
-    oneWeekLater.setHours(23, 59, 59, 999);
-    
-    // Find meetings where user is invited with accepted status and meeting is in the upcoming week
-    const upcomingMeetings = await Meeting.find({
-      'attendees.user': userId,
-      date: { $gte: today, $lte: oneWeekLater }
-    })
-    .sort('date')
-    .limit(parseInt(limit))
-    .populate('board', 'name')
-    .populate('createdBy', 'firstName lastName username avatar')
-    .populate('attendees.user', 'firstName lastName username avatar')
-    .lean();
-    // Group meetings by date for easier frontend display
-    const meetingsByDate = {};
-    
-    upcomingMeetings.forEach(meeting => {
-      // Format date as YYYY-MM-DD
-      const dateKey = meeting.date.toISOString().split('T')[0];
-      
-      if (!meetingsByDate[dateKey]) {
-        meetingsByDate[dateKey] = [];
-      }
-      
-      meetingsByDate[dateKey].push(meeting);
-    });
-    
-    res.status(200).json({
-      status: 'success',
-      results: upcomingMeetings.length,
-      data: {
-        upcomingMeetings,
-        meetingsByDate
-      }
-    });
-  });
-  
   // Get all meetings for a board
   exports.getBoardMeetings = catchAsync(async (req, res, next) => {
     const { boardId } = req.params;
