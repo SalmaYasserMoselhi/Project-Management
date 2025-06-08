@@ -9,6 +9,7 @@ import {
   uploadAttachments,
   deleteAttachment,
   setSaveError,
+  setBoardId,
 } from "../features/Slice/cardSlice/cardDetailsSlice";
 import CardHeader from "./CardHeader";
 import CardDueDate from "./CardDueDate";
@@ -65,6 +66,11 @@ export default function CardDetails({
         dispatch(updateListId(currentListId));
       }
 
+      // Set boardId for new cards
+      if (boardId) {
+        dispatch(setBoardId(boardId));
+      }
+
       // Initialize empty state for new cards
       setInitialCardState({
         title: "",
@@ -77,6 +83,11 @@ export default function CardDetails({
     // إذا كانت بطاقة موجودة، نقوم بجلب بياناتها
     else {
       dispatch(fetchCardDetails(cardId));
+
+      // Set boardId for existing cards if not returned by API
+      if (boardId) {
+        dispatch(setBoardId(boardId));
+      }
     }
 
     // تنظيف الحالة عند إغلاق المكون
@@ -219,7 +230,7 @@ export default function CardDetails({
       title,
       description,
       listId,
-      boardId,
+      boardId: boardId || cardDetails.boardId, // Ensure boardId is included
       priority,
       dueDate, // الهيكل: { startDate (اليوم), endDate (تاريخ الاستحقاق) }
       labels,

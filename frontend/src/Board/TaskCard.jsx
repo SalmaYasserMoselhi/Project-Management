@@ -1,12 +1,11 @@
-
 import drag from "../assets/drag-icon.png";
-import vector from "../assets/Vector.png";
 import avatar3 from "../assets/Avatar3.png";
 import addButton from "../assets/Add Button.png";
 import List from "../assets/prime_list.png";
 import File from "../assets/file_present.png";
 import third from "../assets/third.png";
 import { useState, useRef, useEffect } from "react";
+import axios from "axios";
 import CardDetails from "../Card/CardDetails";
 import toast from "react-hot-toast";
 
@@ -14,8 +13,8 @@ const TaskCard = ({
   id,
   title = "Task",
   priority,
-  fileCount = 3,
-  commentCount = 5,
+  fileCount = 0,
+  commentCount = 0,
   boardId,
   allLists,
   listId,
@@ -23,12 +22,63 @@ const TaskCard = ({
   onCardUpdate,
 }) => {
   const [isCardDetailsOpen, setIsCardDetailsOpen] = useState(false);
+  const [actualFileCount, setActualFileCount] = useState(fileCount);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
   const BASE_URL = "http://localhost:3000"; // Adjust as needed
 
   const MAX_VISIBLE_LABELS = 2;
+
+  // Fetch file count if needed
+  useEffect(() => {
+    // Only fetch if we have a card ID
+    if (id) {
+      const fetchAttachments = async () => {
+        try {
+          const response = await axios.get(`/api/v1/cards/${id}`);
+          if (
+            response.data &&
+            response.data.data &&
+            response.data.data.attachments
+          ) {
+            setActualFileCount(response.data.data.attachments.length);
+          }
+        } catch (err) {
+          console.error("Error fetching attachments:", err);
+        }
+      };
+
+      fetchAttachments();
+    } else {
+      setActualFileCount(fileCount);
+    }
+  }, [id, fileCount]);
+
+  // Fetch file count if needed
+  useEffect(() => {
+    // Only fetch if we have a card ID
+    if (id) {
+      const fetchAttachments = async () => {
+        try {
+          const response = await axios.get(`/api/v1/cards/${id}`);
+          if (
+            response.data &&
+            response.data.data &&
+            response.data.data.attachments
+          ) {
+            setActualFileCount(response.data.data.attachments.length);
+          }
+        } catch (err) {
+          console.error("Error fetching attachments:", err);
+        }
+      };
+
+      fetchAttachments();
+    } else {
+      setActualFileCount(fileCount);
+    }
+  }, [id, fileCount]);
 
   const priorityColors = {
     high: { color: "#DC2626", bg: "#FFECEC" },
@@ -38,7 +88,8 @@ const TaskCard = ({
   };
 
   const normalizedPriority = (priority || "medium").toLowerCase();
-  const priorityStyle = priorityColors[normalizedPriority] || priorityColors.medium;
+  const priorityStyle =
+    priorityColors[normalizedPriority] || priorityColors.medium;
 
   // Open card details modal except when clicking dropdown
   const handleCardClick = (e) => {
@@ -79,30 +130,29 @@ const TaskCard = ({
     }
   };
 
- const handleDeleteCard = async () => {
-  try {
-    const response = await fetch(`${BASE_URL}/api/v1/cards/${id}`, {
-      method: "DELETE",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
+  const handleDeleteCard = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/cards/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        toast.success("Card deleted successfully");
+        setIsDropdownOpen(false);
+        onCardUpdate?.(); // trigger refetch
+      } else {
+        const result = await response.json().catch(() => ({}));
+        toast.error(result.message || "Failed to delete card");
       }
-    });
-
-    if (response.ok) {
-      toast.success("Card deleted successfully");
-      setIsDropdownOpen(false);
-      onCardUpdate?.(); // trigger refetch
-    } else {
-      const result = await response.json().catch(() => ({}));
-      toast.error(result.message || "Failed to delete card");
+    } catch (error) {
+      console.error(error);
+      toast.error("Error deleting card");
     }
-  } catch (error) {
-    console.error(error);
-    toast.error("Error deleting card");
-  }
-};
-
+  };
 
   // Close dropdown if clicked outside
   useEffect(() => {
@@ -178,7 +228,8 @@ const TaskCard = ({
                 color: priorityStyle.color,
               }}
             >
-              {normalizedPriority.charAt(0).toUpperCase() + normalizedPriority.slice(1)}
+              {normalizedPriority.charAt(0).toUpperCase() +
+                normalizedPriority.slice(1)}
             </span>
 
             {labels.length > 0 && (
@@ -223,14 +274,30 @@ const TaskCard = ({
             </div>
 
             <div className="flex gap-2 ml-4 items-center">
-              <img src={List} className="w-6 h-6 cursor-pointer hover:opacity-70" alt="Checklist" />
+              <img
+                src={List}
+                className="w-6 h-6 cursor-pointer hover:opacity-70"
+                alt="Checklist"
+              />
               <div className="flex items-center gap-0">
-                <img src={File} className="w-5 h-5 cursor-pointer hover:opacity-70" alt="Files" />
-                <span className="text-sm text-gray-600 font-bold mt-1">{fileCount}</span>
+                <img
+                  src={File}
+                  className="w-5 h-5 cursor-pointer hover:opacity-70"
+                  alt="Files"
+                />
+                <span className="text-sm text-gray-600 font-bold mt-1">
+                  {actualFileCount}
+                </span>
               </div>
               <div className="flex items-center gap-1">
-                <img src={third} className="w-5 h-5 cursor-pointer hover:opacity-70 mt-1" alt="Comments" />
-                <span className="text-sm text-gray-600 font-bold mt-1">{commentCount}</span>
+                <img
+                  src={third}
+                  className="w-5 h-5 cursor-pointer hover:opacity-70 mt-1"
+                  alt="Comments"
+                />
+                <span className="text-sm text-gray-600 font-bold mt-1">
+                  {commentCount}
+                </span>
               </div>
             </div>
           </div>

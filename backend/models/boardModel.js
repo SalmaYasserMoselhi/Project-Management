@@ -120,7 +120,7 @@ const boardSchema = new mongoose.Schema(
         cardMoving: {
           type: String,
           enum: ['all_members', 'card_creator_only', 'admins_only'],
-          default: 'admins_only',
+          default: 'card_creator_only',
         },
       },
       // Notification Settings

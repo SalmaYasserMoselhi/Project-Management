@@ -4,8 +4,7 @@ const AppError = require('../utils/appError');
 const Conversation = require('../models/conversationModel');
 const mongoose = require('mongoose');
 const Attachment = require('../models/attachmentModel');
-const { uploadMultipleFiles } = require('../Middlewares/fileUploadMiddleware');
-
+const { uploadMultipleFiles, sanitizeFilename } = require('../Middlewares/fileUploadMiddleware');
 // Add the middleware for file uploads
 exports.uploadMessageFiles = uploadMultipleFiles().array('files', 5);
 
@@ -49,6 +48,19 @@ const updateLastMessage = async (convoId, msg) => {
   }
   return updatedConvo;
 };
+
+
+// Helper function to format file size
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 B';
+  
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
 exports.sendMessage = catchAsync(async (req, res, next) => {
   const userId = req.user._id;
   const { message, convoId, files } = req.body;
@@ -65,11 +77,15 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   let fileAttachments = [];
   if (req.files && req.files.length > 0) {
     for (const file of req.files) {
+      const originalName = file.decodedOriginalName || sanitizeFilename(file.originalname);
+      // Fix: Ensure size is properly stored as a number
+      const fileSize = parseInt(file.size) || 0;
+
       const newFile = await Attachment.create({
-        originalName: file.originalname,
+        originalName: originalName,
         filename: file.filename,
         mimetype: file.mimetype,
-        size: file.size,
+        size: fileSize,
         path: file.path,
         entityType: 'chat',
         entityId: convoId,
@@ -78,9 +94,10 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
 
       fileAttachments.push({
         _id: newFile._id,
-        originalName: newFile.originalName,
+        originalName: originalName,
         mimetype: newFile.mimetype,
-        size: newFile.size,
+        size: fileSize, // Store as number
+        formattedSize: formatFileSize(fileSize),
         url: `/api/v1/files/${newFile._id}/download`,
         filename: newFile.filename,
       });

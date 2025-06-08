@@ -70,22 +70,37 @@ const permissionService = {
       return true;
     }
 
+    // Get board settings
+    const settings = board.settings || {};
+    const generalSettings = settings.general || {};
+
     // Check member permissions settings based on role and board settings
     if (member.role === 'admin') {
-      // Admins have most permissions by default
       const adminRestrictions = ['delete_board'];
       if (adminRestrictions.includes(permission)) {
         return false;
       }
+
+      // Special handling for card editing and moving permissions
+      if (permission === 'edit_other_cards') {
+        return generalSettings.cardEditing === 'admins_only' || generalSettings.cardEditing === 'all_members';
+      }
+      if (permission === 'move_other_cards') {
+        return generalSettings.cardMoving === 'admins_only' || generalSettings.cardMoving === 'all_members';
+      }
+
+      // For 'edit_cards' and 'move_cards', do not always return true; let canEditCard/canMoveCard handle creator-only logic
+      if (permission === 'edit_cards' || permission === 'move_cards') {
+        // Only allow if not card_creator_only, otherwise handled in canEditCard/canMoveCard
+        return generalSettings.cardEditing !== 'card_creator_only' && permission === 'edit_cards' ? true :
+               generalSettings.cardMoving !== 'card_creator_only' && permission === 'move_cards' ? true : false;
+      }
+
       return true;
     }
 
     // For regular members, check the board settings
     if (member.role === 'member') {
-      // Make sure board settings exists and has general property
-      const settings = board.settings || {};
-      const generalSettings = settings.general || {};
-
       switch (permission) {
         case 'create_lists':
           return generalSettings.memberListCreation === 'enabled';
@@ -204,6 +219,13 @@ const permissionService = {
       return false;
     }
 
+    // If cardEditing is 'card_creator_only', only the creator can edit
+    const settings = board.settings || {};
+    const generalSettings = settings.general || {};
+    if (generalSettings.cardEditing === 'card_creator_only') {
+      return card.createdBy && card.createdBy.toString() === userId.toString();
+    }
+
     // First check if user has general permission to edit any card
     if (this.hasPermission(board, userId, 'edit_cards')) {
       return true;
@@ -249,6 +271,13 @@ const permissionService = {
   canMoveCard(board, card, userId) {
     if (!board || !card || !userId) {
       return false;
+    }
+
+    // If cardMoving is 'card_creator_only', only the creator can move
+    const settings = board.settings || {};
+    const generalSettings = settings.general || {};
+    if (generalSettings.cardMoving === 'card_creator_only') {
+      return card.createdBy && card.createdBy.toString() === userId.toString();
     }
 
     // First check if user has general permission to move any card
