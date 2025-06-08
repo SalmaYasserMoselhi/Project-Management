@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useMemo } from "react"
 import { Edit, ChevronDown, Menu, Clock, Users, Bell, Shield, Save } from "lucide-react"
 import MembersModal from "../Components/MembersModal"
 import Breadcrumb from "../Components/Breadcrumb"
+import { useDispatch } from "react-redux"
+import { selectWorkspace } from "../features/Slice/ComponentSlice/sidebarSlice"
 
 const permissionOptions = [
   { value: "owner", label: "Owner" },
@@ -37,6 +39,7 @@ export default function WorkspaceSettings() {
   const membersScrollRef = useRef(null)
   const [loadingMembers, setLoadingMembers] = useState(false)
   const [errorMembers, setErrorMembers] = useState(null)
+  const dispatch = useDispatch()
 
   // Get workspaceId from localStorage
   const workspaceId = useMemo(() => {
@@ -182,6 +185,9 @@ export default function WorkspaceSettings() {
       }));
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
+
+      dispatch(selectWorkspace({ ...data.data.workspace, name: form.name }));
+      localStorage.setItem("selectedPublicWorkspace", JSON.stringify({ ...data.data.workspace, name: form.name }));
     } catch (err) {
       setError(err.message);
     } finally {
