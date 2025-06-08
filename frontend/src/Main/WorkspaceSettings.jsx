@@ -348,22 +348,15 @@ export default function WorkspaceSettings() {
                     className="w-10 h-10 rounded-full border-2 border-white flex items-center justify-center overflow-hidden"
                     style={{ background: (member.avatar && member.avatar !== "null" && member.avatar !== "undefined" && member.avatar !== "") ? undefined : '#4D2D61' }}
                   >
-                    {((member.avatar && member.avatar !== "null" && member.avatar !== "undefined" && member.avatar !== "") ||
-                      (member.user?.avatar && member.user.avatar !== "null" && member.user.avatar !== "undefined" && member.user.avatar !== "")) ? (
+                    {member.avatar && member.avatar !== "null" && member.avatar !== "undefined" && member.avatar !== "" ? (
                       <img
-                        src={member.avatar || member.user?.avatar}
+                        src={member.avatar}
                         alt={member.name}
                         className="w-full h-full object-cover"
                       />
                     ) : (
                       <span className="text-sm font-medium text-white">
-                        {(member.name && member.name.charAt(0).toUpperCase()) ||
-                         (member.email && member.email.charAt(0).toUpperCase()) ||
-                         (member.user?.username && member.user.username.charAt(0).toUpperCase()) ||
-                         (member.user?.email && member.user.email.charAt(0).toUpperCase()) ||
-                         (member.user?.firstName && member.user.firstName.charAt(0).toUpperCase()) ||
-                         (member.user?.lastName && member.user.lastName.charAt(0).toUpperCase()) ||
-                         "?"}
+                        {(member.name?.charAt(0).toUpperCase() || member.user?.username?.charAt(0).toUpperCase() || member.user?.email?.charAt(0).toUpperCase() || "?")}
                       </span>
                     )}
                   </div>
