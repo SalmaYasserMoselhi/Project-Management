@@ -12,6 +12,10 @@ const meetingSchema = new mongoose.Schema({
     type: Date,
     required: [true, 'Meeting date is required'],
   },
+  color:{
+    type: String,
+    default : '#ff54'
+  },
   time: {
     startTime: {
       type: String,

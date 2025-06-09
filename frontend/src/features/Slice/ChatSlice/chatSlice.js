@@ -923,6 +923,32 @@ export const refreshConversation = createAsyncThunk(
   }
 );
 
+export const deleteMessage = createAsyncThunk(
+  "chat/deleteMessage",
+  async (messageId, { rejectWithValue, getState }) => {
+    try {
+      const response = await api.delete(`/message/${messageId}`);
+      const { chat } = getState();
+      const message = chat.messages.find((msg) => msg._id === messageId);
+
+      // Emit socket event for message deletion
+      if (window.socket && message) {
+        window.socket.emit("delete message", {
+          messageId,
+          conversationId: message.conversation,
+          deletedBy: getState().login?.user?._id,
+        });
+      }
+
+      return { messageId, response: response.data, message };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to delete message"
+      );
+    }
+  }
+);
+
 const chatSlice = createSlice({
   name: "chat",
   initialState,
@@ -1050,6 +1076,27 @@ const chatSlice = createSlice({
     },
     closeEmojiPicker: (state) => {
       state.showEmojiPicker = false;
+    },
+    handleMessageDeleted: (state, action) => {
+      const { messageId } = action.payload;
+      // Remove the deleted message from messages array
+      state.messages = state.messages.filter((msg) => msg._id !== messageId);
+
+      // Update last message in conversations if needed
+      state.conversations = state.conversations.map((convo) => {
+        if (convo.lastMessage && convo.lastMessage._id === messageId) {
+          // Find the most recent message that isn't the deleted one
+          const lastMessage = state.messages
+            .filter((msg) => msg.conversation === convo._id)
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+
+          return {
+            ...convo,
+            lastMessage: lastMessage || null,
+          };
+        }
+        return convo;
+      });
     },
   },
   extraReducers: (builder) => {
@@ -1476,6 +1523,40 @@ const chatSlice = createSlice({
             };
           }
         }
+      })
+
+      .addCase(deleteMessage.pending, (state) => {
+        state.status = "loading";
+      })
+      .addCase(deleteMessage.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        // Remove the deleted message from the messages array
+        state.messages = state.messages.filter(
+          (msg) => msg._id !== action.payload.messageId
+        );
+
+        // Update last message in conversations if needed
+        state.conversations = state.conversations.map((convo) => {
+          if (
+            convo.lastMessage &&
+            convo.lastMessage._id === action.payload.messageId
+          ) {
+            // Find the most recent message that isn't the deleted one
+            const lastMessage = state.messages
+              .filter((msg) => msg.conversation === convo._id)
+              .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+
+            return {
+              ...convo,
+              lastMessage: lastMessage || null,
+            };
+          }
+          return convo;
+        });
+      })
+      .addCase(deleteMessage.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload;
       });
   },
 });
@@ -1495,6 +1576,7 @@ export const {
   updateConversationInList,
   toggleEmojiPicker,
   closeEmojiPicker,
+  handleMessageDeleted,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

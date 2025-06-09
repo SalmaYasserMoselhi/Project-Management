@@ -86,7 +86,10 @@ const MembersModal = ({
         .then(data => {
           const members = (data.data?.members || data.members || []).map(m => ({
             ...m,
-            id: m.id || m._id
+            id: m.id || m._id,
+            name: m.user?.username || m.user?.email || "Unknown",
+            avatar: m.user?.avatar,
+            email: m.user?.email
           }));
           setMembers(members);
         })
@@ -119,14 +122,11 @@ const MembersModal = ({
           ) : (
             membersArray.map((m) => (
               <div key={m.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
-                {(m.avatar || m.user?.avatar) ? (
+                {m.avatar || m.user?.avatar ? (
                   <img src={m.avatar || m.user?.avatar} alt={m.name || m.user?.username} className="h-8 w-8 rounded-full object-cover" />
                 ) : (
                   <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600">
-                    {(m.name && m.name.charAt(0).toUpperCase()) ||
-                     (m.user?.username && m.user.username.charAt(0).toUpperCase()) ||
-                     (m.user?.email && m.user.email.charAt(0).toUpperCase()) ||
-                     "?"}
+                    {(m.name?.charAt(0).toUpperCase() || m.user?.username?.charAt(0).toUpperCase() || m.user?.email?.charAt(0).toUpperCase() || "?")}
                   </div>
                 )}
                 <span className="flex-1 text-gray-900 text-sm">{m.name || m.user?.username}</span>
@@ -253,7 +253,10 @@ const MembersModal = ({
                       .then(data => {
                         const members = (data.data?.members || data.members || []).map(m => ({
                           ...m,
-                          id: m.id || m._id
+                          id: m.id || m._id,
+                          name: m.user?.username || m.user?.email || "Unknown",
+                          avatar: m.user?.avatar,
+                          email: m.user?.email
                         }));
                         setMembers(members);
                       })
