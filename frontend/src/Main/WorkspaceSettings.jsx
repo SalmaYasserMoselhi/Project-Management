@@ -6,6 +6,8 @@ import MembersModal from "../Components/MembersModal"
 import Breadcrumb from "../Components/Breadcrumb"
 import { useDispatch, useSelector } from "react-redux"
 import { selectWorkspace } from "../features/Slice/ComponentSlice/sidebarSlice"
+import { useParams, useNavigate } from "react-router-dom"
+import { toast } from "react-toastify"
 
 const permissionOptions = [
   { value: "owner", label: "Owner" },
@@ -14,6 +16,8 @@ const permissionOptions = [
 ]
 
 export default function WorkspaceSettings() {
+  const { workspaceId: urlWorkspaceId } = useParams()
+  const navigate = useNavigate()
   const [workspace, setWorkspace] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -42,58 +46,111 @@ export default function WorkspaceSettings() {
   const [errorMembers, setErrorMembers] = useState(null)
   const [activities, setActivities] = useState([])
   const dispatch = useDispatch()
-  const userId = useSelector(state => state.login.user?._id)
+  const user = useSelector(state => state.user?.user || state.login?.user);
+  const userId = user?._id || user?.id;
+  console.log("user from redux", user, "userId", userId);
+  const selectedWorkspace = useSelector(state => state.sidebar.selectedWorkspace)
+  const hasRedirected = useRef(false)
+  const [hasPermission, setHasPermission] = useState(null)
 
-  // Get workspaceId from localStorage
+  // Get workspaceId from URL params or localStorage
   const workspaceId = useMemo(() => {
-    try {
-      // Prefer selectedPublicWorkspace if available
-      const publicSelected = localStorage.getItem('selectedPublicWorkspace');
-      if (publicSelected) {
-        const parsed = JSON.parse(publicSelected);
-        return parsed?._id || parsed?.id || null;
-      }
-      // Fallback to selectedWorkspace
-      const selected = localStorage.getItem('selectedWorkspace');
-      if (!selected) return null;
-      const parsed = JSON.parse(selected);
-      return parsed?._id || parsed?.id || null;
-    } catch {
-      return null;
+    // First try to get from URL params
+    if (urlWorkspaceId) {
+      return urlWorkspaceId
     }
-  }, []);
+    
+    // Then try to get from selected workspace in Redux
+    if (selectedWorkspace?.id) {
+      return selectedWorkspace.id
+    }
+
+    // Finally fallback to localStorage
+    try {
+      const publicSelected = localStorage.getItem('selectedPublicWorkspace')
+      if (publicSelected) {
+        const parsed = JSON.parse(publicSelected)
+        return parsed?._id || parsed?.id || null
+      }
+      const selected = localStorage.getItem('selectedWorkspace')
+      if (!selected) return null
+      const parsed = JSON.parse(selected)
+      return parsed?._id || parsed?.id || null
+    } catch {
+      return null
+    }
+  }, [urlWorkspaceId, selectedWorkspace])
 
   // Fetch workspace data
   useEffect(() => {
     const fetchWorkspace = async () => {
       if (!workspaceId) {
-        setError('No workspace selected');
-        setLoading(false);
+        setError('No workspace selected')
+        setLoading(false)
+        return
+      }
+
+      if (!userId) {
+        setLoading(true);
         return;
       }
 
       try {
-        setLoading(true);
-        setError(null);
+        setLoading(true)
+        setError(null)
         
         // Fetch workspace details
-        const workspaceRes = await fetch(`/api/v1/workspaces/${workspaceId}`);
-        if (!workspaceRes.ok) throw new Error('Failed to fetch workspace');
-        const workspaceData = await workspaceRes.json();
+        const workspaceRes = await fetch(`/api/v1/workspaces/${workspaceId}`)
+        if (!workspaceRes.ok) throw new Error('Failed to fetch workspace')
+        const workspaceData = await workspaceRes.json()
         
         // Fetch workspace members
-        const membersRes = await fetch(`/api/v1/workspaces/${workspaceId}/members`);
-        if (!membersRes.ok) throw new Error('Failed to fetch members');
-        const membersData = await membersRes.json();
+        const membersRes = await fetch(`/api/v1/workspaces/${workspaceId}/members`)
+        if (!membersRes.ok) throw new Error('Failed to fetch members')
+        const membersData = await membersRes.json()
 
-        const workspaceInfo = workspaceData.data.workspace;
+        const workspaceInfo = workspaceData.data.workspace
         
         // Ensure members is an array and transform the data
         const membersArray = Array.isArray(membersData.data.members) 
           ? membersData.data.members 
           : Array.isArray(membersData.members) 
             ? membersData.members 
-            : [];
+            : []
+        
+        // Find current user role
+        let currentUserRole = null;
+        for (const m of membersArray) {
+          // غطّي كل الحالات الممكنة للـuserId
+          const memberUserId =
+            m.user?._id ||
+            m.userId ||
+            (typeof m.user === "string" ? m.user : null) ||
+            m._id ||
+            m.id;
+          if (memberUserId === userId) {
+            currentUserRole = m.role;
+            break;
+          }
+        }
+        console.log("userId:", userId, "membersArray:", membersArray, "currentUserRole:", currentUserRole);
+        
+        // إذا لم يكن Owner أو Admin، اعمل redirect مرة واحدة فقط
+        if (currentUserRole !== "owner" && currentUserRole !== "admin") {
+          if (!hasRedirected.current) {
+            hasRedirected.current = true;
+            setHasPermission(false);
+            navigate("/main/dashboard", { replace: true });
+            setTimeout(() => {
+              toast.error("You don't have permission to access workspace settings.");
+            }, 100);
+          }
+          return;
+        } else {
+          hasRedirected.current = false;
+          toast.dismiss();
+          setHasPermission(true);
+        }
         
         // Update workspace state with fetched data
         setWorkspace({
@@ -106,46 +163,46 @@ export default function WorkspaceSettings() {
             email: m.user?.email,
             userId: m.user?._id || m.user || m.userId || m.id || m._id
           }))
-        });
+        })
 
         // Build userId to name/email map
-        const userMap = {};
+        const userMap = {}
         membersArray.forEach(m => {
-          const userId = m.user?._id || m.user || m.userId || m.id || m._id;
-          userMap[userId] = m.user?.username || m.user?.email || "Unknown";
-        });
+          const userId = m.user?._id || m.user || m.userId || m.id || m._id
+          userMap[userId] = m.user?.username || m.user?.email || "Unknown"
+        })
 
         // Set activities from workspace data
         if (workspaceInfo.activities) {
           setActivities(workspaceInfo.activities.map(activity => {
             // User name
-            const userName = userMap[activity.user] || "Unknown";
+            const userName = userMap[activity.user] || "Unknown"
             // Action details
-            let actionText = "";
+            let actionText = ""
             switch (activity.action) {
               case "invitation_sent":
-                actionText = `invited ${activity.data?.email || ''} as ${activity.data?.role || ''}`;
-                break;
+                actionText = `invited ${activity.data?.email || ''} as ${activity.data?.role || ''}`
+                break
               case "invitation_accepted":
-                actionText = `invitation accepted by ${userMap[activity.data?.user] || activity.data?.user || ''}`;
-                break;
+                actionText = `invitation accepted by ${userMap[activity.data?.user] || activity.data?.user || ''}`
+                break
               case "board_created":
-                actionText = `created board '${activity.data?.board?.name || ''}'`;
-                break;
+                actionText = `created board '${activity.data?.board?.name || ''}`
+                break
               case "member_role_updated":
-                actionText = `changed role of ${userMap[activity.data?.targetUser] || activity.data?.targetUser || ''} from ${activity.data?.from} to ${activity.data?.to}`;
-                break;
+                actionText = `changed role of ${userMap[activity.data?.targetUser] || activity.data?.targetUser || ''} from ${activity.data?.from} to ${activity.data?.to}`
+                break
               case "workspace_settings_updated":
-                actionText = `updated workspace settings (${(activity.data?.updatedFields || []).join(', ')})`;
-                break;
+                actionText = `updated workspace settings (${(activity.data?.updatedFields || []).join(', ')})`
+                break
               case "workspace_updated":
-                actionText = `updated workspace (${(activity.data?.updatedFields || []).join(', ')})`;
-                break;
+                actionText = `updated workspace (${(activity.data?.updatedFields || []).join(', ')})`
+                break
               default:
-                actionText = activity.action.replace(/_/g, ' ');
+                actionText = activity.action.replace(/_/g, ' ')
             }
             // Capitalize first letter
-            actionText = actionText.charAt(0).toUpperCase() + actionText.slice(1);
+            actionText = actionText.charAt(0).toUpperCase() + actionText.slice(1)
             return {
               user: userName,
               action: actionText,
@@ -155,8 +212,8 @@ export default function WorkspaceSettings() {
                 hour: 'numeric',
                 minute: 'numeric'
               })
-            };
-          }));
+            }
+          }))
         }
 
         // Update form state
@@ -166,16 +223,16 @@ export default function WorkspaceSettings() {
           inviteRestriction: workspaceInfo.settings?.inviteRestriction || 'owner',
           boardCreation: workspaceInfo.settings?.boardCreation || 'admin',
           notificationsEnabled: workspaceInfo.settings?.notificationsEnabled ?? true,
-        });
+        })
       } catch (err) {
-        setError(err.message);
+        setError(err.message)
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    fetchWorkspace();
-  }, [workspaceId]);
+    fetchWorkspace()
+  }, [workspaceId, userId]) // Depend on workspaceId and userId
 
   useEffect(() => {
     const checkIfMobile = () => {
@@ -208,10 +265,10 @@ export default function WorkspaceSettings() {
   }, [])
 
   const handleSave = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-    setShowErrorAlert(false);
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+    setShowErrorAlert(false)
 
     try {
       const response = await fetch(`/api/v1/workspaces/${workspaceId}`, {
@@ -228,37 +285,37 @@ export default function WorkspaceSettings() {
             notificationsEnabled: form.notificationsEnabled,
           },
         }),
-      });
+      })
 
       if (!response.ok) {
-        let errorMsg = 'Failed to update workspace';
-        let errorData;
+        let errorMsg = 'Failed to update workspace'
+        let errorData
         try {
-          errorData = await response.json();
+          errorData = await response.json()
         } catch {}
         if (errorData && errorData.message) {
-          errorMsg = errorData.message;
+          errorMsg = errorData.message
         } else if (response.status === 403) {
-          errorMsg = 'You do not have permission to this action.';
+          errorMsg = 'You do not have permission to this action.'
         } else if (response.status === 400) {
-          errorMsg = 'The data provided is invalid or incomplete.';
+          errorMsg = 'The data provided is invalid or incomplete.'
         }
-        setError(errorMsg);
-        setShowErrorAlert(true);
-        setTimeout(() => setShowErrorAlert(false), 4000);
+        setError(errorMsg)
+        setShowErrorAlert(true)
+        setTimeout(() => setShowErrorAlert(false), 4000)
         // Reset form to last valid workspace settings
         setForm(prev => ({
           ...prev,
           inviteRestriction: workspace.settings?.inviteRestriction || 'owner',
           boardCreation: workspace.settings?.boardCreation || 'admin',
           notificationsEnabled: workspace.settings?.notificationsEnabled ?? true,
-        }));
-        throw new Error(errorMsg);
+        }))
+        throw new Error(errorMsg)
       }
 
-      const data = await response.json();
-      const prevWorkspace = workspace;
-      const apiWorkspace = data.data.workspace;
+      const data = await response.json()
+      const prevWorkspace = workspace
+      const apiWorkspace = data.data.workspace
       const updatedWorkspace = {
         id: apiWorkspace._id || prevWorkspace.id || prevWorkspace._id,
         name: form.name,
@@ -269,23 +326,23 @@ export default function WorkspaceSettings() {
         memberCount: apiWorkspace.memberCount || prevWorkspace.memberCount || (prevWorkspace.members ? prevWorkspace.members.length : undefined),
         settings: apiWorkspace.settings || prevWorkspace.settings,
         members: prevWorkspace.members, // أو apiWorkspace.members لو متوفرة
-      };
-      setWorkspace(updatedWorkspace);
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+      }
+      setWorkspace(updatedWorkspace)
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
 
       // بعد الحفظ، أعد جلب بيانات الـ workspace للسايدبار
       const fetchSidebarWorkspace = async () => {
         try {
-          const res = await fetch(`/api/v1/workspaces/${workspaceId}`);
-          if (!res.ok) return;
-          const wsData = await res.json();
-          const ws = wsData.data.workspace;
+          const res = await fetch(`/api/v1/workspaces/${workspaceId}`)
+          if (!res.ok) return
+          const wsData = await res.json()
+          const ws = wsData.data.workspace
 
-          let userRole = undefined;
+          let userRole = undefined
           if (ws.members && Array.isArray(ws.members)) {
-            const member = ws.members.find(m => (m.user?._id || m.user) === userId);
-            if (member) userRole = member.role;
+            const member = ws.members.find(m => (m.user?._id || m.user) === userId)
+            if (member) userRole = member.role
           }
 
           const sidebarWorkspace = {
@@ -297,18 +354,18 @@ export default function WorkspaceSettings() {
             memberCount: ws.members ? ws.members.length : undefined,
             description: ws.description,
             settings: ws.settings,
-          };
-          dispatch(selectWorkspace(sidebarWorkspace));
-          localStorage.setItem("selectedPublicWorkspace", JSON.stringify(sidebarWorkspace));
+          }
+          dispatch(selectWorkspace(sidebarWorkspace))
+          localStorage.setItem("selectedPublicWorkspace", JSON.stringify(sidebarWorkspace))
         } catch {}
-      };
-      fetchSidebarWorkspace();
+      }
+      fetchSidebarWorkspace()
     } catch (err) {
-      setError(err.message);
+      setError(err.message)
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
-  };
+  }
 
   const toggleEditName = () => setEditingName((v) => !v)
   const handleNameBlur = () => setEditingName(false)
@@ -318,27 +375,30 @@ export default function WorkspaceSettings() {
 
   const updateDropdownPosition = () => {
     if (roleDropdownOpen !== null) {
-      const btn = document.getElementById(`role-dropdown-btn-${roleDropdownOpen}`);
+      const btn = document.getElementById(`role-dropdown-btn-${roleDropdownOpen}`)
       if (btn) {
-        const rect = btn.getBoundingClientRect();
+        const rect = btn.getBoundingClientRect()
         setDropdownPos({
           top: rect.bottom,
           left: rect.left,
           width: rect.width,
-        });
+        })
       }
     }
-  };
+  }
 
   // Lighter purple for open border
   const openBorder = "border-[#D6C3EA]"
 
-  if (loading) {
+  if (loading || hasPermission === null) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#F5F5F7]">
         <div className="animate-spin h-8 w-8 border-t-2 border-[#6A3B82] rounded-full"></div>
       </div>
-    );
+    )
+  }
+  if (hasPermission === false) {
+    return null;
   }
 
   // Error Alert at the top
@@ -348,7 +408,7 @@ export default function WorkspaceSettings() {
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-100 border border-red-300 text-red-700 px-6 py-3 rounded-lg shadow-lg text-center min-w-[280px] max-w-[90vw]">
       {error}
     </div>
-  ) : null;
+  ) : null
 
   if (!workspace) {
     return (
@@ -358,7 +418,7 @@ export default function WorkspaceSettings() {
           <p className="text-sm">Please select a workspace to view its settings</p>
         </div>
       </div>
-    );
+    )
   }
 
   return (
