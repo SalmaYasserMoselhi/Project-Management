@@ -18,18 +18,24 @@ const notificationService = require('../utils/notificationService');
 };
 
 // Helper function to format member data
-const formatMemberData = (member) => ({
-  _id: member._id,
-  user: {
-    _id: member.user._id,
-    username: member.user.username,
-    email: member.user.email,
-    avatar: member.user.avatar,
-  },
-  role: member.role,
-  permissions: member.permissions,
-  joinedAt: member.joinedAt,
-});
+const formatMemberData = (member) => {
+  if (!member || !member.user) {
+    return null;
+  }
+  
+  return {
+    _id: member._id,
+    user: {
+      _id: member.user._id || null,
+      username: member.user.username || null,
+      email: member.user.email || null,
+      avatar: member.user.avatar || null,
+    },
+    role: member.role,
+    permissions: member.permissions,
+    joinedAt: member.joinedAt,
+  };
+};
 
 // // Helper function to get workspace and verify access
 // const getWorkspace = async (workspaceId, userId) => {
@@ -517,7 +523,7 @@ exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
   const paginatedMembers = members.slice(startIndex, endIndex);
 
   // Format data after pagination
-  const formattedMembers = paginatedMembers.map(formatMemberData);
+  const formattedMembers = paginatedMembers.map(formatMemberData).filter(member => member !== null);
 
   // Stats calculation (from original full list)
   const memberStats = {
