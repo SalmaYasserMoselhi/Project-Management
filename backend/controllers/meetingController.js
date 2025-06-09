@@ -30,7 +30,7 @@ const getBoardAndVerifyPermission = async (boardId, userId) => {
 
 // Create a new meeting (without attendees)
 exports.createMeeting = catchAsync(async (req, res, next) => {
-  const { name, date, time, onlineLink, board: boardId } = req.body;
+  const { name, date, time, onlineLink,color, board: boardId } = req.body;
   
   // Verify board access
   const board = await getBoardAndVerifyPermission(boardId, req.user._id);
@@ -49,6 +49,12 @@ exports.createMeeting = catchAsync(async (req, res, next) => {
     createdBy: req.user._id,
   });
   
+    // Add color if provided
+  if (color) {
+    meetingData.color = color;
+  }
+  
+
   // Log activity
   await activityService.logBoardActivity(
     board,
@@ -170,7 +176,7 @@ exports.deleteMeeting = catchAsync(async (req, res, next) => {
 // Update a meeting (basic details only, not attendees)
 exports.updateMeeting = catchAsync(async (req, res, next) => {
   const { id } = req.params;
-  const { name, date, time, onlineLink } = req.body;
+  const { name, date, time, onlineLink, color } = req.body;
   
   // Find meeting
   const meeting = await Meeting.findById(id);
@@ -201,6 +207,7 @@ exports.updateMeeting = catchAsync(async (req, res, next) => {
   if (date) meeting.date = date;
   if (time) meeting.time = time;
   if (onlineLink !== undefined) meeting.onlineLink = onlineLink;
+  if (color) meeting.color = color;
   
   meeting.updatedBy = req.user._id;
   await meeting.save();

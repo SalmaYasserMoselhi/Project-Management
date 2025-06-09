@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 
-
 const meetingSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -11,6 +10,17 @@ const meetingSchema = new mongoose.Schema({
   date: {
     type: Date,
     required: [true, 'Meeting date is required'],
+  },
+  color: {
+    type: String,
+    default: '#3B82F6', // Better default color (blue)
+    validate: {
+      validator: function(v) {
+        // Validate hex color format (#RGB or #RRGGBB)
+        return /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(v);
+      },
+      message: 'Color must be a valid hex color (e.g., #FF5733 or #F53)'
+    }
   },
   time: {
     startTime: {
