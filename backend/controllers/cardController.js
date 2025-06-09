@@ -1359,28 +1359,117 @@ exports.getCardSubtasks = catchAsync(async (req, res, next) => {
   });
 });
 
-// Get all cards in a list
+// // Get all cards in a list
+// exports.getListCards = catchAsync(async (req, res, next) => {
+//   const listId = req.params.listId;
+
+//   // Find the list
+//   const list = await List.findById(listId);
+//   if (!list) {
+//     return next(new AppError('List not found', 404));
+//   }
+
+//   // Find the board
+//   const board = await Board.findById(list.board);
+//   if (!board) {
+//     return next(new AppError('Board not found', 404));
+//   }
+
+//   // Verify access
+//   permissionService.verifyPermission(board, req.user._id, 'view_board');
+
+//   // Get all cards in the list
+//   const cards = await Card.find({ list: listId, archived: false })
+//     .sort('position')
+//     .populate({
+//       path: 'members.user',
+//       select: 'email firstName lastName avatar username',
+//     })
+//     .populate('createdBy', 'email firstName lastName')
+//     .populate('subtasks.assignedTo', 'email firstName lastName');
+
+//   res.status(200).json({
+//     status: 'success',
+//     results: cards.length,
+//     data: {
+//       cards,
+//     },
+//   });
+// });
+
 exports.getListCards = catchAsync(async (req, res, next) => {
   const listId = req.params.listId;
+  const {
+    priority,
+    assignedTo,
+    dueDateFilter,
+    sortBy = 'position',
+    sortOrder = 'asc',
+  } = req.query;
 
-  // Find the list
+  // Find the list and board (existing code remains the same)
   const list = await List.findById(listId);
-  if (!list) {
-    return next(new AppError('List not found', 404));
-  }
-
-  // Find the board
+  if (!list) return next(new AppError('List not found', 404));
+  
   const board = await Board.findById(list.board);
-  if (!board) {
-    return next(new AppError('Board not found', 404));
-  }
-
-  // Verify access
+  if (!board) return next(new AppError('Board not found', 404));
+  
   permissionService.verifyPermission(board, req.user._id, 'view_board');
 
-  // Get all cards in the list
-  const cards = await Card.find({ list: listId, archived: false })
-    .sort('position')
+  // Build query (existing filter code remains the same)
+  let query = { list: listId, archived: false };
+
+  if (priority) {
+    const validPriorityLevels = ['none', 'low', 'medium', 'high'];
+    if (!validPriorityLevels.includes(priority)) {
+      return next(new AppError('Invalid priority level', 400));
+    }
+    query.priority = priority;
+  }
+
+  if (assignedTo) {
+    if (assignedTo === 'me') {
+      query['members.user'] = req.user._id;
+    } else {
+      const isBoardMember = board.members.some(
+        member => member.user.toString() === assignedTo
+      );
+      if (!isBoardMember) {
+        return next(new AppError('Specified user is not a board member', 400));
+      }
+      query['members.user'] = assignedTo;
+    }
+  }
+
+  if (dueDateFilter) {
+    const now = new Date();
+    const today = new Date(now.setHours(0, 0, 0, 0));
+    const weekEnd = new Date(today);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+
+    switch (dueDateFilter) {
+      case 'overdue': query['dueDate.endDate'] = { $lt: new Date() }; break;
+      case 'dueSoon': query['dueDate.endDate'] = { $gte: new Date(), $lt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) }; break;
+      case 'dueThisWeek': query['dueDate.endDate'] = { $gte: today, $lte: weekEnd }; break;
+      case 'noDueDate': query['dueDate.endDate'] = { $exists: false }; break;
+      default: return next(new AppError('Invalid due date filter', 400));
+    }
+  }
+
+  // Build sort object (updated implementation)
+  let sort = {};
+  if (sortBy === 'priority') {
+    // We'll sort in memory after fetching
+    sort = { position: 1 }; // Default sort for initial query
+  } else if (sortBy === 'dueDate') {
+    sort['dueDate.endDate'] = sortOrder === 'asc' ? 1 : -1;
+  } else {
+    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+  }
+
+  // Get cards
+  let cards = await Card.find(query)
+    .sort(sort)
     .populate({
       path: 'members.user',
       select: 'email firstName lastName avatar username',
@@ -1388,14 +1477,23 @@ exports.getListCards = catchAsync(async (req, res, next) => {
     .populate('createdBy', 'email firstName lastName')
     .populate('subtasks.assignedTo', 'email firstName lastName');
 
+  // Apply custom priority sorting if needed
+  if (sortBy === 'priority') {
+    const priorityOrder = { 'high': 1, 'medium': 2, 'low': 3, 'none': 4 };
+    cards.sort((a, b) => {
+      const aPriority = priorityOrder[a.priority] || 4;
+      const bPriority = priorityOrder[b.priority] || 4;
+      return sortOrder === 'asc' ? aPriority - bPriority : bPriority - aPriority;
+    });
+  }
+
   res.status(200).json({
     status: 'success',
     results: cards.length,
-    data: {
-      cards,
-    },
+    data: { cards, filters: { priority, assignedTo, dueDateFilter, sortBy, sortOrder } },
   });
 });
+
 
 // Archive card
 exports.archiveCard = catchAsync(async (req, res, next) => {
