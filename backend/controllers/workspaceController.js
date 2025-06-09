@@ -449,9 +449,13 @@ exports.removeMember = catchAsync(async (req, res, next) => {
     return next(new AppError('Cannot remove workspace owner', 400));
   }
 
-  // Admin can only remove regular members, not other admins
+  // Admin can only remove regular members, not other admins (except self-leave)
   const currentUserRole = workspace.getMemberRole(req.user._id);
-  if (currentUserRole === 'admin' && targetMemberRole === 'admin') {
+  if (
+    currentUserRole === 'admin' &&
+    targetMemberRole === 'admin' &&
+    req.user._id.toString() !== targetUserId.toString() // استثناء لو بيحذف نفسه
+  ) {
     return next(new AppError('Admins cannot remove other admins', 403));
   }
 
@@ -465,6 +469,15 @@ exports.removeMember = catchAsync(async (req, res, next) => {
   workspace.members = workspace.members.filter(
     (member) => !member.user.equals(targetUserId)
   );
+  await workspace.save();
+
+  // إذا كان العضو هو نفسه اليوزر الحالي، أرجع رسالة نجاح مباشرة
+  if (req.user._id.toString() === targetUserId.toString()) {
+    return res.status(204).json({
+      status: 'success',
+      data: null,
+    });
+  }
 
   // Log activity
   await activityService.logWorkspaceActivity(
@@ -476,12 +489,6 @@ exports.removeMember = catchAsync(async (req, res, next) => {
       removedBy: req.user._id,
     }
   );
-  await workspace.save();
-
-  res.status(204).json({
-    status: 'success',
-    data: null,
-  });
 });
 
 // Get members of a public workspace only

@@ -57,7 +57,14 @@ router
 router
   .route('/:id/members/:userId')
   .delete(
-    boardController.checkBoardPermission('manage_members'),
+    (req, res, next) => {
+      if (req.user._id.toString() === req.params.userId) {
+        // Allow self-leave without permission check
+        return next();
+      }
+      // Otherwise, require manage_members permission
+      return boardController.checkBoardPermission('manage_members')(req, res, next);
+    },
     boardController.removeMember
   );
 

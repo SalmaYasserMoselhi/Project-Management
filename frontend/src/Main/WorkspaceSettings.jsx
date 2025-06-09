@@ -17,6 +17,7 @@ export default function WorkspaceSettings() {
   const [workspace, setWorkspace] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showErrorAlert, setShowErrorAlert] = useState(false)
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -210,6 +211,7 @@ export default function WorkspaceSettings() {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    setShowErrorAlert(false);
 
     try {
       const response = await fetch(`/api/v1/workspaces/${workspaceId}`, {
@@ -229,7 +231,29 @@ export default function WorkspaceSettings() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update workspace');
+        let errorMsg = 'Failed to update workspace';
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {}
+        if (errorData && errorData.message) {
+          errorMsg = errorData.message;
+        } else if (response.status === 403) {
+          errorMsg = 'You do not have permission to this action.';
+        } else if (response.status === 400) {
+          errorMsg = 'The data provided is invalid or incomplete.';
+        }
+        setError(errorMsg);
+        setShowErrorAlert(true);
+        setTimeout(() => setShowErrorAlert(false), 4000);
+        // Reset form to last valid workspace settings
+        setForm(prev => ({
+          ...prev,
+          inviteRestriction: workspace.settings?.inviteRestriction || 'owner',
+          boardCreation: workspace.settings?.boardCreation || 'admin',
+          notificationsEnabled: workspace.settings?.notificationsEnabled ?? true,
+        }));
+        throw new Error(errorMsg);
       }
 
       const data = await response.json();
@@ -317,16 +341,14 @@ export default function WorkspaceSettings() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-[#F5F5F7]">
-        <div className="text-red-500 text-center">
-          <p className="text-lg font-medium mb-2">Error loading workspace</p>
-          <p className="text-sm">{error}</p>
-        </div>
-      </div>
-    );
-  }
+  // Error Alert at the top
+  // Show only if showErrorAlert && error
+  // Use fixed position, nice styling
+  const errorAlert = showErrorAlert && error ? (
+    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-100 border border-red-300 text-red-700 px-6 py-3 rounded-lg shadow-lg text-center min-w-[280px] max-w-[90vw]">
+      {error}
+    </div>
+  ) : null;
 
   if (!workspace) {
     return (
@@ -341,6 +363,7 @@ export default function WorkspaceSettings() {
 
   return (
     <div className="min-h-screen w-full bg-white">
+      {errorAlert}
       {/* Header */}
       <div className="p-3 md:p-4 flex items-center">
         {isMobile && (

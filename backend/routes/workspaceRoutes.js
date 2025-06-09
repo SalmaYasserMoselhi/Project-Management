@@ -61,9 +61,30 @@ router.delete(
 router
   .route('/:workspaceId/members/:userId')
   .delete(
-    workspaceController.checkWorkspacePermission('manage_members'),
-    workspaceController.checkPublicWorkspace,
-    workspaceController.removeMember
+    // Always load the workspace first
+    async (req, res, next) => {
+      const Workspace = require('../models/workspaceModel');
+      const workspace = await Workspace.findById(req.params.workspaceId);
+      if (!workspace) {
+        return res.status(404).json({ status: 'error', message: 'Workspace not found' });
+      }
+      req.workspace = workspace;
+      next();
+    },
+    (req, res, next) => {
+      if (req.user._id.toString() === req.params.userId) {
+        // Allow self-leave without any permission/public check
+        return workspaceController.removeMember(req, res, next);
+      }
+      // Otherwise, require manage_members permission and public check
+      return workspaceController.checkWorkspacePermission('manage_members')(req, res, (err) => {
+        if (err) return next(err);
+        workspaceController.checkPublicWorkspace(req, res, (err2) => {
+          if (err2) return next(err2);
+          workspaceController.removeMember(req, res, next);
+        });
+      });
+    }
   );
 
 module.exports = router;
