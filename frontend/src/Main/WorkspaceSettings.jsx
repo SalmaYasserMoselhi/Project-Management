@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react"
 import { Edit, ChevronDown, Menu, Clock, Users, Bell, Shield, Save } from "lucide-react"
 import MembersModal from "../Components/MembersModal"
 import Breadcrumb from "../Components/Breadcrumb"
-import { useDispatch } from "react-redux"
+import { useDispatch, useSelector } from "react-redux"
 import { selectWorkspace } from "../features/Slice/ComponentSlice/sidebarSlice"
 
 const permissionOptions = [
@@ -41,6 +41,7 @@ export default function WorkspaceSettings() {
   const [errorMembers, setErrorMembers] = useState(null)
   const [activities, setActivities] = useState([])
   const dispatch = useDispatch()
+  const userId = useSelector(state => state.login.user?._id)
 
   // Get workspaceId from localStorage
   const workspaceId = useMemo(() => {
@@ -232,15 +233,52 @@ export default function WorkspaceSettings() {
       }
 
       const data = await response.json();
-      setWorkspace(prev => ({
-        ...prev,
-        ...data.data.workspace,
-      }));
+      const prevWorkspace = workspace;
+      const apiWorkspace = data.data.workspace;
+      const updatedWorkspace = {
+        id: apiWorkspace._id || prevWorkspace.id || prevWorkspace._id,
+        name: form.name,
+        description: form.description,
+        type: apiWorkspace.type || prevWorkspace.type,
+        createdBy: apiWorkspace.createdBy || prevWorkspace.createdBy,
+        userRole: prevWorkspace.userRole, // غالبًا لا تتغير هنا
+        memberCount: apiWorkspace.memberCount || prevWorkspace.memberCount || (prevWorkspace.members ? prevWorkspace.members.length : undefined),
+        settings: apiWorkspace.settings || prevWorkspace.settings,
+        members: prevWorkspace.members, // أو apiWorkspace.members لو متوفرة
+      };
+      setWorkspace(updatedWorkspace);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
 
-      dispatch(selectWorkspace({ ...data.data.workspace, name: form.name }));
-      localStorage.setItem("selectedPublicWorkspace", JSON.stringify({ ...data.data.workspace, name: form.name }));
+      // بعد الحفظ، أعد جلب بيانات الـ workspace للسايدبار
+      const fetchSidebarWorkspace = async () => {
+        try {
+          const res = await fetch(`/api/v1/workspaces/${workspaceId}`);
+          if (!res.ok) return;
+          const wsData = await res.json();
+          const ws = wsData.data.workspace;
+
+          let userRole = undefined;
+          if (ws.members && Array.isArray(ws.members)) {
+            const member = ws.members.find(m => (m.user?._id || m.user) === userId);
+            if (member) userRole = member.role;
+          }
+
+          const sidebarWorkspace = {
+            id: ws._id,
+            name: ws.name,
+            type: ws.type,
+            createdBy: ws.createdBy,
+            userRole: userRole,
+            memberCount: ws.members ? ws.members.length : undefined,
+            description: ws.description,
+            settings: ws.settings,
+          };
+          dispatch(selectWorkspace(sidebarWorkspace));
+          localStorage.setItem("selectedPublicWorkspace", JSON.stringify(sidebarWorkspace));
+        } catch {}
+      };
+      fetchSidebarWorkspace();
     } catch (err) {
       setError(err.message);
     } finally {
