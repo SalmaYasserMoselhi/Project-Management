@@ -22,8 +22,11 @@ const Column = ({
   const [priority, setPriority] = useState("Medium");
   const [loading, setLoading] = useState(false);
   const [dropdownVisible, setDropdownVisible] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [dropPosition, setDropPosition] = useState(null);
   const dropdownRef = useRef(null);
   const vectorRef = useRef(null);
+  const columnRef = useRef(null);
 
   const fetchCards = async () => {
     try {
@@ -39,7 +42,6 @@ const Column = ({
     if (id) fetchCards();
   }, [id]);
 
-  // Refresh list on card move events
   useEffect(() => {
     const handleRefreshList = (event) => {
       if (event.detail && event.detail.listId === id) {
@@ -53,7 +55,6 @@ const Column = ({
     };
   }, [id]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -77,18 +78,36 @@ const Column = ({
 
     try {
       setLoading(true);
-      await axios.post(`${BASE_URL}/api/v1/cards`, {
+      const tempId = `temp-${Date.now()}`;
+      const newCard = {
+        id: tempId,
+        title: newTitle,
+        priority,
+        attachments: [],
+        commentCount: 0,
+        labels: [],
+      };
+      setCards([...cards, newCard]);
+
+      const response = await axios.post(`${BASE_URL}/api/v1/cards`, {
         title: newTitle,
         listId: id,
         priority,
       });
 
-      await fetchCards();
+      const createdCard = response.data.data;
+      setCards((prevCards) =>
+        prevCards.map((card) =>
+          card.id === tempId ? { ...createdCard, id: createdCard._id || createdCard.id } : card
+        )
+      );
+
       setNewTitle("");
       setPriority("Medium");
       setIsAdding(false);
     } catch (err) {
       console.error("Error creating card:", err);
+      setCards(cards.filter((card) => card.id !== `temp-${Date.now()}`));
     } finally {
       setLoading(false);
     }
@@ -97,18 +116,15 @@ const Column = ({
   const handleArchive = async () => {
     try {
       setLoading(true);
-
       const res = await axios.patch(
         `${BASE_URL}/api/v1/lists/${id}/archive`,
         {},
-        {
-          withCredentials: true,
-        }
+        { withCredentials: true }
       );
 
       if (res.status === 200) {
         console.log("List archived successfully");
-        if (onArchive) onArchive(id); // Notify parent to update state
+        if (onArchive) onArchive(id);
         setDropdownVisible(false);
       }
     } catch (err) {
@@ -119,9 +135,7 @@ const Column = ({
   };
 
   const handleDelete = () => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this list?"
-    );
+    const confirmDelete = window.confirm("Are you sure you want to delete this list?");
     if (!confirmDelete) return;
 
     setDropdownVisible(false);
@@ -129,25 +143,130 @@ const Column = ({
   };
 
   const handleCardUpdate = async (originalListId, newListId) => {
-    await fetchCards();
+    if (originalListId && newListId) {
+      if (originalListId === id || newListId === id) {
+        await fetchCards();
+      }
+      if (originalListId !== newListId) {
+        const otherListId = originalListId === id ? newListId : originalListId;
+        const event = new CustomEvent("refreshList", {
+          detail: { listId: otherListId },
+        });
+        window.dispatchEvent(event);
+      }
+    } else {
+      await fetchCards();
+    }
+  };
 
-    if (
-      originalListId &&
-      newListId &&
-      (originalListId === id || newListId === id)
-    ) {
-      const otherListId = originalListId === id ? newListId : originalListId;
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDraggingOver(true);
 
-      const event = new CustomEvent("refreshList", {
-        detail: { listId: otherListId },
-      });
-      window.dispatchEvent(event);
+    const cardsContainer = columnRef.current.querySelector(".cards-container");
+    if (!cardsContainer) {
+      setDropPosition(0);
+      return;
+    }
+
+    const cardElements = cardsContainer.querySelectorAll(".task-card");
+    const mouseY = e.clientY;
+    let newPosition = cardElements.length;
+
+    if (cardElements.length > 0) {
+      for (let i = 0; i < cardElements.length; i++) {
+        const rect = cardElements[i].getBoundingClientRect();
+        if (mouseY < rect.top) {
+          newPosition = i;
+          break;
+        } else if (mouseY < rect.top + rect.height / 2) {
+          newPosition = i;
+          break;
+        } else if (mouseY < rect.bottom) {
+          newPosition = i + 1;
+          break;
+        }
+      }
+    }
+
+    setDropPosition(newPosition);
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    if (columnRef.current && !columnRef.current.contains(e.relatedTarget)) {
+      setIsDraggingOver(false);
+      setDropPosition(null);
+    }
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    setDropPosition(null);
+
+    const cardId = e.dataTransfer.getData("cardId");
+    const sourceListId = e.dataTransfer.getData("sourceListId");
+    const cardTitle = e.dataTransfer.getData("cardTitle");
+
+    if (!cardId || !sourceListId) return;
+
+    const targetPosition = dropPosition !== null ? dropPosition : cards.length;
+
+    try {
+      let updatedCards = [...cards];
+      const isSameList = sourceListId === id;
+
+      if (isSameList) {
+        const cardIndex = cards.findIndex((card) => (card.id || card._id) === cardId);
+        if (cardIndex !== -1 && cardIndex !== targetPosition && cardIndex !== targetPosition - 1) {
+          const [movedCard] = updatedCards.splice(cardIndex, 1);
+          updatedCards.splice(targetPosition, 0, movedCard);
+          setCards(updatedCards);
+        }
+      } else {
+        updatedCards.splice(targetPosition, 0, {
+          id: cardId,
+          title: cardTitle || "Untitled",
+          priority: "Medium",
+          attachments: [],
+          commentCount: 0,
+          labels: [],
+        });
+        setCards(updatedCards);
+      }
+
+      await axios.patch(
+        `${BASE_URL}/api/v1/cards/${cardId}/move`,
+        {
+          listId: id,
+          position: targetPosition,
+        },
+        { withCredentials: true }
+      );
+
+      handleCardUpdate(sourceListId, id);
+    } catch (err) {
+      console.error("Error moving card:", err);
+      fetchCards();
     }
   };
 
   return (
     <div
-      className={`p-2 rounded-lg mb-4 md:mb-0 md:mr-4 ${className} min-w-[300px]`}
+      className={`p-2 rounded-lg mb-4 md:mb-0 flex flex-col min-w-[300px] h-full ${className} ${
+        isDraggingOver ? "bg-gray-100" : ""
+      }`}
+      ref={columnRef}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       <div className="flex justify-between items-center mb-4 bg-white p-3 rounded-lg shadow-sm">
         <div className="flex items-center w-[190px]">
@@ -202,48 +321,92 @@ const Column = ({
         </div>
       </div>
 
-      <div>
-        {cards.map((card) => (
-          <TaskCard
-            key={card.id}
-            id={card.id || card._id}
-            title={card.title}
-            priority={card.priority || "Medium"}
-            fileCount={card.attachments?.length || 0}
-            commentCount={card.commentCount || 0}
-            listId={id}
-            boardId={boardId}
-            allLists={allLists}
-            labels={card.labels || []}
-            onCardUpdate={handleCardUpdate}
-          />
-        ))}
+      <div className="flex-grow  flex flex-col h-full  ">
+     
+     <div
+      className={`cards-container ${
+    cards.length > 3 ? "overflow-y-auto" : "overflow-y-visible"
+    }`}
+    style={{
+    maxHeight: cards.length > 3 ? `${148*3}px` : "none",
+    scrollbarWidth: "thin",
+    scrollbarColor: "#d1d5db transparent",
+      paddingRight: "6px",
+  }}
+     >
 
-        {isAdding && (
-          <CardDetails
-            onClose={() => setIsAdding(false)}
-            currentListId={id}
-            boardId={boardId}
-            allLists={allLists}
-            onCardSaved={handleCardUpdate}
-          />
-        )}
+          <style>
+            {`
+              .cards-container::-webkit-scrollbar {
+                width: 7px;
+              }
+              .cards-container::-webkit-scrollbar-thumb {
+                background-color: #d1d5db;
+                border-radius: 3px;
+              }
+              .cards-container::-webkit-scrollbar-track {
+                background: transparent;
+              }
+            `}
+          </style>
+          <div style={{ paddingLeft: "4px" }}>
+            {cards.map((card, index) => (
+              <>
+                {dropPosition === index && isDraggingOver && (
+                  <div className="h-3 bg-gray-300 rounded my-1"></div>
+                )}
+                <TaskCard
+                  key={card.id || card._id}
+                  id={card.id || card._id}
+                  title={card.title}
+                  priority={card.priority || "Medium"}
+                  fileCount={card.attachments?.length || 0}
+                  commentCount={card.commentCount || 0}
+                  listId={id}
+                  boardId={boardId}
+                  allLists={allLists}
+                  labels={card.labels || []}
+                  onCardUpdate={handleCardUpdate}
+                />
+              </>
+            ))}
+            {dropPosition === cards.length && isDraggingOver && (
+              <div className="h-2 bg-gray-300 rounded my-1"></div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-3">
+          {!isAdding && (
+            <button
+              onClick={() => setIsAdding(true)}
+              className="bg-white py-3 w-full rounded-md border border-[#F2F4F7] shadow-sm transition-all hover:shadow-md"
+              disabled={loading}
+            >
+              <img
+                src={icon}
+                className="w-5 h-5 block mx-auto hover:brightness-80"
+                alt="Add task"
+              />
+            </button>
+          )}
+
+          {isAdding && (
+            <CardDetails
+              onClose={() => setIsAdding(false)}
+              currentListId={id}
+              boardId={boardId}
+              allLists={allLists}
+              onCardSaved={handleCardUpdate}
+            />
+          )}
+        </div>
       </div>
-
-      {!isAdding && (
-        <button
-          onClick={() => setIsAdding(true)}
-          className="bg-white mt-3 py-3 w-full rounded-md border border-[#F2F4F7] shadow-sm transition-all hover:shadow-md"
-        >
-          <img
-            src={icon}
-            className="w-5 h-5 block mx-auto hover:brightness-80"
-            alt="Add task"
-          />
-        </button>
-      )}
     </div>
   );
 };
 
 export default Column;
+
+
+
