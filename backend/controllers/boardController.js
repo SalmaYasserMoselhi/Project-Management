@@ -1206,12 +1206,16 @@ exports.removeMember = catchAsync(async (req, res, next) => {
     (m) => m.user.toString() === req.user._id.toString()
   )?.role;
 
-  if (currentUserRole === 'admin' && targetMember.role === 'admin') {
+  if (
+    currentUserRole === 'admin' &&
+    targetMember.role === 'admin' &&
+    req.user._id.toString() !== targetUserId // استثناء لو بيحذف نفسه
+  ) {
     return next(new AppError('Admins cannot remove other admins', 403));
   }
 
   // Check if this is the last member in a collaboration board
-  if (board.workspace.type === 'collaboration' && board.members.length === 1) {
+  if (board.workspace && board.workspace.type === 'collaboration' && board.members.length === 1) {
     await Board.deleteOne({ _id: board._id });
 
     return res.status(204).json({

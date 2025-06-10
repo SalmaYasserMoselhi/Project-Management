@@ -18,18 +18,24 @@ const notificationService = require('../utils/notificationService');
 };
 
 // Helper function to format member data
-const formatMemberData = (member) => ({
-  _id: member._id,
-  user: {
-    _id: member.user._id,
-    username: member.user.username,
-    email: member.user.email,
-    avatar: member.user.avatar,
-  },
-  role: member.role,
-  permissions: member.permissions,
-  joinedAt: member.joinedAt,
-});
+const formatMemberData = (member) => {
+  if (!member || !member.user) {
+    return null;
+  }
+  
+  return {
+    _id: member._id,
+    user: {
+      _id: member.user._id || null,
+      username: member.user.username || null,
+      email: member.user.email || null,
+      avatar: member.user.avatar || null,
+    },
+    role: member.role,
+    permissions: member.permissions,
+    joinedAt: member.joinedAt,
+  };
+};
 
 // // Helper function to get workspace and verify access
 // const getWorkspace = async (workspaceId, userId) => {
@@ -443,9 +449,13 @@ exports.removeMember = catchAsync(async (req, res, next) => {
     return next(new AppError('Cannot remove workspace owner', 400));
   }
 
-  // Admin can only remove regular members, not other admins
+  // Admin can only remove regular members, not other admins (except self-leave)
   const currentUserRole = workspace.getMemberRole(req.user._id);
-  if (currentUserRole === 'admin' && targetMemberRole === 'admin') {
+  if (
+    currentUserRole === 'admin' &&
+    targetMemberRole === 'admin' &&
+    req.user._id.toString() !== targetUserId.toString() // استثناء لو بيحذف نفسه
+  ) {
     return next(new AppError('Admins cannot remove other admins', 403));
   }
 
@@ -459,6 +469,15 @@ exports.removeMember = catchAsync(async (req, res, next) => {
   workspace.members = workspace.members.filter(
     (member) => !member.user.equals(targetUserId)
   );
+  await workspace.save();
+
+  // إذا كان العضو هو نفسه اليوزر الحالي، أرجع رسالة نجاح مباشرة
+  if (req.user._id.toString() === targetUserId.toString()) {
+    return res.status(204).json({
+      status: 'success',
+      data: null,
+    });
+  }
 
   // Log activity
   await activityService.logWorkspaceActivity(
@@ -470,12 +489,6 @@ exports.removeMember = catchAsync(async (req, res, next) => {
       removedBy: req.user._id,
     }
   );
-  await workspace.save();
-
-  res.status(204).json({
-    status: 'success',
-    data: null,
-  });
 });
 
 // Get members of a public workspace only
@@ -517,7 +530,7 @@ exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
   const paginatedMembers = members.slice(startIndex, endIndex);
 
   // Format data after pagination
-  const formattedMembers = paginatedMembers.map(formatMemberData);
+  const formattedMembers = paginatedMembers.map(formatMemberData).filter(member => member !== null);
 
   // Stats calculation (from original full list)
   const memberStats = {

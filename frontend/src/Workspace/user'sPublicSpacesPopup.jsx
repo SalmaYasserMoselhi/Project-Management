@@ -142,6 +142,14 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
         if (workspace.type === "public") {
           dispatch(setActiveWorkspaceType(typeMapping[workspace.type]));
           dispatch(selectWorkspace(workspaceData));
+          
+          // Check if we're currently on a workspace settings page
+          const currentPath = window.location.pathname;
+          if (currentPath.includes('/workspaces/') && currentPath.includes('/settings')) {
+            // Force a reload of the page to ensure fresh data
+            window.location.href = `/main/workspaces/${workspaceData.id}/settings`;
+            return;
+          }
         }
         onClose();
       }
