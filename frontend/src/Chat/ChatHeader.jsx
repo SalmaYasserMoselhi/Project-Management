@@ -3,13 +3,12 @@
 import { useSelector } from "react-redux";
 import { FiMoreVertical } from "react-icons/fi";
 import { useChat } from "../context/chat-context";
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import Avatar from "../assets/defaultAvatar.png";
-import { motion } from "framer-motion";
 import { isValidImageUrl, getAvatarUrl } from "../utils/imageUtils";
-import ImageWithFallback from "../Components/ImageWithFallback"; // Assuming you have this component
+import ImageWithFallback from "../Components/ImageWithFallback";
 import { Suspense } from "react";
-import { useCallback } from "react";
+import { motion } from "framer-motion";
 
 function ChatHeader({ user, onToggleInfo }) {
   const { currentUser } = useChat();
@@ -93,59 +92,61 @@ function ChatHeader({ user, onToggleInfo }) {
   }, [chatUser, currentUser?._id, userMap, isUserOnline]);
 
   return (
-    <div className="bg-white flex items-center justify-between px-6 py-4">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 relative">
-          <Suspense
-            fallback={
-              <div className="w-full h-full rounded-full flex items-center justify-center text-white text-lg font-semibold bg-[#4D2D61]">
-                {otherUser.name?.[0]?.toUpperCase() || "?"}
-              </div>
-            }
+    <div className="bg-white flex items-center justify-between px-4 py-3 border-b border-gray-100 sticky top-0 z-10 shadow-sm">
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 relative group">
+          <motion.div
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            className="w-full h-full rounded-full overflow-hidden ring-2 ring-offset-2 ring-offset-white ring-purple-200"
           >
-            {otherUser.avatar ? (
-              <ImageWithFallback
-                src={otherUser.avatar}
-                alt={otherUser.name}
-                className="w-full h-full rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full rounded-full flex items-center justify-center text-white text-lg font-semibold bg-[#4D2D61]">
-                {otherUser.name?.[0]?.toUpperCase() || "?"}
-              </div>
-            )}
-          </Suspense>
+            <Suspense
+              fallback={
+                <div className="w-full h-full rounded-full flex items-center justify-center text-white text-sm font-semibold bg-[#4D2D61]">
+                  {otherUser.name?.[0]?.toUpperCase() || "?"}
+                </div>
+              }
+            >
+              {otherUser.avatar ? (
+                <ImageWithFallback
+                  src={otherUser.avatar || "/placeholder.svg"}
+                  alt={otherUser.name}
+                  className="w-full h-full rounded-full object-cover transition-transform group-hover:scale-110"
+                />
+              ) : (
+                <div className="w-full h-full rounded-full flex items-center justify-center text-white text-sm font-semibold bg-[#4D2D61]">
+                  {otherUser.name?.[0]?.toUpperCase() || "?"}
+                </div>
+              )}
+            </Suspense>
+          </motion.div>
           {otherUser.isOnline && !otherUser.isGroup && (
-            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+            <motion.span
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"
+            />
           )}
         </div>
         <div>
-          <h3 className="font-semibold text-[#4D2D61]">{otherUser.name}</h3>
-          <p className="text-xs text-gray-500">
+          <h3 className="font-semibold text-[#4D2D61] text-base">
+            {otherUser.name}
+          </h3>
+          <p className="text-xs text-gray-500 flex items-center">
             {otherUser.isGroup ? (
-              <motion.span
-                initial={{ opacity: 0.5 }}
-                animate={{ opacity: 1 }}
-                transition={{
-                  duration: 0.8,
-                  repeat: Infinity,
-                  repeatType: "reverse",
-                }}
-              >
-                Group Chat
-              </motion.span>
+              "Group Chat"
             ) : otherUser.isOnline ? (
-              "Online"
+              <span className="text-green-500">Online</span>
             ) : (
-              "Offline"
+              <span>Offline</span>
             )}
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <button
-          className="p-2 hover:bg-gray-100 rounded-full text-[#4D2D61]"
+          className="p-2 hover:bg-gray-100 rounded-full text-[#4D2D61] transition-colors"
           title="More Options"
           onClick={onToggleInfo}
         >

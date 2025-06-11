@@ -18,7 +18,6 @@ import { motion } from "framer-motion";
 
 import Avatar from "../assets/defaultAvatar.png";
 import { isValidImageUrl, getAvatarUrl } from "../utils/imageUtils";
-import React from "react";
 import ConversationItem from "./ConversationItem";
 
 const ChatList = () => {
@@ -33,6 +32,8 @@ const ChatList = () => {
   const [error, setError] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
   const [groupCreationLoading, setGroupCreationLoading] = useState(false);
+  const [groupImage, setGroupImage] = useState(null);
+  const [groupImagePreview, setGroupImagePreview] = useState(null);
 
   const {
     conversations = [],
@@ -233,6 +234,18 @@ const ChatList = () => {
     }
   };
 
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setGroupImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setGroupImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleCreateGroup = async () => {
     try {
       if (!groupName || groupName.trim() === "") {
@@ -250,23 +263,15 @@ const ChatList = () => {
         return;
       }
 
-      // Get selected user IDs
       const participantIds = selectedUsers.map((user) => user._id);
-
-      // Add current user if not already included
       if (!participantIds.includes(currentUser._id)) {
         participantIds.push(currentUser._id);
       }
 
-      console.log("Creating group with name:", groupName);
-      console.log("Participants:", participantIds);
-      console.log("Current user:", currentUser._id);
-
-      // Prepare group data
       const groupData = {
         groupName: groupName.trim(),
         participantIds: participantIds,
-        groupPicture: null, // Will use default picture from backend
+        groupPicture: groupImage, // أضف الصورة هنا
       };
 
       setLoading(true);
@@ -281,6 +286,8 @@ const ChatList = () => {
         // Reset form state
         setGroupName("");
         setSelectedUsers([]);
+        setGroupImage(null);
+        setGroupImagePreview(null);
         setShowGroupCreation(false);
 
         // Update conversation list immediately and wait for completion
@@ -467,45 +474,47 @@ const ChatList = () => {
 
   console.log("Filtered chats", filteredChats);
   return (
-    <div className="flex flex-col w-[380px] h-screen bg-white border-r border-gray-300">
-      {/* Header */}
-      <div className="flex items-center justify-between w-full p-4">
-        <h2 className="text-lg font-semibold text-gray-800">Chats</h2>
-        <div className="flex space-x-2">
+    <div className="flex flex-col w-[380px] h-screen bg-gradient-to-b from-white to-gray-50/30 border-r border-gray-200/60 shadow-sm">
+      {/* Header with enhanced styling */}
+      <div className="flex items-center justify-between w-full p-4 bg-white/80 backdrop-blur-sm">
+        <h2 className="text-xl font-bold bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] bg-clip-text text-transparent">
+          Conversations
+        </h2>
+        <div className="flex space-x-1">
           <button
             onClick={() => setShowUserSearch(true)}
-            className="p-2 rounded-full hover:bg-gray-100 cursor-pointer transition-colors duration-200"
+            className="group p-2.5 rounded-xl hover:bg-gradient-to-r hover:from-[#4D2D61]/10 hover:to-[#6B46C1]/10 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-[#4D2D61]/20"
             title="Add New Chat"
           >
-            <UserPlus className="w-5 h-5 text-[#57356A]" />
+            <UserPlus className="w-5 h-5 text-[#4D2D61] group-hover:text-[#6B46C1] transition-colors duration-300" />
           </button>
 
           <button
             onClick={handleGroupIconClick}
-            className="p-2 rounded-full hover:bg-gray-100 cursor-pointer transition-colors duration-200"
+            className="group p-2.5 rounded-xl hover:bg-gradient-to-r hover:from-[#4D2D61]/10 hover:to-[#6B46C1]/10 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-[#4D2D61]/20"
             title="Create New Group"
           >
-            <SquarePen className="w-5 h-5 text-[#57356A]" />
+            <SquarePen className="w-5 h-5 text-[#4D2D61] group-hover:text-[#6B46C1] transition-colors duration-300" />
           </button>
         </div>
       </div>
 
-      {/* Search */}
-      <div className="px-4 pb-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+      {/* Enhanced Search */}
+      <div className="px-4 py-3 bg-white/50">
+        <div className="relative group">
+          <Search className="absolute left-4 top-3 h-4 w-4 text-gray-400 group-focus-within:text-[#4D2D61] transition-colors duration-300" />
           <input
             id="searchInput"
             type="text"
             placeholder={showUserSearch ? "Search users..." : "Search chats..."}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-10 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-1 focus:ring-gray-400 text-gray-700 transition-all duration-300"
+            className="w-full pl-12 pr-12 py-3 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 focus:outline-none focus:ring-2 focus:ring-[#4D2D61]/20 focus:border-[#4D2D61]/40 text-gray-700 transition-all duration-300 hover:bg-white hover:shadow-md placeholder:text-gray-400"
           />
           {searchTerm && (
             <button
               onClick={handleClearSearch}
-              className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+              className="absolute right-4 top-3 text-gray-400 hover:text-[#4D2D61] transition-all duration-300 hover:scale-110"
             >
               <X className="h-4 w-4" />
             </button>
@@ -513,126 +522,160 @@ const ChatList = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
         {authChecking ? (
-          // Show loading when checking authentication
-          <div className="flex flex-col items-center justify-center h-[400px]">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4D2D61]"></div>
-            <p className="mt-4 text-gray-500">Checking authentication...</p>
+          <div className="flex flex-col items-center justify-center h-[400px] space-y-4">
+            <div className="relative">
+              <div className="animate-spin rounded-full h-10 w-10 border-3 border-gradient-to-r from-[#4D2D61] to-[#6B46C1] border-t-transparent"></div>
+              <div className="absolute inset-0 animate-pulse rounded-full h-10 w-10 bg-gradient-to-r from-[#4D2D61]/20 to-[#6B46C1]/20"></div>
+            </div>
+            <p className="text-gray-500 font-medium animate-pulse">
+              Checking authentication...
+            </p>
           </div>
         ) : !auth?.isAuthenticated ? (
-          // Not authenticated message
-          <div className="flex flex-col items-center justify-center h-[400px] text-center">
-            <p className="text-gray-500">Please login to view conversations</p>
+          <div className="flex flex-col items-center justify-center h-[400px] text-center space-y-3">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#4D2D61]/10 to-[#6B46C1]/10 flex items-center justify-center">
+              <UserPlus className="w-8 h-8 text-[#4D2D61]" />
+            </div>
+            <p className="text-gray-600 font-medium">
+              Please login to view conversations
+            </p>
           </div>
         ) : showUserSearch ? (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="px-2"
           >
             {loading ? (
-              <div className="p-4 space-y-4">
+              <div className="p-4 space-y-3">
                 {[...Array(3)].map((_, index) => (
                   <div
                     key={index}
-                    className="animate-pulse flex items-center space-x-4"
+                    className="animate-pulse flex items-center space-x-4 p-3 rounded-2xl bg-white/60"
                   >
-                    <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
-                    <div className="flex-1">
-                      <div className="w-3/4 h-4 bg-gray-300 rounded"></div>
-                      <div className="w-1/2 h-3 bg-gray-200 rounded mt-2"></div>
+                    <div className="w-12 h-12 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="w-3/4 h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg"></div>
+                      <div className="w-1/2 h-3 bg-gradient-to-r from-gray-100 to-gray-200 rounded-lg"></div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : searchTerm && searchResults && searchResults.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-[400px] text-center">
-                <p className="text-gray-500">
+              <div className="flex flex-col items-center justify-center h-[400px] text-center space-y-4">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 flex items-center justify-center">
+                  <Search className="w-10 h-10 text-gray-400" />
+                </div>
+                <p className="text-gray-500 font-medium">
                   No users found matching "{searchTerm}"
                 </p>
               </div>
             ) : searchTerm && Array.isArray(searchResults) ? (
-              <div className="space-y-2 mt-2">
+              <div className="space-y-1 mt-2 px-2">
                 {searchResults.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-center">
-                    <p className="text-gray-500">
+                  <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 flex items-center justify-center">
+                      <Search className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-gray-500 font-medium">
                       No users found matching "{searchTerm}"
                     </p>
                   </div>
                 ) : (
                   searchResults
                     .filter((user) => user._id !== currentUser?._id)
-                    .map((user) => (
-                      <div
+                    .map((user, index) => (
+                      <motion.div
                         key={user._id}
-                        className="flex items-center p-3 cursor-pointer hover:bg-gray-100 transition-all duration-200 ease-in-out border-b border-gray-100"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                        className="group flex items-center p-4 cursor-pointer rounded-2xl hover:bg-gradient-to-r hover:from-[#4D2D61]/5 hover:to-[#6B46C1]/5 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-[#4D2D61]/10 border border-transparent hover:border-[#4D2D61]/10"
                         onClick={() => handleUserClick(user)}
                       >
-                        <img
-                          src={
-                            isValidImageUrl(user?.avatar)
-                              ? getAvatarUrl(user.avatar)
-                              : Avatar
-                          }
-                          alt={`${user.firstName} ${user.lastName}`}
-                          className="w-10 h-10 rounded-full object-cover border border-gray-200"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = Avatar;
-                          }}
-                        />
-                        <div className="ml-3 flex-1">
-                          <h3 className="font-medium text-gray-900">
+                        <div className="relative">
+                          <img
+                            src={
+                              isValidImageUrl(user?.avatar)
+                                ? getAvatarUrl(user.avatar)
+                                : Avatar
+                            }
+                            alt={`${user.firstName} ${user.lastName}`}
+                            className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-md group-hover:border-[#4D2D61]/20 transition-all duration-300"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = Avatar;
+                            }}
+                          />
+                          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white opacity-0 group-hover:opacity-100 transition-all duration-300"></div>
+                        </div>
+                        <div className="ml-4 flex-1">
+                          <h3 className="font-semibold text-gray-800 group-hover:text-[#4D2D61] transition-colors duration-300">
                             {highlightSearchTerm(
                               `${user.firstName} ${user.lastName}`,
                               searchTerm
                             )}
                           </h3>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-gray-500 group-hover:text-gray-600 transition-colors duration-300">
                             {highlightSearchTerm(
                               user.username || user.email,
                               searchTerm
                             )}
                           </p>
                         </div>
-                      </div>
+                        <div className="opacity-0 group-hover:opacity-100 transition-all duration-300">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] flex items-center justify-center">
+                            <Plus className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                      </motion.div>
                     ))
                 )}
               </div>
             ) : (
-              <div className="text-center text-gray-500 mt-10">
-                Type to search users
+              <div className="text-center text-gray-500 mt-12 space-y-3">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 flex items-center justify-center mx-auto">
+                  <Search className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="font-medium">Type to search users</p>
               </div>
             )}
           </motion.div>
         ) : (
           <>
             {status === "loading" ? (
-              <div className="p-4 space-y-4">
+              <div className="p-4 space-y-3">
                 {[...Array(5)].map((_, index) => (
                   <div
                     key={index}
-                    className="animate-pulse flex items-center space-x-4"
+                    className="animate-pulse flex items-center space-x-4 p-4 rounded-2xl bg-white/60"
                   >
-                    <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
-                    <div className="flex-1">
-                      <div className="w-3/4 h-4 bg-gray-300 rounded"></div>
-                      <div className="w-1/2 h-3 bg-gray-200 rounded mt-2"></div>
+                    <div className="w-12 h-12 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="w-3/4 h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg"></div>
+                      <div className="w-1/2 h-3 bg-gradient-to-r from-gray-100 to-gray-200 rounded-lg"></div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : error ? (
-              <div className="text-center text-red-500 mt-10">{error}</div>
+              <div className="text-center text-red-500 mt-10 space-y-3">
+                <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto">
+                  <X className="w-8 h-8 text-red-400" />
+                </div>
+                <p className="font-medium">{error}</p>
+              </div>
             ) : Array.isArray(filteredChats) && filteredChats.length > 0 ? (
               <motion.div
-                initial={{ opacity: 0, y: -10 }}
+                initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                className="px-2 py-1"
               >
-                {filteredChats.map((chat) => {
-                  // Log each conversation during rendering
+                {filteredChats.map((chat, index) => {
                   console.log(
                     `Rendering conversation:`,
                     chat._id,
@@ -649,92 +692,196 @@ const ChatList = () => {
                   );
 
                   return (
-                    <ConversationItem
+                    <motion.div
                       key={chat._id || chat.id}
-                      chat={chat}
-                      currentUser={currentUser}
-                      isActive={activeChat?.id === chat._id}
-                      onConversationClick={handleConversationClick}
-                    />
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.05 }}
+                    >
+                      <ConversationItem
+                        chat={chat}
+                        currentUser={currentUser}
+                        isActive={activeChat?.id === chat._id}
+                        onConversationClick={handleConversationClick}
+                      />
+                    </motion.div>
                   );
                 })}
               </motion.div>
             ) : !Array.isArray(conversations) ? (
-              <div className="flex flex-col items-center justify-center h-[400px] text-center">
-                <p className="text-gray-500">Error loading conversations</p>
-                <p className="text-sm text-gray-400 mt-2">
-                  Please refresh the page
-                </p>
+              <div className="flex flex-col items-center justify-center h-[400px] text-center space-y-4">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-red-50 to-red-100 flex items-center justify-center">
+                  <X className="w-10 h-10 text-red-400" />
+                </div>
+                <div>
+                  <p className="text-gray-600 font-medium">
+                    Error loading conversations
+                  </p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Please refresh the page
+                  </p>
+                </div>
               </div>
             ) : conversations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-[400px] text-center">
-                <p className="text-gray-500">No conversations yet</p>
-                <p className="text-sm text-gray-400 mt-2">
-                  Click the{" "}
-                  <UserPlus className="inline w-4 h-4 text-[#57356A]" /> icon to
-                  start a new chat
-                </p>
+              <div className="flex flex-col items-center justify-center h-[400px] text-center space-y-4">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-[#4D2D61]/10 to-[#6B46C1]/10 flex items-center justify-center">
+                  <UserPlus className="w-10 h-10 text-[#4D2D61]" />
+                </div>
+                <div>
+                  <p className="text-gray-600 font-medium">
+                    No conversations yet
+                  </p>
+                  <p className="text-sm text-gray-400 mt-1 flex items-center justify-center gap-1">
+                    Click the{" "}
+                    <UserPlus className="inline w-4 h-4 text-[#4D2D61]" /> icon
+                    to start a new chat
+                  </p>
+                </div>
               </div>
             ) : (
-              <div className="text-center text-gray-500 mt-10">
-                {searchTerm
-                  ? `No conversations found matching "${searchTerm}"`
-                  : "Your conversation list is empty"}
+              <div className="text-center text-gray-500 mt-12 space-y-3">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 flex items-center justify-center mx-auto">
+                  <Search className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="font-medium">
+                  {searchTerm
+                    ? `No conversations found matching "${searchTerm}"`
+                    : "Your conversation list is empty"}
+                </p>
               </div>
             )}
           </>
         )}
       </div>
 
+      {/* Enhanced Group Creation Modal */}
       {showGroupCreation && (
         <motion.div
-          className="fixed inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-50"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
         >
           <motion.div
-            className="bg-white rounded-lg w-[350px] shadow-xl flex flex-col overflow-hidden"
-            initial={{ scale: 0.9, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
+            className="bg-white rounded-3xl w-[400px] shadow-2xl flex flex-col overflow-hidden border border-gray-100"
+            initial={{ scale: 0.9, y: 20, opacity: 0 }}
+            animate={{ scale: 1, y: 0, opacity: 1 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
           >
-            <div className="p-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium">Create New Group</h3>
+            <div className="p-6 bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] text-white">
+              <h3 className="text-xl font-bold">Create New Group</h3>
+              <p className="text-white/80 text-sm mt-1">
+                Start a conversation with multiple people
+              </p>
             </div>
 
-            <div className="p-4 space-y-4">
+            <div className="p-6 space-y-6">
+              <div>
+                <label className="block mb-3 text-sm font-semibold text-gray-700">
+                  Group Picture (Optional)
+                </label>
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden border-2 border-gray-200">
+                      {groupImagePreview ? (
+                        <img
+                          src={groupImagePreview || "/placeholder.svg"}
+                          alt="Group preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <svg
+                          className="w-8 h-8 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                    {groupImagePreview && (
+                      <button
+                        onClick={() => {
+                          setGroupImage(null);
+                          setGroupImagePreview(null);
+                        }}
+                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      id="groupImage"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="groupImage"
+                      className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-700 rounded-xl font-medium transition-all duration-300 hover:scale-105"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                      Choose Photo
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Recommended: Square image, max 5MB
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label
                   htmlFor="groupName"
-                  className="block mb-2 text-sm font-medium"
+                  className="block mb-3 text-sm font-semibold text-gray-700"
                 >
                   Group Name
                 </label>
                 <input
                   type="text"
                   id="groupName"
-                  placeholder="Group Name"
+                  placeholder="Enter group name..."
                   value={groupName}
                   onChange={(e) => setGroupName(e.target.value)}
-                  className="w-full p-2 border rounded-md focus:ring-1 focus:ring-[#4D2D61] focus:border-[#4D2D61]"
+                  className="w-full p-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#4D2D61]/20 focus:border-[#4D2D61]/40 transition-all duration-300 bg-gray-50/50 hover:bg-white"
                 />
               </div>
 
               <div>
-                <label className="block mb-2 text-sm font-medium">
+                <label className="block mb-3 text-sm font-semibold text-gray-700">
                   Select Participants
                 </label>
-                <div className="border rounded-md p-2">
+                <div className="border border-gray-200 rounded-2xl p-4 bg-gray-50/30">
                   {loading ? (
-                    <div className="p-4 text-center">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#4D2D61] mx-auto"></div>
-                      <p className="mt-2 text-sm text-gray-500">
+                    <div className="p-6 text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-3 border-[#4D2D61] border-t-transparent mx-auto"></div>
+                      <p className="mt-3 text-sm text-gray-500 font-medium">
                         Loading users...
                       </p>
                     </div>
                   ) : users && users.length > 0 ? (
-                    <div className="max-h-40 overflow-y-auto">
+                    <div className="max-h-48 overflow-y-auto custom-scrollbar">
                       {users.map((user) => {
                         const isSelected = selectedUsers.some(
                           (u) => u._id === user._id
@@ -752,8 +899,10 @@ const ChatList = () => {
                         return (
                           <div
                             key={user._id}
-                            className={`flex items-center p-2 hover:bg-gray-100 cursor-pointer ${
-                              isSelected ? "bg-gray-100" : ""
+                            className={`flex items-center p-3 hover:bg-white cursor-pointer rounded-xl transition-all duration-300 ${
+                              isSelected
+                                ? "bg-gradient-to-r from-[#4D2D61]/5 to-[#6B46C1]/5 border border-[#4D2D61]/20"
+                                : "hover:shadow-md"
                             }`}
                             onClick={() =>
                               handleUserSelect({
@@ -770,28 +919,39 @@ const ChatList = () => {
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => {}}
-                              className="mr-2"
+                              className="mr-3 w-4 h-4 text-[#4D2D61] rounded focus:ring-[#4D2D61]/20"
                             />
-                            <div>
-                              <p className="font-medium text-sm">
+                            <div className="flex-1">
+                              <p className="font-semibold text-sm text-gray-800">
                                 {displayName}
                               </p>
+                              <p className="text-xs text-gray-500">
+                                {user.email}
+                              </p>
                             </div>
+                            {isSelected && (
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] flex items-center justify-center">
+                                <Check className="w-3 h-3 text-white" />
+                              </div>
+                            )}
                           </div>
                         );
                       })}
                     </div>
                   ) : (
-                    <div className="text-center py-4 text-gray-500">
-                      No users available
+                    <div className="text-center py-8 text-gray-500">
+                      <UserPlus className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="font-medium">No users available</p>
                     </div>
                   )}
                 </div>
-                <div className="mt-2 flex justify-between text-sm text-gray-500">
-                  <span>{selectedUsers.length} users selected</span>
+                <div className="mt-3 flex justify-between text-sm">
+                  <span className="text-gray-600 font-medium">
+                    {selectedUsers.length} users selected
+                  </span>
                   {selectedUsers.length > 0 && (
                     <button
-                      className="text-blue-600 hover:underline"
+                      className="text-[#4D2D61] hover:text-[#6B46C1] font-medium transition-colors duration-300"
                       onClick={() => setSelectedUsers([])}
                     >
                       Clear Selection
@@ -801,21 +961,23 @@ const ChatList = () => {
               </div>
 
               {error && (
-                <div className="text-red-600 text-sm mt-2">{error}</div>
+                <div className="text-red-600 text-sm mt-3 p-3 bg-red-50 rounded-xl border border-red-100">
+                  {error}
+                </div>
               )}
             </div>
 
-            <div className="flex justify-end space-x-2 mt-6">
+            <div className="flex justify-end space-x-3 p-6 bg-gray-50/50 border-t border-gray-100">
               <button
                 type="button"
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                className="px-6 py-3 bg-white text-gray-700 rounded-2xl hover:bg-gray-50 transition-all duration-300 font-medium border border-gray-200 hover:border-gray-300"
                 onClick={() => setShowGroupCreation(false)}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="px-4 py-2 bg-[#4D2D61] text-white rounded-md hover:bg-[#5c3a73] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-3 bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] text-white rounded-2xl hover:shadow-lg hover:shadow-[#4D2D61]/25 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium hover:scale-105"
                 onClick={handleCreateGroup}
                 disabled={
                   groupCreationLoading || !groupName || selectedUsers.length < 1

@@ -1,10 +1,9 @@
-"use client";
-
 import { useMemo } from "react";
 import { dateHandler } from "../utils/Date";
 import Avatar from "../assets/defaultAvatar.png";
 import { isValidImageUrl, getAvatarUrl } from "../utils/imageUtils";
 import React, { Suspense } from "react";
+import { motion } from "framer-motion";
 
 const ConversationItem = React.memo(
   ({ chat, currentUser, isActive, onConversationClick }) => {
@@ -61,27 +60,44 @@ const ConversationItem = React.memo(
     }, [chat.isGroup, chat.name, chat.picture, userMap, currentUser?._id]);
 
     return (
-      <div
-        className={`relative flex items-center p-3 cursor-pointer hover:bg-gray-100 transition-colors ${
-          isActive ? "bg-[#4D2D61]/10" : ""
+      <motion.div
+        className={`group relative flex items-center p-3 mx-2 my-1 cursor-pointer rounded-2xl transition-all duration-300 hover:scale-[1.02] ${
+          isActive
+            ? "bg-gradient-to-r from-[#4D2D61]/10 to-[#6B46C1]/10 border border-[#4D2D61]/20 shadow-lg shadow-[#4D2D61]/10"
+            : "hover:bg-gradient-to-r hover:from-[#4D2D61]/5 hover:to-[#6B46C1]/5 hover:shadow-md hover:shadow-[#4D2D61]/5 border border-transparent hover:border-[#4D2D61]/10"
         }`}
         onClick={() => onConversationClick(chat)}
+        whileHover={{ y: -2 }}
+        whileTap={{ scale: 0.98 }}
       >
-        <div className="relative flex-shrink-0 mr-3">
+        {/* Active indicator */}
+        {isActive && (
+          <motion.div
+            className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-[#4D2D61] to-[#6B46C1] rounded-r-full"
+            layoutId="activeIndicator"
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          />
+        )}
+
+        <div className="relative flex-shrink-0 mr-4">
           <Suspense
             fallback={
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-semibold bg-[#4D2D61]">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-bold bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] shadow-md">
                 {displayName?.[0]?.toUpperCase() || "?"}
               </div>
             }
           >
             {isValidImageUrl(displayPicture) ? (
-              <div className="w-10 h-10 rounded-full overflow-hidden">
+              <div className="relative">
                 <img
-                  src={displayPicture}
+                  src={displayPicture || "/placeholder.svg"}
                   alt={displayName}
                   loading="lazy"
-                  className="w-10 h-10 rounded-full object-cover"
+                  className={`w-10 h-10 rounded-full object-cover border-2 transition-all duration-300 shadow-md ${
+                    isActive
+                      ? "border-[#4D2D61]/30 shadow-[#4D2D61]/20"
+                      : "border-white group-hover:border-[#4D2D61]/20 group-hover:shadow-[#4D2D61]/10"
+                  }`}
                   onError={(e) => {
                     e.target.onerror = null;
                     e.target.src = Avatar;
@@ -89,28 +105,53 @@ const ConversationItem = React.memo(
                 />
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-semibold bg-[#4D2D61]">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-md transition-all duration-300 ${
+                  isActive
+                    ? "bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] shadow-[#4D2D61]/20"
+                    : "bg-gradient-to-r from-gray-400 to-gray-500 group-hover:from-[#4D2D61] group-hover:to-[#6B46C1]"
+                }`}
+              >
                 {displayName?.[0]?.toUpperCase() || "?"}
               </div>
             )}
           </Suspense>
         </div>
+
         <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-center">
-            <h3 className="text-sm font-semibold truncate text-[#4D2D61]">
+          <div className="flex justify-between items-center mb-1">
+            <h3
+              className={`text-sm font-bold truncate transition-all duration-300 ${
+                isActive
+                  ? "text-[#4D2D61]"
+                  : "text-gray-800 group-hover:text-[#4D2D61]"
+              }`}
+            >
               {displayName}
             </h3>
-            <span className="text-xs text-gray-500">
+            <span
+              className={`text-xs transition-all duration-300 ${
+                isActive
+                  ? "text-[#4D2D61]/70"
+                  : "text-gray-400 group-hover:text-[#4D2D61]/60"
+              }`}
+            >
               {dateHandler(chat?.lastMessage?.createdAt)}
             </span>
           </div>
-          <p className="text-xs text-gray-500 truncate">
+          <p
+            className={`text-xs truncate transition-all duration-300 ${
+              isActive
+                ? "text-gray-600"
+                : "text-gray-500 group-hover:text-gray-600"
+            }`}
+          >
             {chat?.lastMessage?.content ||
               chat?.lastMessage?.message ||
               "No messages yet"}
           </p>
         </div>
-      </div>
+      </motion.div>
     );
   }
 );
