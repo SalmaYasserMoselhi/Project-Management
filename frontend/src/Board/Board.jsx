@@ -1,5 +1,4 @@
 
-
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -20,7 +19,6 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
   const [loading, setLoading] = useState(true);
   const [selectedSort, setSelectedSort] = useState("date");
   const [selectedFilter, setSelectedFilter] = useState("date");
-  const [isPriorityFilterOpen, setIsPriorityFilterOpen] = useState(false);
 
   const sortRef = useRef(null);
   const filterRef = useRef(null);
@@ -33,7 +31,6 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
       ) {
         setIsSortOpen(false);
         setIsFilterOpen(false);
-        setIsPriorityFilterOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -134,9 +131,12 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
       let cardsByList = [];
       if (res.data.data.cards && res.data.data.cards.length) {
         cardsByList = columns.map((col) => {
-          const filteredCards = res.data.data.cards.filter(
-            (card) => (card.list === col.id || card.list === col._id)
-          );
+          console.log(`[Board.jsx] Checking list ${col.id || col._id} (${col.name}) with col.id:`, col.id, 'col._id:', col._id);
+          const filteredCards = res.data.data.cards.filter((card) => {
+            const cardListId = card.list?._id || card.list?.id;
+            console.log(`[Board.jsx] Card ${card.id || card._id} list:`, card.list, 'cardListId:', cardListId);
+            return cardListId === (col.id || col._id);
+          });
           console.log(`[Board.jsx] Filtered cards for list ${col.id || col._id} (${col.name}):`, filteredCards);
           return {
             listId: col.id || col._id,
@@ -161,14 +161,31 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
       toast.error(`Failed to filter by ${priority} priority`);
     } finally {
       setIsFilterOpen(false);
-      setIsPriorityFilterOpen(false);
     }
   };
 
   const handleFilterByDate = async () => {
-    console.log("[Board.jsx] Filtering by date not implemented yet. Please provide date filtering API.");
-    setSelectedFilter("date");
-    setIsFilterOpen(false);
+    try {
+      const res = await axios.get(`${BASE_URL}/api/v1/lists/board/${boardId}/lists`);
+      console.log("[Board.jsx] Filter by date response:", res.data);
+      const cardsByList = res.data.data.lists.map((list) => {
+        console.log(`[Board.jsx] Cards for list ${list._id} (${list.name}):`, list.cards || []);
+        return {
+          listId: list._id,
+          listName: list.name,
+          cards: list.cards || [],
+        };
+      });
+      console.log("[Board.jsx] Transformed cardsByList for date filter:", cardsByList);
+      updateColumnsWithCards(cardsByList, "position");
+      setSelectedFilter("date");
+      toast.success("Filtered by Date");
+    } catch (error) {
+      console.error("[Board.jsx] Error filtering cards by date:", error);
+      toast.error("Failed to filter by date");
+    } finally {
+      setIsFilterOpen(false);
+    }
   };
 
   const handleDeleteList = async (listId) => {
@@ -264,57 +281,28 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
                         Date
                       </button>
                       <button
-                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                        onClick={() => setIsPriorityFilterOpen(!isPriorityFilterOpen)}
+                        className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                          selectedFilter === "priority-low" ? "bg-gray-100" : ""
+                        }`}
+                        onClick={() => handleFilterByPriority("low")}
                       >
-                        Priority
+                        Low Priority
                       </button>
-                      {isPriorityFilterOpen && (
-                        <div className="pl-4">
-                          <button
-                            className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                              selectedFilter === "priority-low" ? "bg-gray-100" : ""
-                            }`}
-                            onClick={() => handleFilterByPriority("low")}
-                          >
-                            Low Priority
-                          </button>
-                          <button
-                            className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                              selectedFilter === "priority-medium" ? "bg-gray-100" : ""
-                            }`}
-                            onClick={() => handleFilterByPriority("medium")}
-                          >
-                            Medium Priority
-                          </button>
-                          <button
-                            className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                              selectedFilter === "priority-high" ? "bg-gray-100" : ""
-                            }`}
-                            onClick={() => handleFilterByPriority("high")}
-                          >
-                            High Priority
-                          </button>
-                        </div>
-                      )}
                       <button
-                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                        onClick={async () => {
-                          try {
-                            const res = await axios.get(`${BASE_URL}/api/v1/lists/board/${boardId}/lists`);
-                            console.log("[Board.jsx] Clear filter fetched lists:", res.data.data.lists);
-                            setColumns(res.data.data.lists);
-                            setSelectedFilter("date");
-                            toast.success("Filters cleared");
-                          } catch (error) {
-                            console.error("[Board.jsx] Error clearing filters:", error);
-                            toast.error("Failed to clear filters");
-                          } finally {
-                            setIsFilterOpen(false);
-                          }
-                        }}
+                        className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                          selectedFilter === "priority-medium" ? "bg-gray-100" : ""
+                        }`}
+                        onClick={() => handleFilterByPriority("medium")}
                       >
-                        Clear Filter
+                        Medium Priority
+                      </button>
+                      <button
+                        className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                          selectedFilter === "priority-high" ? "bg-gray-100" : ""
+                        }`}
+                        onClick={() => handleFilterByPriority("high")}
+                      >
+                        High Priority
                       </button>
                     </div>
                   )}
@@ -363,7 +351,3 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
 };
 
 export default Board;
-
-
-
-
