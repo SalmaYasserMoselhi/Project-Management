@@ -249,7 +249,7 @@ const ShareModal = ({ isOpen, onClose, boardId }) => {
           </button>
         </div>
 
-        <div>
+        {/* <div>
           <p className="text-md font-medium mb-2 text-gray-500">
             People with access ({users.length})
           </p>
@@ -342,7 +342,7 @@ const ShareModal = ({ isOpen, onClose, boardId }) => {
               </div>
             ))
           )}
-        </div>
+        </div> */}
       </div>
     </div>
   );
