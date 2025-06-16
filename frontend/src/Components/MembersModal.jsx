@@ -204,9 +204,9 @@ const MembersModal = ({
                 {membersArray.map((m) => (
                   <div key={m.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
                     {m.avatar || m.user?.avatar ? (
-                      <img src={m.avatar || m.user?.avatar} alt={m.name || m.user?.username} className="h-8 w-8 rounded-full object-cover" />
+                      <img src={m.avatar || m.user?.avatar} alt={m.name || m.user?.username} className="h-8 w-8 rounded-full object-cover shadow-md" />
                     ) : (
-                      <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600">
+                      <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600 shadow-md">
                         {(m.name?.charAt(0).toUpperCase() || m.user?.username?.charAt(0).toUpperCase() || m.user?.email?.charAt(0).toUpperCase() || "?")}
                       </div>
                     )}

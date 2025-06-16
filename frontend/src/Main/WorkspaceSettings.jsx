@@ -627,7 +627,7 @@ export default function WorkspaceSettings() {
                     {Array.isArray(workspace?.members) && workspace.members.slice(0, 5).map((member, index) => (
                       <div
                         key={member.id}
-                        className="w-10 h-10 rounded-full border-2 border-white flex items-center justify-center overflow-hidden"
+                        className="w-10 h-10 rounded-full border-2 border-white flex items-center justify-center overflow-hidden shadow-md"
                         style={{ background: (member.avatar && member.avatar !== "null" && member.avatar !== "undefined" && member.avatar !== "") ? undefined : '#4D2D61' }}
                       >
                         {member.avatar && member.avatar !== "null" && member.avatar !== "undefined" && member.avatar !== "" ? (
