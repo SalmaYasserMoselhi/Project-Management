@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useSelector, useDispatch } from "react-redux"
-import { MoreVertical, Pin, ChevronDown } from "lucide-react"
+import { MoreVertical, Pin, ChevronDown, Search, X } from "lucide-react"
 import toast from "react-hot-toast"
 import AddBoardPopup from "./AddBoardPopup"
 import { useNavigate } from "react-router-dom"
@@ -309,28 +309,24 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
           <h1 className="text-lg font-bold text-[#4D2D61]">{currentWorkspaceName}</h1>
 
           {/* Search Input */}
-          <div className="relative">
+          <div className="relative group">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400 z-10 pointer-events-none" />
             <input
               type="text"
               placeholder="Search boards..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border rounded-full focus:ring-1 focus:ring-[#4D2D61] focus:border-[#4D2D61] placeholder-gray-400"
+              className="w-full pl-10 pr-10 py-2 text-sm bg-white/80 backdrop-blur-sm rounded-xl border border-[#E5D8F6] focus:outline-none focus:ring-2 focus:ring-[#4D2D61]/20 focus:border-[#C1A7E6] text-gray-700 transition-all duration-300 hover:shadow-sm placeholder:text-gray-400"
             />
-            <svg
-              className="absolute left-3 top-2.5 w-5 h-5 text-gray-400"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-4.35-4.35M16 10a6 6 0 11-12 0 6 6 0 0112 0z"
-              />
-            </svg>
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3 top-2.5 text-gray-400 hover:text-[#4D2D61] transition-all duration-300 hover:scale-110"
+                tabIndex={-1}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
           {/* Tabs */}
