@@ -630,7 +630,7 @@ exports.inviteMembers = catchAsync(
       process.env.BASE_URL
     );
 
-    // Log activity for each successful invitation
+    // Log vity for each successful invitation
     for (const invitation of invitationResults) {
       await activityService.logWorkspaceActivity(
         workspace,

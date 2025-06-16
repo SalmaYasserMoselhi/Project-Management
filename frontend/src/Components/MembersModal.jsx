@@ -215,7 +215,7 @@ const MembersModal = ({
                       <span className="inline-block w-4 h-4 border-2 border-gray-300 border-t-[#6a3b82] rounded-full animate-spin align-middle ml-2"></span>
                     ) : null}
                     {m.role?.toLowerCase() === 'owner' ? (
-                      <div className="w-24 py-1 px-4 rounded-lg border border-[#BFA8D9] text-[#6a3b82] text-sm font-semibold flex items-center justify-center bg-white ml-2">
+                      <div className="w-24 py-1 px-4 rounded-lg border border-[#6a3b82] text-[#6a3b82] text-sm font-semibold flex items-center justify-center bg-white ml-2">
                         Owner
                       </div>
                     ) : (
