@@ -403,7 +403,7 @@ const Sidebar = () => {
   return (
     <div
       id="sidebar"
-      className={`fixed z-50 left-0 top-0 bottom-0 bg-[#4D2D61] shadow-lg p-4 flex flex-col border-r border-gray-200 font-normal transition-all duration-300 
+      className={`fixed z-50 left-0 top-0 bottom-0 bg-[#4D2D61] shadow-lg p-4 flex flex-col font-normal transition-all duration-300 
         ${isSidebarOpen ? "w-60" : "w-20"}
         ${
           isMobile

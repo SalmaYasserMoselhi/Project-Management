@@ -42,9 +42,10 @@ export default function WorkspaceSettings() {
   const boardDropdownRef = useRef(null)
   const nameInputRef = useRef(null)
   const membersScrollRef = useRef(null)
-  const [loadingMembers, setLoadingMembers] = useState(false)
+  const [loadingMembers, setLoadingMembers] = useState(true)
   const [errorMembers, setErrorMembers] = useState(null)
   const [activities, setActivities] = useState([])
+  const [activitiesLoading, setActivitiesLoading] = useState(true)
   const dispatch = useDispatch()
   const user = useSelector(state => state.user?.user || state.login?.user);
   const userId = user?._id || user?.id;
@@ -52,6 +53,7 @@ export default function WorkspaceSettings() {
   const selectedWorkspace = useSelector(state => state.sidebar.selectedWorkspace)
   const hasRedirected = useRef(false)
   const [hasPermission, setHasPermission] = useState(null)
+  const userCache = useRef({});
 
   // Get workspaceId from URL params or localStorage
   const workspaceId = useMemo(() => {
@@ -98,6 +100,7 @@ export default function WorkspaceSettings() {
       try {
         setLoading(true)
         setError(null)
+        setLoadingMembers(true)
         
         // Fetch workspace details
         const workspaceRes = await fetch(`/api/v1/workspaces/${workspaceId}`)
@@ -172,48 +175,140 @@ export default function WorkspaceSettings() {
           userMap[userId] = m.user?.username || m.user?.email || "Unknown"
         })
 
+        // Fetch user info by ID if not found in userMap
+        async function fetchUserNameById(userId) {
+          if (!userId) return 'Unknown';
+          if (userCache.current[userId]) return userCache.current[userId];
+          try {
+            const res = await fetch(`/api/v1/users/${userId}`);
+            if (!res.ok) return 'Unknown';
+            const data = await res.json();
+            const name = data.data?.user?.username || data.data?.user?.email || 'Unknown';
+            userCache.current[userId] = name;
+            return name;
+          } catch {
+            return 'Unknown';
+          }
+        }
+
         // Set activities from workspace data
         if (workspaceInfo.activities) {
-          setActivities(workspaceInfo.activities.map(activity => {
-            // User name
-            const userName = userMap[activity.user] || "Unknown"
-            // Action details
-            let actionText = ""
-            switch (activity.action) {
-              case "invitation_sent":
-                actionText = `invited ${activity.data?.email || ''} as ${activity.data?.role || ''}`
-                break
-              case "invitation_accepted":
-                actionText = `invitation accepted by ${userMap[activity.data?.user] || activity.data?.user || ''}`
-                break
-              case "board_created":
-                actionText = `created board '${activity.data?.board?.name || ''}`
-                break
-              case "member_role_updated":
-                actionText = `changed role of ${userMap[activity.data?.targetUser] || activity.data?.targetUser || ''} from ${activity.data?.from} to ${activity.data?.to}`
-                break
-              case "workspace_settings_updated":
-                actionText = `updated workspace settings (${(activity.data?.updatedFields || []).join(', ')})`
-                break
-              case "workspace_updated":
-                actionText = `updated workspace (${(activity.data?.updatedFields || []).join(', ')})`
-                break
-              default:
-                actionText = activity.action.replace(/_/g, ' ')
-            }
-            // Capitalize first letter
-            actionText = actionText.charAt(0).toUpperCase() + actionText.slice(1)
-            return {
-              user: userName,
-              action: actionText,
-              time: new Date(activity.createdAt).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: 'numeric'
-              })
-            }
-          }))
+          setActivitiesLoading(true);
+          (async () => {
+            const newActivities = await Promise.all(workspaceInfo.activities.map(async activity => {
+              // User name
+              let userName = userMap[activity.user] || "Unknown";
+              if (userName === "Unknown" && activity.user) {
+                userName = await fetchUserNameById(activity.user);
+              }
+              // Action details
+              let actionText = "";
+              let updatedList = null;
+              switch (activity.action) {
+                case "board_created": {
+                  const boardName = activity.data?.board?.name || "";
+                  actionText = `created board \"${boardName}\"`;
+                  break;
+                }
+                case "board_removed": {
+                  const boardName = activity.data?.board?.name || "";
+                  actionText = `deleted board \"${boardName}\"`;
+                  break;
+                }
+                case "workspace_created":
+                  actionText = `created this workspace`;
+                  break;
+                case "invitation_sent":
+                  actionText = `invited ${activity.data?.email || ''} as ${activity.data?.role || 'member'}`;
+                  break;
+                case "invitation_accepted":
+                  actionText = `joined the workspace as ${activity.data?.role || 'member'}`;
+                  break;
+                case "invitation_cancelled":
+                  actionText = `cancelled invitation for ${activity.data?.email || ''}`;
+                  break;
+                case "member_role_updated": {
+                  let targetUserName = userMap[activity.data?.targetUser] || "Unknown";
+                  if (targetUserName === "Unknown" && activity.data?.targetUser) {
+                    targetUserName = await fetchUserNameById(activity.data.targetUser);
+                  }
+                  actionText = `changed ${targetUserName}'s role from ${activity.data?.from} to ${activity.data?.to}`;
+                  break;
+                }
+                case "member_removed": {
+                  let removedUserName = userMap[activity.data?.member?.user] || "Unknown";
+                  if (removedUserName === "Unknown" && activity.data?.member?.user) {
+                    removedUserName = await fetchUserNameById(activity.data.member.user);
+                  }
+                  actionText = `removed ${removedUserName} from the workspace`;
+                  break;
+                }
+                case "workspace_settings_updated": {
+                  const settingsFields = activity.data?.updatedFields || [];
+                  // Combine all 'Who can ...' settings in one item
+                  let whoCanArr = [];
+                  let settingsTextArr = [];
+                  settingsFields.forEach(field => {
+                    if (field === 'inviteRestriction') whoCanArr.push('invite members');
+                    else if (field === 'boardCreation') whoCanArr.push('create boards');
+                    else if (field === 'notificationsEnabled') settingsTextArr.push('Notifications settings');
+                    else settingsTextArr.push(field);
+                  });
+                  if (whoCanArr.length) {
+                    settingsTextArr.unshift(`Who can ${whoCanArr.join(', ')}`);
+                  }
+                  if (settingsTextArr.length > 1) {
+                    actionText = `updated the following settings:`;
+                    updatedList = settingsTextArr;
+                  } else if (settingsTextArr.length === 1) {
+                    actionText = `updated ${settingsTextArr[0]}`;
+                  } else {
+                    actionText = `updated workspace settings`;
+                  }
+                  break;
+                }
+                case "workspace_updated": {
+                  const updatedFields = activity.data?.updatedFields || [];
+                  const fieldsTextArr = updatedFields.map(field => {
+                    switch(field) {
+                      case 'name':
+                        return 'Workspace name';
+                      case 'description':
+                        return 'Workspace description';
+                      default:
+                        return field;
+                    }
+                  });
+                  if (fieldsTextArr.length > 1) {
+                    actionText = `updated the following:`;
+                    updatedList = fieldsTextArr;
+                  } else if (fieldsTextArr.length === 1) {
+                    actionText = `updated ${fieldsTextArr[0]}`;
+                  } else {
+                    actionText = `updated workspace`;
+                  }
+                  break;
+                }
+                default:
+                  actionText = activity.action.replace(/_/g, ' ');
+              }
+              // Capitalize first letter
+              actionText = actionText.charAt(0).toUpperCase() + actionText.slice(1);
+              return {
+                user: userName,
+                action: actionText,
+                time: new Date(activity.createdAt).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: 'numeric'
+                }),
+                updatedList
+              };
+            }));
+            setActivities(newActivities);
+            setActivitiesLoading(false);
+          })();
         }
 
         // Update form state
@@ -228,6 +323,7 @@ export default function WorkspaceSettings() {
         setError(err.message)
       } finally {
         setLoading(false)
+        setTimeout(() => setLoadingMembers(false), 1000)
       }
     }
 
@@ -521,30 +617,38 @@ export default function WorkspaceSettings() {
                   Manage
                 </button>
               </div>
-              <div className="flex items-center -space-x-2">
-                {Array.isArray(workspace?.members) && workspace.members.slice(0, 5).map((member, index) => (
-                  <div
-                    key={member.id}
-                    className="w-10 h-10 rounded-full border-2 border-white flex items-center justify-center overflow-hidden"
-                    style={{ background: (member.avatar && member.avatar !== "null" && member.avatar !== "undefined" && member.avatar !== "") ? undefined : '#4D2D61' }}
-                  >
-                    {member.avatar && member.avatar !== "null" && member.avatar !== "undefined" && member.avatar !== "" ? (
-                      <img
-                        src={member.avatar}
-                        alt={member.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-sm font-medium text-white">
-                        {(member.name?.charAt(0).toUpperCase() || member.user?.username?.charAt(0).toUpperCase() || member.user?.email?.charAt(0).toUpperCase() || "?")}
-                      </span>
+              <div className="flex items-center -space-x-2 min-h-[40px]">
+                {loadingMembers ? (
+                  <div className="flex items-center justify-center w-full py-2">
+                    <div className="animate-spin h-7 w-7 border-t-2 border-[#6A3B82] rounded-full"></div>
+                  </div>
+                ) : (
+                  <>
+                    {Array.isArray(workspace?.members) && workspace.members.slice(0, 5).map((member, index) => (
+                      <div
+                        key={member.id}
+                        className="w-10 h-10 rounded-full border-2 border-white flex items-center justify-center overflow-hidden"
+                        style={{ background: (member.avatar && member.avatar !== "null" && member.avatar !== "undefined" && member.avatar !== "") ? undefined : '#4D2D61' }}
+                      >
+                        {member.avatar && member.avatar !== "null" && member.avatar !== "undefined" && member.avatar !== "" ? (
+                          <img
+                            src={member.avatar}
+                            alt={member.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-sm font-medium text-white">
+                            {(member.name?.charAt(0).toUpperCase() || member.user?.username?.charAt(0).toUpperCase() || member.user?.email?.charAt(0).toUpperCase() || "?")}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                    {Array.isArray(workspace?.members) && workspace.members.length > 5 && (
+                      <div className="w-10 h-10 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-sm font-medium text-gray-600">
+                        +{workspace.members.length - 5}
+                      </div>
                     )}
-                  </div>
-                ))}
-                {Array.isArray(workspace?.members) && workspace.members.length > 5 && (
-                  <div className="w-10 h-10 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-sm font-medium text-gray-600">
-                    +{workspace.members.length - 5}
-                  </div>
+                  </>
                 )}
               </div>
             </div>
@@ -644,7 +748,11 @@ export default function WorkspaceSettings() {
             </h2>
             <p className="text-sm text-gray-500 mb-4">Latest workspace activity and changes</p>
             <div className="space-y-3 max-h-[260px] overflow-y-auto">
-              {activities.length > 0 ? (
+              {activitiesLoading ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin h-8 w-8 border-t-2 border-[#6A3B82] rounded-full"></div>
+                </div>
+              ) : activities.length > 0 ? (
                 activities.map((activity, index) => (
                   <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                     <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs">
@@ -654,6 +762,13 @@ export default function WorkspaceSettings() {
                       <p className="text-sm">
                         <span className="font-medium">{activity.user}</span> {activity.action}
                       </p>
+                      {activity.updatedList && (
+                        <ul className="list-disc list-inside text-xs text-gray-700 mt-1 ml-2">
+                          {activity.updatedList.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      )}
                       <p className="text-xs text-gray-500">{activity.time}</p>
                     </div>
                   </div>
