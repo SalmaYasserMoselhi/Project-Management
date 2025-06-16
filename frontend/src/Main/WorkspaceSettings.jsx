@@ -669,14 +669,14 @@ export default function WorkspaceSettings() {
                     <button
                       type="button"
                       className="px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2 w-36 justify-between border border-gray-300"
-                      style={{ backgroundColor: '#4D2D6120', color: '#4D2D61' }}
+                      style={{ backgroundColor: '#4D2D6120', color: '#6A3B82' }}
                       onClick={() => setInviteDropdownOpen((v) => !v)}
                     >
                       <span className="truncate">
                         {permissionOptions.find((opt) => opt.value === form.inviteRestriction)?.label || "Select"}
                       </span>
                       <ChevronDown
-                        className={`ml-2 text-[#4D2D61] transition-transform duration-200 ${inviteDropdownOpen ? 'rotate-180' : ''}`}
+                        className={`ml-2 text-[#6a3b82] transition-transform duration-200 ${inviteDropdownOpen ? 'rotate-180' : ''}`}
                         size={18}
                       />
                     </button>
@@ -686,7 +686,7 @@ export default function WorkspaceSettings() {
                           <button
                             key={opt.value}
                             type="button"
-                            className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${form.inviteRestriction === opt.value ? 'bg-gray-100 font-semibold' : ''} text-[#4D2D61] hover:bg-gray-100`}
+                            className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${form.inviteRestriction === opt.value ? 'bg-gray-100 font-semibold' : ''} text-[#6A3B82] hover:bg-gray-100`}
                             onClick={() => {
                               setForm((prev) => ({ ...prev, inviteRestriction: opt.value }))
                               setInviteDropdownOpen(false)
@@ -706,14 +706,14 @@ export default function WorkspaceSettings() {
                     <button
                       type="button"
                       className="px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2 w-36 justify-between border border-gray-300"
-                      style={{ backgroundColor: '#4D2D6120', color: '#4D2D61' }}
+                      style={{ backgroundColor: '#4D2D6120', color: '#6A3B82' }}
                       onClick={() => setBoardDropdownOpen((v) => !v)}
                     >
                       <span className="truncate">
                         {permissionOptions.find((opt) => opt.value === form.boardCreation)?.label || "Select"}
                       </span>
                       <ChevronDown
-                        className={`ml-2 text-[#4D2D61] transition-transform duration-200 ${boardDropdownOpen ? 'rotate-180' : ''}`}
+                        className={`ml-2 text-[#6A3B82] transition-transform duration-200 ${boardDropdownOpen ? 'rotate-180' : ''}`}
                         size={18}
                       />
                     </button>
@@ -723,7 +723,7 @@ export default function WorkspaceSettings() {
                           <button
                             key={opt.value}
                             type="button"
-                            className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${form.boardCreation === opt.value ? 'bg-gray-100 font-semibold' : ''} text-[#4D2D61] hover:bg-gray-100`}
+                            className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${form.boardCreation === opt.value ? 'bg-gray-100 font-semibold' : ''} text-[#6A3B82] hover:bg-gray-100`}
                             onClick={() => {
                               setForm((prev) => ({ ...prev, boardCreation: opt.value }))
                               setBoardDropdownOpen(false)
