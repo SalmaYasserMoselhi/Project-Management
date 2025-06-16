@@ -84,7 +84,7 @@ export default function CardPriority() {
           {currentPriorityObj.label.charAt(0).toUpperCase() +
             currentPriorityObj.label.slice(1)}
           <svg
-            className="w-4 h-4"
+            className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -104,7 +104,7 @@ export default function CardPriority() {
             {priorities.map((p) => (
               <div
                 key={p.value}
-                className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 flex items-center gap-2"
+                className={`px-3 py-2 text-sm cursor-pointer flex items-center gap-2 ${currentPriority === p.value ? 'bg-gray-100' : ''} hover:bg-gray-100`}
                 onClick={() => handleUpdatePriority(p.value)}
               >
                 <span

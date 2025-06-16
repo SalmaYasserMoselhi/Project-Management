@@ -212,10 +212,10 @@ const MembersModal = ({
                     )}
                     <span className="flex-1 text-gray-900 text-sm">{m.name || m.user?.username}</span>
                     {updatingRoleId === m.id || isRefreshingMembers ? (
-                      <span className="inline-block w-4 h-4 border-2 border-gray-300 border-t-[#6A3B82] rounded-full animate-spin align-middle ml-2"></span>
+                      <span className="inline-block w-4 h-4 border-2 border-gray-300 border-t-[#6a3b82] rounded-full animate-spin align-middle ml-2"></span>
                     ) : null}
                     {m.role?.toLowerCase() === 'owner' ? (
-                      <div className="w-24 py-1 px-4 rounded-lg border border-[#BFA8D9] text-[#6A3B82] text-sm font-semibold flex items-center justify-center bg-white ml-2">
+                      <div className="w-24 py-1 px-4 rounded-lg border border-[#BFA8D9] text-[#6a3b82] text-sm font-semibold flex items-center justify-center bg-white ml-2">
                         Owner
                       </div>
                     ) : (
@@ -224,7 +224,7 @@ const MembersModal = ({
                           <button
                             id={`role-dropdown-btn-${m.id}`}
                             type="button"
-                            className={`w-full flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none border-[#BFA8D9] hover:border-[#6A3B82] focus:border-[#BFA8D9]`}
+                            className={`w-full flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none border-[#BFA8D9] hover:border-[#6a3b82] focus:border-[#BFA8D9]`}
                             onClick={e => {
                               if (roleDropdownOpen === m.id) {
                                 setRoleDropdownOpen(null);
@@ -252,7 +252,7 @@ const MembersModal = ({
                           >
                             <span className="text-gray-900">
                               {updatingRoleId === m.id ? (
-                                <span className="inline-block w-4 h-4 border-2 border-gray-300 border-t-[#6A3B82] rounded-full animate-spin align-middle"></span>
+                                <span className="inline-block w-4 h-4 border-2 border-gray-300 border-t-[#6a3b82] rounded-full animate-spin align-middle"></span>
                               ) : (
                                 m.role
                               )}
@@ -291,7 +291,7 @@ const MembersModal = ({
             <button
               key={opt}
               type="button"
-              className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${membersArray.find(mem => mem.id === roleDropdownOpen)?.role?.toLowerCase() === opt ? 'font-semibold text-[#6A3B82]' : ''}`}
+              className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${membersArray.find(mem => mem.id === roleDropdownOpen)?.role?.toLowerCase() === opt ? 'font-semibold text-[#6a3b82]' : ''}`}
               onMouseDown={e => e.stopPropagation()}
               disabled={updatingRoleId === roleDropdownOpen}
               onClick={(e) => {

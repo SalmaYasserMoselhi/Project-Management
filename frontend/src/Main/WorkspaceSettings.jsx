@@ -489,7 +489,7 @@ export default function WorkspaceSettings() {
   if (loading || hasPermission === null) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#F5F5F7]">
-        <div className="animate-spin h-8 w-8 border-t-2 border-[#6A3B82] rounded-full"></div>
+        <div className="animate-spin h-8 w-8 border-t-2 border-[#6a3b82] rounded-full"></div>
       </div>
     )
   }
@@ -524,7 +524,7 @@ export default function WorkspaceSettings() {
       <div className="p-3 md:p-4 flex items-center">
         {isMobile && (
           <button className="mr-2 p-1 rounded-md">
-            <Menu size={24} className="text-[#57356A]" />
+            <Menu size={24} className="text-[#4d2d61]" />
           </button>
         )}
         <Breadcrumb customLabel="Workspace Settings" />
@@ -559,19 +559,19 @@ export default function WorkspaceSettings() {
                     onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                     onBlur={handleNameBlur}
                     onKeyDown={handleNameKeyDown}
-                    className="text-xl font-semibold border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-0.5 focus:ring-[#6A3B82] bg-white text-[#6A3B82]"
+                    className="text-xl font-semibold border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-0.5 focus:ring-[#6a3b82] bg-white text-[#6a3b82]"
                     style={{ minWidth: 180 }}
                   />
                 ) : (
                   <div className="flex items-center gap-2">
-                    <h1 className="text-xl font-semibold text-[#6A3B82]">{form.name}</h1>
-                    <button className="ml-2 text-gray-400 hover:text-[#6A3B82]" onClick={toggleEditName}>
+                    <h1 className="text-xl font-semibold text-[#6a3b82]">{form.name}</h1>
+                    <button className="ml-2 text-gray-400 hover:text-[#6a3b82]" onClick={toggleEditName}>
                       <Edit size={18} />
                     </button>
                   </div>
                 )}
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="bg-purple-100 text-[#6A3B82] text-xs font-medium px-2.5 py-0.5 rounded-full">
+                  <span className="bg-purple-100 text-[#6a3b82] text-xs font-medium px-2.5 py-0.5 rounded-full">
                     {workspace.type}
                   </span>
                   <span className="text-sm text-gray-500 flex items-center gap-1">
@@ -587,7 +587,7 @@ export default function WorkspaceSettings() {
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-0.5 focus:ring-[#6A3B82] focus:text-gray-700 min-h-[80px]"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-0.5 focus:ring-[#6a3b82] focus:text-gray-700 min-h-[80px]"
                   rows={2}
                   placeholder="Add a workspace description"
                 />
@@ -603,7 +603,7 @@ export default function WorkspaceSettings() {
             <div className="p-4 md:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-lg font-semibold text-[#6A3B82] flex items-center gap-2">
+                  <h2 className="text-lg font-semibold text-[#6a3b82] flex items-center gap-2">
                     <Users size={20} />
                     Workspace Members
                   </h2>
@@ -611,7 +611,7 @@ export default function WorkspaceSettings() {
                 </div>
                 <button
                   onClick={() => setShowMembersModal(true)}
-                  className="px-3 py-1 text-sm border border-[#6A3B82] text-[#6A3B82] rounded-lg hover:bg-purple-50 flex items-center gap-1"
+                  className="px-3 py-1 text-sm border border-[#6a3b82] text-[#6a3b82] rounded-lg hover:bg-purple-50 flex items-center gap-1"
                 >
                   <Shield size={16} />
                   Manage
@@ -620,7 +620,7 @@ export default function WorkspaceSettings() {
               <div className="flex items-center -space-x-2 min-h-[40px]">
                 {loadingMembers ? (
                   <div className="flex items-center justify-center w-full py-2">
-                    <div className="animate-spin h-7 w-7 border-t-2 border-[#6A3B82] rounded-full"></div>
+                    <div className="animate-spin h-7 w-7 border-t-2 border-[#6a3b82] rounded-full"></div>
                   </div>
                 ) : (
                   <>
@@ -657,7 +657,7 @@ export default function WorkspaceSettings() {
           {/* Permissions */}
           <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
             <div className="p-4 md:p-6">
-              <h2 className="text-lg font-semibold text-[#6A3B82] flex items-center gap-2 mb-1">
+              <h2 className="text-lg font-semibold text-[#6a3b82] flex items-center gap-2 mb-1">
                 <Shield size={20} />
                 Permissions
               </h2>
@@ -668,24 +668,25 @@ export default function WorkspaceSettings() {
                   <div className="relative" ref={inviteDropdownRef}>
                     <button
                       type="button"
-                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${inviteDropdownOpen ? openBorder : "border-[#BFA8D9] hover:border-[#6A3B82]"} ${!inviteDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
+                      className="px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2 w-36 justify-between border border-gray-300"
+                      style={{ backgroundColor: '#4D2D6120', color: '#4D2D61' }}
                       onClick={() => setInviteDropdownOpen((v) => !v)}
                     >
-                      <span className="truncate text-gray-900">
+                      <span className="truncate">
                         {permissionOptions.find((opt) => opt.value === form.inviteRestriction)?.label || "Select"}
                       </span>
                       <ChevronDown
-                        className={`ml-2 transition-transform ${inviteDropdownOpen ? "rotate-180" : ""} text-gray-400`}
+                        className={`ml-2 text-[#4D2D61] transition-transform duration-200 ${inviteDropdownOpen ? 'rotate-180' : ''}`}
                         size={18}
                       />
                     </button>
                     {inviteDropdownOpen && (
-                      <div className="absolute left-0 mt-2 w-full bg-white rounded-lg shadow-lg border border-[#E5D6F3] z-20 animate-fade-in">
+                      <div className="absolute left-0 mt-2 w-full bg-white border border-gray-300 rounded-md shadow-lg z-20">
                         {permissionOptions.map((opt) => (
                           <button
                             key={opt.value}
                             type="button"
-                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${form.inviteRestriction === opt.value ? "bg-[#F3EFFF] font-semibold text-[#6A3B82]" : ""}`}
+                            className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${form.inviteRestriction === opt.value ? 'bg-gray-100 font-semibold' : ''} text-[#4D2D61] hover:bg-gray-100`}
                             onClick={() => {
                               setForm((prev) => ({ ...prev, inviteRestriction: opt.value }))
                               setInviteDropdownOpen(false)
@@ -704,24 +705,25 @@ export default function WorkspaceSettings() {
                   <div className="relative" ref={boardDropdownRef}>
                     <button
                       type="button"
-                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${boardDropdownOpen ? openBorder : "border-[#BFA8D9] hover:border-[#6A3B82]"} ${!boardDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
+                      className="px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2 w-36 justify-between border border-gray-300"
+                      style={{ backgroundColor: '#4D2D6120', color: '#4D2D61' }}
                       onClick={() => setBoardDropdownOpen((v) => !v)}
                     >
-                      <span className="truncate text-gray-900">
+                      <span className="truncate">
                         {permissionOptions.find((opt) => opt.value === form.boardCreation)?.label || "Select"}
                       </span>
                       <ChevronDown
-                        className={`ml-2 transition-transform ${boardDropdownOpen ? "rotate-180" : ""} text-gray-400`}
+                        className={`ml-2 text-[#4D2D61] transition-transform duration-200 ${boardDropdownOpen ? 'rotate-180' : ''}`}
                         size={18}
                       />
                     </button>
                     {boardDropdownOpen && (
-                      <div className="absolute left-0 mt-2 w-36 bg-white rounded-lg shadow-lg border border-[#E5D6F3] z-20 animate-fade-in">
+                      <div className="absolute left-0 mt-2 w-36 bg-white border border-gray-300 rounded-md shadow-lg z-20">
                         {permissionOptions.map((opt) => (
                           <button
                             key={opt.value}
                             type="button"
-                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${form.boardCreation === opt.value ? "bg-[#F3EFFF] font-semibold text-[#6A3B82]" : ""}`}
+                            className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${form.boardCreation === opt.value ? 'bg-gray-100 font-semibold' : ''} text-[#4D2D61] hover:bg-gray-100`}
                             onClick={() => {
                               setForm((prev) => ({ ...prev, boardCreation: opt.value }))
                               setBoardDropdownOpen(false)
@@ -742,7 +744,7 @@ export default function WorkspaceSettings() {
         {/* Activity Overview */}
         <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
           <div className="p-4 md:p-6">
-            <h2 className="text-lg font-semibold text-[#6A3B82] flex items-center gap-2 mb-1">
+            <h2 className="text-lg font-semibold text-[#6a3b82] flex items-center gap-2 mb-1">
               <Clock size={20} />
               Recent Activity
             </h2>
@@ -750,7 +752,7 @@ export default function WorkspaceSettings() {
             <div className="space-y-3 max-h-[260px] overflow-y-auto">
               {activitiesLoading ? (
                 <div className="flex justify-center items-center py-8">
-                  <div className="animate-spin h-8 w-8 border-t-2 border-[#6A3B82] rounded-full"></div>
+                  <div className="animate-spin h-8 w-8 border-t-2 border-[#6a3b82] rounded-full"></div>
                 </div>
               ) : activities.length > 0 ? (
                 activities.map((activity, index) => (

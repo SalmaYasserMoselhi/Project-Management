@@ -437,7 +437,7 @@ const Sidebar = () => {
         {isMobile && isSidebarOpen && (
           <button
             onClick={() => dispatch(toggleSidebar())}
-            className="ml-auto p-1 rounded-full bg-white text-[#57356A]"
+            className="ml-auto p-1 rounded-full bg-white text-[#4d2d61]"
           >
             <X size={18} />
           </button>
@@ -449,7 +449,7 @@ const Sidebar = () => {
             onClick={() => dispatch(toggleSidebar())}
             className={`absolute ${
               isSidebarOpen ? "right-0" : "-right-7"
-            } top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full bg-white/90 text-[#57356A] transition-all duration-300 shadow-lg hover:bg-[#65437A] hover:text-white z-10 w-5 h-5`}
+            } top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full bg-white/90 text-[#4d2d61] transition-all duration-300 shadow-lg hover:bg-[#65437A] hover:text-white z-10 w-5 h-5`}
           >
             {isSidebarOpen ? (
               <ChevronLeft size={15} />
@@ -471,7 +471,7 @@ const Sidebar = () => {
                 onClick={handleWorkspacePopupToggle}
                 data-popup-trigger="true"
               >
-                <div className="w-6 h-6 flex items-center justify-center bg-[#6A3B82] text-[#fff] font-medium rounded-lg text-sm">
+                <div className="w-6 h-6 flex items-center justify-center bg-[#6a3b82] text-[#fff] font-medium rounded-lg text-sm">
                   {sidebarAvatarLetter}
                 </div>
 
@@ -486,7 +486,7 @@ const Sidebar = () => {
             ) : (
               <div className="flex justify-center">
                 <div
-                  className="w-12 px-3 py-2.5 flex items-center justify-center bg-[#6A3B82] text-white font-normal rounded-lg text-sm"
+                  className="w-12 px-3 py-2.5 flex items-center justify-center bg-[#6a3b82] text-white font-normal rounded-lg text-sm"
                   onClick={handleWorkspacePopupToggle}
                   data-popup-trigger="true"
                 >

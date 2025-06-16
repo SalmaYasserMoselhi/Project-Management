@@ -175,7 +175,7 @@ export function addAnimationStyles() {
     
     .input-animated:focus {
       border-color: #4d2d61;
-      box-shadow: 0 0 0 3px #eae3f7, 0 0 0 2px #725483;
+      box-shadow: 0 0 0 3px #eae3f7, 0 0 0 2px #6a3b82;
       outline: none;
     }
     

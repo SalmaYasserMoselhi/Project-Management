@@ -207,7 +207,7 @@ function Dashboard() {
             className="mr-2 p-1 rounded-md"
             aria-label="Toggle sidebar"
           >
-            <Menu size={24} className="text-[#57356A]" />
+            <Menu size={24} className="text-[#4d2d61]" />
           </button>
         )}
         <Breadcrumb />
@@ -215,7 +215,7 @@ function Dashboard() {
 
       {loading && (
         <div className="flex justify-center items-center p-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#57356A]"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4d2d61]"></div>
         </div>
       )}
 
@@ -229,7 +229,7 @@ function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3 md:gap-4">
           {/* High Priority Tasks with Pagination */}
           <div className="lg:col-span-3 bg-gray-50 rounded-xl shadow-sm p-3 md:p-4 border border-purple-200">
-            <h2 className="text-lg font-semibold mb-2 text-[#57356A]">
+            <h2 className="text-lg font-semibold mb-2 text-[#4d2d61]">
               High priority tasks
             </h2>
             <div className="h-[350px] md:h-[390px] flex flex-col">
@@ -240,7 +240,7 @@ function Dashboard() {
                       key={`${task.id}-${index}`}
                       className="mb-2 bg-white border border-white rounded-lg p-3 last:mb-0 shadow-sm"
                     >
-                      <span className="block font-medium text-[#725483] mb-2 text-sm">
+                      <span className="block font-medium text-[#6a3b82] mb-2 text-sm">
                         {task.title}
                       </span>
 
@@ -287,7 +287,7 @@ function Dashboard() {
                   <button
                     onClick={loadMoreHighPriorityTasks}
                     disabled={loadingMore}
-                    className="w-full py-2 px-4 bg-[#57356A] text-white rounded-lg hover:bg-[#4a2c57] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+                    className="w-full py-2 px-4 bg-[#4d2d61] text-white rounded-lg hover:bg-[#4a2c57] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
                   >
                     {loadingMore ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -305,15 +305,15 @@ function Dashboard() {
 
           {/* Deadlines with Enhanced Scrolling */}
           <div className="lg:col-span-3 bg-gray-50 rounded-xl shadow-sm p-3 md:p-4 border border-purple-200">
-            <h2 className="text-lg font-semibold text-[#57356A] mb-3">
+            <h2 className="text-lg font-semibold text-[#4d2d61] mb-3">
               Deadlines
             </h2>
             <div className="h-[280px] md:h-[320px] flex flex-col">
               <div className="mb-4 bg-white border border-white rounded-lg p-3 shadow-sm">
-                <h3 className="text-base font-semibold text-[#725483] mb-3">
+                <h3 className="text-base font-semibold text-[#6a3b82] mb-3">
                   {monthNames[currentMonth]}
                 </h3>
-                <div className="relative text-[#725483]">
+                <div className="relative text-[#6a3b82]">
                   <div className="overflow-x-auto no-scrollbar">
                     <div className="flex space-x-3 mb-3 min-w-max pb-2">
                       {dates.map((item) => (
@@ -324,8 +324,8 @@ function Dashboard() {
                           className={`flex flex-col items-center min-w-[26px] md:min-w-[36px] transition-all rounded-lg px-2 md:px-3 py-1
                             ${
                               selectedDay === item.date
-                                ? "bg-[#57356A] text-white"
-                                : "hover:bg-gray-100 text-[#725483]"
+                                ? "bg-[#4d2d61] text-white"
+                                : "hover:bg-gray-100 text-[#6a3b82]"
                             }`}
                         >
                           <span className="text-xs md:text-sm font-bold">
@@ -346,11 +346,11 @@ function Dashboard() {
                   {Array.isArray(deadlines) && deadlines.length > 0 ? (
                     deadlines.map((event) => (
                       <div key={event.id} className="relative group">
-                        <div className="absolute left-3 top-0 bottom-0 w-1 rounded-full bg-[#57356A]" />
+                        <div className="absolute left-3 top-0 bottom-0 w-1 rounded-full bg-[#4d2d61]" />
                         <div className="pl-4 md:pl-5">
                           <div className="flex justify-between items-start bg-white p-3 rounded-lg shadow-sm hover:bg-gray-50 transition-colors">
                             <div>
-                              <p className="font-medium text-[#725483] text-sm">
+                              <p className="font-medium text-[#6a3b82] text-sm">
                                 {event.title}
                               </p>
                               <p className="text-xs text-gray-500">
@@ -377,7 +377,7 @@ function Dashboard() {
           {/* Total Tasks Chart */}
           <div className="lg:col-span-6 bg-gray-50 rounded-xl shadow-sm p-3 md:p-4 border border-purple-200">
             <div className="flex justify-between items-center mb-3">
-              <h2 className="text-lg font-semibold text-[#57356A]">
+              <h2 className="text-lg font-semibold text-[#4d2d61]">
                 Task Completion
               </h2>
               <CustomDropdown 
@@ -404,7 +404,7 @@ function Dashboard() {
 
         {/* Activity Log with Pagination */}
         <div className="bg-gray-50 rounded-xl shadow-sm p-3 md:p-4 border border-purple-200 overflow-x-auto">
-          <h2 className="text-lg font-semibold text-[#57356A] mb-3">
+          <h2 className="text-lg font-semibold text-[#4d2d61] mb-3">
             Activity Log
           </h2>
           <div className="min-w-full max-h-[270px] overflow-y-auto no-scrollbar">
@@ -450,7 +450,7 @@ function Dashboard() {
               <button
                 onClick={loadMoreActivityLog}
                 disabled={loadingMore}
-                className="py-2 px-6 bg-[#57356A] text-white rounded-lg hover:bg-[#4a2c57] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="py-2 px-6 bg-[#4d2d61] text-white rounded-lg hover:bg-[#4a2c57] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {loadingMore ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>

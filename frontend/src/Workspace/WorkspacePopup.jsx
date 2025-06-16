@@ -417,14 +417,14 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
                           e.stopPropagation()
                           handlePinBoard(board.id, board.starred, e)
                         }}
-                        className={`hover:text-[#6A3B82] transition-colors ${
+                        className={`hover:text-[#6a3b82] transition-colors ${
                           board.starred ? "text-[#4D2D61] opacity-100" : "text-gray-400"
                         }`}
                       >
                         <Pin className="w-[18px] h-[18px]" fill={board.starred ? "#4D2D61" : "none"} />
                       </button>
                     )}
-                    <MoreVertical className="w-[18px] h-[18px] text-[#4D2D61] cursor-pointer hover:text-[#6A3B82]" />
+                    <MoreVertical className="w-[18px] h-[18px] text-[#4D2D61] cursor-pointer hover:text-[#6a3b82]" />
                   </div>
                 </div>
               ))}

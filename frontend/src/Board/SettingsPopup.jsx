@@ -131,7 +131,7 @@ const SettingsPopup = ({ onClose, boardId }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const openBorder = "border-[#6A3B82]";
+  const openBorder = "border-[#6a3b82]";
 
   return (
     <div className="fixed inset-0 flex justify-end items-center z-50">
@@ -151,7 +151,7 @@ const SettingsPopup = ({ onClose, boardId }) => {
 
           <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
             <div className="p-4 md:p-6">
-              <h2 className="text-lg font-semibold text-[#6A3B82] flex items-center gap-2 mb-1">
+              <h2 className="text-lg font-semibold text-[#6a3b82] flex items-center gap-2 mb-1">
                 <Shield size={20} />
                 Permissions
               </h2>
@@ -162,7 +162,7 @@ const SettingsPopup = ({ onClose, boardId }) => {
                   <div className="relative" ref={inviteDropdownRef}>
                     <button
                       type="button"
-                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${inviteDropdownOpen ? openBorder : "border-[#BFA8D9] hover:border-[#6A3B82]"} ${!inviteDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
+                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${inviteDropdownOpen ? openBorder : "border-[#BFA8D9] hover:border-[#6a3b82]"} ${!inviteDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
                       onClick={() => setInviteDropdownOpen((v) => !v)}
                       disabled={isLoading}
                     >
@@ -180,7 +180,7 @@ const SettingsPopup = ({ onClose, boardId }) => {
                           <button
                             key={opt.value}
                             type="button"
-                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${settings.inviteRestriction === opt.value ? "bg-[#F3EFFF] font-semibold text-[#6A3B82]" : ""}`}
+                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${settings.inviteRestriction === opt.value ? "bg-[#F3EFFF] font-semibold text-[#6a3b82]" : ""}`}
                             onClick={() => {
                               setSettings((prev) => ({ ...prev, inviteRestriction: opt.value }));
                               setInviteDropdownOpen(false);
@@ -199,7 +199,7 @@ const SettingsPopup = ({ onClose, boardId }) => {
                   <div className="relative" ref={editDropdownRef}>
                     <button
                       type="button"
-                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${editDropdownOpen ? openBorder : "border-[#BFA8D9] hover:border-[#6A3B82]"} ${!editDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
+                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${editDropdownOpen ? openBorder : "border-[#BFA8D9] hover:border-[#6a3b82]"} ${!editDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
                       onClick={() => setEditDropdownOpen((v) => !v)}
                       disabled={isLoading}
                     >
@@ -217,7 +217,7 @@ const SettingsPopup = ({ onClose, boardId }) => {
                           <button
                             key={opt.value}
                             type="button"
-                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${settings.cardEditing === opt.value ? "bg-[#F3EFFF] font-semibold text-[#6A3B82]" : ""}`}
+                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${settings.cardEditing === opt.value ? "bg-[#F3EFFF] font-semibold text-[#6a3b82]" : ""}`}
                             onClick={() => {
                               setSettings((prev) => ({ ...prev, cardEditing: opt.value }));
                               setEditDropdownOpen(false);
@@ -236,7 +236,7 @@ const SettingsPopup = ({ onClose, boardId }) => {
                   <div className="relative" ref={moveDropdownRef}>
                     <button
                       type="button"
-                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${moveDropdownOpen ? openBorder : "border-[#BFA8D9] hover:border-[#6A3B82]"} ${!moveDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
+                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${moveDropdownOpen ? openBorder : "border-[#BFA8D9] hover:border-[#6a3b82]"} ${!moveDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
                       onClick={() => setMoveDropdownOpen((v) => !v)}
                       disabled={isLoading}
                     >
@@ -254,7 +254,7 @@ const SettingsPopup = ({ onClose, boardId }) => {
                           <button
                             key={opt.value}
                             type="button"
-                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${settings.cardMoving === opt.value ? "bg-[#F3EFFF] font-semibold text-[#6A3B82]" : ""}`}
+                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${settings.cardMoving === opt.value ? "bg-[#F3EFFF] font-semibold text-[#6a3b82]" : ""}`}
                             onClick={() => {
                               setSettings((prev) => ({ ...prev, cardMoving: opt.value }));
                               setMoveDropdownOpen(false);
