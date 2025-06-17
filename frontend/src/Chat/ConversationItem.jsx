@@ -63,8 +63,8 @@ const ConversationItem = React.memo(
       <motion.div
         className={`group relative flex items-center p-3 mx-2 my-1 cursor-pointer rounded-2xl transition-all duration-300 hover:scale-[1.02] ${
           isActive
-            ? "bg-gradient-to-r from-[#4D2D61]/10 to-[#6B46C1]/10 border border-[#4D2D61]/20 shadow-lg shadow-[#4D2D61]/10"
-            : "hover:bg-gradient-to-r hover:from-[#4D2D61]/5 hover:to-[#6B46C1]/5 hover:shadow-md hover:shadow-[#4D2D61]/5 border border-transparent hover:border-[#4D2D61]/10"
+            ? "bg-gradient-to-r from-[#4d2d61]/10 to-[#7b4397]/10 border border-[#4d2d61]/20 shadow-lg shadow-[#4d2d61]/10"
+            : "hover:bg-gradient-to-r hover:from-[#4d2d61]/5 hover:to-[#7b4397]/5 hover:shadow-md hover:shadow-[#4d2d61]/5 border border-transparent hover:border-[#4D2D61]/10"
         }`}
         onClick={() => onConversationClick(chat)}
         whileHover={{ y: -2 }}
@@ -73,7 +73,7 @@ const ConversationItem = React.memo(
         {/* Active indicator */}
         {isActive && (
           <motion.div
-            className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-[#4D2D61] to-[#6B46C1] rounded-r-full"
+            className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-[#4d2d61] to-[#7b4397] rounded-r-full"
             layoutId="activeIndicator"
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           />
@@ -82,7 +82,7 @@ const ConversationItem = React.memo(
         <div className="relative flex-shrink-0 mr-4">
           <Suspense
             fallback={
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-bold bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] shadow-md">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-bold bg-gradient-to-r from-[#4d2d61] to-[#7b4397] shadow-md">
                 {displayName?.[0]?.toUpperCase() || "?"}
               </div>
             }
@@ -95,8 +95,8 @@ const ConversationItem = React.memo(
                   loading="lazy"
                   className={`w-10 h-10 rounded-full object-cover border-2 transition-all duration-300 shadow-md ${
                     isActive
-                      ? "border-[#4D2D61]/30 shadow-[#4D2D61]/20"
-                      : "border-white group-hover:border-[#4D2D61]/20 group-hover:shadow-[#4D2D61]/10"
+                      ? "border-[#4d2d61]/30 shadow-[#4d2d61]/20"
+                      : "border-white group-hover:border-[#4d2d61]/20 group-hover:shadow-[#4d2d61]/10"
                   }`}
                   onError={(e) => {
                     e.target.onerror = null;
@@ -108,8 +108,8 @@ const ConversationItem = React.memo(
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-md transition-all duration-300 ${
                   isActive
-                    ? "bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] shadow-[#4D2D61]/20"
-                    : "bg-gradient-to-r from-gray-400 to-gray-500 group-hover:from-[#4D2D61] group-hover:to-[#6B46C1]"
+                    ? "bg-gradient-to-r from-[#4d2d61] to-[#7b4397] shadow-[#4d2d61]/20"
+                    : "bg-gradient-to-r from-gray-400 to-gray-500 group-hover:from-[#4d2d61] group-hover:to-[#7b4397]"
                 }`}
               >
                 {displayName?.[0]?.toUpperCase() || "?"}
@@ -123,8 +123,8 @@ const ConversationItem = React.memo(
             <h3
               className={`text-sm font-bold truncate transition-all duration-300 ${
                 isActive
-                  ? "text-[#4D2D61]"
-                  : "text-gray-800 group-hover:text-[#4D2D61]"
+                  ? "text-[#4d2d61]"
+                  : "text-gray-800 group-hover:text-[#4d2d61]"
               }`}
             >
               {displayName}
@@ -132,8 +132,8 @@ const ConversationItem = React.memo(
             <span
               className={`text-xs transition-all duration-300 ${
                 isActive
-                  ? "text-[#4D2D61]/70"
-                  : "text-gray-400 group-hover:text-[#4D2D61]/60"
+                  ? "text-[#4d2d61]/70"
+                  : "text-gray-400 group-hover:text-[#4d2d61]/60"
               }`}
             >
               {dateHandler(chat?.lastMessage?.createdAt)}

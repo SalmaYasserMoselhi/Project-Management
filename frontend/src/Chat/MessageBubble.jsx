@@ -83,7 +83,7 @@ const MessageBubble = React.memo(
         <div className="flex flex-col min-w-[100px] max-w-[75%]">
           {/* Sender name for group chats */}
           {!isSender && showAvatar && activeChat?.isGroup && (
-            <span className="text-xs text-gray-600 mb-1 px-1 font-medium">
+            <span className="text-sm text-gray-600 mb-1 px-1 font-medium">
               {getSenderName()}
             </span>
           )}
@@ -93,7 +93,7 @@ const MessageBubble = React.memo(
             <div
               className={`rounded-2xl px-4 py-3 relative transition-all duration-200 shadow-sm ${
                 isSender
-                  ? "bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] ml-auto"
+                  ? "bg-gradient-to-r from-[#4d2d61] to-[#7b4397] ml-auto"
                   : "bg-white/90 backdrop-blur-sm text-gray-800 border border-gray-200/50"
               } ${isHovered ? "shadow-md transform scale-[1.02]" : ""}`}
               style={{
@@ -117,10 +117,10 @@ const MessageBubble = React.memo(
                   <button
                     onClick={handleDelete}
                     disabled={isDeleting}
-                    className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
+                    className={`text-sm px-2 py-1 rounded-full transition-all duration-200 ${
                       isDeleting
-                        ? "bg-red-200 text-red-500 cursor-not-allowed"
-                        : "bg-white/20 text-white hover:bg-red-500 hover:text-white"
+                        ? "bg-red-200 text-[#7b4397] cursor-not-allowed"
+                        : "bg-white/20 text-white hover:bg-[#7b4397] hover:text-white"
                     }`}
                   >
                     {isDeleting ? "⏳" : "🗑️"}
@@ -130,7 +130,7 @@ const MessageBubble = React.memo(
                 {/* Message time */}
                 <span
                   style={{ color: isSender ? "#ffffff" : "#6b7280" }}
-                  className="text-[0.65rem]"
+                  className="text-xs"
                 >
                   {messageTime}
                 </span>

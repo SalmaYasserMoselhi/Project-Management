@@ -101,7 +101,7 @@ const ChatMessages = React.memo(() => {
                       <div className="w-full border-t border-gray-300/50"></div>
                     </div>
                     <div className="relative flex justify-center">
-                      <span className="bg-white/80 backdrop-blur-sm text-[#4D2D61] px-4 py-2 rounded-full text-sm font-medium shadow-sm border border-gray-200/50">
+                      <span className="bg-white/80 backdrop-blur-sm text-[#4d2d61] px-4 py-2 rounded-full text-sm font-medium shadow-sm border border-gray-200/50">
                         {date}
                       </span>
                     </div>

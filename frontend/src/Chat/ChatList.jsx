@@ -1,4 +1,5 @@
 "use client";
+
 import { UserPlus, SquarePen, Search, X, Check, Plus } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -275,7 +276,7 @@ const ChatList = ({ onChatSelect }) => {
       const groupData = {
         groupName: groupName.trim(),
         participantIds: participantIds,
-        groupPicture: groupImage,
+        groupPicture: groupImage, // أضف الصورة هنا
       };
 
       setLoading(true);
@@ -317,6 +318,7 @@ const ChatList = ({ onChatSelect }) => {
         console.log("Activating new conversation:", enhancedConversation);
         setActiveConversation(enhancedConversation);
 
+        // استدعاء دالة إخفاء القائمة في وضع الموبايل
         if (onChatSelect) {
           onChatSelect();
         }
@@ -490,24 +492,27 @@ const ChatList = ({ onChatSelect }) => {
     <div className="flex flex-col w-full h-full bg-gradient-to-b from-white to-gray-50/30 border-r border-gray-200/60 shadow-sm">
       {/* Header with enhanced styling */}
       <div className="flex items-center justify-between w-full p-4 bg-white/80 backdrop-blur-sm">
-        <h2 className="text-xl font-bold bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] bg-clip-text text-transparent">
+        <h2 className="text-xl font-bold bg-gradient-to-r from-[#4d2d61] to-[#7b4397] bg-clip-text text-transparent">
           Conversations
         </h2>
         <div className="flex space-x-1">
           <button
             onClick={() => setShowUserSearch(true)}
-            className="group p-2.5 rounded-xl hover:bg-gradient-to-r hover:from-[#4D2D61]/10 hover:to-[#6B46C1]/10 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-[#4D2D61]/20"
+            className="group p-2.5 rounded-xl hover:bg-gradient-to-r hover:from-[#4d2d61]/10 hover:to-[#7b4397]/10 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-[#4D2D61]/20"
             title="Add New Chat"
           >
-            <UserPlus className="w-5 h-5 text-[#4D2D61] group-hover:text-[#6B46C1] transition-colors duration-300" />
+            <UserPlus
+              className="w-5 h-5 text-[#4d2d61] group-hover:text-
+            [#7b4397] transition-colors duration-300"
+            />
           </button>
 
           <button
             onClick={handleGroupIconClick}
-            className="group p-2.5 rounded-xl hover:bg-gradient-to-r hover:from-[#4D2D61]/10 hover:to-[#6B46C1]/10 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-[#4D2D61]/20"
+            className="group p-2.5 rounded-xl hover:bg-gradient-to-r hover:from-[#4d2d61]/10 hover:to-[#7b4397]/10 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-[#4D2D61]/20"
             title="Create New Group"
           >
-            <SquarePen className="w-5 h-5 text-[#4D2D61] group-hover:text-[#6B46C1] transition-colors duration-300" />
+            <SquarePen className="w-5 h-5 text-[#4d2d61] group-hover:text-[#7b4397] transition-colors duration-300" />
           </button>
         </div>
       </div>
@@ -515,19 +520,19 @@ const ChatList = ({ onChatSelect }) => {
       {/* Enhanced Search */}
       <div className="px-4 py-3 bg-white/50">
         <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10 pointer-events-none" />
+          <Search className="absolute left-4 top-3 h-4 w-4 text-gray-400 group-focus-within:text-[#4d2d61] transition-colors duration-300" />
           <input
             id="searchInput"
             type="text"
             placeholder={showUserSearch ? "Search users..." : "Search chats..."}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-12 py-3 bg-white/80 backdrop-blur-sm rounded-2xl border border-[#E5D8F6] focus:outline-none focus:ring-2 focus:ring-[#4D2D61]/20 focus:border-[#C1A7E6] text-gray-700 transition-all duration-300 placeholder:text-gray-400"
+            className="w-full pl-12 pr-12 py-3 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 focus:outline-none focus:ring-2 focus:ring-[#4d2d61]/20 focus:border-[#4d2d61]/40 text-gray-700 transition-all duration-300 hover:bg-white hover:shadow-md placeholder:text-gray-400"
           />
-          {searchTerm && (
+          {showUserSearch && (
             <button
               onClick={handleClearSearch}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#4D2D61] transition-all duration-300 hover:scale-110"
+              className="absolute right-4 top-4 text-gray-400 hover:text-[#4d2d61] transition-all duration-300 hover:scale-110"
             >
               <X className="h-4 w-4" />
             </button>
@@ -535,13 +540,12 @@ const ChatList = ({ onChatSelect }) => {
         </div>
       </div>
 
-      {/* المحتوى الرئيسي - يأخذ باقي المساحة */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {authChecking ? (
           <div className="flex flex-col items-center justify-center h-[400px] space-y-4">
             <div className="relative">
-              <div className="animate-spin rounded-full h-10 w-10 border-3 border-gradient-to-r from-[#4D2D61] to-[#6B46C1] border-t-transparent"></div>
-              <div className="absolute inset-0 animate-pulse rounded-full h-10 w-10 bg-gradient-to-r from-[#4D2D61]/20 to-[#6B46C1]/20"></div>
+              <div className="animate-spin rounded-full h-10 w-10 border-3 border-gradient-to-r from-[#4d2d61] to-[#7b4397]border-t-transparent"></div>
+              <div className="absolute inset-0 animate-pulse rounded-full h-10 w-10 bg-gradient-to-r from-[#4d2d61]/20 to-[#7b4397]/20"></div>
             </div>
             <p className="text-gray-500 font-medium animate-pulse">
               Checking authentication...
@@ -549,8 +553,8 @@ const ChatList = ({ onChatSelect }) => {
           </div>
         ) : !auth?.isAuthenticated ? (
           <div className="flex flex-col items-center justify-center h-[400px] text-center space-y-3">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#4D2D61]/10 to-[#6B46C1]/10 flex items-center justify-center">
-              <UserPlus className="w-8 h-8 text-[#4D2D61]" />
+            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#4d2d61]/10 to-[#7b4397]/10 flex items-center justify-center">
+              <UserPlus className="w-8 h-8 text-[#4d2d61]" />
             </div>
             <p className="text-gray-600 font-medium">
               Please login to view conversations
@@ -607,7 +611,7 @@ const ChatList = ({ onChatSelect }) => {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.3, delay: index * 0.1 }}
-                        className="group flex items-center p-4 cursor-pointer rounded-2xl hover:bg-gradient-to-r hover:from-[#4D2D61]/5 hover:to-[#6B46C1]/5 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-[#4D2D61]/10 border border-transparent hover:border-[#4D2D61]/10"
+                        className="group flex items-center p-4 cursor-pointer rounded-2xl hover:bg-gradient-to-r hover:from-[#4d2d61]/5 hover:to-[#7b4397]/5 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-[#4D2D61]/10 border border-transparent hover:border-[#4D2D61]/10"
                         onClick={() => handleUserClick(user)}
                       >
                         <div className="relative">
@@ -641,7 +645,7 @@ const ChatList = ({ onChatSelect }) => {
                           </p>
                         </div>
                         <div className="opacity-0 group-hover:opacity-100 transition-all duration-300">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#4d2d61] to-[#7b4397] flex items-center justify-center">
                             <Plus className="w-4 h-4 text-white" />
                           </div>
                         </div>
@@ -738,8 +742,8 @@ const ChatList = ({ onChatSelect }) => {
               </div>
             ) : conversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[400px] text-center space-y-4">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-[#4D2D61]/10 to-[#6B46C1]/10 flex items-center justify-center">
-                  <UserPlus className="w-10 h-10 text-[#4D2D61]" />
+                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-[#4d2d61]/10 to-[#7b4397]/10 flex items-center justify-center">
+                  <UserPlus className="w-10 h-10 text-[#4d2d61]" />
                 </div>
                 <div>
                   <p className="text-gray-600 font-medium">
@@ -747,7 +751,7 @@ const ChatList = ({ onChatSelect }) => {
                   </p>
                   <p className="text-sm text-gray-400 mt-1 flex items-center justify-center gap-1">
                     Click the{" "}
-                    <UserPlus className="inline w-4 h-4 text-[#4D2D61]" /> icon
+                    <UserPlus className="inline w-4 h-4 text-[#4d2d61]" /> icon
                     to start a new chat
                   </p>
                 </div>
@@ -771,18 +775,20 @@ const ChatList = ({ onChatSelect }) => {
       {/* Enhanced Group Creation Modal */}
       {showGroupCreation && (
         <motion.div
-          className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/5 backdrop-blur-[1px] flex items-center justify-center z-50"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
+          onClick={() => setShowGroupCreation(false)}
         >
           <motion.div
             className="bg-white rounded-3xl w-[400px] shadow-2xl flex flex-col overflow-hidden border border-gray-100"
             initial={{ scale: 0.9, y: 20, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] text-white">
+            <div className="p-6 bg-gradient-to-r from-[#4d2d61] to-[#7b4397] text-white">
               <h3 className="text-xl font-bold">Create New Group</h3>
               <p className="text-white/80 text-sm mt-1">
                 Start a conversation with multiple people
@@ -915,7 +921,7 @@ const ChatList = ({ onChatSelect }) => {
                             key={user._id}
                             className={`flex items-center p-3 hover:bg-white cursor-pointer rounded-xl transition-all duration-300 ${
                               isSelected
-                                ? "bg-gradient-to-r from-[#4D2D61]/5 to-[#6B46C1]/5 border border-[#4D2D61]/20"
+                                ? "bg-gradient-to-r from-[#4D2D61]/5 to-[#7b4397]/5 border border-[#4D2D61]/20"
                                 : "hover:shadow-md"
                             }`}
                             onClick={() =>
@@ -944,7 +950,7 @@ const ChatList = ({ onChatSelect }) => {
                               </p>
                             </div>
                             {isSelected && (
-                              <div className="w-6 h-6 rounded-full bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] flex items-center justify-center">
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-r from-[#4d2d61] to-[#7b4397] flex items-center justify-center">
                                 <Check className="w-3 h-3 text-white" />
                               </div>
                             )}
@@ -965,7 +971,7 @@ const ChatList = ({ onChatSelect }) => {
                   </span>
                   {selectedUsers.length > 0 && (
                     <button
-                      className="text-[#4D2D61] hover:text-[#6B46C1] font-medium transition-colors duration-300"
+                      className="text-[#4D2D61] hover:text-[#7b4397]font-medium transition-colors duration-300"
                       onClick={() => setSelectedUsers([])}
                     >
                       Clear Selection
@@ -991,7 +997,7 @@ const ChatList = ({ onChatSelect }) => {
               </button>
               <button
                 type="button"
-                className="px-6 py-3 bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] text-white rounded-2xl hover:shadow-lg hover:shadow-[#4D2D61]/25 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium hover:scale-105"
+                className="px-6 py-3 bg-gradient-to-r from-[#4d2d61] to-[#7b4397] text-white rounded-2xl hover:shadow-lg hover:shadow-[#4D2D61]/25 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium hover:scale-105"
                 onClick={handleCreateGroup}
                 disabled={
                   groupCreationLoading || !groupName || selectedUsers.length < 1

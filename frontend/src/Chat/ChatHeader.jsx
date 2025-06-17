@@ -101,7 +101,7 @@ function ChatHeader({ user, onToggleInfo, onBackClick, isMobile }) {
             onClick={onBackClick}
             className="p-2 rounded-full hover:bg-gray-100 transition-colors"
           >
-            <IoMdArrowBack className="w-5 h-5 text-[#4D2D61]" />
+            <IoMdArrowBack className="w-5 h-5 text-[#4d2d61]" />
           </button>
         )}
 
@@ -113,7 +113,7 @@ function ChatHeader({ user, onToggleInfo, onBackClick, isMobile }) {
           >
             <Suspense
               fallback={
-                <div className="w-full h-full rounded-full flex items-center justify-center text-white text-sm font-semibold bg-[#4D2D61]">
+                <div className="w-full h-full rounded-full flex items-center justify-center text-white text-sm font-semibold bg-[#4d2d61]">
                   {otherUser.name?.[0]?.toUpperCase() || "?"}
                 </div>
               }
@@ -125,7 +125,7 @@ function ChatHeader({ user, onToggleInfo, onBackClick, isMobile }) {
                   className="w-full h-full rounded-full object-cover transition-transform group-hover:scale-110"
                 />
               ) : (
-                <div className="w-full h-full rounded-full flex items-center justify-center text-white text-sm font-semibold bg-[#4D2D61]">
+                <div className="w-full h-full rounded-full flex items-center justify-center text-white text-sm font-semibold bg-[#4d2d61]">
                   {otherUser.name?.[0]?.toUpperCase() || "?"}
                 </div>
               )}
@@ -140,7 +140,7 @@ function ChatHeader({ user, onToggleInfo, onBackClick, isMobile }) {
           )}
         </div>
         <div>
-          <h3 className="font-semibold text-[#4D2D61] text-base">
+          <h3 className="font-semibold text-[#4d2d61] text-base">
             {otherUser.name}
           </h3>
           <p className="text-xs text-gray-500 flex items-center">
@@ -157,7 +157,7 @@ function ChatHeader({ user, onToggleInfo, onBackClick, isMobile }) {
 
       <div className="flex items-center gap-2">
         <button
-          className="p-2 hover:bg-gray-100 rounded-full text-[#4D2D61] transition-colors"
+          className="p-2 hover:bg-gray-100 rounded-full text-[#4d2d61] transition-colors"
           title="More Options"
           onClick={onToggleInfo}
         >

@@ -238,10 +238,10 @@ const ChatInput = ({ chatId }) => {
                   whileTap={{ scale: 0.95 }}
                   className="p-1.5 text-gray-500 rounded-2xl transition-all duration-200"
                   style={{
-                    color: showEmojiPicker ? "#6B46C1" : undefined,
+                    color: showEmojiPicker ? "#7b4397" : undefined,
                   }}
                   onMouseEnter={(e) => {
-                    e.target.style.color = "#6B46C1";
+                    e.target.style.color = "#7b4397";
                     e.target.style.backgroundColor = "rgba(107, 70, 193, 0.1)";
                   }}
                   onMouseLeave={(e) => {
@@ -279,7 +279,7 @@ const ChatInput = ({ chatId }) => {
                 whileTap={{ scale: 0.95 }}
                 className="p-1.5 text-gray-500 rounded-2xl transition-all duration-200"
                 onMouseEnter={(e) => {
-                  e.target.style.color = "#6B46C1";
+                  e.target.style.color = "#7b4397";
                   e.target.style.backgroundColor = "rgba(107, 70, 193, 0.1)";
                 }}
                 onMouseLeave={(e) => {
@@ -331,20 +331,20 @@ const ChatInput = ({ chatId }) => {
               style={
                 message.trim().length > 0
                   ? {
-                      background: "linear-gradient(to right, #4D2D61, #6B46C1)",
+                      background: "linear-gradient(to right, #4d2d61,#7b4397)",
                     }
                   : {}
               }
               onMouseEnter={(e) => {
                 if (message.trim().length > 0) {
                   e.target.style.background =
-                    "linear-gradient(to right, #3D1D51, #5B36B1)";
+                    "linear-gradient(to right,#4d2d61, #7b4397";
                 }
               }}
               onMouseLeave={(e) => {
                 if (message.trim().length > 0) {
                   e.target.style.background =
-                    "linear-gradient(to right, #4D2D61, #6B46C1)";
+                    "linear-gradient(to right, #4d2d61, #7b4397)";
                 }
               }}
               title="Send Message"
