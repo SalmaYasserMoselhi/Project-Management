@@ -490,6 +490,104 @@ export const addCardComment = createAsyncThunk(
   }
 );
 
+// حذف تعليق أو رد
+export const deleteCardComment = createAsyncThunk(
+  "card/deleteCardComment",
+  async ({ cardId, commentId, parentId }, { rejectWithValue }) => {
+    try {
+      // The same endpoint is used for comments and replies
+      await axios.delete(
+        `${BASE_URL}/api/v1/cards/${cardId}/comments/${commentId}`
+      );
+      return { commentId, parentId }; // Pass identifiers to the reducer
+    } catch (error) {
+      console.error(
+        "API Error deleting comment:",
+        error.response?.data || error
+      );
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to delete comment."
+      );
+    }
+  }
+);
+
+// تحديث تعليق
+export const updateCardComment = createAsyncThunk(
+  "card/updateCardComment",
+  async ({ cardId, commentId, text }, { rejectWithValue }) => {
+    if (!text || !text.trim()) {
+      return rejectWithValue("Comment text cannot be empty");
+    }
+
+    try {
+      const response = await axios.patch(
+        `${BASE_URL}/api/v1/cards/${cardId}/comments/${commentId}`,
+        { text: text.trim() }
+      );
+      return response.data.data.comment;
+    } catch (error) {
+      console.error(
+        "API Error updating comment:",
+        error.response?.data || error
+      );
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update comment."
+      );
+    }
+  }
+);
+
+// تحديث رد
+export const updateCardReply = createAsyncThunk(
+  "card/updateCardReply",
+  async ({ cardId, replyId, text }, { rejectWithValue }) => {
+    if (!text || !text.trim()) {
+      return rejectWithValue("Reply text cannot be empty");
+    }
+    try {
+      // The endpoint for updating a reply is the same as for a comment
+      const response = await axios.patch(
+        `${BASE_URL}/api/v1/cards/${cardId}/comments/${replyId}`,
+        { text: text.trim() }
+      );
+      // We need to return the parent comment ID to find it in the reducer
+      return {
+        commentId: response.data.data.comment.parentId,
+        updatedReply: response.data.data.comment,
+      };
+    } catch (error) {
+      console.error("API Error updating reply:", error.response?.data || error);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update reply."
+      );
+    }
+  }
+);
+
+// إضافة رد على تعليق
+export const addReplyToComment = createAsyncThunk(
+  "card/addReplyToComment",
+  async ({ cardId, commentId, text }, { rejectWithValue }) => {
+    if (!text || !text.trim()) {
+      return rejectWithValue("Reply text is required");
+    }
+
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/api/v1/cards/${cardId}/comments/${commentId}/reply`,
+        { text: text.trim() }
+      );
+      return { commentId, reply: response.data.data.reply };
+    } catch (error) {
+      console.error("API Error adding reply:", error.response?.data || error);
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to add reply."
+      );
+    }
+  }
+);
+
 const initialState = {
   id: null,
   title: "",
@@ -660,22 +758,24 @@ const cardDetailsSlice = createSlice({
             id: comment._id,
             text: comment.text,
             userId: comment.author?._id || comment.userId,
+            avatar: comment.author?.avatar,
             username:
               `${comment.author?.firstName || ""} ${
                 comment.author?.lastName || ""
               }`.trim() || "Anonymous",
             timestamp: comment.createdAt,
-            edited: comment.edited === true,
+            edited: comment.edited?.isEdited === true,
             replies: (comment.replies || []).map((reply) => ({
               id: reply._id,
               text: reply.text,
               userId: reply.author?._id || reply.userId,
+              avatar: reply.author?.avatar,
               username:
                 `${reply.author?.firstName || ""} ${
                   reply.author?.lastName || ""
                 }`.trim() || "Anonymous",
               timestamp: reply.createdAt,
-              edited: reply.edited === true,
+              edited: reply.edited?.isEdited === true,
             })),
           }));
         }
@@ -993,22 +1093,28 @@ const cardDetailsSlice = createSlice({
           id: comment._id,
           text: comment.text,
           userId: comment.author?._id || comment.userId,
+          avatar: comment.author?.avatar,
           username:
             `${comment.author?.firstName || ""} ${
               comment.author?.lastName || ""
-            }`.trim() || "Anonymous",
+            }`.trim() ||
+            comment.author?.username ||
+            "Anonymous",
           timestamp: comment.createdAt,
-          edited: comment.edited === true,
+          edited: comment.edited?.isEdited === true,
           replies: (comment.replies || []).map((reply) => ({
             id: reply._id,
             text: reply.text,
             userId: reply.author?._id || reply.userId,
+            avatar: reply.author?.avatar,
             username:
               `${reply.author?.firstName || ""} ${
                 reply.author?.lastName || ""
-              }`.trim() || "Anonymous",
+              }`.trim() ||
+              reply.author?.username ||
+              "Anonymous",
             timestamp: reply.createdAt,
-            edited: reply.edited === true,
+            edited: reply.edited?.isEdited === true,
           })),
         }));
       })
@@ -1032,10 +1138,13 @@ const cardDetailsSlice = createSlice({
             id: comment._id,
             text: comment.text,
             userId: comment.author?._id || comment.userId,
+            avatar: comment.author?.avatar,
             username:
               `${comment.author?.firstName || ""} ${
                 comment.author?.lastName || ""
-              }`.trim() || "Anonymous",
+              }`.trim() ||
+              comment.author?.username ||
+              "Anonymous",
             timestamp: comment.createdAt || new Date().toISOString(),
             edited: false,
             replies: comment.replies || [],
@@ -1045,6 +1154,130 @@ const cardDetailsSlice = createSlice({
       .addCase(addCardComment.rejected, (state, action) => {
         state.commentsLoading = false;
         state.commentsError = action.payload || "Failed to add comment";
+      })
+
+      // معالجة حذف تعليق أو رد
+      .addCase(deleteCardComment.pending, (state) => {
+        state.commentsLoading = true;
+        state.commentsError = null;
+      })
+      .addCase(deleteCardComment.fulfilled, (state, action) => {
+        state.commentsLoading = false;
+        const { commentId, parentId } = action.payload;
+
+        if (parentId) {
+          // This is a reply, so find the parent and filter it from the replies array
+          const parentComment = state.comments.find(
+            (comment) => comment.id === parentId
+          );
+          if (parentComment) {
+            parentComment.replies = parentComment.replies.filter(
+              (reply) => reply.id !== commentId
+            );
+          }
+        } else {
+          // This is a main comment, so filter it from the top-level comments array
+          state.comments = state.comments.filter(
+            (comment) => comment.id !== commentId
+          );
+        }
+      })
+      .addCase(deleteCardComment.rejected, (state, action) => {
+        state.commentsLoading = false;
+        state.commentsError = action.payload || "Failed to delete comment";
+      })
+
+      // معالجة تحديث تعليق
+      .addCase(updateCardComment.pending, (state) => {
+        state.commentsLoading = true;
+        state.commentsError = null;
+      })
+      .addCase(updateCardComment.fulfilled, (state, action) => {
+        state.commentsLoading = false;
+        const updatedComment = action.payload;
+        const index = state.comments.findIndex(
+          (comment) => comment.id === updatedComment._id
+        );
+        if (index !== -1) {
+          state.comments[index].text = updatedComment.text;
+          state.comments[index].edited = true;
+          // Optionally update other fields if the API returns them
+          state.comments[index].timestamp =
+            updatedComment.edited?.editedAt || updatedComment.updatedAt;
+        }
+      })
+      .addCase(updateCardComment.rejected, (state, action) => {
+        state.commentsLoading = false;
+        state.commentsError = action.payload || "Failed to update comment";
+      })
+
+      // معالجة تحديث رد
+      .addCase(updateCardReply.pending, (state) => {
+        state.commentsLoading = true;
+        state.commentsError = null;
+      })
+      .addCase(updateCardReply.fulfilled, (state, action) => {
+        state.commentsLoading = false;
+        const { commentId, updatedReply } = action.payload;
+
+        const parentComment = state.comments.find(
+          (comment) => comment.id === commentId
+        );
+
+        if (parentComment && parentComment.replies) {
+          const replyIndex = parentComment.replies.findIndex(
+            (reply) => reply.id === updatedReply._id
+          );
+
+          if (replyIndex !== -1) {
+            parentComment.replies[replyIndex].text = updatedReply.text;
+            parentComment.replies[replyIndex].edited = true;
+            parentComment.replies[replyIndex].timestamp =
+              updatedReply.edited?.editedAt || updatedReply.updatedAt;
+          }
+        }
+      })
+      .addCase(updateCardReply.rejected, (state, action) => {
+        state.commentsLoading = false;
+        state.commentsError = action.payload || "Failed to update reply";
+      })
+
+      // معالجة إضافة رد
+      .addCase(addReplyToComment.pending, (state) => {
+        state.commentsLoading = true;
+        state.commentsError = null;
+      })
+      .addCase(addReplyToComment.fulfilled, (state, action) => {
+        state.commentsLoading = false;
+        const { commentId, reply } = action.payload;
+
+        const parentComment = state.comments.find(
+          (comment) => comment.id === commentId
+        );
+
+        if (parentComment) {
+          if (!parentComment.replies) {
+            parentComment.replies = [];
+          }
+          parentComment.replies.push({
+            id: reply._id,
+            text: reply.text,
+            userId: reply.author?._id || reply.userId,
+            avatar: reply.author?.avatar,
+            username:
+              `${reply.author?.firstName || ""} ${
+                reply.author?.lastName || ""
+              }`.trim() ||
+              reply.author?.username ||
+              "Anonymous",
+            timestamp: reply.createdAt,
+            edited: reply.edited?.isEdited === true,
+          });
+        }
+      })
+      .addCase(addReplyToComment.rejected, (state, action) => {
+        state.commentsLoading = false;
+        state.commentsError = action.payload || "Failed to add reply";
       });
   },
 });
