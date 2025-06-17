@@ -446,6 +446,50 @@ export const deleteAttachment = createAsyncThunk(
   }
 );
 
+// جلب تعليقات البطاقة
+export const fetchCardComments = createAsyncThunk(
+  "card/fetchCardComments",
+  async (cardId, { rejectWithValue }) => {
+    try {
+      const response = await axios.get(
+        `${BASE_URL}/api/v1/cards/${cardId}/comments`
+      );
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch comments"
+      );
+    }
+  }
+);
+
+// إضافة تعليق جديد للبطاقة
+export const addCardComment = createAsyncThunk(
+  "card/addCardComment",
+  async ({ cardId, text }, { rejectWithValue }) => {
+    if (!text || !text.trim()) {
+      return rejectWithValue("Comment text is required");
+    }
+
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/api/v1/cards/${cardId}/comments`,
+        {
+          text: text.trim(),
+        }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("API Error adding comment:", error.response?.data || error);
+
+      if (error.response?.data?.message) {
+        return rejectWithValue(error.response.data.message);
+      }
+      return rejectWithValue("Failed to add comment. Please try again.");
+    }
+  }
+);
+
 const initialState = {
   id: null,
   title: "",
@@ -463,8 +507,10 @@ const initialState = {
   boardId: null,
   loading: false,
   saveLoading: false,
+  commentsLoading: false,
   error: null,
   saveError: null,
+  commentsError: null,
 };
 
 const cardDetailsSlice = createSlice({
@@ -899,6 +945,66 @@ const cardDetailsSlice = createSlice({
         state.attachments = state.attachments.filter(
           (attachment) => attachment.id !== action.payload.attachmentId
         );
+      })
+
+      // معالجة جلب التعليقات
+      .addCase(fetchCardComments.pending, (state) => {
+        state.commentsLoading = true;
+        state.commentsError = null;
+      })
+      .addCase(fetchCardComments.fulfilled, (state, action) => {
+        state.commentsLoading = false;
+        const commentsData = Array.isArray(action.payload)
+          ? action.payload
+          : action.payload.comments || [];
+
+        state.comments = commentsData.map((comment) => ({
+          id: comment._id,
+          text: comment.text,
+          userId: comment.user?._id || comment.userId,
+          username: comment.user?.name || "Anonymous",
+          timestamp: comment.createdAt,
+          edited: comment.edited === true,
+          replies: (comment.replies || []).map((reply) => ({
+            id: reply._id,
+            text: reply.text,
+            userId: reply.user?._id || reply.userId,
+            username: reply.user?.name || "Anonymous",
+            timestamp: reply.createdAt,
+            edited: reply.edited === true,
+          })),
+        }));
+      })
+      .addCase(fetchCardComments.rejected, (state, action) => {
+        state.commentsLoading = false;
+        state.commentsError = action.payload || "Failed to fetch comments";
+      })
+
+      // معالجة إضافة تعليق
+      .addCase(addCardComment.pending, (state) => {
+        state.commentsLoading = true;
+        state.commentsError = null;
+      })
+      .addCase(addCardComment.fulfilled, (state, action) => {
+        state.commentsLoading = false;
+        const comment = action.payload;
+
+        // تحويل الاستجابة للتوافق مع هيكل البيانات في واجهة المستخدم
+        if (comment && comment._id) {
+          state.comments.push({
+            id: comment._id,
+            text: comment.text,
+            userId: comment.user?._id || comment.userId,
+            username: comment.user?.name || "Anonymous",
+            timestamp: comment.createdAt || new Date().toISOString(),
+            edited: false,
+            replies: comment.replies || [],
+          });
+        }
+      })
+      .addCase(addCardComment.rejected, (state, action) => {
+        state.commentsLoading = false;
+        state.commentsError = action.payload || "Failed to add comment";
       });
   },
 });

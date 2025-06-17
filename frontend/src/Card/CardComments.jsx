@@ -7,6 +7,8 @@ import {
   addReply,
   removeReply,
   editReply,
+  addCardComment,
+  fetchCardComments,
 } from "../features/Slice/cardSlice/cardDetailsSlice";
 import {
   Send,
@@ -98,6 +100,12 @@ const EditForm = ({
 export default function CardComments() {
   const dispatch = useDispatch();
   const comments = useSelector((state) => state.cardDetails.comments || []);
+  const cardId = useSelector((state) => state.cardDetails.id);
+  const { commentsLoading, commentsError } = useSelector(
+    (state) => state.cardDetails
+  );
+  const currentUser = useSelector((state) => state.auth?.user || null);
+
   const [newCommentText, setNewCommentText] = useState("");
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editText, setEditText] = useState("");
@@ -115,6 +123,13 @@ export default function CardComments() {
   const replyTextRef = useRef(null);
   const editReplyTextRef = useRef(null);
   const dropdownRefs = useRef({});
+
+  // Fetch comments when the component mounts or cardId changes
+  useEffect(() => {
+    if (cardId) {
+      dispatch(fetchCardComments(cardId));
+    }
+  }, [cardId, dispatch]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -169,19 +184,20 @@ export default function CardComments() {
     if (editReplyTextRef.current) autoResizeTextarea(editReplyTextRef);
   }, [editReplyText]);
 
-  const handleAddComment = () => {
-    if (newCommentText.trim()) {
-      dispatch(
-        addComment({
-          id: Date.now(),
-          text: newCommentText,
-          userId: "current-user",
-          username: "You",
-          timestamp: new Date().toISOString(),
-          replies: [],
-        })
-      );
-      setNewCommentText("");
+  const handleAddComment = async () => {
+    if (newCommentText.trim() && cardId) {
+      try {
+        await dispatch(
+          addCardComment({
+            cardId,
+            text: newCommentText,
+          })
+        ).unwrap();
+        setNewCommentText("");
+      } catch (error) {
+        console.error("Failed to add comment:", error);
+        // يمكنك إضافة toast notification هنا لإظهار الخطأ للمستخدم
+      }
     }
   };
 
@@ -307,7 +323,9 @@ export default function CardComments() {
                   <div className="flex-grow">
                     <div className="flex items-center">
                       <span className="font-medium text-sm text-gray-800">
-                        {comment.username}
+                        {comment.userId === currentUser?._id
+                          ? "You"
+                          : comment.username}
                       </span>
                       <span className="ml-2 text-xs text-gray-500">
                         {formatDistanceToNow(new Date(comment.timestamp), {
@@ -335,7 +353,7 @@ export default function CardComments() {
                   </div>
 
                   {editingCommentId !== comment.id &&
-                    comment.userId === "current-user" && (
+                    comment.userId === currentUser?._id && (
                       <div className="relative">
                         <button
                           className="text-gray-400 hover:text-gray-600 p-1"
@@ -454,7 +472,9 @@ export default function CardComments() {
                             <div className="flex-grow">
                               <div className="flex items-center">
                                 <span className="font-medium text-xs text-gray-800">
-                                  {reply.username}
+                                  {reply.userId === currentUser?._id
+                                    ? "You"
+                                    : reply.username}
                                 </span>
                                 <span className="ml-2 text-xs text-gray-500">
                                   {formatDistanceToNow(
@@ -485,7 +505,7 @@ export default function CardComments() {
                               )}
                             </div>
 
-                            {reply.userId === "current-user" &&
+                            {reply.userId === currentUser?._id &&
                               editingReplyId !== reply.id && (
                                 <div className="relative">
                                   <button
@@ -526,7 +546,13 @@ export default function CardComments() {
         </div>
       ) : (
         <div className="py-8 text-center text-gray-500">
-          No comments yet. Be the first to comment!
+          {commentsLoading ? (
+            <span>Loading comments...</span>
+          ) : commentsError ? (
+            <span className="text-red-500">Error: {commentsError}</span>
+          ) : (
+            <span>No comments yet. Be the first to comment!</span>
+          )}
         </div>
       )}
 
@@ -550,10 +576,12 @@ export default function CardComments() {
           />
           <button
             className={`p-2 rounded-md bg-[#4D2D61] ${
-              newCommentText.trim() ? "opacity-100" : "opacity-70"
+              newCommentText.trim() && !commentsLoading
+                ? "opacity-100"
+                : "opacity-70"
             }`}
             onClick={handleAddComment}
-            disabled={!newCommentText.trim()}
+            disabled={!newCommentText.trim() || commentsLoading || !cardId}
           >
             <Send size={16} className="text-white" />
           </button>
