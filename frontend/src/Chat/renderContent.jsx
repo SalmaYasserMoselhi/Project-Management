@@ -284,7 +284,7 @@ const renderContent = (message, isSender = false) => {
     return (
       <div className="flex items-center gap-2 text-gray-400 italic bg-gray-50 p-3 rounded-lg border border-dashed border-gray-200">
         <FiFile className="w-5 h-5" />
-        <span className="text-sm">File sent</span>
+        <span className="text-base">File sent</span>
       </div>
     );
   }
@@ -294,7 +294,7 @@ const renderContent = (message, isSender = false) => {
       {/* Message text */}
       {text && (
         <div
-          className="text-[0.9rem] leading-[1.5]"
+          className="text-base leading-[1.5]"
           style={{ color: isSender ? "#ffffff" : "#374151" }}
         >
           {text}

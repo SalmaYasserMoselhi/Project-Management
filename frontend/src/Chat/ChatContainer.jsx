@@ -179,7 +179,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
           <div
             className="relative p-5"
             style={{
-              background: "linear-gradient(to right, #4D2D61, #6B46C1)",
+              background: "linear-gradient(to right, #4d2d61,#7b4397)",
             }}
           >
             <div className="absolute inset-0 bg-black/10"></div>
@@ -222,7 +222,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
                     <h5 className="text-gray-800 font-semibold text-sm flex items-center gap-2">
                       <UserPlus
                         className="w-3 h-3"
-                        style={{ color: "#6B46C1" }}
+                        style={{ color: "#7b4397" }}
                       />
                       Add New Members
                     </h5>
@@ -261,7 +261,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
                                 ? {
                                     background:
                                       "linear-gradient(to right, rgba(77, 45, 97, 0.1), rgba(107, 70, 193, 0.1))",
-                                    borderColor: "#6B46C1",
+                                    borderColor: "#7b4397",
                                   }
                                 : {}
                             }
@@ -283,7 +283,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
                                 disabled={alreadyInGroup}
                                 className="h-3 w-3 rounded border-gray-300 focus:ring-2"
                                 style={{
-                                  accentColor: "#6B46C1",
+                                  accentColor: "#7b4397",
                                 }}
                               />
                             </div>
@@ -331,20 +331,20 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
                       selectedUsers.length > 0
                         ? {
                             background:
-                              "linear-gradient(to right, #4D2D61, #6B46C1)",
+                              "linear-gradient(to right, #4d2d61, #7b4397)",
                           }
                         : {}
                     }
                     onMouseEnter={(e) => {
                       if (selectedUsers.length > 0) {
                         e.target.style.background =
-                          "linear-gradient(to right, #3D1D51, #5B36B1)";
+                          "linear-gradient(to right, #4d2d61, #7b4397)";
                       }
                     }}
                     onMouseLeave={(e) => {
                       if (selectedUsers.length > 0) {
                         e.target.style.background =
-                          "linear-gradient(to right, #4D2D61, #6B46C1)";
+                          "linear-gradient(to right, #4d2d61, #7b4397)";
                       }
                     }}
                   >
@@ -601,7 +601,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
           <div className="p-4 border-b border-gray-200/60">
             <button
               onClick={onBackClick}
-              className="flex items-center gap-3 text-[#4D2D61] hover:text-[#6B46C1] transition-colors duration-300 font-medium"
+              className="flex items-center gap-3 text-[#4d2d61] hover:text-[#7b4397]transition-colors duration-300 font-medium"
             >
               <ArrowLeft className="w-5 h-5" />
               <span>Back to Conversations</span>
@@ -623,9 +623,9 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="relative mb-8"
             >
-              <div className="w-32 h-32 mx-auto bg-gradient-to-br from-[#4D2D61]/10 to-[#6B46C1]/10 rounded-full flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#4D2D61]/5 to-[#6B46C1]/5 animate-pulse"></div>
-                <MessageCircle className="w-16 h-16 text-[#4D2D61] relative z-10" />
+              <div className="w-30 h-30 mx-auto bg-gradient-to-br from-[#4d2d61]/10 to-[#7b4397]/10 rounded-full flex items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#4d2d61]/5 to-[#7b4397]/5 animate-pulse"></div>
+                <MessageCircle className="w-16 h-16 text-[#4d2d61] relative z-10" />
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{
@@ -633,7 +633,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
                     repeat: Number.POSITIVE_INFINITY,
                     ease: "linear",
                   }}
-                  className="absolute inset-2 border-2 border-dashed border-[#4D2D61]/20 rounded-full"
+                  className="absolute inset-2 border-2 border-dashed border-[#4d2d61]/20 rounded-full"
                 ></motion.div>
               </div>
               <motion.div
@@ -645,7 +645,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
                 }}
                 className="absolute -top-2 -right-2"
               >
-                <Sparkles className="w-6 h-6 text-[#6B46C1]" />
+                <Sparkles className="w-5 h-5 text-[#7b4397]" />
               </motion.div>
             </motion.div>
 
@@ -653,9 +653,9 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="text-3xl font-bold bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] bg-clip-text text-transparent mb-4"
+              className="text-3xl font-bold bg-gradient-to-r from-[#4d2d61] to-[#7b4397] bg-clip-text text-transparent mb-4"
             >
-              Welcome to Beehive Chat
+              Welcome to Nexus Chat
             </motion.h2>
 
             <motion.p
@@ -680,7 +680,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
                   <span>Real-time messaging</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-[#4D2D61]" />
+                  <Users className="w-4 h-4 text-[#4d2d61]" />
                   <span>Group conversations</span>
                 </div>
               </div>
@@ -692,7 +692,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
                   repeat: Number.POSITIVE_INFINITY,
                   ease: "easeInOut",
                 }}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#4D2D61]/10 to-[#6B46C1]/10 rounded-full text-[#4D2D61] font-medium"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#4d2d61]/10 to-[#7b4397]/10 rounded-full text-[#4D2D61] font-medium"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span>Start your first conversation</span>
@@ -732,7 +732,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
                       delay: 0,
                     }}
                     className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: "#6B46C1" }}
+                    style={{ backgroundColor: "#7b4397" }}
                   />
                   <motion.div
                     animate={{ scale: [1, 1.3, 1] }}
@@ -742,7 +742,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
                       delay: 0.2,
                     }}
                     className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: "#6B46C1" }}
+                    style={{ backgroundColor: "#7b4397" }}
                   />
                   <motion.div
                     animate={{ scale: [1, 1.3, 1] }}
@@ -752,7 +752,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
                       delay: 0.4,
                     }}
                     className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: "#6B46C1" }}
+                    style={{ backgroundColor: "#7b4397" }}
                   />
                 </div>
                 <span className="text-sm text-gray-600 font-medium">
