@@ -1,13 +1,14 @@
+// taskCARD
 
-import drag from "../assets/drag-icon.png";
-import avatar3 from "../assets/Avatar3.png";
-import addButton from "../assets/Add Button.png";
-import List from "../assets/prime_list.png";
-import File from "../assets/file_present.png";
-import third from "../assets/third.png";
-import { useState, useRef, useEffect } from "react";
-import axios from "axios";
-import CardDetails from "../Card/CardDetails";
+import drag from "../assets/drag-icon.png"
+import avatar3 from "../assets/Avatar3.png"
+import addButton from "../assets/Add Button.png"
+import List from "../assets/prime_list.png"
+import File from "../assets/file_present.png"
+import third from "../assets/third.png"
+import { useState, useRef, useEffect } from "react"
+import axios from "axios"
+import CardDetails from "../Card/CardDetails"
 
 const TaskCard = ({
   id,
@@ -21,67 +22,65 @@ const TaskCard = ({
   labels = [],
   onCardUpdate,
 }) => {
-  const [isCardDetailsOpen, setIsCardDetailsOpen] = useState(false);
-  const [actualFileCount, setActualFileCount] = useState(fileCount);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  const [isCardDetailsOpen, setIsCardDetailsOpen] = useState(false)
+  const [actualFileCount, setActualFileCount] = useState(fileCount)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const dropdownRef = useRef(null)
 
-  const BASE_URL = "http://localhost:3000";
+  const BASE_URL = "http://localhost:3000"
 
-  const MAX_VISIBLE_LABELS = 2;
+  const MAX_VISIBLE_LABELS = 2
 
-  // Fetch file count if needed
   useEffect(() => {
     if (id && !id.startsWith("temp-")) {
       const fetchAttachments = async () => {
         try {
-          const response = await axios.get(`${BASE_URL}/api/v1/cards/${id}`);
+          const response = await axios.get(`${BASE_URL}/api/v1/cards/${id}`)
           if (
             response.data &&
             response.data.data &&
             response.data.data.attachments
           ) {
-            setActualFileCount(response.data.data.attachments.length);
+            setActualFileCount(response.data.data.attachments.length)
           }
         } catch (err) {
-          console.error("Error fetching attachments:", err);
+          console.error("Error fetching attachments:", err)
         }
-      };
+      }
 
-      fetchAttachments();
+      fetchAttachments()
     } else {
-      setActualFileCount(fileCount);
+      setActualFileCount(fileCount)
     }
-  }, [id, fileCount]);
+  }, [id, fileCount])
 
   const priorityColors = {
     high: { color: "#DC2626", bg: "#FFECEC" },
     medium: { color: "#F59E0B", bg: "#FFF6E6" },
     low: { color: "#16A34A", bg: "#E7F7EC" },
     none: { color: "#9CA3AF", bg: "#F3F4F6" },
-  };
+  }
 
-  const normalizedPriority = (priority || "medium").toLowerCase();
+  const normalizedPriority = (priority || "medium").toLowerCase()
   const priorityStyle =
-    priorityColors[normalizedPriority] || priorityColors.medium;
+    priorityColors[normalizedPriority] || priorityColors.medium
 
-  // Open card details modal except when clicking dropdown
   const handleCardClick = (e) => {
-    if (e.target.closest(".dropdown-button")) return;
-    setIsCardDetailsOpen(true);
-  };
+    if (e.target.closest(".dropdown-button")) return
+    setIsCardDetailsOpen(true)
+  }
 
-  const handleCardClose = () => setIsCardDetailsOpen(false);
+  const handleCardClose = () => setIsCardDetailsOpen(false)
 
   const handleCardSaved = (originalListId, newListId) => {
     if (onCardUpdate) {
       if (originalListId && newListId && originalListId !== newListId) {
-        onCardUpdate(originalListId, newListId);
+        onCardUpdate(originalListId, newListId)
       } else {
-        onCardUpdate();
+        onCardUpdate()
       }
     }
-  };
+  }
 
   const handleArchiveCard = async () => {
     try {
@@ -89,16 +88,16 @@ const TaskCard = ({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-      });
-      const result = await response.json();
+      })
+      const result = await response.json()
       if (response.ok && result.status === "success") {
-        setIsDropdownOpen(false);
-        onCardUpdate?.();
+        setIsDropdownOpen(false)
+        onCardUpdate?.()
       }
     } catch (error) {
-      console.error("Error archiving card:", error);
+      console.error("Error archiving card:", error)
     }
-  };
+  }
 
   const handleDeleteCard = async () => {
     try {
@@ -108,39 +107,39 @@ const TaskCard = ({
         headers: {
           "Content-Type": "application/json",
         },
-      });
+      })
 
       if (response.ok) {
-        setIsDropdownOpen(false);
-        onCardUpdate?.();
+        setIsDropdownOpen(false)
+        onCardUpdate?.()
       }
     } catch (error) {
-      console.error("Error deleting card:", error);
+      console.error("Error deleting card:", error)
     }
-  };
+  }
 
-  // Close dropdown if clicked outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
+        setIsDropdownOpen(false)
       }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
-  // Drag-and-drop handlers
   const handleDragStart = (e) => {
-    e.dataTransfer.setData("cardId", id);
-    e.dataTransfer.setData("sourceListId", listId);
-    e.dataTransfer.setData("cardTitle", title || "Untitled");
-    e.currentTarget.style.opacity = "0.5";
-  };
+    e.stopPropagation() // Prevent bubbling to list drag handlers
+    e.dataTransfer.setData("cardId", id)
+    e.dataTransfer.setData("sourceListId", listId)
+    e.dataTransfer.setData("cardTitle", title || "Untitled")
+    e.dataTransfer.setData("type", "card") // Set type to differentiate from list
+    e.currentTarget.style.opacity = "0.5"
+  }
 
   const handleDragEnd = (e) => {
-    e.currentTarget.style.opacity = "1";
-  };
+    e.currentTarget.style.opacity = "1"
+  }
 
   return (
     <>
@@ -295,9 +294,9 @@ const TaskCard = ({
         />
       )}
     </>
-  );
-};
+  )
+}
 
-export default TaskCard;
+export default TaskCard
 
 

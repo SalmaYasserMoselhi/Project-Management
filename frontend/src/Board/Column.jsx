@@ -1,4 +1,4 @@
-
+//Column
 
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
@@ -430,3 +430,4 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists }
 };
 
 export default Column;
+

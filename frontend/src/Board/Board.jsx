@@ -1,4 +1,7 @@
-"use client";
+
+
+
+"use client"
 
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
@@ -127,6 +130,36 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
     setTempFilters(activeFilters);
   }, []);
 
+  const handleListDrop = async (e, targetCol) => {
+    e.preventDefault()
+
+    const draggedType = e.dataTransfer.getData("type")
+    const draggedListId = e.dataTransfer.getData("listId")
+    if (draggedType !== "list" || !draggedListId) return
+
+    const targetListId = targetCol.id || targetCol._id
+    if (draggedListId === targetListId) return
+
+    const draggedIndex = columns.findIndex((col) => (col.id || col._id) === draggedListId)
+    const targetIndex = columns.findIndex((col) => (col.id || col._id) === targetListId)
+    if (draggedIndex === -1 || targetIndex === -1) return
+
+    const updatedColumns = [...columns]
+    const [moved] = updatedColumns.splice(draggedIndex, 1)
+    updatedColumns.splice(targetIndex, 0, moved)
+    setColumns(updatedColumns)
+
+    try {
+      await axios.patch(`${BASE_URL}/api/v1/lists/${draggedListId}/reorder`, {
+        position: targetIndex,
+      }, { withCredentials: true })
+      toast.success("List reordered")
+    } catch (err) {
+      console.error("[Board.jsx] Error reordering list:", err)
+      toast.error("Failed to reorder list")
+    }
+  }
+
   const updateColumnsWithCards = (cardsByList, sortBy = "position") => {
     console.log("[Board.jsx] Received cardsByList:", cardsByList);
     console.log("[Board.jsx] Current columns:", columns);
@@ -142,11 +175,9 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
 
     updatedColumns.forEach((col) => {
       console.log(
-        `[Board.jsx] Dispatching refreshList for listId: ${
-          col.id || col._id
-        }, sortBy: ${sortBy}, cards:`,
-        col.cards
-      );
+        `[Board.jsx] Dispatching refreshList for listId: ${col.id || col._id}, sortBy: ${sortBy}, cards:`,
+        col_ode
+      )
       const event = new CustomEvent("refreshList", {
         detail: { listId: col.id || col._id, sortBy, cards: col.cards || [] },
       });
@@ -841,7 +872,6 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
                                 }`}
                               />
                             </div>
-
                             <div className="flex items-center gap-2">
                               <span className="text-sm text-gray-500">
                                 {getFilterSummary("dueDate")}
@@ -982,15 +1012,26 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
               } overflow-x-auto max-w-full`}
             >
               {columns.map((col) => (
-                <Column
+                <div
                   key={col.id || col._id}
-                  id={col.id || col._id}
-                  title={col.name}
-                  className="min-w-[300px] h-full"
-                  boardId={boardId}
-                  allLists={columns}
-                  onDelete={handleDeleteList}
-                />
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("listId", col.id || col._id)
+                    e.dataTransfer.setData("type", "list")
+                    e.dataTransfer.effectAllowed = "move"
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => handleListDrop(e, col)}
+                >
+                  <Column
+                    id={col.id || col._id}
+                    title={col.name}
+                    className="min-w-[300px] h-full"
+                    boardId={boardId}
+                    allLists={columns}
+                    onDelete={handleDeleteList}
+                  />
+                </div>
               ))}
 
               <AddListButton
@@ -1012,4 +1053,8 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
   );
 };
 
-export default Board;
+export default Board
+
+
+
+
