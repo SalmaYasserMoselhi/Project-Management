@@ -1,11 +1,7 @@
-<<<<<<< HEAD
 
 
 
 "use client"
-=======
-"use client";
->>>>>>> 6bf66c26e27daba2ac1ce1c7977e83b839ed9227
 
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
@@ -179,17 +175,9 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
 
     updatedColumns.forEach((col) => {
       console.log(
-<<<<<<< HEAD
         `[Board.jsx] Dispatching refreshList for listId: ${col.id || col._id}, sortBy: ${sortBy}, cards:`,
         col_ode
       )
-=======
-        `[Board.jsx] Dispatching refreshList for listId: ${
-          col.id || col._id
-        }, sortBy: ${sortBy}, cards:`,
-        col.cards
-      );
->>>>>>> 6bf66c26e27daba2ac1ce1c7977e83b839ed9227
       const event = new CustomEvent("refreshList", {
         detail: { listId: col.id || col._id, sortBy, cards: col.cards || [] },
       });
@@ -1065,12 +1053,8 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
   );
 };
 
-<<<<<<< HEAD
 export default Board
 
 
 
 
-=======
-export default Board;
->>>>>>> 6bf66c26e27daba2ac1ce1c7977e83b839ed9227
