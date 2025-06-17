@@ -8,7 +8,7 @@ import TaskCard from "./TaskCard";
 import icon from "../assets/icon.png";
 import CardDetails from "../Card/CardDetails";
 
-const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists }) => {
+const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists, targetCardId }) => {
   const BASE_URL = "http://localhost:3000";
   const [cards, setCards] = useState([]);
   const [isAdding, setIsAdding] = useState(false);
@@ -22,6 +22,7 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists }
   const dropdownRef = useRef(null);
   const vectorRef = useRef(null);
   const columnRef = useRef(null);
+  const cardsContainerRef = useRef(null);
 
   const fetchCards = async (sort = sortBy) => {
     try {
@@ -348,6 +349,7 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists }
 
       <div className="flex-grow flex flex-col h-full">
         <div
+          ref={cardsContainerRef}
           className={`cards-container ${
             cards.length > 3 ? "overflow-y-auto" : "overflow-y-visible"
           }`}
@@ -390,6 +392,8 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists }
                   allLists={allLists}
                   labels={card.labels || []}
                   onCardUpdate={handleCardUpdate}
+                  containerRef={cardsContainerRef}
+                  scrollToMe={targetCardId === (card.id || card._id)}
                 />
               </>
             ))}

@@ -1,6 +1,4 @@
-
-
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import Sidebar from "../Components/Sidebar";
 import ProjectInfo from "./ProjectInfo";
 import Board from "./Board";
@@ -23,6 +21,10 @@ const MainBoard = () => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const cardId = searchParams.get("cardId");
 
   const handleListRestored = (restoredList) => {
     setRestoredLists((prev) => [...prev, restoredList]);
@@ -108,6 +110,17 @@ const MainBoard = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showNotifications]);
+
+  useEffect(() => {
+    if (cardId) {
+      setTimeout(() => {
+        const cardElement = document.getElementById(`card-${cardId}`);
+        if (cardElement) {
+          cardElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 500);
+    }
+  }, [cardId]);
 
   return (
     <div className="min-h-screen flex bg-[#f5f5f5] overflow-hidden relative">

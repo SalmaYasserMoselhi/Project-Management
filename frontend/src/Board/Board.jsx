@@ -1,6 +1,3 @@
-
-
-
 "use client"
 
 import { useState, useEffect, useRef } from "react";
@@ -22,6 +19,7 @@ import {
   ArrowDown,
   User,
 } from "lucide-react";
+import { useLocation } from "react-router-dom";
 
 const Board = ({ workspaceId, boardId, restoredLists }) => {
   const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
@@ -77,6 +75,9 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
 
   const sortRef = useRef(null);
   const filterRef = useRef(null);
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const targetCardId = searchParams.get("cardId");
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -1030,6 +1031,7 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
                     boardId={boardId}
                     allLists={columns}
                     onDelete={handleDeleteList}
+                    targetCardId={targetCardId}
                   />
                 </div>
               ))}
