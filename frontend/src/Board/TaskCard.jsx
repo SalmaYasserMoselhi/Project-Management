@@ -21,6 +21,8 @@ const TaskCard = ({
   listId,
   labels = [],
   onCardUpdate,
+  containerRef,
+  scrollToMe,
 }) => {
   const [isCardDetailsOpen, setIsCardDetailsOpen] = useState(false)
   const [actualFileCount, setActualFileCount] = useState(fileCount)
@@ -53,6 +55,22 @@ const TaskCard = ({
       setActualFileCount(fileCount)
     }
   }, [id, fileCount])
+
+  useEffect(() => {
+    if (scrollToMe && containerRef && containerRef.current) {
+      const cardElement = document.getElementById(`card-${id}`);
+      if (cardElement) {
+        const container = containerRef.current;
+        const cardRect = cardElement.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const offset = cardRect.top - containerRect.top - container.clientHeight / 2 + cardRect.height / 2;
+        container.scrollBy({ top: offset, behavior: "smooth" });
+        setTimeout(() => {
+          cardElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 350);
+      }
+    }
+  }, [scrollToMe, containerRef, id]);
 
   const priorityColors = {
     high: { color: "#DC2626", bg: "#FFECEC" },
@@ -144,6 +162,7 @@ const TaskCard = ({
   return (
     <>
       <div
+        id={`card-${id}`}
         className="flex rounded-lg overflow-hidden shadow-lg mb-3 w-full cursor-pointer task-card"
         onClick={handleCardClick}
         draggable

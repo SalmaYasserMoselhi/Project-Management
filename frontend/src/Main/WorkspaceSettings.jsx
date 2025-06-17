@@ -198,8 +198,8 @@ export default function WorkspaceSettings() {
             const newActivities = await Promise.all(workspaceInfo.activities.map(async activity => {
               // User name
               let userName = userMap[activity.user] || "Unknown";
-              if (userName === "Unknown" && activity.user) {
-                userName = await fetchUserNameById(activity.user);
+              if (activity.action === "invitation_accepted" && activity.data?.user) {
+                userName = userMap[activity.data.user] || (await fetchUserNameById(activity.data.user));
               }
               // Action details
               let actionText = "";
@@ -306,7 +306,8 @@ export default function WorkspaceSettings() {
                 updatedList
               };
             }));
-            setActivities(newActivities);
+            // رتب الأنشطة بحيث الأحدث أولاً
+            setActivities(newActivities.reverse());
             setActivitiesLoading(false);
           })();
         }
@@ -485,6 +486,11 @@ export default function WorkspaceSettings() {
 
   // Lighter purple for open border
   const openBorder = "border-[#D6C3EA]"
+
+  // Log when workspace.members updates for debugging
+  useEffect(() => {
+    console.log('Workspace members updated:', workspace?.members);
+  }, [workspace?.members]);
 
   if (loading || hasPermission === null) {
     return (
@@ -811,7 +817,7 @@ export default function WorkspaceSettings() {
         open={showMembersModal}
         onClose={() => setShowMembersModal(false)}
         members={workspace.members}
-        setMembers={(newMembers) => setWorkspace(prev => ({ ...prev, members: newMembers }))}
+        setMembers={(newMembers) => setWorkspace(prev => ({ ...prev, members: [...newMembers] }))}
         roleDropdownOpen={roleDropdownOpen}
         setRoleDropdownOpen={setRoleDropdownOpen}
         dropdownPos={dropdownPos}
