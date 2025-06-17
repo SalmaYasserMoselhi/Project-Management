@@ -305,7 +305,7 @@ export default function Signup() {
         <div className="w-full max-w-md mx-auto px-4">
           <div className="bg-white p-8 rounded-xl card-shadow form-container">
             <div className="mb-6 text-center">
-              <h2 className="text-2xl font-bold text-[#57356A] mb-2">
+              <h2 className="text-2xl font-bold text-[#4d2d61] mb-2">
                 Create Your Account
               </h2>
               <p className="text-gray-600">

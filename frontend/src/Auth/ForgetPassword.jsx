@@ -1,94 +1,71 @@
-"use client";
+"use client"
 
-import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import {
-  setEmail,
-  forgotPassword,
-  resetState,
-} from "../features/Slice/authSlice/forgotPasswordSlice";
-import {
-  useSlideInAnimation,
-  addAnimationStyles,
-} from "../utils/animations.jsx";
+import { useNavigate } from "react-router-dom"
+import { useEffect, useState } from "react"
+import { useSelector, useDispatch } from "react-redux"
+import { setEmail, forgotPassword, resetState } from "../features/Slice/authSlice/forgotPasswordSlice"
+import { useSlideInAnimation, addAnimationStyles } from "../utils/animations.jsx"
 
 function ForgotPassword() {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const [buttonDisabled, setButtonDisabled] = useState(false);
-  const { email, error, successMessage, loading } = useSelector(
-    (state) => state.forgotPassword
-  );
+  const dispatch = useDispatch()
+  const navigate = useNavigate()
+  const [buttonDisabled, setButtonDisabled] = useState(false)
+  const { email, error, successMessage, loading } = useSelector((state) => state.forgotPassword)
 
   // Initialize slide-in animation from top
-  useSlideInAnimation("top");
+  useSlideInAnimation("top")
 
   useEffect(() => {
     // Add animation styles
-    addAnimationStyles();
-  }, []);
+    addAnimationStyles()
+  }, [])
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setButtonDisabled(true);
+    e.preventDefault()
+    setButtonDisabled(true)
 
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
     if (!emailRegex.test(email)) {
-      setButtonDisabled(false);
-      return;
+      setButtonDisabled(false)
+      return
     }
 
-    const resultAction = await dispatch(forgotPassword({ email }));
+    const resultAction = await dispatch(forgotPassword({ email }))
     if (forgotPassword.fulfilled.match(resultAction)) {
       setTimeout(() => {
-        navigate("/verification", { state: { email } });
-      }, 3000);
+        navigate("/verification", { state: { email } })
+      }, 3000)
     } else {
-      setButtonDisabled(false);
+      setButtonDisabled(false)
     }
-  };
+  }
 
   useEffect(() => {
     return () => {
-      dispatch(resetState());
-    };
-  }, [dispatch]);
+      dispatch(resetState())
+    }
+  }, [dispatch])
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gray-50 p-4">
       {/* Logo at the top */}
       <div className="mb-8">
-        <img
-          src="src/assets/coloredLogoWithWordBeside.png"
-          alt="Nexus Logo"
-          className="h-14 logo-fade-in"
-        />
+        <img src="src/assets/coloredLogoWithWordBeside.png" alt="Nexus Logo" className="h-14 logo-fade-in" />
       </div>
 
       {/* Centered form with slide-in animation */}
       <div className="form-container w-full max-w-md">
         <div className="bg-white p-8 rounded-xl card-shadow">
           <div className="mb-6 text-center">
-            <h2 className="text-2xl font-bold text-[#57356A] mb-2">
-              Reset Password
-            </h2>
-            <p className="text-gray-600">
-              Enter your email and we will send you a verification code
-            </p>
+            <h2 className="text-2xl font-bold text-[#4D2D61] mb-2">Reset Password</h2>
+            <p className="text-gray-600">Enter your email and we will send you a verification code</p>
           </div>
 
           {/* Form content */}
-          {error && (
-            <div className="mb-6 p-3 text-red-500 bg-red-50 rounded-lg text-center text-sm">
-              {error}
-            </div>
-          )}
+          {error && <div className="mb-6 p-3 text-red-500 bg-red-50 rounded-lg text-center text-sm">{error}</div>}
 
           {successMessage && (
-            <div className="mb-6 p-3 text-green-500 bg-green-50 rounded-lg text-center text-sm">
-              {successMessage}
-            </div>
+            <div className="mb-6 p-3 text-green-500 bg-green-50 rounded-lg text-center text-sm">{successMessage}</div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -108,9 +85,7 @@ function ForgotPassword() {
               type="submit"
               disabled={loading || buttonDisabled}
               className={`w-full py-2 px-3 rounded-md bg-gradient-to-r from-[#4d2d61] to-[#7b4397] text-white text-sm font-medium transition-all hover:shadow-lg hover:scale-[1.01] hover:translate-y-[-2px] ${
-                loading || buttonDisabled
-                  ? "opacity-50 cursor-not-allowed pointer-events-none"
-                  : ""
+                loading || buttonDisabled ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
               }`}
             >
               {loading || buttonDisabled ? (
@@ -146,7 +121,7 @@ function ForgotPassword() {
           <div className="mt-6 text-center">
             <a
               href="/login"
-              className={`text-[#4D2D61] hover:text-[#57356A] transition-all duration-300 text-sm font-medium ${
+              className={`text-[#4D2D61] hover:text-[#6B46C1] transition-all duration-300 text-sm font-medium ${
                 buttonDisabled ? "pointer-events-none opacity-50" : ""
               }`}
             >
@@ -173,14 +148,11 @@ function ForgotPassword() {
             </svg>
             Secure Password Recovery
           </div>
-          <p>
-            We'll verify your identity before allowing you to reset your
-            password.
-          </p>
+          <p>We'll verify your identity before allowing you to reset your password.</p>
         </div>
       </div>
     </div>
-  );
+  )
 }
 
-export default ForgotPassword;
+export default ForgotPassword

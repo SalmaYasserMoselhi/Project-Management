@@ -221,7 +221,7 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
       {/* Header with workspace info */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-10 h-10 flex items-center justify-center bg-[#6A3B82] text-white rounded-sm text-base font-medium">
+          <div className="w-10 h-10 flex items-center justify-center bg-[#6a3b82] text-white rounded-sm text-base font-medium">
             {avatarLetter}
           </div>
           <div>
@@ -287,7 +287,7 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
                 onClick={() => handleWorkspaceSelect(workspace)}
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-8 h-8 flex items-center justify-center bg-[#6A3B82] text-white rounded-sm text-xl font-medium shrink-0">
+                  <div className="w-8 h-8 flex items-center justify-center bg-[#6a3b82] text-white rounded-sm text-xl font-medium shrink-0">
                     {getInitial(workspace?.name)}
                   </div>
                   <div className="min-w-0 overflow-hidden">

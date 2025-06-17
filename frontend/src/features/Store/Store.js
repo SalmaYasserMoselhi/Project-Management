@@ -8,6 +8,9 @@ import chatReducer from "../Slice/ChatSlice/chatSlice";
 import userWorkspacesReducer from "../Slice/WorkspaceSlice/userWorkspacesSlice";
 import boardsReducer from "../Slice/WorkspaceSlice/boardsSlice";
 import cardDetailsReducer from "../Slice/cardSlice/cardDetailsSlice";
+import meetingModalReducer from "../Slice/ComponentSlice/meetingModalSlice";
+import meetingsReducer from "../Slice/ComponentSlice/meetingsSlice";
+import dashboardReducer from "../Slice/dashboard/dashboardSlice";
 
 export const store = configureStore({
   reducer: {
@@ -20,6 +23,9 @@ export const store = configureStore({
     userWorkspaces: userWorkspacesReducer,
     boards: boardsReducer,
     cardDetails: cardDetailsReducer,
+    meetingModal: meetingModalReducer,
+    meetings: meetingsReducer,
+    dashboard: dashboardReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

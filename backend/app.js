@@ -26,6 +26,7 @@ const messageRouter = require('./routes/messageRoutes.js');
 const attachmentRouter = require('./routes/attachmentsRoutes.js');
 const meetingRouter = require('./routes/meetingRoutes.js');
 const notificationRouter = require('./routes/notificationRoutes.js');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 const globalErrorHandler = require('./controllers/errorController.js');
 const app = express();
 
@@ -168,6 +169,7 @@ app.use('/api/v1/message', messageRouter);
 app.use('/api/v1/meetings', meetingRouter);
 app.use('/api/v1/attachments', attachmentRouter);
 app.use('/api/v1/notifications', notificationRouter);
+app.use('/api/v1/dashboard', dashboardRoutes);
 
 // Handle undefined routes
 app.all('*', (req, res) => {
