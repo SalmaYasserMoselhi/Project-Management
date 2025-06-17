@@ -621,11 +621,11 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="relative mb-8"
+              className="relative mb-6"
             >
-              <div className="w-30 h-30 mx-auto bg-gradient-to-br from-[#4d2d61]/10 to-[#7b4397]/10 rounded-full flex items-center justify-center relative overflow-hidden">
+              <div className="w-26 h-26 mx-auto bg-gradient-to-br from-[#4d2d61]/10 to-[#7b4397]/10 rounded-full flex items-center justify-center relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-[#4d2d61]/5 to-[#7b4397]/5 animate-pulse"></div>
-                <MessageCircle className="w-16 h-16 text-[#4d2d61] relative z-10" />
+                <MessageCircle className="w-12 h-12 text-[#4d2d61] relative z-10" />
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{
@@ -637,15 +637,15 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
                 ></motion.div>
               </div>
               <motion.div
-                animate={{ y: [-5, 5, -5] }}
+                animate={{ y: [0, 10, 0] }}
                 transition={{
-                  duration: 3,
-                  repeat: Number.POSITIVE_INFINITY,
+                  duration: 2.5,
+                  repeat: Infinity,
                   ease: "easeInOut",
                 }}
-                className="absolute -top-2 -right-2"
+                className="absolute top-2 right-2"
               >
-                <Sparkles className="w-5 h-5 text-[#7b4397]" />
+                <Sparkles className="w-6 h-6 text-[#7b4397]" />
               </motion.div>
             </motion.div>
 
@@ -653,7 +653,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="text-3xl font-bold bg-gradient-to-r from-[#4d2d61] to-[#7b4397] bg-clip-text text-transparent mb-4"
+              className="text-[28px] font-bold bg-gradient-to-r from-[#4d2d61] to-[#7b4397] bg-clip-text text-transparent mb-4"
             >
               Welcome to Nexus Chat
             </motion.h2>
@@ -662,7 +662,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.6 }}
-              className="text-gray-600 text-lg mb-8 leading-relaxed"
+              className="text-gray-600 text-md mb-8 leading-relaxed"
             >
               Select a conversation from the sidebar to start chatting, or
               create a new conversation to connect with your team.
