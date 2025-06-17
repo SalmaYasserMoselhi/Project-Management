@@ -588,6 +588,15 @@ export const addReplyToComment = createAsyncThunk(
   }
 );
 
+// Helper to calculate total comments
+const calculateCommentsCount = (comments) => {
+  if (!comments || !Array.isArray(comments)) return 0;
+  return comments.reduce(
+    (acc, comment) => acc + 1 + (comment.replies?.length || 0),
+    0
+  );
+};
+
 const initialState = {
   id: null,
   title: "",
@@ -609,6 +618,7 @@ const initialState = {
   error: null,
   saveError: null,
   commentsError: null,
+  commentsCount: 0,
 };
 
 const cardDetailsSlice = createSlice({
@@ -779,6 +789,8 @@ const cardDetailsSlice = createSlice({
             })),
           }));
         }
+
+        state.commentsCount = calculateCommentsCount(state.comments);
 
         // التعامل بشكل خاص مع dueDate للتأكد من هيكل البيانات الصحيح
         if (cardData.dueDate) {
@@ -1117,6 +1129,7 @@ const cardDetailsSlice = createSlice({
             edited: reply.edited?.isEdited === true,
           })),
         }));
+        state.commentsCount = calculateCommentsCount(state.comments);
       })
       .addCase(fetchCardComments.rejected, (state, action) => {
         state.commentsLoading = false;
@@ -1150,6 +1163,7 @@ const cardDetailsSlice = createSlice({
             replies: comment.replies || [],
           });
         }
+        state.commentsCount = calculateCommentsCount(state.comments);
       })
       .addCase(addCardComment.rejected, (state, action) => {
         state.commentsLoading = false;
@@ -1181,6 +1195,7 @@ const cardDetailsSlice = createSlice({
             (comment) => comment.id !== commentId
           );
         }
+        state.commentsCount = calculateCommentsCount(state.comments);
       })
       .addCase(deleteCardComment.rejected, (state, action) => {
         state.commentsLoading = false;
@@ -1274,6 +1289,7 @@ const cardDetailsSlice = createSlice({
             edited: reply.edited?.isEdited === true,
           });
         }
+        state.commentsCount = calculateCommentsCount(state.comments);
       })
       .addCase(addReplyToComment.rejected, (state, action) => {
         state.commentsLoading = false;

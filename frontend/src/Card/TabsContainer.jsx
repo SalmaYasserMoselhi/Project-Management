@@ -1,31 +1,31 @@
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import CardSubtasks from "./CardSubtasks";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import CardComments from "./CardComments";
+import { fetchCardComments } from "../features/Slice/cardSlice/cardDetailsSlice";
 
 export default function TabsContainer() {
-  const subtasks = useSelector((state) => state.cardDetails.subtasks || []);
-  const comments = useSelector((state) => state.cardDetails.comments || []);
+  const dispatch = useDispatch();
+  const {
+    subtasks = [],
+    commentsCount = 0,
+    id: cardId,
+    comments = [],
+  } = useSelector((state) => state.cardDetails);
+
   const [activeTab, setActiveTab] = useState("subtasks");
+
+  useEffect(() => {
+    // Fetch comments as soon as we have a card ID, if they haven't been loaded.
+    if (cardId && comments.length === 0) {
+      dispatch(fetchCardComments(cardId));
+    }
+  }, [cardId, dispatch, comments.length]);
 
   // Calculate completed tasks with compatibility for both API and UI format
   const completedTasks = subtasks.filter((task) =>
     task.isCompleted !== undefined ? task.isCompleted : task.completed
   ).length;
-
-  // Calculate total comments count (including replies)
-  const getTotalCommentsCount = () => {
-    let count = comments.length;
-    // Add replies count
-    comments.forEach((comment) => {
-      if (comment.replies && Array.isArray(comment.replies)) {
-        count += comment.replies.length;
-      }
-    });
-    return count;
-  };
-
-  const commentsCount = getTotalCommentsCount();
 
   return (
     <div className="mt-4">

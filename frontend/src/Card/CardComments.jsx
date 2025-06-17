@@ -1,12 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  addComment,
-  removeComment,
-  editComment,
-  addReply,
-  removeReply,
-  editReply,
   addCardComment,
   fetchCardComments,
   addReplyToComment,
@@ -26,116 +20,6 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-
-// Reusable Avatar component for CardComments.jsx
-const CommentAvatar = ({ avatar, username, size = "normal" }) => {
-  const wrapperSize = size === "small" ? "w-6 h-6" : "w-8 h-8";
-  const iconSize = size === "small" ? 12 : 16;
-  const textSize = size === "small" ? "text-xs" : "text-base";
-
-  const getInitials = (name) =>
-    name
-      ? name
-          .split(" ")
-          .map((n) => n[0])
-          .join("")
-          .toUpperCase()
-      : "";
-
-  return (
-    <div
-      className={`${wrapperSize} rounded-full bg-purple-200 flex items-center justify-center mr-3 flex-shrink-0`}
-    >
-      {avatar ? (
-        <img
-          src={avatar}
-          alt={username}
-          className="w-full h-full rounded-full object-cover"
-        />
-      ) : username ? (
-        <span className={`font-semibold text-[#4D2D61] ${textSize}`}>
-          {getInitials(username)}
-        </span>
-      ) : (
-        <User size={iconSize} className="text-[#4D2D61]" />
-      )}
-    </div>
-  );
-};
-
-// Reusable dropdown menu component
-const ActionMenu = ({ isOpen, menuRef, onEdit, onDelete, size = "normal" }) => {
-  const iconSize = size === "small" ? 12 : 14;
-  const textSize = size === "small" ? "text-xs" : "text-sm";
-
-  return isOpen ? (
-    <div
-      ref={menuRef}
-      className="absolute right-0 mt-1 bg-white rounded-md shadow-lg border border-gray-200 z-10 w-32"
-    >
-      <ul>
-        <li
-          className={`px-4 py-2 ${textSize} text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer`}
-          onClick={onEdit}
-        >
-          <Edit2 size={iconSize} className="mr-2 text-blue-500" />
-          Edit
-        </li>
-        <li
-          className={`px-4 py-2 ${textSize} text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer`}
-          onClick={onDelete}
-        >
-          <Trash2 size={iconSize} className="mr-2 text-red-500" />
-          Delete
-        </li>
-      </ul>
-    </div>
-  ) : null;
-};
-
-// Reusable edit form component
-const EditForm = ({
-  value,
-  onChange,
-  onSave,
-  onCancel,
-  textareaRef,
-  size = "normal",
-}) => {
-  const iconSize = size === "small" ? 12 : 14;
-  const minHeight = size === "small" ? "min-h-[35px]" : "min-h-[40px]";
-
-  return (
-    <div className="mt-1">
-      <div className="flex items-center space-x-2">
-        <textarea
-          ref={textareaRef}
-          className={`flex-grow border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#4D2D61] focus:border-[#4D2D61] ${minHeight} max-h-[85px] resize-none overflow-auto`}
-          value={value}
-          onChange={onChange}
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && e.ctrlKey) onSave();
-            if (e.key === "Escape") onCancel();
-          }}
-        />
-        <button
-          className="p-1.5 rounded-md bg-[#4D2D61] text-white"
-          onClick={onSave}
-        >
-          <Save size={iconSize} />
-        </button>
-        <button
-          className="p-1.5 rounded-md bg-gray-200 text-gray-600"
-          onClick={onCancel}
-        >
-          <X size={iconSize} />
-        </button>
-      </div>
-      <div className="mt-1 text-xs text-gray-500">Press Ctrl+Enter to save</div>
-    </div>
-  );
-};
 
 export default function CardComments() {
   const dispatch = useDispatch();
@@ -163,13 +47,6 @@ export default function CardComments() {
   const replyTextRef = useRef(null);
   const editReplyTextRef = useRef(null);
   const dropdownRefs = useRef({});
-
-  // Fetch comments when the component mounts or cardId changes
-  useEffect(() => {
-    if (cardId) {
-      dispatch(fetchCardComments(cardId));
-    }
-  }, [cardId, dispatch]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -653,3 +530,113 @@ export default function CardComments() {
     </div>
   );
 }
+
+// Reusable Avatar component for CardComments.jsx
+const CommentAvatar = ({ avatar, username, size = "normal" }) => {
+  const wrapperSize = size === "small" ? "w-6 h-6" : "w-8 h-8";
+  const iconSize = size === "small" ? 12 : 16;
+  const textSize = size === "small" ? "text-xs" : "text-base";
+
+  const getInitials = (name) =>
+    name
+      ? name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()
+      : "";
+
+  return (
+    <div
+      className={`${wrapperSize} rounded-full bg-purple-200 flex items-center justify-center mr-3 flex-shrink-0`}
+    >
+      {avatar ? (
+        <img
+          src={avatar}
+          alt={username}
+          className="w-full h-full rounded-full object-cover"
+        />
+      ) : username ? (
+        <span className={`font-semibold text-[#4D2D61] ${textSize}`}>
+          {getInitials(username)}
+        </span>
+      ) : (
+        <User size={iconSize} className="text-[#4D2D61]" />
+      )}
+    </div>
+  );
+};
+
+// Reusable dropdown menu component
+const ActionMenu = ({ isOpen, menuRef, onEdit, onDelete, size = "normal" }) => {
+  const iconSize = size === "small" ? 12 : 14;
+  const textSize = size === "small" ? "text-xs" : "text-sm";
+
+  return isOpen ? (
+    <div
+      ref={menuRef}
+      className="absolute right-0 mt-1 bg-white rounded-md shadow-lg border border-gray-200 z-10 w-32"
+    >
+      <ul>
+        <li
+          className={`px-4 py-2 ${textSize} text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer`}
+          onClick={onEdit}
+        >
+          <Edit2 size={iconSize} className="mr-2 text-blue-500" />
+          Edit
+        </li>
+        <li
+          className={`px-4 py-2 ${textSize} text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer`}
+          onClick={onDelete}
+        >
+          <Trash2 size={iconSize} className="mr-2 text-red-500" />
+          Delete
+        </li>
+      </ul>
+    </div>
+  ) : null;
+};
+
+// Reusable edit form component
+const EditForm = ({
+  value,
+  onChange,
+  onSave,
+  onCancel,
+  textareaRef,
+  size = "normal",
+}) => {
+  const iconSize = size === "small" ? 12 : 14;
+  const minHeight = size === "small" ? "min-h-[35px]" : "min-h-[40px]";
+
+  return (
+    <div className="mt-1">
+      <div className="flex items-center space-x-2">
+        <textarea
+          ref={textareaRef}
+          className={`flex-grow border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#4D2D61] focus:border-[#4D2D61] ${minHeight} max-h-[85px] resize-none overflow-auto`}
+          value={value}
+          onChange={onChange}
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && e.ctrlKey) onSave();
+            if (e.key === "Escape") onCancel();
+          }}
+        />
+        <button
+          className="p-1.5 rounded-md bg-[#4D2D61] text-white"
+          onClick={onSave}
+        >
+          <Save size={iconSize} />
+        </button>
+        <button
+          className="p-1.5 rounded-md bg-gray-200 text-gray-600"
+          onClick={onCancel}
+        >
+          <X size={iconSize} />
+        </button>
+      </div>
+      <div className="mt-1 text-xs text-gray-500">Press Ctrl+Enter to save</div>
+    </div>
+  );
+};
