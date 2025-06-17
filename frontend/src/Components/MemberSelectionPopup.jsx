@@ -142,7 +142,7 @@ export default function MemberSelectionPopup({
   const isUserSelected = (userId) => {
     const isCurrentlySelected = selectedMembers.some((member) => {
       const memberUserId =
-        (member.user ? member.user._id : member._id) || member.id;
+        (member.user && member.user._id) || member._id || member.id;
       return memberUserId === userId;
     });
 
@@ -186,14 +186,15 @@ export default function MemberSelectionPopup({
         // Remove member
         const index = finalMembers.findIndex(
           (member) =>
-            (member.user ? member.user._id : member._id) === userId ||
+            (member.user && member.user._id) === userId ||
+            member._id === userId ||
             member.id === userId
         );
         if (index !== -1) finalMembers.splice(index, 1);
       } else {
         // Add member
         const memberToAdd = allMembers.find(
-          (member) => (member.user ? member.user._id : member._id) === userId
+          (member) => (member.user && member.user._id) === userId
         );
         if (memberToAdd) finalMembers.push(memberToAdd);
       }
