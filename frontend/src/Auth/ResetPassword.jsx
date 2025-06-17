@@ -111,7 +111,7 @@ function ResetPassword() {
       <div className="form-container w-full max-w-md">
         <div className="bg-white p-8 rounded-xl card-shadow">
           <div className="mb-6 text-center">
-            <h2 className="text-2xl font-bold text-[#57356A] mb-2">
+            <h2 className="text-2xl font-bold text-[#4d2d61] mb-2">
               Create New Password
             </h2>
             <p className="text-gray-600">
@@ -215,7 +215,7 @@ function ResetPassword() {
           <div className="mt-6 text-center">
             <a
               href="/login"
-              className={`text-[#4D2D61] hover:text-[#57356A] transition-all duration-300 text-sm font-medium ${
+              className={`text-[#4D2D61] hover:text-[#4d2d61] transition-all duration-300 text-sm font-medium ${
                 buttonDisabled ? "pointer-events-none opacity-50" : ""
               }`}
             >
@@ -226,7 +226,7 @@ function ResetPassword() {
 
         {/* Password tips */}
         <div className="mt-6 bg-white p-4 rounded-lg card-shadow">
-          <h3 className="text-sm font-medium text-[#57356A] mb-2">
+          <h3 className="text-sm font-medium text-[#4d2d61] mb-2">
             Password Tips:
           </h3>
           <ul className="text-xs text-gray-600 space-y-1">

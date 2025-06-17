@@ -38,7 +38,7 @@ function Login() {
   // Initialize slide-in animation
   useSlideInAnimation()
 
-  console.log("Login.jsx mounted");
+  console.log("Login.jsx mounted")
 
   useEffect(() => {
     // Add animation styles
@@ -102,16 +102,19 @@ function Login() {
         const workspacesResult = await dispatch(fetchUserPublicWorkspaces())
         const workspaces = workspacesResult.payload
         if (Array.isArray(workspaces) && workspaces.length > 0) {
-          const publicWorkspace = workspaces.find(w => w.type === "public")
+          const publicWorkspace = workspaces.find((w) => w.type === "public")
           if (publicWorkspace) {
-            localStorage.setItem("selectedPublicWorkspace", JSON.stringify({
-              id: publicWorkspace._id,
-              name: publicWorkspace.name,
-              type: publicWorkspace.type,
-              description: publicWorkspace.description,
-              createdBy: publicWorkspace.createdBy,
-              userRole: publicWorkspace.userRole,
-            }))
+            localStorage.setItem(
+              "selectedPublicWorkspace",
+              JSON.stringify({
+                id: publicWorkspace._id,
+                name: publicWorkspace.name,
+                type: publicWorkspace.type,
+                description: publicWorkspace.description,
+                createdBy: publicWorkspace.createdBy,
+                userRole: publicWorkspace.userRole,
+              }),
+            )
           }
         }
       } catch (error) {
@@ -120,7 +123,7 @@ function Login() {
     }
 
     const urlParams = new URLSearchParams(window.location.search)
-    if (urlParams.get('oauth_callback')) {
+    if (urlParams.get("oauth_callback")) {
       handleOAuthCallback()
     }
 
@@ -134,24 +137,22 @@ function Login() {
   }, [currentUser, navigate, dispatch])
 
   useEffect(() => {
-    console.log("Checking to fetch workspaces", currentUser?._id, userWorkspaces);
-    if (
-      currentUser?._id &&
-      (!Array.isArray(userWorkspaces) || userWorkspaces.length === 0)
-    ) {
-      console.log("Dispatching fetchUserPublicWorkspaces");
-      dispatch(fetchUserPublicWorkspaces());
+    console.log("Checking to fetch workspaces", currentUser?._id, userWorkspaces)
+    if (currentUser?._id && (!Array.isArray(userWorkspaces) || userWorkspaces.length === 0)) {
+      console.log("Dispatching fetchUserPublicWorkspaces")
+      dispatch(fetchUserPublicWorkspaces())
     }
-  }, [currentUser?._id, userWorkspaces, dispatch]);
+  }, [currentUser?._id, userWorkspaces, dispatch])
 
   useEffect(() => {
     if (
       currentUser?._id &&
-      Array.isArray(userWorkspaces) && userWorkspaces.length > 0 &&
+      Array.isArray(userWorkspaces) &&
+      userWorkspaces.length > 0 &&
       !localStorage.getItem("selectedPublicWorkspace")
     ) {
-      const publicWorkspace = userWorkspaces.find(ws => ws.type === "public")
-      const ownedWorkspace = userWorkspaces.find(ws => ws.userRole === "owner" && ws.createdBy === currentUser._id)
+      const publicWorkspace = userWorkspaces.find((ws) => ws.type === "public")
+      const ownedWorkspace = userWorkspaces.find((ws) => ws.userRole === "owner" && ws.createdBy === currentUser._id)
       const workspaceToSet = publicWorkspace || ownedWorkspace || userWorkspaces[0]
       if (workspaceToSet) {
         const workspaceData = {
@@ -170,8 +171,8 @@ function Login() {
   }, [currentUser?._id, userWorkspaces, dispatch])
 
   useEffect(() => {
-    console.log("userWorkspaces after login:", userWorkspaces);
-  }, [userWorkspaces]);
+    console.log("userWorkspaces after login:", userWorkspaces)
+  }, [userWorkspaces])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -343,18 +344,16 @@ function Login() {
         </div>
 
         <div className="w-full max-w-md mx-auto px-4">
-          <div className="bg-white p-8 rounded-xl card-shadow form-container">
+          <div className="bg-gradient-to-b from-white to-gray-50/30 p-8 rounded-xl card-shadow form-container">
             <div className="mb-6 text-center">
-              <h2 className="text-2xl font-bold text-[#57356A] mb-2">Welcome Back to Nexus!</h2>
+              <h2 className="text-2xl font-bold text-[#4D2D61] mb-2">Welcome Back to Nexus!</h2>
               <p className="text-gray-600">Sign in to access your workspace and collaborate with your team.</p>
             </div>
 
             {/* Show server error (e.g., incorrect email or password) as a box above the form */}
             {errorMessage && !firstErrorMessage && (
               <div className="mb-6 p-3 text-red-500 bg-red-50 rounded-lg text-center text-sm">
-                {errorMessage.includes("JSON")
-                  ? "A server error occurred. Please try again later."
-                  : errorMessage}
+                {errorMessage.includes("JSON") ? "A server error occurred. Please try again later." : errorMessage}
               </div>
             )}
 
@@ -398,7 +397,7 @@ function Login() {
                 </div>
                 <a
                   href="/forgetpassword"
-                  className={`text-sm text-[#4D2D61] hover:text-[#57356A] transition-all duration-300 ${
+                  className={`text-sm text-[#4D2D61] hover:text-[#6B46C1] transition-all duration-300 ${
                     isButtonDisabled("signin") ? "pointer-events-none opacity-50" : ""
                   }`}
                 >
@@ -457,7 +456,7 @@ function Login() {
                 className={`w-full border border-gray-200 py-3 px-4 rounded-md flex items-center justify-center transition-all ${
                   isButtonDisabled("google")
                     ? "opacity-50 cursor-not-allowed"
-                    : "hover:bg-gray-50 hover:border-[#4D2D61]"
+                    : "hover:bg-gradient-to-r hover:from-[#4D2D61]/5 hover:to-[#6B46C1]/5 hover:border-[#4D2D61]"
                 }`}
               >
                 {oauthLoading.loading && oauthLoading.activeProvider === "google" ? (
@@ -516,7 +515,7 @@ function Login() {
                 className={`w-full border border-gray-200 py-3 px-4 rounded-md flex items-center justify-center transition-all ${
                   isButtonDisabled("github")
                     ? "opacity-50 cursor-not-allowed"
-                    : "hover:bg-gray-50 hover:border-[#4D2D61]"
+                    : "hover:bg-gradient-to-r hover:from-[#4D2D61]/5 hover:to-[#6B46C1]/5 hover:border-[#4D2D61]"
                 }`}
               >
                 {oauthLoading.loading && oauthLoading.activeProvider === "github" ? (

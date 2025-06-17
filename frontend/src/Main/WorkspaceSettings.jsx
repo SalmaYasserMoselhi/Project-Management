@@ -42,9 +42,10 @@ export default function WorkspaceSettings() {
   const boardDropdownRef = useRef(null)
   const nameInputRef = useRef(null)
   const membersScrollRef = useRef(null)
-  const [loadingMembers, setLoadingMembers] = useState(false)
+  const [loadingMembers, setLoadingMembers] = useState(true)
   const [errorMembers, setErrorMembers] = useState(null)
   const [activities, setActivities] = useState([])
+  const [activitiesLoading, setActivitiesLoading] = useState(true)
   const dispatch = useDispatch()
   const user = useSelector(state => state.user?.user || state.login?.user);
   const userId = user?._id || user?.id;
@@ -52,6 +53,7 @@ export default function WorkspaceSettings() {
   const selectedWorkspace = useSelector(state => state.sidebar.selectedWorkspace)
   const hasRedirected = useRef(false)
   const [hasPermission, setHasPermission] = useState(null)
+  const userCache = useRef({});
 
   // Get workspaceId from URL params or localStorage
   const workspaceId = useMemo(() => {
@@ -98,6 +100,7 @@ export default function WorkspaceSettings() {
       try {
         setLoading(true)
         setError(null)
+        setLoadingMembers(true)
         
         // Fetch workspace details
         const workspaceRes = await fetch(`/api/v1/workspaces/${workspaceId}`)
@@ -172,48 +175,140 @@ export default function WorkspaceSettings() {
           userMap[userId] = m.user?.username || m.user?.email || "Unknown"
         })
 
+        // Fetch user info by ID if not found in userMap
+        async function fetchUserNameById(userId) {
+          if (!userId) return 'Unknown';
+          if (userCache.current[userId]) return userCache.current[userId];
+          try {
+            const res = await fetch(`/api/v1/users/${userId}`);
+            if (!res.ok) return 'Unknown';
+            const data = await res.json();
+            const name = data.data?.user?.username || data.data?.user?.email || 'Unknown';
+            userCache.current[userId] = name;
+            return name;
+          } catch {
+            return 'Unknown';
+          }
+        }
+
         // Set activities from workspace data
         if (workspaceInfo.activities) {
-          setActivities(workspaceInfo.activities.map(activity => {
-            // User name
-            const userName = userMap[activity.user] || "Unknown"
-            // Action details
-            let actionText = ""
-            switch (activity.action) {
-              case "invitation_sent":
-                actionText = `invited ${activity.data?.email || ''} as ${activity.data?.role || ''}`
-                break
-              case "invitation_accepted":
-                actionText = `invitation accepted by ${userMap[activity.data?.user] || activity.data?.user || ''}`
-                break
-              case "board_created":
-                actionText = `created board '${activity.data?.board?.name || ''}`
-                break
-              case "member_role_updated":
-                actionText = `changed role of ${userMap[activity.data?.targetUser] || activity.data?.targetUser || ''} from ${activity.data?.from} to ${activity.data?.to}`
-                break
-              case "workspace_settings_updated":
-                actionText = `updated workspace settings (${(activity.data?.updatedFields || []).join(', ')})`
-                break
-              case "workspace_updated":
-                actionText = `updated workspace (${(activity.data?.updatedFields || []).join(', ')})`
-                break
-              default:
-                actionText = activity.action.replace(/_/g, ' ')
-            }
-            // Capitalize first letter
-            actionText = actionText.charAt(0).toUpperCase() + actionText.slice(1)
-            return {
-              user: userName,
-              action: actionText,
-              time: new Date(activity.createdAt).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: 'numeric'
-              })
-            }
-          }))
+          setActivitiesLoading(true);
+          (async () => {
+            const newActivities = await Promise.all(workspaceInfo.activities.map(async activity => {
+              // User name
+              let userName = userMap[activity.user] || "Unknown";
+              if (userName === "Unknown" && activity.user) {
+                userName = await fetchUserNameById(activity.user);
+              }
+              // Action details
+              let actionText = "";
+              let updatedList = null;
+              switch (activity.action) {
+                case "board_created": {
+                  const boardName = activity.data?.board?.name || "";
+                  actionText = `created board \"${boardName}\"`;
+                  break;
+                }
+                case "board_removed": {
+                  const boardName = activity.data?.board?.name || "";
+                  actionText = `deleted board \"${boardName}\"`;
+                  break;
+                }
+                case "workspace_created":
+                  actionText = `created this workspace`;
+                  break;
+                case "invitation_sent":
+                  actionText = `invited ${activity.data?.email || ''} as ${activity.data?.role || 'member'}`;
+                  break;
+                case "invitation_accepted":
+                  actionText = `joined the workspace as ${activity.data?.role || 'member'}`;
+                  break;
+                case "invitation_cancelled":
+                  actionText = `cancelled invitation for ${activity.data?.email || ''}`;
+                  break;
+                case "member_role_updated": {
+                  let targetUserName = userMap[activity.data?.targetUser] || "Unknown";
+                  if (targetUserName === "Unknown" && activity.data?.targetUser) {
+                    targetUserName = await fetchUserNameById(activity.data.targetUser);
+                  }
+                  actionText = `changed ${targetUserName}'s role from ${activity.data?.from} to ${activity.data?.to}`;
+                  break;
+                }
+                case "member_removed": {
+                  let removedUserName = userMap[activity.data?.member?.user] || "Unknown";
+                  if (removedUserName === "Unknown" && activity.data?.member?.user) {
+                    removedUserName = await fetchUserNameById(activity.data.member.user);
+                  }
+                  actionText = `removed ${removedUserName} from the workspace`;
+                  break;
+                }
+                case "workspace_settings_updated": {
+                  const settingsFields = activity.data?.updatedFields || [];
+                  // Combine all 'Who can ...' settings in one item
+                  let whoCanArr = [];
+                  let settingsTextArr = [];
+                  settingsFields.forEach(field => {
+                    if (field === 'inviteRestriction') whoCanArr.push('invite members');
+                    else if (field === 'boardCreation') whoCanArr.push('create boards');
+                    else if (field === 'notificationsEnabled') settingsTextArr.push('Notifications settings');
+                    else settingsTextArr.push(field);
+                  });
+                  if (whoCanArr.length) {
+                    settingsTextArr.unshift(`Who can ${whoCanArr.join(', ')}`);
+                  }
+                  if (settingsTextArr.length > 1) {
+                    actionText = `updated the following settings:`;
+                    updatedList = settingsTextArr;
+                  } else if (settingsTextArr.length === 1) {
+                    actionText = `updated ${settingsTextArr[0]}`;
+                  } else {
+                    actionText = `updated workspace settings`;
+                  }
+                  break;
+                }
+                case "workspace_updated": {
+                  const updatedFields = activity.data?.updatedFields || [];
+                  const fieldsTextArr = updatedFields.map(field => {
+                    switch(field) {
+                      case 'name':
+                        return 'Workspace name';
+                      case 'description':
+                        return 'Workspace description';
+                      default:
+                        return field;
+                    }
+                  });
+                  if (fieldsTextArr.length > 1) {
+                    actionText = `updated the following:`;
+                    updatedList = fieldsTextArr;
+                  } else if (fieldsTextArr.length === 1) {
+                    actionText = `updated ${fieldsTextArr[0]}`;
+                  } else {
+                    actionText = `updated workspace`;
+                  }
+                  break;
+                }
+                default:
+                  actionText = activity.action.replace(/_/g, ' ');
+              }
+              // Capitalize first letter
+              actionText = actionText.charAt(0).toUpperCase() + actionText.slice(1);
+              return {
+                user: userName,
+                action: actionText,
+                time: new Date(activity.createdAt).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: 'numeric'
+                }),
+                updatedList
+              };
+            }));
+            setActivities(newActivities);
+            setActivitiesLoading(false);
+          })();
         }
 
         // Update form state
@@ -228,6 +323,7 @@ export default function WorkspaceSettings() {
         setError(err.message)
       } finally {
         setLoading(false)
+        setTimeout(() => setLoadingMembers(false), 1000)
       }
     }
 
@@ -393,7 +489,7 @@ export default function WorkspaceSettings() {
   if (loading || hasPermission === null) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#F5F5F7]">
-        <div className="animate-spin h-8 w-8 border-t-2 border-[#6A3B82] rounded-full"></div>
+        <div className="animate-spin h-8 w-8 border-t-2 border-[#6a3b82] rounded-full"></div>
       </div>
     )
   }
@@ -428,7 +524,7 @@ export default function WorkspaceSettings() {
       <div className="p-3 md:p-4 flex items-center">
         {isMobile && (
           <button className="mr-2 p-1 rounded-md">
-            <Menu size={24} className="text-[#57356A]" />
+            <Menu size={24} className="text-[#4d2d61]" />
           </button>
         )}
         <Breadcrumb customLabel="Workspace Settings" />
@@ -463,19 +559,19 @@ export default function WorkspaceSettings() {
                     onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                     onBlur={handleNameBlur}
                     onKeyDown={handleNameKeyDown}
-                    className="text-xl font-semibold border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-0.5 focus:ring-[#6A3B82] bg-white text-[#6A3B82]"
+                    className="text-xl font-semibold border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-0.5 focus:ring-[#6a3b82] bg-white text-[#6a3b82]"
                     style={{ minWidth: 180 }}
                   />
                 ) : (
                   <div className="flex items-center gap-2">
-                    <h1 className="text-xl font-semibold text-[#6A3B82]">{form.name}</h1>
-                    <button className="ml-2 text-gray-400 hover:text-[#6A3B82]" onClick={toggleEditName}>
+                    <h1 className="text-xl font-semibold text-[#6a3b82]">{form.name}</h1>
+                    <button className="ml-2 text-gray-400 hover:text-[#6a3b82]" onClick={toggleEditName}>
                       <Edit size={18} />
                     </button>
                   </div>
                 )}
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="bg-purple-100 text-[#6A3B82] text-xs font-medium px-2.5 py-0.5 rounded-full">
+                  <span className="bg-purple-100 text-[#6a3b82] text-xs font-medium px-2.5 py-0.5 rounded-full">
                     {workspace.type}
                   </span>
                   <span className="text-sm text-gray-500 flex items-center gap-1">
@@ -491,7 +587,7 @@ export default function WorkspaceSettings() {
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-0.5 focus:ring-[#6A3B82] focus:text-gray-700 min-h-[80px]"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-0.5 focus:ring-[#6a3b82] focus:text-gray-700 min-h-[80px]"
                   rows={2}
                   placeholder="Add a workspace description"
                 />
@@ -507,7 +603,7 @@ export default function WorkspaceSettings() {
             <div className="p-4 md:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-lg font-semibold text-[#6A3B82] flex items-center gap-2">
+                  <h2 className="text-lg font-semibold text-[#6a3b82] flex items-center gap-2">
                     <Users size={20} />
                     Workspace Members
                   </h2>
@@ -515,36 +611,44 @@ export default function WorkspaceSettings() {
                 </div>
                 <button
                   onClick={() => setShowMembersModal(true)}
-                  className="px-3 py-1 text-sm border border-[#6A3B82] text-[#6A3B82] rounded-lg hover:bg-purple-50 flex items-center gap-1"
+                  className="px-3 py-1 text-sm border border-[#6a3b82] text-[#6a3b82] rounded-lg hover:bg-purple-50 flex items-center gap-1"
                 >
                   <Shield size={16} />
                   Manage
                 </button>
               </div>
-              <div className="flex items-center -space-x-2">
-                {Array.isArray(workspace?.members) && workspace.members.slice(0, 5).map((member, index) => (
-                  <div
-                    key={member.id}
-                    className="w-10 h-10 rounded-full border-2 border-white flex items-center justify-center overflow-hidden"
-                    style={{ background: (member.avatar && member.avatar !== "null" && member.avatar !== "undefined" && member.avatar !== "") ? undefined : '#4D2D61' }}
-                  >
-                    {member.avatar && member.avatar !== "null" && member.avatar !== "undefined" && member.avatar !== "" ? (
-                      <img
-                        src={member.avatar}
-                        alt={member.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-sm font-medium text-white">
-                        {(member.name?.charAt(0).toUpperCase() || member.user?.username?.charAt(0).toUpperCase() || member.user?.email?.charAt(0).toUpperCase() || "?")}
-                      </span>
+              <div className="flex items-center -space-x-2 min-h-[40px]">
+                {loadingMembers ? (
+                  <div className="flex items-center justify-center w-full py-2">
+                    <div className="animate-spin h-7 w-7 border-t-2 border-[#6a3b82] rounded-full"></div>
+                  </div>
+                ) : (
+                  <>
+                    {Array.isArray(workspace?.members) && workspace.members.slice(0, 5).map((member, index) => (
+                      <div
+                        key={member.id}
+                        className="w-10 h-10 rounded-full border-2 border-white flex items-center justify-center overflow-hidden shadow-md"
+                        style={{ background: (member.avatar && member.avatar !== "null" && member.avatar !== "undefined" && member.avatar !== "") ? undefined : '#4D2D61' }}
+                      >
+                        {member.avatar && member.avatar !== "null" && member.avatar !== "undefined" && member.avatar !== "" ? (
+                          <img
+                            src={member.avatar}
+                            alt={member.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-sm font-medium text-white">
+                            {(member.name?.charAt(0).toUpperCase() || member.user?.username?.charAt(0).toUpperCase() || member.user?.email?.charAt(0).toUpperCase() || "?")}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                    {Array.isArray(workspace?.members) && workspace.members.length > 5 && (
+                      <div className="w-10 h-10 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-sm font-medium text-gray-600">
+                        +{workspace.members.length - 5}
+                      </div>
                     )}
-                  </div>
-                ))}
-                {Array.isArray(workspace?.members) && workspace.members.length > 5 && (
-                  <div className="w-10 h-10 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-sm font-medium text-gray-600">
-                    +{workspace.members.length - 5}
-                  </div>
+                  </>
                 )}
               </div>
             </div>
@@ -553,7 +657,7 @@ export default function WorkspaceSettings() {
           {/* Permissions */}
           <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
             <div className="p-4 md:p-6">
-              <h2 className="text-lg font-semibold text-[#6A3B82] flex items-center gap-2 mb-1">
+              <h2 className="text-lg font-semibold text-[#6a3b82] flex items-center gap-2 mb-1">
                 <Shield size={20} />
                 Permissions
               </h2>
@@ -564,24 +668,25 @@ export default function WorkspaceSettings() {
                   <div className="relative" ref={inviteDropdownRef}>
                     <button
                       type="button"
-                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${inviteDropdownOpen ? openBorder : "border-[#BFA8D9] hover:border-[#6A3B82]"} ${!inviteDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
+                      className="px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2 w-36 justify-between border border-gray-300"
+                      style={{ backgroundColor: '#4D2D6120', color: '#6A3B82' }}
                       onClick={() => setInviteDropdownOpen((v) => !v)}
                     >
-                      <span className="truncate text-gray-900">
+                      <span className="truncate">
                         {permissionOptions.find((opt) => opt.value === form.inviteRestriction)?.label || "Select"}
                       </span>
                       <ChevronDown
-                        className={`ml-2 transition-transform ${inviteDropdownOpen ? "rotate-180" : ""} text-gray-400`}
+                        className={`ml-2 text-[#6a3b82] transition-transform duration-200 ${inviteDropdownOpen ? 'rotate-180' : ''}`}
                         size={18}
                       />
                     </button>
                     {inviteDropdownOpen && (
-                      <div className="absolute left-0 mt-2 w-full bg-white rounded-lg shadow-lg border border-[#E5D6F3] z-20 animate-fade-in">
+                      <div className="absolute left-0 mt-2 w-full bg-white border border-gray-300 rounded-md shadow-lg z-20">
                         {permissionOptions.map((opt) => (
                           <button
                             key={opt.value}
                             type="button"
-                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${form.inviteRestriction === opt.value ? "bg-[#F3EFFF] font-semibold text-[#6A3B82]" : ""}`}
+                            className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${form.inviteRestriction === opt.value ? 'bg-gray-100 font-semibold' : ''} text-[#6A3B82] hover:bg-gray-100`}
                             onClick={() => {
                               setForm((prev) => ({ ...prev, inviteRestriction: opt.value }))
                               setInviteDropdownOpen(false)
@@ -600,24 +705,25 @@ export default function WorkspaceSettings() {
                   <div className="relative" ref={boardDropdownRef}>
                     <button
                       type="button"
-                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${boardDropdownOpen ? openBorder : "border-[#BFA8D9] hover:border-[#6A3B82]"} ${!boardDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
+                      className="px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2 w-36 justify-between border border-gray-300"
+                      style={{ backgroundColor: '#4D2D6120', color: '#6A3B82' }}
                       onClick={() => setBoardDropdownOpen((v) => !v)}
                     >
-                      <span className="truncate text-gray-900">
+                      <span className="truncate">
                         {permissionOptions.find((opt) => opt.value === form.boardCreation)?.label || "Select"}
                       </span>
                       <ChevronDown
-                        className={`ml-2 transition-transform ${boardDropdownOpen ? "rotate-180" : ""} text-gray-400`}
+                        className={`ml-2 text-[#6A3B82] transition-transform duration-200 ${boardDropdownOpen ? 'rotate-180' : ''}`}
                         size={18}
                       />
                     </button>
                     {boardDropdownOpen && (
-                      <div className="absolute left-0 mt-2 w-36 bg-white rounded-lg shadow-lg border border-[#E5D6F3] z-20 animate-fade-in">
+                      <div className="absolute left-0 mt-2 w-36 bg-white border border-gray-300 rounded-md shadow-lg z-20">
                         {permissionOptions.map((opt) => (
                           <button
                             key={opt.value}
                             type="button"
-                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${form.boardCreation === opt.value ? "bg-[#F3EFFF] font-semibold text-[#6A3B82]" : ""}`}
+                            className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${form.boardCreation === opt.value ? 'bg-gray-100 font-semibold' : ''} text-[#6A3B82] hover:bg-gray-100`}
                             onClick={() => {
                               setForm((prev) => ({ ...prev, boardCreation: opt.value }))
                               setBoardDropdownOpen(false)
@@ -638,13 +744,17 @@ export default function WorkspaceSettings() {
         {/* Activity Overview */}
         <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
           <div className="p-4 md:p-6">
-            <h2 className="text-lg font-semibold text-[#6A3B82] flex items-center gap-2 mb-1">
+            <h2 className="text-lg font-semibold text-[#6a3b82] flex items-center gap-2 mb-1">
               <Clock size={20} />
               Recent Activity
             </h2>
             <p className="text-sm text-gray-500 mb-4">Latest workspace activity and changes</p>
             <div className="space-y-3 max-h-[260px] overflow-y-auto">
-              {activities.length > 0 ? (
+              {activitiesLoading ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin h-8 w-8 border-t-2 border-[#6a3b82] rounded-full"></div>
+                </div>
+              ) : activities.length > 0 ? (
                 activities.map((activity, index) => (
                   <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                     <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs">
@@ -654,6 +764,13 @@ export default function WorkspaceSettings() {
                       <p className="text-sm">
                         <span className="font-medium">{activity.user}</span> {activity.action}
                       </p>
+                      {activity.updatedList && (
+                        <ul className="list-disc list-inside text-xs text-gray-700 mt-1 ml-2">
+                          {activity.updatedList.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      )}
                       <p className="text-xs text-gray-500">{activity.time}</p>
                     </div>
                   </div>

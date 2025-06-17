@@ -1,19 +1,24 @@
 import { useState, useRef, useEffect } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
-const CustomDropdown = () => {
+const CustomDropdown = ({ 
+  options = [], 
+  selected, 
+  onChange, 
+  className = "",
+  buttonClassName = "",
+  dropdownClassName = "",
+  optionClassName = ""
+}) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [selected, setSelected] = useState("Weekly");
   const dropdownRef = useRef(null);
-
-  const options = ["Weekly", "Monthly", "Yearly"];
 
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
   };
 
   const selectOption = (option) => {
-    setSelected(option);
+    onChange(option.value);
     setIsOpen(false);
   };
 
@@ -31,32 +36,44 @@ const CustomDropdown = () => {
     };
   }, []);
 
+  // Get the label for the selected value
+  const selectedLabel = options.find(opt => opt.value === selected)?.label || selected;
+
   return (
-    <div className="relative inline-block" ref={dropdownRef}>
+    <div className={`relative inline-block ${className}`} ref={dropdownRef}>
       <button
-        className="w-26 text-sm font-normal text-gray-600 border-0 rounded-lg px-4 py-2 bg-gray-100 flex items-center justify-between"
+        className={`w-26 text-sm font-normal text-gray-600 border-0 rounded-lg px-4 py-2 bg-gray-100 flex items-center justify-between hover:bg-gray-200 transition-colors ${buttonClassName}`}
         onClick={toggleDropdown}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
       >
-        <span>{selected}</span>
+        <span className="truncate">{selectedLabel}</span>
         {isOpen ? (
-          <ChevronUp className="w-4 h-4 text-gray-600" />
+          <ChevronUp className="w-4 h-4 text-gray-600 ml-2" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-gray-600" />
+          <ChevronDown className="w-4 h-4 text-gray-600 ml-2" />
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute z-10 mt-1 w-24 bg-gray-100 rounded-lg shadow-lg">
+        <div 
+          className={`absolute z-10 mt-1 min-w-full bg-white rounded-lg shadow-lg border border-gray-200 ${dropdownClassName}`}
+          role="listbox"
+        >
           {options.map((option, index) => (
-            <div key={option}>
-              <div
-                className="px-4 py-2 text-sm text-gray-600  cursor-pointer"
+            <div key={option.value || option}>
+              <button
+                className={`w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors ${
+                  selected === option.value ? "bg-purple-50 text-purple-700" : ""
+                } ${optionClassName}`}
                 onClick={() => selectOption(option)}
+                role="option"
+                aria-selected={selected === option.value}
               >
-                {option}
-              </div>
+                {option.label || option}
+              </button>
               {index < options.length - 1 && (
-                <div className="border-t border-gray-300 opacity-50 mx-2"></div>
+                <div className="border-t border-gray-200"></div>
               )}
             </div>
           ))}

@@ -169,7 +169,7 @@ const Verification = () => {
       <div className="form-container w-full max-w-md">
         <div className="bg-white p-8 rounded-xl card-shadow">
           <div className="mb-6 text-center">
-            <h2 className="text-2xl font-bold text-[#57356A] mb-2">
+            <h2 className="text-2xl font-bold text-[#4d2d61] mb-2">
               Verification Code
             </h2>
             <p className="text-gray-600">
@@ -226,7 +226,7 @@ const Verification = () => {
               disabled={
                 resendDisabled || resendLoading || verifyLoading || redirecting
               }
-              className={`text-[#4D2D61] hover:text-[#57356A] transition-colors text-sm font-medium ${
+              className={`text-[#4D2D61] hover:text-[#4d2d61] transition-colors text-sm font-medium ${
                 !(
                   resendDisabled ||
                   resendLoading ||
@@ -288,7 +288,7 @@ const Verification = () => {
           <div className="mt-6 text-center">
             <a
               href="/login"
-              className={`text-[#4D2D61] hover:text-[#57356A] transition-all duration-300 text-sm font-medium ${
+              className={`text-[#4D2D61] hover:text-[#4d2d61] transition-all duration-300 text-sm font-medium ${
                 resendLoading || verifyLoading || buttonDisabled || redirecting
                   ? "pointer-events-none opacity-50"
                   : ""

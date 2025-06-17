@@ -1,3 +1,4 @@
+
 import drag from "../assets/drag-icon.png";
 import avatar3 from "../assets/Avatar3.png";
 import addButton from "../assets/Add Button.png";
@@ -7,11 +8,10 @@ import third from "../assets/third.png";
 import { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import CardDetails from "../Card/CardDetails";
-import toast from "react-hot-toast";
 
 const TaskCard = ({
   id,
-  title = "Task",
+  title,
   priority,
   fileCount = 0,
   commentCount = 0,
@@ -26,42 +26,16 @@ const TaskCard = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  const BASE_URL = "http://localhost:3000"; // Adjust as needed
+  const BASE_URL = "http://localhost:3000";
 
   const MAX_VISIBLE_LABELS = 2;
 
   // Fetch file count if needed
   useEffect(() => {
-    // Only fetch if we have a card ID
-    if (id) {
+    if (id && !id.startsWith("temp-")) {
       const fetchAttachments = async () => {
         try {
-          const response = await axios.get(`/api/v1/cards/${id}`);
-          if (
-            response.data &&
-            response.data.data &&
-            response.data.data.attachments
-          ) {
-            setActualFileCount(response.data.data.attachments.length);
-          }
-        } catch (err) {
-          console.error("Error fetching attachments:", err);
-        }
-      };
-
-      fetchAttachments();
-    } else {
-      setActualFileCount(fileCount);
-    }
-  }, [id, fileCount]);
-
-  // Fetch file count if needed
-  useEffect(() => {
-    // Only fetch if we have a card ID
-    if (id) {
-      const fetchAttachments = async () => {
-        try {
-          const response = await axios.get(`/api/v1/cards/${id}`);
+          const response = await axios.get(`${BASE_URL}/api/v1/cards/${id}`);
           if (
             response.data &&
             response.data.data &&
@@ -118,15 +92,11 @@ const TaskCard = ({
       });
       const result = await response.json();
       if (response.ok && result.status === "success") {
-        toast.success("Card archived successfully");
         setIsDropdownOpen(false);
         onCardUpdate?.();
-      } else {
-        toast.error(result.message || "Failed to archive card");
       }
     } catch (error) {
-      console.error(error);
-      toast.error("Error archiving card");
+      console.error("Error archiving card:", error);
     }
   };
 
@@ -141,16 +111,11 @@ const TaskCard = ({
       });
 
       if (response.ok) {
-        toast.success("Card deleted successfully");
         setIsDropdownOpen(false);
-        onCardUpdate?.(); // trigger refetch
-      } else {
-        const result = await response.json().catch(() => ({}));
-        toast.error(result.message || "Failed to delete card");
+        onCardUpdate?.();
       }
     } catch (error) {
-      console.error(error);
-      toast.error("Error deleting card");
+      console.error("Error deleting card:", error);
     }
   };
 
@@ -165,11 +130,26 @@ const TaskCard = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Drag-and-drop handlers
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData("cardId", id);
+    e.dataTransfer.setData("sourceListId", listId);
+    e.dataTransfer.setData("cardTitle", title || "Untitled");
+    e.currentTarget.style.opacity = "0.5";
+  };
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.style.opacity = "1";
+  };
+
   return (
     <>
       <div
-        className="flex rounded-lg overflow-hidden shadow-lg mb-3 w-full cursor-pointer"
+        className="flex rounded-lg overflow-hidden shadow-lg mb-3 w-full cursor-pointer task-card"
         onClick={handleCardClick}
+        draggable
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
       >
         <div
           className="w-8 bg-[#4D2D61] flex items-center justify-center"
@@ -180,7 +160,7 @@ const TaskCard = ({
 
         <div className="bg-white text-black p-3 rounded-r-lg flex-grow w-full">
           <div className="flex justify-between items-center">
-            <h4 className="font-semibold mt-1 mb-3 truncate">{title}</h4>
+            <h4 className="font-semibold mt-1 mb-3 truncate">{title || "Untitled"}</h4>
 
             <div className="relative dropdown-button" ref={dropdownRef}>
               <svg
@@ -319,3 +299,5 @@ const TaskCard = ({
 };
 
 export default TaskCard;
+
+

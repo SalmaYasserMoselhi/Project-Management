@@ -19,7 +19,8 @@ import { onMessage, onTyping, onStopTyping } from "../utils/socket";
 import { useChat } from "../context/chat-context";
 import defaultAvatar from "../assets/defaultAvatar.png";
 import { isValidImageUrl } from "../utils/imageUtils";
-import { Plus, X, Minus } from "lucide-react";
+import { X, Minus, UserPlus } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const ChatContainer = () => {
   const dispatch = useDispatch();
@@ -153,168 +154,264 @@ const ChatContainer = () => {
     const isGroupAdmin = activeChat.isGroup && isAdmin;
 
     return (
-      <div
-        ref={popupRef}
-        className="absolute top-20 right-4 bg-white shadow-lg rounded-xl p-4 z-50 w-72 max-h-[70vh] overflow-y-auto custom-scrollbar"
-        style={{ scrollbarWidth: "thin", scrollbarColor: "#4D2D61 #f0f0f0" }}
-      >
-        <div className="flex justify-between items-center mb-2 sticky top-0 bg-white pb-2 z-10">
-          <h4 className="text-[#4D2D61] font-bold text-sm">
-            {activeChat.isGroup ? "Group Members" : "User Info"}
-          </h4>
-          {isGroupAdmin && (
-            <button
-              onClick={() => setShowAddUserPopup((prev) => !prev)}
-              className="p-1 text-[#4D2D61] hover:text-[#57356A]"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Add User Section - Only visible when showAddUserPopup is true */}
-        {showAddUserPopup && activeChat.isGroup && isAdmin && (
-          <div className="mb-4 border-b pb-4">
-            <div className="flex justify-between items-center mb-2 sticky top-10 bg-white z-10">
-              <h5 className="text-[#4D2D61] font-medium text-sm">Add Users</h5>
-              <button
-                onClick={() => setShowAddUserPopup(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div
-              className="max-h-60 overflow-y-auto pr-1 mb-2 custom-scrollbar"
-              style={{
-                scrollbarWidth: "thin",
-                scrollbarColor: "#4D2D61 #f0f0f0",
-              }}
-            >
-              <ul className="space-y-2">
-                {allUsers?.filter(Boolean).map((user) => {
-                  const alreadyInGroup = participants.some(
-                    (u) => u._id === user._id
-                  );
-                  return (
-                    <li
-                      key={user._id}
-                      className={`flex items-center gap-2 p-1 rounded ${
-                        alreadyInGroup
-                          ? "bg-gray-200 cursor-not-allowed"
-                          : "hover:bg-gray-100"
-                      }`}
-                    >
-                      <div
-                        className="flex items-center gap-2 flex-1"
-                        onClick={() => {
-                          if (!alreadyInGroup) {
-                            toggleUserSelection(user._id);
-                          }
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedUsers.includes(user._id)}
-                          onChange={() => {
-                            if (!alreadyInGroup) {
-                              toggleUserSelection(user._id);
-                            }
-                          }}
-                          disabled={alreadyInGroup}
-                          className="h-3 w-3 text-[#4D2D61] rounded"
-                        />
-                        <img
-                          src={
-                            isValidImageUrl(user.avatar)
-                              ? user.avatar
-                              : defaultAvatar
-                          }
-                          className="w-6 h-6 rounded-full object-cover"
-                          alt={user.name}
-                        />
-                        <div className="flex flex-col">
-                          <span className="text-xs font-medium">
-                            {user.fullName || user.name || user.username}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {alreadyInGroup ? "Already in group" : user.email}
-                          </span>
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-            <button
-              onClick={handleAddSelectedUsers}
-              disabled={selectedUsers.length === 0}
-              className={`w-full text-xs mt-2 py-1 px-2 rounded ${
-                selectedUsers.length > 0
-                  ? "bg-[#4D2D61] hover:bg-[#3c224c] text-white"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
-              }`}
-            >
-              Add Selected Users
-            </button>
-          </div>
-        )}
-
-        <div
-          className="max-h-60 overflow-y-auto pr-1 custom-scrollbar"
-          style={{ scrollbarWidth: "thin", scrollbarColor: "#4D2D61 #f0f0f0" }}
+      <AnimatePresence>
+        <motion.div
+          ref={popupRef}
+          initial={{ opacity: 0, scale: 0.9, y: -20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.9, y: -20 }}
+          transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+          className="absolute top-16 right-4 bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-100/50 rounded-3xl overflow-hidden z-50 w-80 max-h-[65vh]"
+          style={{
+            boxShadow:
+              "0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05)",
+          }}
         >
-          <ul className="space-y-2">
-            {participants.map((user) => (
-              <li
-                key={user._id}
-                className="flex items-center justify-between gap-3"
-              >
-                <div className="flex items-center gap-3">
-                  <img
-                    src={
-                      isValidImageUrl(user.avatar) ? user.avatar : defaultAvatar
-                    }
-                    className="w-8 h-8 rounded-full object-cover"
-                    alt="avatar"
-                  />
-                  <div className="text-sm">
-                    <p className="font-medium text-gray-800">
-                      {user.fullName || user.name || user.username}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {user.email || "No email"}
-                    </p>
-                  </div>
-                </div>
-                {activeChat.isGroup &&
-                  isAdmin &&
-                  user._id !== currentUser?._id && (
-                    <button
-                      onClick={() => handleRemoveUser(user._id)}
-                      className="text-red-500 hover:text-red-700"
-                      title="Remove User"
-                    >
-                      <Minus className="h-5 w-5" />
-                    </button>
-                  )}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {activeChat.isGroup && !isAdmin && (
-          <div className="mt-4 sticky bottom-0 bg-white pt-2">
-            <button
-              onClick={handleLeaveGroup}
-              className="w-full text-sm bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded"
-            >
-              Leave Group
-            </button>
+          {/* Modern Header with Custom Purple Gradient */}
+          <div
+            className="relative p-5"
+            style={{
+              background: "linear-gradient(to right, #4D2D61, #6B46C1)",
+            }}
+          >
+            <div className="absolute inset-0 bg-black/10"></div>
+            <div className="relative flex justify-between items-center">
+              <div>
+                <h4 className="text-white font-bold text-lg tracking-tight">
+                  {activeChat.isGroup ? "Group Members" : "User Info"}
+                </h4>
+                <p className="text-white/80 text-sm mt-1">
+                  {participants.length}{" "}
+                  {participants.length === 1 ? "member" : "members"}
+                </p>
+              </div>
+              {isGroupAdmin && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowAddUserPopup((prev) => !prev)}
+                  className="p-2.5 bg-white/20 backdrop-blur-sm text-white rounded-2xl hover:bg-white/30 transition-all duration-300 shadow-lg"
+                >
+                  <UserPlus className="w-4 h-4" />
+                </motion.button>
+              )}
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Content Area */}
+          <div className="p-5 max-h-[calc(65vh-90px)] overflow-y-auto custom-scrollbar">
+            {/* Add User Section */}
+            <AnimatePresence>
+              {showAddUserPopup && activeChat.isGroup && isAdmin && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  animate={{ opacity: 1, height: "auto", marginBottom: 20 }}
+                  exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-2xl p-4 border border-gray-200/50"
+                >
+                  <div className="flex justify-between items-center mb-3">
+                    <h5 className="text-gray-800 font-semibold text-sm flex items-center gap-2">
+                      <UserPlus
+                        className="w-3 h-3"
+                        style={{ color: "#6B46C1" }}
+                      />
+                      Add New Members
+                    </h5>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setShowAddUserPopup(false)}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-xl transition-all duration-200"
+                    >
+                      <X className="h-3 w-3" />
+                    </motion.button>
+                  </div>
+
+                  <div className="max-h-32 overflow-y-auto mb-3 custom-scrollbar">
+                    <div className="space-y-1.5">
+                      {allUsers?.filter(Boolean).map((user, index) => {
+                        const alreadyInGroup = participants.some(
+                          (u) => u._id === user._id
+                        );
+                        return (
+                          <motion.div
+                            key={user._id}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className={`flex items-center gap-2.5 p-2.5 rounded-xl transition-all duration-300 cursor-pointer ${
+                              alreadyInGroup
+                                ? "bg-gray-100 opacity-50 cursor-not-allowed"
+                                : selectedUsers.includes(user._id)
+                                ? "border border-gray-200"
+                                : "bg-white hover:bg-gray-50 border border-gray-100"
+                            }`}
+                            style={
+                              selectedUsers.includes(user._id) &&
+                              !alreadyInGroup
+                                ? {
+                                    background:
+                                      "linear-gradient(to right, rgba(77, 45, 97, 0.1), rgba(107, 70, 193, 0.1))",
+                                    borderColor: "#6B46C1",
+                                  }
+                                : {}
+                            }
+                            onClick={() => {
+                              if (!alreadyInGroup) {
+                                toggleUserSelection(user._id);
+                              }
+                            }}
+                          >
+                            <div className="relative">
+                              <input
+                                type="checkbox"
+                                checked={selectedUsers.includes(user._id)}
+                                onChange={() => {
+                                  if (!alreadyInGroup) {
+                                    toggleUserSelection(user._id);
+                                  }
+                                }}
+                                disabled={alreadyInGroup}
+                                className="h-3 w-3 rounded border-gray-300 focus:ring-2"
+                                style={{
+                                  accentColor: "#6B46C1",
+                                }}
+                              />
+                            </div>
+                            <div className="relative">
+                              <img
+                                src={
+                                  isValidImageUrl(user.avatar)
+                                    ? user.avatar
+                                    : defaultAvatar
+                                }
+                                className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"
+                                alt={user.name}
+                              />
+                              {!alreadyInGroup && (
+                                <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full"></div>
+                              )}
+                            </div>
+                            <div className="flex flex-col flex-1 min-w-0">
+                              <span className="font-medium text-gray-800 truncate text-xs">
+                                {user.fullName || user.name || user.username}
+                              </span>
+                              <span className="text-xs text-gray-500 truncate">
+                                {alreadyInGroup
+                                  ? "Already in group"
+                                  : user.email}
+                              </span>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleAddSelectedUsers}
+                    disabled={selectedUsers.length === 0}
+                    className={`w-full text-xs py-2.5 px-3 rounded-xl font-medium transition-all duration-300 ${
+                      selectedUsers.length > 0
+                        ? "text-white shadow-lg hover:shadow-xl"
+                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    }`}
+                    style={
+                      selectedUsers.length > 0
+                        ? {
+                            background:
+                              "linear-gradient(to right, #4D2D61, #6B46C1)",
+                          }
+                        : {}
+                    }
+                    onMouseEnter={(e) => {
+                      if (selectedUsers.length > 0) {
+                        e.target.style.background =
+                          "linear-gradient(to right, #3D1D51, #5B36B1)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selectedUsers.length > 0) {
+                        e.target.style.background =
+                          "linear-gradient(to right, #4D2D61, #6B46C1)";
+                      }
+                    }}
+                  >
+                    Add {selectedUsers.length}{" "}
+                    {selectedUsers.length === 1 ? "Member" : "Members"}
+                  </motion.button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Members List */}
+            <div className="space-y-2.5">
+              {participants.map((user, index) => (
+                <motion.div
+                  key={user._id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="group flex items-center justify-between gap-3 p-3 bg-white hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100/50 rounded-2xl transition-all duration-300 border border-gray-100/50 hover:border-gray-200/50 hover:shadow-md"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="relative">
+                      <img
+                        src={
+                          isValidImageUrl(user.avatar)
+                            ? user.avatar
+                            : defaultAvatar
+                        }
+                        className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-lg"
+                        alt="avatar"
+                      />
+                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-gray-800 text-sm truncate">
+                        {user.fullName || user.name || user.username}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {user.email || "No email"}
+                      </p>
+                    </div>
+                  </div>
+                  {activeChat.isGroup &&
+                    isAdmin &&
+                    user._id !== currentUser?._id && (
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => handleRemoveUser(user._id)}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200"
+                        title="Remove User"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </motion.button>
+                    )}
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Leave Group Button */}
+          {activeChat.isGroup && !isAdmin && (
+            <div className="p-5 pt-0">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleLeaveGroup}
+                className="w-full text-xs bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white py-2.5 px-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                Leave Group
+              </motion.button>
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
     );
   }, [
     showPopup,
@@ -489,32 +586,123 @@ const ChatContainer = () => {
 
   if (!activeChat?.id) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-lg font-medium text-[#57356A]">
-          Select a conversation to start messaging
-        </p>
+      <div className="flex h-full items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-50">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center"
+        >
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: "spring" }}
+            className="w-16 h-16 mx-auto rounded-3xl flex items-center justify-center mb-6 shadow-2xl"
+            style={{
+              background: "linear-gradient(to right, #4D2D61, #6B46C1)",
+            }}
+          >
+            <svg
+              className="w-8 h-8 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+              />
+            </svg>
+          </motion.div>
+          <motion.h3
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="text-xl font-bold text-gray-800 mb-2"
+          >
+            Select a conversation
+          </motion.h3>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="text-gray-500"
+          >
+            Choose from your conversations to start messaging
+          </motion.p>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="flex flex-col h-full bg-gray-50 relative">
       <ChatHeader
         user={activeChat}
         onToggleInfo={() => setShowPopup((prev) => !prev)}
       />
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 min-h-0 flex flex-col relative">
         <ChatMessages />
-        {isTyping && !hasLeftGroup && (
-          <div className="px-4 py-1 text-sm text-[#4D2D61]">
-            {activeChat?.otherUser?.name || activeChat?.name || "User"} is
-            typing...
-          </div>
-        )}
+        <AnimatePresence>
+          {isTyping && !hasLeftGroup && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="px-6 py-3 mx-4 mb-2 bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex space-x-1">
+                  <motion.div
+                    animate={{ scale: [1, 1.3, 1] }}
+                    transition={{
+                      duration: 1,
+                      repeat: Number.POSITIVE_INFINITY,
+                      delay: 0,
+                    }}
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: "#6B46C1" }}
+                  />
+                  <motion.div
+                    animate={{ scale: [1, 1.3, 1] }}
+                    transition={{
+                      duration: 1,
+                      repeat: Number.POSITIVE_INFINITY,
+                      delay: 0.2,
+                    }}
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: "#6B46C1" }}
+                  />
+                  <motion.div
+                    animate={{ scale: [1, 1.3, 1] }}
+                    transition={{
+                      duration: 1,
+                      repeat: Number.POSITIVE_INFINITY,
+                      delay: 0.4,
+                    }}
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: "#6B46C1" }}
+                  />
+                </div>
+                <span className="text-sm text-gray-600 font-medium">
+                  {activeChat?.otherUser?.name || activeChat?.name || "User"} is
+                  typing...
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {hasLeftGroup ? (
-          <div className="px-4 py-3 bg-gray-100 text-center text-gray-700 font-medium">
-            You have left the group
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-4 mb-4 px-6 py-4 bg-gradient-to-r from-gray-100 to-gray-200 text-center rounded-2xl border border-gray-200"
+          >
+            <span className="text-gray-600 font-medium">
+              You have left the group
+            </span>
+          </motion.div>
         ) : (
           <ChatInput chatId={activeChat.id} />
         )}
