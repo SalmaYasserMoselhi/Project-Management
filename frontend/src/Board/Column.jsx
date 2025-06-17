@@ -430,3 +430,4 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists }
 };
 
 export default Column;
+
