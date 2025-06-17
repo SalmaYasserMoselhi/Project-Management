@@ -1,5 +1,5 @@
 
-// taskCARD
+/// taskCARD
 
 import drag from "../assets/drag-icon.png";
 import avatar3 from "../assets/Avatar3.png";
