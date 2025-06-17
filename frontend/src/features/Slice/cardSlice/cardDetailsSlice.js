@@ -654,6 +654,32 @@ const cardDetailsSlice = createSlice({
           state.boardId = action.payload.boardId;
         }
 
+        // Handle comments if they are part of the card data, ensuring consistent structure
+        if (cardData.comments && Array.isArray(cardData.comments)) {
+          state.comments = cardData.comments.map((comment) => ({
+            id: comment._id,
+            text: comment.text,
+            userId: comment.author?._id || comment.userId,
+            username:
+              `${comment.author?.firstName || ""} ${
+                comment.author?.lastName || ""
+              }`.trim() || "Anonymous",
+            timestamp: comment.createdAt,
+            edited: comment.edited === true,
+            replies: (comment.replies || []).map((reply) => ({
+              id: reply._id,
+              text: reply.text,
+              userId: reply.author?._id || reply.userId,
+              username:
+                `${reply.author?.firstName || ""} ${
+                  reply.author?.lastName || ""
+                }`.trim() || "Anonymous",
+              timestamp: reply.createdAt,
+              edited: reply.edited === true,
+            })),
+          }));
+        }
+
         // التعامل بشكل خاص مع dueDate للتأكد من هيكل البيانات الصحيح
         if (cardData.dueDate) {
           if (
@@ -695,7 +721,12 @@ const cardDetailsSlice = createSlice({
 
         // تحديث باقي الحقول
         Object.keys(cardData).forEach((key) => {
-          if (key !== "dueDate" && key !== "attachments" && key in state) {
+          if (
+            key !== "dueDate" &&
+            key !== "attachments" &&
+            key !== "comments" && // Prevent overwriting our mapped comments
+            key in state
+          ) {
             state[key] = cardData[key];
           }
         });
@@ -961,15 +992,21 @@ const cardDetailsSlice = createSlice({
         state.comments = commentsData.map((comment) => ({
           id: comment._id,
           text: comment.text,
-          userId: comment.user?._id || comment.userId,
-          username: comment.user?.name || "Anonymous",
+          userId: comment.author?._id || comment.userId,
+          username:
+            `${comment.author?.firstName || ""} ${
+              comment.author?.lastName || ""
+            }`.trim() || "Anonymous",
           timestamp: comment.createdAt,
           edited: comment.edited === true,
           replies: (comment.replies || []).map((reply) => ({
             id: reply._id,
             text: reply.text,
-            userId: reply.user?._id || reply.userId,
-            username: reply.user?.name || "Anonymous",
+            userId: reply.author?._id || reply.userId,
+            username:
+              `${reply.author?.firstName || ""} ${
+                reply.author?.lastName || ""
+              }`.trim() || "Anonymous",
             timestamp: reply.createdAt,
             edited: reply.edited === true,
           })),
@@ -994,8 +1031,11 @@ const cardDetailsSlice = createSlice({
           state.comments.push({
             id: comment._id,
             text: comment.text,
-            userId: comment.user?._id || comment.userId,
-            username: comment.user?.name || "Anonymous",
+            userId: comment.author?._id || comment.userId,
+            username:
+              `${comment.author?.firstName || ""} ${
+                comment.author?.lastName || ""
+              }`.trim() || "Anonymous",
             timestamp: comment.createdAt || new Date().toISOString(),
             edited: false,
             replies: comment.replies || [],
