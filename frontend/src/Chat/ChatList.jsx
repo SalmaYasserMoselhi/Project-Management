@@ -520,19 +520,20 @@ const ChatList = ({ onChatSelect }) => {
       {/* Enhanced Search */}
       <div className="px-4 py-3 bg-white/50">
         <div className="relative group">
-          <Search className="absolute left-4 top-3 h-4 w-4 text-gray-400 group-focus-within:text-[#4d2d61] transition-colors duration-300" />
+          <Search className="absolute left-3 top-4 h-4 w-4 text-gray-400 z-10 pointer-events-none" />
           <input
             id="searchInput"
             type="text"
             placeholder={showUserSearch ? "Search users..." : "Search chats..."}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-12 py-3 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 focus:outline-none focus:ring-2 focus:ring-[#4d2d61]/20 focus:border-[#4d2d61]/40 text-gray-700 transition-all duration-300 hover:bg-white hover:shadow-md placeholder:text-gray-400"
+            className="w-full pl-10 pr-10 py-3.5 text-sm bg-white/80 backdrop-blur-sm rounded-xl border border-[#E5D8F6] focus:outline-none focus:ring-2 focus:ring-[#4D2D61]/20 focus:border-[#C1A7E6] text-gray-700 transition-all duration-300 hover:shadow-sm placeholder:text-gray-400"
           />
           {showUserSearch && (
             <button
               onClick={handleClearSearch}
-              className="absolute right-4 top-4 text-gray-400 hover:text-[#4d2d61] transition-all duration-300 hover:scale-110"
+              className="absolute right-3 top-4 text-gray-400 hover:text-[#4D2D61] transition-all duration-300 hover:scale-110"
+              tabIndex={-1}
             >
               <X className="h-4 w-4" />
             </button>

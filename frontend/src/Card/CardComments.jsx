@@ -9,6 +9,10 @@ import {
   editReply,
   addCardComment,
   fetchCardComments,
+  addReplyToComment,
+  updateCardComment,
+  updateCardReply,
+  deleteCardComment,
 } from "../features/Slice/cardSlice/cardDetailsSlice";
 import {
   Send,
@@ -22,6 +26,42 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+
+// Reusable Avatar component for CardComments.jsx
+const CommentAvatar = ({ avatar, username, size = "normal" }) => {
+  const wrapperSize = size === "small" ? "w-6 h-6" : "w-8 h-8";
+  const iconSize = size === "small" ? 12 : 16;
+  const textSize = size === "small" ? "text-xs" : "text-base";
+
+  const getInitials = (name) =>
+    name
+      ? name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()
+      : "";
+
+  return (
+    <div
+      className={`${wrapperSize} rounded-full bg-purple-200 flex items-center justify-center mr-3 flex-shrink-0`}
+    >
+      {avatar ? (
+        <img
+          src={avatar}
+          alt={username}
+          className="w-full h-full rounded-full object-cover"
+        />
+      ) : username ? (
+        <span className={`font-semibold text-[#4D2D61] ${textSize}`}>
+          {getInitials(username)}
+        </span>
+      ) : (
+        <User size={iconSize} className="text-[#4D2D61]" />
+      )}
+    </div>
+  );
+};
 
 // Reusable dropdown menu component
 const ActionMenu = ({ isOpen, menuRef, onEdit, onDelete, size = "normal" }) => {
@@ -104,7 +144,7 @@ export default function CardComments() {
   const { commentsLoading, commentsError } = useSelector(
     (state) => state.cardDetails
   );
-  const currentUser = useSelector((state) => state.auth?.user || null);
+  const currentUser = useSelector((state) => state.login?.user || null);
 
   const [newCommentText, setNewCommentText] = useState("");
   const [editingCommentId, setEditingCommentId] = useState(null);
@@ -201,9 +241,13 @@ export default function CardComments() {
     }
   };
 
-  const handleRemoveComment = (id) => {
-    dispatch(removeComment(id));
-    setOpenMenuId(null);
+  const handleRemoveComment = async (commentId) => {
+    try {
+      await dispatch(deleteCardComment({ cardId, commentId })).unwrap();
+      setOpenMenuId(null);
+    } catch (error) {
+      console.error("Failed to delete comment:", error);
+    }
   };
 
   const handleStartEditing = (comment) => {
@@ -213,16 +257,21 @@ export default function CardComments() {
     setTimeout(() => autoResizeTextarea(editTextRef), 0);
   };
 
-  const handleSaveEdit = () => {
-    if (editText.trim()) {
-      dispatch(
-        editComment({
-          id: editingCommentId,
-          text: editText,
-        })
-      );
-      setEditingCommentId(null);
-      setEditText("");
+  const handleSaveEdit = async () => {
+    if (editText.trim() && cardId) {
+      try {
+        await dispatch(
+          updateCardComment({
+            cardId,
+            commentId: editingCommentId,
+            text: editText,
+          })
+        ).unwrap();
+        setEditingCommentId(null);
+        setEditText("");
+      } catch (error) {
+        console.error("Failed to update comment:", error);
+      }
     }
   };
 
@@ -237,29 +286,34 @@ export default function CardComments() {
     setTimeout(() => autoResizeTextarea(replyTextRef), 0);
   };
 
-  const handleAddReply = (commentId) => {
-    if (replyText.trim()) {
-      dispatch(
-        addReply({
-          commentId,
-          reply: {
-            id: Date.now(),
+  const handleAddReply = async (commentId) => {
+    if (replyText.trim() && cardId) {
+      try {
+        await dispatch(
+          addReplyToComment({
+            cardId,
+            commentId,
             text: replyText,
-            userId: "current-user",
-            username: "You",
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
-      setReplyText("");
-      setReplyingToId(null);
-      setExpandedComments((prev) => ({ ...prev, [commentId]: true }));
+          })
+        ).unwrap();
+        setReplyText("");
+        setReplyingToId(null);
+        setExpandedComments((prev) => ({ ...prev, [commentId]: true }));
+      } catch (error) {
+        console.error("Failed to add reply:", error);
+      }
     }
   };
 
-  const handleRemoveReply = (commentId, replyId) => {
-    dispatch(removeReply({ commentId, replyId }));
-    setOpenReplyMenuId(null);
+  const handleRemoveReply = async (commentId, replyId) => {
+    try {
+      await dispatch(
+        deleteCardComment({ cardId, commentId: replyId, parentId: commentId })
+      ).unwrap();
+      setOpenReplyMenuId(null);
+    } catch (error) {
+      console.error("Failed to delete reply:", error);
+    }
   };
 
   const handleStartEditingReply = (commentId, reply) => {
@@ -269,17 +323,21 @@ export default function CardComments() {
     setTimeout(() => autoResizeTextarea(editReplyTextRef), 0);
   };
 
-  const handleSaveReplyEdit = (commentId) => {
-    if (editReplyText.trim()) {
-      dispatch(
-        editReply({
-          commentId,
-          replyId: editingReplyId,
-          text: editReplyText,
-        })
-      );
-      setEditingReplyId(null);
-      setEditReplyText("");
+  const handleSaveReplyEdit = async () => {
+    if (editReplyText.trim() && cardId) {
+      try {
+        await dispatch(
+          updateCardReply({
+            cardId,
+            replyId: editingReplyId,
+            text: editReplyText,
+          })
+        ).unwrap();
+        setEditingReplyId(null);
+        setEditReplyText("");
+      } catch (error) {
+        console.error("Failed to update reply:", error);
+      }
     }
   };
 
@@ -317,15 +375,14 @@ export default function CardComments() {
               {/* Main comment */}
               <div className="group">
                 <div className="flex items-start">
-                  <div className="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center mr-3 flex-shrink-0">
-                    <User size={16} className="text-[#4D2D61]" />
-                  </div>
+                  <CommentAvatar
+                    avatar={comment.avatar}
+                    username={comment.username}
+                  />
                   <div className="flex-grow">
                     <div className="flex items-center">
                       <span className="font-medium text-sm text-gray-800">
-                        {comment.userId === currentUser?._id
-                          ? "You"
-                          : comment.username}
+                        {comment.username}
                       </span>
                       <span className="ml-2 text-xs text-gray-500">
                         {formatDistanceToNow(new Date(comment.timestamp), {
@@ -391,9 +448,11 @@ export default function CardComments() {
               {replyingToId === comment.id && (
                 <div className="mt-2 ml-11">
                   <div className="flex items-start">
-                    <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center mr-2 flex-shrink-0">
-                      <User size={12} className="text-[#4D2D61]" />
-                    </div>
+                    <CommentAvatar
+                      avatar={currentUser?.avatar}
+                      username={currentUser?.firstName}
+                      size="small"
+                    />
                     <div className="flex-grow">
                       <div className="flex items-center space-x-2">
                         <textarea
@@ -417,7 +476,7 @@ export default function CardComments() {
                             replyText.trim() ? "opacity-100" : "opacity-70"
                           }`}
                           onClick={() => handleAddReply(comment.id)}
-                          disabled={!replyText.trim()}
+                          disabled={!replyText.trim() || commentsLoading}
                         >
                           <Send size={12} className="text-white" />
                         </button>
@@ -466,15 +525,15 @@ export default function CardComments() {
                           className="pl-5 border-l-2 border-gray-200 ml-5 group"
                         >
                           <div className="flex items-start">
-                            <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center mr-2 flex-shrink-0">
-                              <User size={12} className="text-[#4D2D61]" />
-                            </div>
+                            <CommentAvatar
+                              avatar={reply.avatar}
+                              username={reply.username}
+                              size="small"
+                            />
                             <div className="flex-grow">
                               <div className="flex items-center">
                                 <span className="font-medium text-xs text-gray-800">
-                                  {reply.userId === currentUser?._id
-                                    ? "You"
-                                    : reply.username}
+                                  {reply.username}
                                 </span>
                                 <span className="ml-2 text-xs text-gray-500">
                                   {formatDistanceToNow(
@@ -493,7 +552,7 @@ export default function CardComments() {
                                   onChange={(e) =>
                                     setEditReplyText(e.target.value)
                                   }
-                                  onSave={() => handleSaveReplyEdit(comment.id)}
+                                  onSave={handleSaveReplyEdit}
                                   onCancel={handleCancelReplyEdit}
                                   textareaRef={editReplyTextRef}
                                   size="small"
@@ -558,9 +617,10 @@ export default function CardComments() {
 
       {/* Add new comment form */}
       <div className="flex items-start mt-4">
-        <div className="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center mr-3 flex-shrink-0">
-          <User size={16} className="text-[#4D2D61]" />
-        </div>
+        <CommentAvatar
+          avatar={currentUser?.avatar}
+          username={currentUser?.firstName}
+        />
         <div className="flex-grow flex items-center space-x-2">
           <textarea
             ref={newCommentRef}
