@@ -19,10 +19,18 @@ import { onMessage, onTyping, onStopTyping } from "../utils/socket";
 import { useChat } from "../context/chat-context";
 import defaultAvatar from "../assets/defaultAvatar.png";
 import { isValidImageUrl } from "../utils/imageUtils";
-import { X, Minus, UserPlus } from "lucide-react";
+import {
+  X,
+  Minus,
+  UserPlus,
+  ArrowLeft,
+  Sparkles,
+  MessageCircle,
+  Users,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const ChatContainer = () => {
+const ChatContainer = ({ onBackClick, isMobile }) => {
   const dispatch = useDispatch();
   const { isTyping } = useSelector((state) => state.chat);
   const { currentUser, activeChat, setActiveConversation } = useChat();
@@ -584,54 +592,114 @@ const ChatContainer = () => {
     };
   }, [showPopup]);
 
+  // إذا لم يكن هناك محادثة نشطة، اعرض شاشة ترحيب
   if (!activeChat?.id) {
     return (
-      <div className="flex h-full items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-50">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center"
-        >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: "spring" }}
-            className="w-16 h-16 mx-auto rounded-3xl flex items-center justify-center mb-6 shadow-2xl"
-            style={{
-              background: "linear-gradient(to right, #4D2D61, #6B46C1)",
-            }}
-          >
-            <svg
-              className="w-8 h-8 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+      <div className="flex flex-col h-full bg-gradient-to-br from-gray-50 to-white">
+        {/* زر الرجوع للموبايل عندما لا توجد محادثة نشطة */}
+        {isMobile && onBackClick && (
+          <div className="p-4 border-b border-gray-200/60">
+            <button
+              onClick={onBackClick}
+              className="flex items-center gap-3 text-[#4D2D61] hover:text-[#6B46C1] transition-colors duration-300 font-medium"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-              />
-            </svg>
+              <ArrowLeft className="w-5 h-5" />
+              <span>Back to Conversations</span>
+            </button>
+          </div>
+        )}
+
+        {/* شاشة الترحيب */}
+        <div className="flex-1 flex items-center justify-center p-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="text-center max-w-md mx-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="relative mb-8"
+            >
+              <div className="w-32 h-32 mx-auto bg-gradient-to-br from-[#4D2D61]/10 to-[#6B46C1]/10 rounded-full flex items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#4D2D61]/5 to-[#6B46C1]/5 animate-pulse"></div>
+                <MessageCircle className="w-16 h-16 text-[#4D2D61] relative z-10" />
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{
+                    duration: 20,
+                    repeat: Number.POSITIVE_INFINITY,
+                    ease: "linear",
+                  }}
+                  className="absolute inset-2 border-2 border-dashed border-[#4D2D61]/20 rounded-full"
+                ></motion.div>
+              </div>
+              <motion.div
+                animate={{ y: [-5, 5, -5] }}
+                transition={{
+                  duration: 3,
+                  repeat: Number.POSITIVE_INFINITY,
+                  ease: "easeInOut",
+                }}
+                className="absolute -top-2 -right-2"
+              >
+                <Sparkles className="w-6 h-6 text-[#6B46C1]" />
+              </motion.div>
+            </motion.div>
+
+            <motion.h2
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              className="text-3xl font-bold bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] bg-clip-text text-transparent mb-4"
+            >
+              Welcome to Beehive Chat
+            </motion.h2>
+
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.6 }}
+              className="text-gray-600 text-lg mb-8 leading-relaxed"
+            >
+              Select a conversation from the sidebar to start chatting, or
+              create a new conversation to connect with your team.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.8 }}
+              className="space-y-4"
+            >
+              <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span>Real-time messaging</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-[#4D2D61]" />
+                  <span>Group conversations</span>
+                </div>
+              </div>
+
+              <motion.div
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{
+                  duration: 2,
+                  repeat: Number.POSITIVE_INFINITY,
+                  ease: "easeInOut",
+                }}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#4D2D61]/10 to-[#6B46C1]/10 rounded-full text-[#4D2D61] font-medium"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Start your first conversation</span>
+              </motion.div>
+            </motion.div>
           </motion.div>
-          <motion.h3
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="text-xl font-bold text-gray-800 mb-2"
-          >
-            Select a conversation
-          </motion.h3>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-            className="text-gray-500"
-          >
-            Choose from your conversations to start messaging
-          </motion.p>
-        </motion.div>
+        </div>
       </div>
     );
   }
@@ -641,6 +709,8 @@ const ChatContainer = () => {
       <ChatHeader
         user={activeChat}
         onToggleInfo={() => setShowPopup((prev) => !prev)}
+        onBackClick={isMobile ? onBackClick : undefined}
+        isMobile={isMobile}
       />
       <div className="flex-1 min-h-0 flex flex-col relative">
         <ChatMessages />

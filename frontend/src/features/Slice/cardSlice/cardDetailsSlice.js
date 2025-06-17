@@ -446,6 +446,50 @@ export const deleteAttachment = createAsyncThunk(
   }
 );
 
+// جلب تعليقات البطاقة
+export const fetchCardComments = createAsyncThunk(
+  "card/fetchCardComments",
+  async (cardId, { rejectWithValue }) => {
+    try {
+      const response = await axios.get(
+        `${BASE_URL}/api/v1/cards/${cardId}/comments`
+      );
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch comments"
+      );
+    }
+  }
+);
+
+// إضافة تعليق جديد للبطاقة
+export const addCardComment = createAsyncThunk(
+  "card/addCardComment",
+  async ({ cardId, text }, { rejectWithValue }) => {
+    if (!text || !text.trim()) {
+      return rejectWithValue("Comment text is required");
+    }
+
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/api/v1/cards/${cardId}/comments`,
+        {
+          text: text.trim(),
+        }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("API Error adding comment:", error.response?.data || error);
+
+      if (error.response?.data?.message) {
+        return rejectWithValue(error.response.data.message);
+      }
+      return rejectWithValue("Failed to add comment. Please try again.");
+    }
+  }
+);
+
 const initialState = {
   id: null,
   title: "",
@@ -463,8 +507,10 @@ const initialState = {
   boardId: null,
   loading: false,
   saveLoading: false,
+  commentsLoading: false,
   error: null,
   saveError: null,
+  commentsError: null,
 };
 
 const cardDetailsSlice = createSlice({
@@ -608,6 +654,32 @@ const cardDetailsSlice = createSlice({
           state.boardId = action.payload.boardId;
         }
 
+        // Handle comments if they are part of the card data, ensuring consistent structure
+        if (cardData.comments && Array.isArray(cardData.comments)) {
+          state.comments = cardData.comments.map((comment) => ({
+            id: comment._id,
+            text: comment.text,
+            userId: comment.author?._id || comment.userId,
+            username:
+              `${comment.author?.firstName || ""} ${
+                comment.author?.lastName || ""
+              }`.trim() || "Anonymous",
+            timestamp: comment.createdAt,
+            edited: comment.edited === true,
+            replies: (comment.replies || []).map((reply) => ({
+              id: reply._id,
+              text: reply.text,
+              userId: reply.author?._id || reply.userId,
+              username:
+                `${reply.author?.firstName || ""} ${
+                  reply.author?.lastName || ""
+                }`.trim() || "Anonymous",
+              timestamp: reply.createdAt,
+              edited: reply.edited === true,
+            })),
+          }));
+        }
+
         // التعامل بشكل خاص مع dueDate للتأكد من هيكل البيانات الصحيح
         if (cardData.dueDate) {
           if (
@@ -649,7 +721,12 @@ const cardDetailsSlice = createSlice({
 
         // تحديث باقي الحقول
         Object.keys(cardData).forEach((key) => {
-          if (key !== "dueDate" && key !== "attachments" && key in state) {
+          if (
+            key !== "dueDate" &&
+            key !== "attachments" &&
+            key !== "comments" && // Prevent overwriting our mapped comments
+            key in state
+          ) {
             state[key] = cardData[key];
           }
         });
@@ -899,6 +976,75 @@ const cardDetailsSlice = createSlice({
         state.attachments = state.attachments.filter(
           (attachment) => attachment.id !== action.payload.attachmentId
         );
+      })
+
+      // معالجة جلب التعليقات
+      .addCase(fetchCardComments.pending, (state) => {
+        state.commentsLoading = true;
+        state.commentsError = null;
+      })
+      .addCase(fetchCardComments.fulfilled, (state, action) => {
+        state.commentsLoading = false;
+        const commentsData = Array.isArray(action.payload)
+          ? action.payload
+          : action.payload.comments || [];
+
+        state.comments = commentsData.map((comment) => ({
+          id: comment._id,
+          text: comment.text,
+          userId: comment.author?._id || comment.userId,
+          username:
+            `${comment.author?.firstName || ""} ${
+              comment.author?.lastName || ""
+            }`.trim() || "Anonymous",
+          timestamp: comment.createdAt,
+          edited: comment.edited === true,
+          replies: (comment.replies || []).map((reply) => ({
+            id: reply._id,
+            text: reply.text,
+            userId: reply.author?._id || reply.userId,
+            username:
+              `${reply.author?.firstName || ""} ${
+                reply.author?.lastName || ""
+              }`.trim() || "Anonymous",
+            timestamp: reply.createdAt,
+            edited: reply.edited === true,
+          })),
+        }));
+      })
+      .addCase(fetchCardComments.rejected, (state, action) => {
+        state.commentsLoading = false;
+        state.commentsError = action.payload || "Failed to fetch comments";
+      })
+
+      // معالجة إضافة تعليق
+      .addCase(addCardComment.pending, (state) => {
+        state.commentsLoading = true;
+        state.commentsError = null;
+      })
+      .addCase(addCardComment.fulfilled, (state, action) => {
+        state.commentsLoading = false;
+        const comment = action.payload;
+
+        // تحويل الاستجابة للتوافق مع هيكل البيانات في واجهة المستخدم
+        if (comment && comment._id) {
+          state.comments.push({
+            id: comment._id,
+            text: comment.text,
+            userId: comment.author?._id || comment.userId,
+            username:
+              `${comment.author?.firstName || ""} ${
+                comment.author?.lastName || ""
+              }`.trim() || "Anonymous",
+            timestamp: comment.createdAt || new Date().toISOString(),
+            edited: false,
+            replies: comment.replies || [],
+          });
+        }
+      })
+      .addCase(addCardComment.rejected, (state, action) => {
+        state.commentsLoading = false;
+        state.commentsError = action.payload || "Failed to add comment";
       });
   },
 });

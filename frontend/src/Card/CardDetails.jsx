@@ -431,7 +431,7 @@ export default function CardDetails({
                     {cardId ? "Discard Changes" : "Discard Card"}
                   </button>
                   <button
-                    className="px-4 py-2 bg-[#4D2D61] text-white rounded-md hover:bg-[#4d2d61]"
+                    className="bg-gradient-to-r from-[#4d2d61] to-[#7b4397] hover:shadow-lg hover:scale-[1.01] hover:translate-y-[-2px] text-white font-medium py-2 px-6 rounded-md transition-colors"
                     onClick={() => {
                       setShowConfirmDialog(false);
                       handleDone();
