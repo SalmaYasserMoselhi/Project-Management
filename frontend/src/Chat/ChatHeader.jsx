@@ -2,6 +2,7 @@
 
 import { useSelector } from "react-redux";
 import { FiMoreVertical } from "react-icons/fi";
+import { IoMdArrowBack } from "react-icons/io";
 import { useChat } from "../context/chat-context";
 import { useMemo, useCallback } from "react";
 import Avatar from "../assets/defaultAvatar.png";
@@ -10,7 +11,7 @@ import ImageWithFallback from "../Components/ImageWithFallback";
 import { Suspense } from "react";
 import { motion } from "framer-motion";
 
-function ChatHeader({ user, onToggleInfo }) {
+function ChatHeader({ user, onToggleInfo, onBackClick, isMobile }) {
   const { currentUser } = useChat();
   const { onlineUsers } = useSelector((state) => state.chat);
   const chatUser = user || {};
@@ -94,6 +95,16 @@ function ChatHeader({ user, onToggleInfo }) {
   return (
     <div className="bg-white flex items-center justify-between px-4 py-3 border-b border-gray-100 sticky top-0 z-10 shadow-sm">
       <div className="flex items-center gap-4">
+        {/* زر الرجوع للموبايل */}
+        {isMobile && onBackClick && (
+          <button
+            onClick={onBackClick}
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+          >
+            <IoMdArrowBack className="w-5 h-5 text-[#4D2D61]" />
+          </button>
+        )}
+
         <div className="w-10 h-10 relative group">
           <motion.div
             initial={{ scale: 0.9 }}

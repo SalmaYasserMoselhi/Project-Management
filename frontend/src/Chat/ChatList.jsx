@@ -1,5 +1,4 @@
 "use client";
-
 import { UserPlus, SquarePen, Search, X, Check, Plus } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -20,7 +19,7 @@ import Avatar from "../assets/defaultAvatar.png";
 import { isValidImageUrl, getAvatarUrl } from "../utils/imageUtils";
 import ConversationItem from "./ConversationItem";
 
-const ChatList = () => {
+const ChatList = ({ onChatSelect }) => {
   const dispatch = useDispatch();
   const { activeConversation: activeChat, setActiveConversation } = useChat();
   const [searchTerm, setSearchTerm] = useState("");
@@ -193,6 +192,11 @@ const ChatList = () => {
 
       setShowUserSearch(false);
       setSearchTerm("");
+
+      // استدعاء دالة إخفاء القائمة في وضع الموبايل
+      if (onChatSelect) {
+        onChatSelect();
+      }
     } catch (error) {
       setError(error?.message || "Failed to create conversation");
     } finally {
@@ -271,7 +275,7 @@ const ChatList = () => {
       const groupData = {
         groupName: groupName.trim(),
         participantIds: participantIds,
-        groupPicture: groupImage, // أضف الصورة هنا
+        groupPicture: groupImage,
       };
 
       setLoading(true);
@@ -312,6 +316,10 @@ const ChatList = () => {
 
         console.log("Activating new conversation:", enhancedConversation);
         setActiveConversation(enhancedConversation);
+
+        if (onChatSelect) {
+          onChatSelect();
+        }
       } else {
         console.error("Failed to create group:", resultAction.error);
         setError(resultAction.error?.message || "Failed to create group");
@@ -468,13 +476,18 @@ const ChatList = () => {
       setShowUserSearch(false);
       setSearchTerm("");
     }
+
+    // استدعاء دالة إخفاء القائمة في وضع الموبايل
+    if (onChatSelect) {
+      onChatSelect();
+    }
   };
   console.log("All conversations:", conversations);
   console.log(`Number of conversations: ${conversations.length}`);
 
   console.log("Filtered chats", filteredChats);
   return (
-    <div className="flex flex-col w-[380px] h-screen bg-gradient-to-b from-white to-gray-50/30 border-r border-gray-200/60 shadow-sm">
+    <div className="flex flex-col w-full h-full bg-gradient-to-b from-white to-gray-50/30 border-r border-gray-200/60 shadow-sm">
       {/* Header with enhanced styling */}
       <div className="flex items-center justify-between w-full p-4 bg-white/80 backdrop-blur-sm">
         <h2 className="text-xl font-bold bg-gradient-to-r from-[#4D2D61] to-[#6B46C1] bg-clip-text text-transparent">
@@ -522,6 +535,7 @@ const ChatList = () => {
         </div>
       </div>
 
+      {/* المحتوى الرئيسي - يأخذ باقي المساحة */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {authChecking ? (
           <div className="flex flex-col items-center justify-center h-[400px] space-y-4">
