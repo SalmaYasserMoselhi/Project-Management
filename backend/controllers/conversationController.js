@@ -1,9 +1,49 @@
-const { error } = require('console');
 const Conversation = require('./../models/conversationModel.js');
 const User = require('./../models/userModel.js');
 const AppError = require('./../utils/appError.js');
 const catchAsync = require('./../utils/catchAsync.js');
 const mongoose = require('mongoose');
+const path = require('path');
+const fs = require('fs');
+const sharp = require('sharp'); // MISSING IMPORT
+const { v4: uuidv4 } = require('uuid'); // MISSING IMPORT
+const { uploadSingleImage } = require('../Middlewares/fileUploadMiddleware');
+
+
+// Add middleware for group image upload
+exports.uploadGroupPicture = uploadSingleImage('picture');
+
+exports.resizeUserAvatar = catchAsync(async (req, res, next) => {
+   // Skip if no file was uploaded
+  if (!req.file) {
+    return next();
+  }
+ 
+  const GroupFileName = `group-${uuidv4()}-${Date.now()}.jpeg`;
+  const uploadDir = path.join(process.cwd(), 'Uploads', 'group');
+
+    // Ensure the directory exists
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  const filePath = path.join(uploadDir, GroupFileName);
+   
+  try {
+    await sharp(req.file.buffer)
+      .resize(500, 500)
+      .toFormat('jpeg')
+      .jpeg({ quality: 98 })
+      .toFile(filePath);
+
+    // Save filename to request body for database storage
+    req.body.picture = GroupFileName;
+    next();
+  } catch (error) {
+    console.error('Error processing group image:', error);
+    return next(new AppError('Error processing group image', 500));
+  }
+});
 
 const populateConversation = async (id, fieldsToPopulate, fieldsToRemove) => {
   const populatedConvo = await Conversation.findOne({ _id: id }).populate(
@@ -73,6 +113,10 @@ const createConversation = async (data) => {
     );
   }
 
+  if (!data.picture) {
+    data.picture = process.env.DEFAULT_GROUP_PICTURE || '/uploads/default-group.png';
+  }
+
   try {
     const newConvo = await Conversation.create(data);
     return newConvo;
@@ -123,17 +167,6 @@ exports.createOpenConversation = catchAsync(async (req, res, next) => {
       if (!receiverUser) {
         return next(new AppError('User not found', 404));
       }
-
-      // Ensure name field is included and valid
-      // let convoData = {
-      //   name:
-      //     receiverUser.username && receiverUser.username.trim() !== ''
-      //       ? receiverUser.username
-      //       : 'Conversation with ' + receiverObjectId,
-      //   picture: receiverUser.picture,
-      //   isGroup: false,
-      //   users: [senderObjectId, receiverObjectId],
-      // };
 
       let convoData = {
         name:
@@ -214,6 +247,21 @@ exports.getConversations = catchAsync(async (req, res, next) => {
 exports.createGroup = catchAsync(async (req, res, next) => {
   const { name, users } = req.body;
 
+  // Handle group picture upload
+  let groupPicture
+
+  if (req.body.picture && typeof req.body.picture === 'string') {
+    // If picture was uploaded and processed by resizeUserAvatar
+    groupPicture = `/uploads/group/${req.body.picture}`;
+  } else {
+    // Use default group picture
+    groupPicture = process.env.DEFAULT_GROUP_PICTURE || '/uploads/default-group.png';
+  }
+
+    // Debug log to check what's in req.body.picture
+  console.log('req.body.picture:', req.body.picture);
+  console.log('typeof req.body.picture:', typeof req.body.picture);
+
   // Add current user to users if not already included
   const currentUserId = req.user._id.toString();
   let usersList = Array.isArray(users) ? [...users] : [];
@@ -248,7 +296,7 @@ exports.createGroup = catchAsync(async (req, res, next) => {
     users: validUsers,
     isGroup: true,
     admin: req.user._id, // Explicitly set the current user as admin
-    picture: req.body.picture || process.env.DEFAULT_GROUP_PICTURE,
+    picture: groupPicture,
   };
 
   // Log the data being used to create the group
@@ -274,7 +322,7 @@ exports.createGroup = catchAsync(async (req, res, next) => {
 
   const populatedConvo = await populateConversation(
     newConvo._id,
-    'users admin',
+    'users admin picture',
     '-password'
   );
 
