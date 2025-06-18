@@ -267,10 +267,8 @@ function Dashboard() {
   const dispatch = useDispatch();
   const {
     highPriorityTasks = [],
-    highPriorityTasksPagination = { currentPage: 1, totalPages: 1 },
     deadlines = [],
     activityLog = [],
-    activityLogPagination = { currentPage: 1, totalPages: 1 },
     taskStats = { breakdown: [] },
     selectedDate,
     loading,
@@ -280,12 +278,12 @@ function Dashboard() {
   const [isMobile, setIsMobile] = useState(false);
   const [initialScrollDone, setInitialScrollDone] = useState(false);
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
-  const [loadingMore, setLoadingMore] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [newItemsCount, setNewItemsCount] = useState(0);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [period, setPeriod] = useState(
     () => localStorage.getItem("dashboardPeriod") || "weekly"
   );
+  const [activitySortOrder, setActivitySortOrder] = useState("desc");
 
   // Check if mobile
   useEffect(() => {
@@ -302,13 +300,31 @@ function Dashboard() {
   }, []);
 
   // useEffect لجلب high priority وactivity log مرة واحدة فقط عند mount
+  const didMountRef = useRef(false);
   useEffect(() => {
-    setIsInitialLoad(true);
-    Promise.all([
-      dispatch(fetchHighPriorityTasks({ page: 1, limit: 10 })),
-      dispatch(fetchActivityLog({ page: 1, limit: 10 })),
-    ]).then(() => setIsInitialLoad(false));
+    if (!didMountRef.current) {
+      setIsInitialLoad(true);
+      setActivityLoading(true);
+      Promise.all([
+        dispatch(fetchHighPriorityTasks()),
+        dispatch(fetchActivityLog({ sortOrder: activitySortOrder })),
+      ]).then(() => {
+        setIsInitialLoad(false);
+        setActivityLoading(false);
+      });
+      didMountRef.current = true;
+    }
   }, [dispatch]);
+
+  // useEffect منفصل لتغيير ترتيب الأنشطة فقط
+  useEffect(() => {
+    if (didMountRef.current) {
+      setActivityLoading(true);
+      dispatch(fetchActivityLog({ sortOrder: activitySortOrder })).then(() =>
+        setActivityLoading(false)
+      );
+    }
+  }, [dispatch, activitySortOrder]);
 
   // useEffect منفصل لجلب الإحصائيات عند تغيير الفترة فقط
   useEffect(() => {
@@ -420,86 +436,6 @@ function Dashboard() {
     }
   };
 
-  // Load more high priority tasks with animation
-  const loadMoreHighPriorityTasks = useCallback(async () => {
-    if (
-      highPriorityTasksPagination.currentPage <
-        highPriorityTasksPagination.totalPages &&
-      !loadingMore
-    ) {
-      setLoadingMore(true);
-      const prevCount = highPriorityTasks.length;
-
-      try {
-        await dispatch(
-          fetchHighPriorityTasks({
-            page: highPriorityTasksPagination.currentPage + 1,
-            limit: 10,
-          })
-        );
-
-        // Animate new items
-        setTimeout(() => {
-          const newItems = document.querySelectorAll(
-            ".task-card:nth-last-child(-n+10)"
-          );
-          newItems.forEach((item, index) => {
-            item.style.opacity = "0";
-            item.style.transform = "translateY(20px)";
-            setTimeout(() => {
-              item.style.transition = "all 0.4s ease-out";
-              item.style.opacity = "1";
-              item.style.transform = "translateY(0)";
-            }, index * 100);
-          });
-        }, 100);
-      } finally {
-        setLoadingMore(false);
-      }
-    }
-  }, [
-    dispatch,
-    highPriorityTasksPagination,
-    loadingMore,
-    highPriorityTasks.length,
-  ]);
-
-  // Load more activity log with animation
-  const loadMoreActivityLog = useCallback(async () => {
-    if (
-      activityLogPagination.currentPage < activityLogPagination.totalPages &&
-      !loadingMore
-    ) {
-      setLoadingMore(true);
-      try {
-        await dispatch(
-          fetchActivityLog({
-            page: activityLogPagination.currentPage + 1,
-            limit: 10,
-          })
-        );
-
-        // Animate new rows
-        setTimeout(() => {
-          const newRows = document.querySelectorAll(
-            ".activity-row:nth-last-child(-n+10)"
-          );
-          newRows.forEach((row, index) => {
-            row.style.opacity = "0";
-            row.style.transform = "translateX(-20px)";
-            setTimeout(() => {
-              row.style.transition = "all 0.3s ease-out";
-              row.style.opacity = "1";
-              row.style.transform = "translateX(0)";
-            }, index * 50);
-          });
-        }, 100);
-      } finally {
-        setLoadingMore(false);
-      }
-    }
-  }, [dispatch, activityLogPagination, loadingMore]);
-
   // Format chart data from task stats
   const chartOptions = {
     chart: {
@@ -598,22 +534,14 @@ function Dashboard() {
   // Helper function to get avatar url (copy from TaskCard.jsx)
   const getUserAvatar = (user) => {
     const BASE_URL = "http://localhost:3000";
-    if (user.avatar && user.avatar !== "null" && user.avatar !== "undefined") {
-      if (user.avatar.startsWith("/uploads/")) {
-        return BASE_URL + user.avatar;
-      }
-      if (!user.avatar.startsWith("http") && !user.avatar.startsWith("/")) {
-        return BASE_URL + "/uploads/users/" + user.avatar;
-      }
-      return user.avatar;
-    }
-    // Use first letter of name or fallback
-    let initials;
+    // استخراج الاسم أو الإيميل
+    let name = user.name || (user.user && user.user.name);
     let firstName = user.firstName || (user.user && user.user.firstName);
     let lastName = user.lastName || (user.user && user.user.lastName);
-    let name = user.name || (user.user && user.user.name);
     let username = user.username || (user.user && user.user.username);
     let email = user.email || (user.user && user.user.email);
+    // تحديد الحرف الأول
+    let initials = "U";
     if (name && name.trim().length > 0) {
       initials = name.trim()[0].toUpperCase();
     } else if (firstName && firstName.length > 0) {
@@ -622,10 +550,28 @@ function Dashboard() {
       initials = username[0].toUpperCase();
     } else if (email && email.length > 0) {
       initials = email[0].toUpperCase();
-    } else {
-      initials = "U";
     }
-    return `https://ui-avatars.com/api/?name=${initials}&background=4D2D61&color=fff&bold=true&size=128`;
+    // معالجة avatar
+    if (
+      user.avatar &&
+      user.avatar !== "null" &&
+      user.avatar !== "undefined" &&
+      user.avatar !== null &&
+      user.avatar !== undefined &&
+      user.avatar !== ""
+    ) {
+      if (user.avatar.startsWith("/uploads/")) {
+        return BASE_URL + user.avatar;
+      }
+      if (!user.avatar.startsWith("http") && !user.avatar.startsWith("/")) {
+        return BASE_URL + "/uploads/users/" + user.avatar;
+      }
+      return user.avatar;
+    }
+    // fallback ui-avatars
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      initials
+    )}&background=4D2D61&color=fff&bold=true&size=128`;
   };
 
   // دالة تعطي ستايل حسب نوع النشاط
@@ -645,6 +591,13 @@ function Dashboard() {
     setPeriod(value);
     localStorage.setItem("dashboardPeriod", value);
     dispatch(fetchTaskStats(value));
+  };
+
+  // دالة لتغيير الترتيب وجلب البيانات
+  const handleSortDate = () => {
+    const newOrder = activitySortOrder === "asc" ? "desc" : "asc";
+    setActivitySortOrder(newOrder);
+    dispatch(fetchActivityLog({ sortBy: "createdAt", sortOrder: newOrder }));
   };
 
   return (
@@ -749,6 +702,19 @@ function Dashboard() {
                                     src={getUserAvatar(member)}
                                     alt={member?.name || "Member"}
                                     className="w-full h-full object-cover rounded-full"
+                                    onError={(e) => {
+                                      // fallback لصورة ui-avatars عند فشل التحميل
+                                      const name =
+                                        member.name ||
+                                        member.firstName ||
+                                        member.username ||
+                                        member.email ||
+                                        "U";
+                                      e.target.onerror = null;
+                                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                        name[0] ? name[0].toUpperCase() : "U"
+                                      )}&background=4D2D61&color=fff&bold=true&size=128`;
+                                    }}
                                   />
                                 </div>
                               ))}
@@ -769,27 +735,6 @@ function Dashboard() {
                   </div>
                 )}
               </div>
-
-              {/* Load More Button with bounce animation */}
-              {highPriorityTasksPagination.currentPage <
-                highPriorityTasksPagination.totalPages && (
-                <div className="pt-2 border-t border-gray-200 mt-2">
-                  <button
-                    onClick={loadMoreHighPriorityTasks}
-                    disabled={loadingMore}
-                    className="w-full py-2 px-4 bg-[#4d2d61] text-white rounded-lg hover:bg-[#4a2c57] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm button-hover"
-                  >
-                    {loadingMore ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white animate-pulse-soft"></div>
-                    ) : (
-                      <>
-                        <ChevronDown size={16} />
-                        Load More
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
@@ -932,12 +877,41 @@ function Dashboard() {
                   <th className="text-left py-2.5 px-2 md:px-3">Member</th>
                   <th className="text-left py-2.5 px-2 md:px-3">Board</th>
                   <th className="text-left py-2.5 px-2 md:px-3">Activity</th>
-                  <th className="text-left py-2.5 px-2 md:px-3">Date</th>
+                  <th
+                    className="text-left py-2.5 px-2 md:px-3 cursor-pointer select-none"
+                    onClick={handleSortDate}
+                  >
+                    Date
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      style={{
+                        display: "inline",
+                        marginLeft: 4,
+                        transition: "transform 0.2s",
+                        transform:
+                          activitySortOrder === "asc"
+                            ? "rotate(0deg)"
+                            : "rotate(180deg)",
+                      }}
+                    >
+                      <path
+                        d="M12 6v12m0 0l-6-6m6 6l6-6"
+                        stroke="#6a3b82"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </th>
                   <th className="text-left py-2.5 px-2 md:px-3">Time</th>
                 </tr>
               </thead>
               <tbody className="text-sm">
-                {isInitialLoad ? (
+                {activityLoading ? (
                   // Show skeleton loading
                   Array.from({ length: 5 }).map((_, index) => (
                     <ActivityRowSkeleton key={index} />
@@ -954,6 +928,19 @@ function Dashboard() {
                           alt={activity.user.name}
                           className="w-7 h-7 rounded-full object-cover border border-gray-200"
                           style={{ minWidth: 28, minHeight: 28 }}
+                          onError={(e) => {
+                            // fallback لصورة ui-avatars عند فشل التحميل
+                            const name =
+                              activity.user.name ||
+                              activity.user.firstName ||
+                              activity.user.username ||
+                              activity.user.email ||
+                              "U";
+                            e.target.onerror = null;
+                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                              name[0] ? name[0].toUpperCase() : "U"
+                            )}&background=4D2D61&color=fff&bold=true&size=128`;
+                          }}
                         />
                         <span className="font-medium text-gray-500">
                           {activity.user.name}
@@ -961,7 +948,7 @@ function Dashboard() {
                       </td>
                       <td className="py-2 px-2">
                         <span
-                          className="font-bold text-[#6a3b82]"
+                          className="font-bold text-gray-500"
                           style={{ opacity: 0.98 }}
                         >
                           {activity.board.name}
