@@ -244,26 +244,62 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
   const page = parseInt(req.query.page) || 1;
   const skip = (page - 1) * limit;
 
+    // Add sorting parameters
+  const sortBy = req.query.sortBy || 'createdAt'; // createdAt, action, entityType
+  const sortOrder = req.query.sortOrder || 'desc'; // asc or desc
+
+    // Validate sort parameters
+  const validSortFields = ['createdAt', 'action', 'entityType'];
+  const validSortOrders = ['asc', 'desc'];
+
+    if (!validSortFields.includes(sortBy)) {
+    return next(new AppError('Invalid sort field. Use: createdAt, action, or entityType', 400));
+  }
+  
+  if (!validSortOrders.includes(sortOrder)) {
+    return next(new AppError('Invalid sort order. Use: asc or desc', 400));
+  }
+
   // 2. Get all boards where user is a member
   const boards = await Board.find({
     'members.user': req.user._id
   }).select('_id name');
 
-  if (!boards || boards.length === 0) {
+    if (!boards || boards.length === 0) {
     return res.status(200).json({
       status: 'success',
       results: 0,
-      data: []
+      totalResults: 0,
+      currentPage: page,
+      totalPages: 0,
+      sortBy,
+      sortOrder,
+      data: {
+        activities: []
+      }
     });
   }
 
   const boardIds = boards.map(board => board._id);
+
+    // 3. Build sort object for aggregation
+  const sortObject = {};
+  sortObject[`activities.${sortBy}`] = sortOrder === 'asc' ? 1 : -1;
+
+  // 4. Get total count first for pagination
+  const totalActivities = await Board.aggregate([
+    { $match: { _id: { $in: boardIds } } },
+    { $unwind: '$activities' },
+    { $count: 'total' }
+  ]);
+  const totalCount = totalActivities.length > 0 ? totalActivities[0].total : 0;
 
   // 3. Aggregate activities from all boards
   const activities = await Board.aggregate([
     { $match: { _id: { $in: boardIds } } },
     { $unwind: '$activities' },
     { $sort: { 'activities.createdAt': -1 } },
+    { $sort: sortObject },
     { $skip: skip },
     { $limit: limit },
     { 
@@ -274,20 +310,39 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
         as: 'user'
       }
     },
-    { $unwind: '$user' },
+    { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
     {
-      $project: {
+       $project: {
         _id: 0,
         id: '$activities._id',
         action: '$activities.action',
         entityType: '$activities.entityType',
         entityId: '$activities.entityId',
+        entityName: '$activities.data.entityName',
         data: '$activities.data',
         createdAt: '$activities.createdAt',
         user: {
-          id: '$user._id',
-          name: { $concat: ['$user.firstName', ' ', '$user.lastName'] },
-          avatar: '$user.avatar'
+          $cond: {
+            if: '$user',
+            then: {
+              id: '$user._id',
+              name: { 
+                $trim: { 
+                  input: { $concat: [
+                    { $ifNull: ['$user.firstName', ''] }, 
+                    ' ', 
+                    { $ifNull: ['$user.lastName', ''] }
+                  ]}
+                }
+              },
+              avatar: '$user.avatar'
+            },
+            else: {
+              id: null,
+              name: 'Unknown User',
+              avatar: null
+            }
+          }
         },
         board: {
           id: '$_id',
@@ -297,22 +352,29 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
     }
   ]);
 
-  // 4. Format action types for display
+  // 6. Format action types for display and add time formatting
   const formattedActivities = activities.map(activity => {
     return {
       ...activity,
-      actionText: getActionText(activity.action, activity.entityType),
+      actionText: getActionText(activity.action, activity.entityType, activity.entityName),
       timestamp: activity.createdAt,
       // Format date in user's timezone
-      formattedDate: formatActivityDate(activity.createdAt, userTimezone)
+      formattedDate: formatActivityDate(activity.createdAt, userTimezone),
+      // Add relative time
+      timeAgo: getTimeAgo(activity.createdAt),
+      // Add date grouping for UI
+      dateGroup: getDateGroup(activity.createdAt, userTimezone)
     };
   });
 
-  res.status(200).json({
+ res.status(200).json({
     status: 'success',
     results: formattedActivities.length,
+    totalResults: totalCount,
     currentPage: page,
-    totalPages: Math.ceil(formattedActivities.length / limit),
+    totalPages: Math.ceil(totalCount / limit),
+    sortBy,
+    sortOrder,
     data: {
       activities: formattedActivities
     }
@@ -321,17 +383,44 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
 
 // Helper function to convert action types to display text
 function getActionText(action, entityType) {
-  const actionMap = {
-    'card_created': 'created card',
-    'card_updated': 'updated card',
-    'card_moved': 'moved card',
-    'card_deleted': 'deleted card',
-    'list_created': 'created list',
-    'member_added': 'added member',
-    // Add more mappings as needed
+   const actionMap = {
+    'card_created': `created ${entityType}`,
+    'card_updated': `updated ${entityType}`,
+    'card_moved': `moved ${entityType}`,
+    'card_deleted': `deleted ${entityType}`,
+    'card_archived': `archived ${entityType}`,
+    'card_restored': `restored ${entityType}`,
+    'card_assigned': `assigned ${entityType}`,
+    'card_unassigned': `unassigned ${entityType}`,
+    'card_due_date_set': `set due date for ${entityType}`,
+    'card_due_date_changed': `changed due date for ${entityType}`,
+    'card_due_date_removed': `removed due date from ${entityType}`,
+    'card_priority_changed': `changed priority of ${entityType}`,
+    'card_comment_added': `commented on ${entityType}`,
+    'card_attachment_added': `added attachment to ${entityType}`,
+    'card_checklist_added': `added checklist to ${entityType}`,
+    'card_checklist_item_completed': `completed checklist item in ${entityType}`,
+    'list_created': `created ${entityType}`,
+    'list_updated': `updated ${entityType}`,
+    'list_deleted': `deleted ${entityType}`,
+    'list_archived': `archived ${entityType}`,
+    'list_moved': `moved ${entityType}`,
+    'member_added': `added member to ${entityType}`,
+    'member_removed': `removed member from ${entityType}`,
+    'board_created': `created ${entityType}`,
+    'board_updated': `updated ${entityType}`,
+    'board_deleted': `deleted ${entityType}`,
+    'board_archived': `archived ${entityType}`,
+    'board_restored': `restored ${entityType}`
   };
 
-  return actionMap[action] || `${action.replace('_', ' ')} ${entityType}`;
+  let actionText = actionMap[action] || `${action.replace(/_/g, ' ')} ${entityType}`;
+  // Add entity name if available
+  if (entityName) {
+    actionText += ` "${entityName}"`;
+  }
+
+  return actionText;
 }
 
 // Helper function to format date in user's timezone
