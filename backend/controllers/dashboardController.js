@@ -516,36 +516,54 @@ exports.getTaskStats = catchAsync(async (req, res, next) => {
   });
 });
 
-// Helper functions
+// Fixed helper functions for getTaskStats
+
 function getDateRange(period, timezone = 'Africa/Cairo') {
   const now = new Date();
-  const endDate = new Date();
+  const endDate = new Date(now);
   let startDate = new Date();
   const intervals = [];
 
   switch (period) {
     case 'weekly':
-      startDate.setDate(endDate.getDate() - 7);
+      startDate.setDate(endDate.getDate() - 6); // 7 days total including today
       for (let i = 6; i >= 0; i--) {
-        const date = new Date();
+        const date = new Date(endDate);
         date.setDate(date.getDate() - i);
         intervals.push(date.toLocaleDateString('en-CA', { timeZone: timezone }));
       }
       break;
+      
     case 'monthly':
-      startDate.setMonth(endDate.getMonth() - 1);
+      startDate.setDate(endDate.getDate() - 29); // 30 days total
+      // Create 5 week intervals
       for (let i = 4; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - (i * 7));
-        intervals.push(`Week ${5 - i}`);
+        const weekStart = new Date(endDate);
+        weekStart.setDate(weekStart.getDate() - (i * 7) - 6);
+        const weekEnd = new Date(endDate);
+        weekEnd.setDate(weekEnd.getDate() - (i * 7));
+        
+        intervals.push({
+          label: `Week ${5 - i}`,
+          start: weekStart.toLocaleDateString('en-CA', { timeZone: timezone }),
+          end: weekEnd.toLocaleDateString('en-CA', { timeZone: timezone })
+        });
       }
       break;
+      
     case 'yearly':
       startDate.setFullYear(endDate.getFullYear() - 1);
+      startDate.setMonth(endDate.getMonth() + 1); // Start from next month of last year
+      
       for (let i = 11; i >= 0; i--) {
-        const date = new Date();
+        const date = new Date(endDate);
         date.setMonth(date.getMonth() - i);
-        intervals.push(date.toLocaleString('default', { month: 'short', timeZone: timezone }));
+        intervals.push({
+          label: date.toLocaleString('default', { month: 'short', timeZone: timezone }),
+          year: date.getFullYear(),
+          month: date.getMonth() + 1, // 1-based month
+          key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+        });
       }
       break;
   }
@@ -557,24 +575,85 @@ function getGroupingExpression(period) {
   switch (period) {
     case 'weekly':
       return { $dateToString: { format: "%Y-%m-%d", date: "$localCompletedAt" } };
+      
     case 'monthly':
-      return { $ceil: { $divide: [{ $subtract: [new Date(), "$localCompletedAt"] }, 604800000] } }; // Weeks
+      // Group by week number within the period
+      return {
+        $dateToString: { 
+          format: "%Y-%m-%d", 
+          date: {
+            $dateFromParts: {
+              year: { $year: "$localCompletedAt" },
+              month: { $month: "$localCompletedAt" },
+              day: { $dayOfMonth: "$localCompletedAt" }
+            }
+          }
+        }
+      };
+      
     case 'yearly':
-      return { $month: "$localCompletedAt" };
+      // Group by year-month
+      return {
+        $dateToString: { 
+          format: "%Y-%m", 
+          date: "$localCompletedAt" 
+        }
+      };
   }
 }
 
 function buildStatsResponse(period, intervals, completedStats, totalCards) {
-  const completedMap = {};
-  completedStats.forEach(stat => {
-    const key = period === 'monthly' ? `Week ${stat._id}` : stat._id;
-    completedMap[key] = stat.count;
-  });
-
-  const stats = intervals.map(interval => ({
-    period: interval,
-    completed: completedMap[interval] || 0
-  }));
+  let stats = [];
+  
+  if (period === 'weekly') {
+    // Direct mapping for weekly
+    const completedMap = {};
+    completedStats.forEach(stat => {
+      completedMap[stat._id] = stat.count;
+    });
+    
+    stats = intervals.map(interval => ({
+      period: interval,
+      completed: completedMap[interval] || 0
+    }));
+    
+  } else if (period === 'monthly') {
+    // Group daily completions into weeks
+    const completedMap = {};
+    completedStats.forEach(stat => {
+      completedMap[stat._id] = stat.count;
+    });
+    
+    stats = intervals.map(weekInterval => {
+      let weekTotal = 0;
+      
+      // Sum up all days in this week range
+      const startDate = new Date(weekInterval.start);
+      const endDate = new Date(weekInterval.end);
+      
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateKey = d.toLocaleDateString('en-CA');
+        weekTotal += completedMap[dateKey] || 0;
+      }
+      
+      return {
+        period: weekInterval.label,
+        completed: weekTotal
+      };
+    });
+    
+  } else if (period === 'yearly') {
+    // Direct mapping for yearly (month-based)
+    const completedMap = {};
+    completedStats.forEach(stat => {
+      completedMap[stat._id] = stat.count;
+    });
+    
+    stats = intervals.map(monthInterval => ({
+      period: monthInterval.label,
+      completed: completedMap[monthInterval.key] || 0
+    }));
+  }
 
   const totalCompleted = stats.reduce((sum, item) => sum + item.completed, 0);
   const completionRate = totalCards > 0 ? Math.round((totalCompleted / totalCards) * 100) : 0;
@@ -589,10 +668,24 @@ function buildStatsResponse(period, intervals, completedStats, totalCards) {
 }
 
 function emptyStatsResponse(res, period, intervals) {
-  const stats = intervals.map(interval => ({
-    period: interval,
-    completed: 0
-  }));
+  let stats = [];
+  
+  if (period === 'weekly') {
+    stats = intervals.map(interval => ({
+      period: interval,
+      completed: 0
+    }));
+  } else if (period === 'monthly') {
+    stats = intervals.map(interval => ({
+      period: interval.label,
+      completed: 0
+    }));
+  } else if (period === 'yearly') {
+    stats = intervals.map(interval => ({
+      period: interval.label,
+      completed: 0
+    }));
+  }
 
   return res.status(200).json({
     status: 'success',
@@ -605,7 +698,6 @@ function emptyStatsResponse(res, period, intervals) {
     }
   });
 }
-
 // Helper function to get timezone offset in minutes
 function getTimezoneOffset(timezone) {
   const date = new Date();
