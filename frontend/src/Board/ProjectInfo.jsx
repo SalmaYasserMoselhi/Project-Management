@@ -7,7 +7,6 @@ import share from "../assets/share.png";
 import { useSelector } from "react-redux";
 import { ChevronDown, Settings } from "lucide-react";
 import ReactDOM from "react-dom";
-import ShareModal from "./ShareModal";
 import ArchivedPopup from "./ArchivedPopup";
 import SettingsPopup from "./SettingsPopup";
 import axios from "axios";
@@ -24,7 +23,6 @@ const ProjectInfo = ({
   const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
   const currentUser = useSelector((state) => state.login.user);
   const [showToast, setShowToast] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showArchivedPopup, setShowArchivedPopup] = useState(false);
   const [showSettingsPopup, setShowSettingsPopup] = useState(false);
