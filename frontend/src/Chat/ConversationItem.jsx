@@ -1,7 +1,11 @@
 import { useMemo } from "react";
 import { dateHandler } from "../utils/Date";
 import Avatar from "../assets/defaultAvatar.png";
-import { isValidImageUrl, getAvatarUrl } from "../utils/imageUtils";
+import {
+  isValidImageUrl,
+  getAvatarUrl,
+  getGroupImageUrl,
+} from "../utils/imageUtils";
 import React, { Suspense } from "react";
 import { motion } from "framer-motion";
 
@@ -25,7 +29,8 @@ const ConversationItem = React.memo(
         return {
           displayName: chat.name || "Group",
           displayPicture:
-            chat.picture || "https://image.pngaaa.com/78/6179078-middle.png",
+            getGroupImageUrl(chat.picture) ||
+            "https://image.pngaaa.com/78/6179078-middle.png",
         };
       }
 

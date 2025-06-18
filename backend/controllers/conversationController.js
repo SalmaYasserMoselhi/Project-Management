@@ -9,26 +9,25 @@ const sharp = require('sharp'); // MISSING IMPORT
 const { v4: uuidv4 } = require('uuid'); // MISSING IMPORT
 const { uploadSingleImage } = require('../Middlewares/fileUploadMiddleware');
 
-
 // Add middleware for group image upload
 exports.uploadGroupPicture = uploadSingleImage('picture');
 
 exports.resizeUserAvatar = catchAsync(async (req, res, next) => {
-   // Skip if no file was uploaded
+  // Skip if no file was uploaded
   if (!req.file) {
     return next();
   }
- 
+
   const GroupFileName = `group-${uuidv4()}-${Date.now()}.jpeg`;
   const uploadDir = path.join(process.cwd(), 'Uploads', 'group');
 
-    // Ensure the directory exists
+  // Ensure the directory exists
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
 
   const filePath = path.join(uploadDir, GroupFileName);
-   
+
   try {
     await sharp(req.file.buffer)
       .resize(500, 500)
@@ -114,7 +113,8 @@ const createConversation = async (data) => {
   }
 
   if (!data.picture) {
-    data.picture = process.env.DEFAULT_GROUP_PICTURE || '/uploads/default-group.png';
+    data.picture =
+      process.env.DEFAULT_GROUP_PICTURE || '/uploads/default-group.png';
   }
 
   try {
@@ -244,87 +244,205 @@ exports.getConversations = catchAsync(async (req, res, next) => {
   });
 });
 
+// exports.createGroup = catchAsync(async (req, res, next) => {
+//   const { name, users } = req.body;
+
+//   // Handle group picture upload
+//   let groupPicture
+
+//   if (req.body.picture && typeof req.body.picture === 'string') {
+//     // If picture was uploaded and processed by resizeUserAvatar
+//     groupPicture = `/uploads/group/${req.body.picture}`;
+//   } else {
+//     // Use default group picture
+//     groupPicture = process.env.DEFAULT_GROUP_PICTURE || '/uploads/default-group.png';
+//   }
+
+//     // Debug log to check what's in req.body.picture
+//   console.log('req.body.picture:', req.body.picture);
+//   console.log('typeof req.body.picture:', typeof req.body.picture);
+
+//   // Add current user to users if not already included
+//   const currentUserId = req.user._id.toString();
+//   let usersList = Array.isArray(users) ? [...users] : [];
+
+//   // Ensure IDs are valid and convert to string for comparison
+//   const validUsers = usersList.filter((id) =>
+//     mongoose.Types.ObjectId.isValid(id)
+//   );
+
+//   // Check if current user is already in the list
+//   const currentUserIncluded = validUsers.some(
+//     (id) => id.toString() === currentUserId
+//   );
+
+//   if (!currentUserIncluded) {
+//     validUsers.push(req.user._id);
+//   }
+
+//   if (!name) {
+//     return next(new AppError('Please provide a name for the group', 400));
+//   }
+
+//   if (validUsers.length < 2) {
+//     return next(
+//       new AppError('At least 2 users are required to start a group', 400)
+//     );
+//   }
+
+//   // Create conversation data with admin explicitly set
+//   let convoData = {
+//     name,
+//     users: validUsers,
+//     isGroup: true,
+//     admin: req.user._id, // Explicitly set the current user as admin
+//     picture: groupPicture,
+//   };
+
+//   // Log the data being used to create the group
+//   console.log('Creating group with data:', {
+//     name: convoData.name,
+//     usersCount: convoData.users.length,
+//     admin: convoData.admin.toString(),
+//     isGroup: convoData.isGroup,
+//   });
+
+//   const newConvo = await createConversation(convoData);
+
+//   if (!newConvo) {
+//     return next(new AppError('Failed to create group conversation', 500));
+//   }
+
+//   // Verify admin was set
+//   if (!newConvo.admin) {
+//     newConvo.admin = req.user._id;
+//     await newConvo.save();
+//     console.log('Fixed missing admin in newly created group');
+//   }
+
+//   const populatedConvo = await populateConversation(
+//     newConvo._id,
+//     'users admin picture',
+//     '-password'
+//   );
+
+//   res.status(200).json({
+//     status: 'success',
+//     data: {
+//       conversation: populatedConvo,
+//     },
+//   });
+// });
+
 exports.createGroup = catchAsync(async (req, res, next) => {
   const { name, users } = req.body;
 
   // Handle group picture upload
-  let groupPicture
+  let groupPicture;
 
   if (req.body.picture && typeof req.body.picture === 'string') {
-    // If picture was uploaded and processed by resizeUserAvatar
-    groupPicture = `/uploads/group/${req.body.picture}`;
+    try {
+      // Generate unique filename for the group picture
+      const GroupFileName = `group-${uuidv4()}-${Date.now()}.jpeg`;
+      const uploadDir = path.join(process.cwd(), 'Uploads', 'group');
+
+      // Ensure the directory exists
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      const filePath = path.join(uploadDir, GroupFileName);
+      // Convert base64 to buffer and save the image
+      const imageBuffer = Buffer.from(req.body.picture, 'base64');
+      await sharp(imageBuffer)
+        .resize(500, 500)
+        .toFormat('jpeg')
+        .jpeg({ quality: 98 })
+        .toFile(filePath);
+      // Save filename to request body for database storage
+      groupPicture = `/uploads/group/${GroupFileName}`;
+      console.log('Group picture saved:', groupPicture);
+    } catch (error) {
+      console.error('Error processing group image:', error);
+      // Use default picture if image processing fails
+      groupPicture =
+        process.env.DEFAULT_GROUP_PICTURE || '/uploads/default-group.png';
+    }
   } else {
     // Use default group picture
-    groupPicture = process.env.DEFAULT_GROUP_PICTURE || '/uploads/default-group.png';
+    groupPicture =
+      process.env.DEFAULT_GROUP_PICTURE || '/uploads/default-group.png';
   }
 
-    // Debug log to check what's in req.body.picture
-  console.log('req.body.picture:', req.body.picture);
+  // Debug log to check what's in req.body.picture
+  console.log(
+    'req.body.picture:',
+    req.body.picture ? 'Base64 image provided' : 'No image'
+  );
   console.log('typeof req.body.picture:', typeof req.body.picture);
 
   // Add current user to users if not already included
   const currentUserId = req.user._id.toString();
   let usersList = Array.isArray(users) ? [...users] : [];
-
   // Ensure IDs are valid and convert to string for comparison
   const validUsers = usersList.filter((id) =>
     mongoose.Types.ObjectId.isValid(id)
   );
-
   // Check if current user is already in the list
   const currentUserIncluded = validUsers.some(
     (id) => id.toString() === currentUserId
   );
-
   if (!currentUserIncluded) {
     validUsers.push(req.user._id);
   }
-
   if (!name) {
     return next(new AppError('Please provide a name for the group', 400));
   }
-
   if (validUsers.length < 2) {
     return next(
       new AppError('At least 2 users are required to start a group', 400)
     );
   }
-
   // Create conversation data with admin explicitly set
   let convoData = {
     name,
     users: validUsers,
     isGroup: true,
     admin: req.user._id, // Explicitly set the current user as admin
-    picture: groupPicture,
+    picture: groupPicture, // هنا اسم الصورة فقط
   };
-
   // Log the data being used to create the group
   console.log('Creating group with data:', {
     name: convoData.name,
     usersCount: convoData.users.length,
     admin: convoData.admin.toString(),
     isGroup: convoData.isGroup,
+    picture: convoData.picture,
   });
-
   const newConvo = await createConversation(convoData);
-
   if (!newConvo) {
     return next(new AppError('Failed to create group conversation', 500));
   }
-
   // Verify admin was set
   if (!newConvo.admin) {
     newConvo.admin = req.user._id;
     await newConvo.save();
     console.log('Fixed missing admin in newly created group');
   }
-
   const populatedConvo = await populateConversation(
     newConvo._id,
     'users admin picture',
     '-password'
   );
+  // حماية إضافية: لو picture فيها base64 أو طويلة جدًا، رجع اسم الصورة فقط
+  if (
+    populatedConvo &&
+    populatedConvo.picture &&
+    (populatedConvo.picture.length > 200 ||
+      populatedConvo.picture.startsWith('data:image'))
+  ) {
+    populatedConvo.picture = groupPicture;
+  }
 
   res.status(200).json({
     status: 'success',
@@ -333,7 +451,6 @@ exports.createGroup = catchAsync(async (req, res, next) => {
     },
   });
 });
-
 /**
  * Add a user to a group conversation
  * Only group admin can add users

@@ -6,7 +6,11 @@ import { IoMdArrowBack } from "react-icons/io";
 import { useChat } from "../context/chat-context";
 import { useMemo, useCallback } from "react";
 import Avatar from "../assets/defaultAvatar.png";
-import { isValidImageUrl, getAvatarUrl } from "../utils/imageUtils";
+import {
+  isValidImageUrl,
+  getAvatarUrl,
+  getGroupImageUrl,
+} from "../utils/imageUtils";
 import ImageWithFallback from "../Components/ImageWithFallback";
 import { Suspense } from "react";
 import { motion } from "framer-motion";
@@ -53,7 +57,7 @@ function ChatHeader({ user, onToggleInfo, onBackClick, isMobile }) {
         return {
           id: chatUser.id,
           name: chatUser.name || "Group Chat",
-          avatar: chatUser.picture || Avatar,
+          avatar: getGroupImageUrl(chatUser.picture) || Avatar,
           isOnline: false,
           isGroup: true,
         };

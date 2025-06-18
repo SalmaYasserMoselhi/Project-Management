@@ -17,7 +17,11 @@ import { useChat } from "../context/chat-context";
 import { motion } from "framer-motion";
 
 import Avatar from "../assets/defaultAvatar.png";
-import { isValidImageUrl, getAvatarUrl } from "../utils/imageUtils";
+import {
+  isValidImageUrl,
+  getAvatarUrl,
+  getGroupImageUrl,
+} from "../utils/imageUtils";
 import ConversationItem from "./ConversationItem";
 
 const ChatList = ({ onChatSelect }) => {
@@ -273,10 +277,20 @@ const ChatList = ({ onChatSelect }) => {
         participantIds.push(currentUser._id);
       }
 
+      let pictureBase64 = null;
+      if (groupImage) {
+        try {
+          pictureBase64 = await convertFileToBase64(groupImage);
+        } catch (error) {
+          console.error("Error converting image to base64:", error);
+          setError("Error processing image");
+          return;
+        }
+      }
       const groupData = {
         groupName: groupName.trim(),
         participantIds: participantIds,
-        groupPicture: groupImage, // أضف الصورة هنا
+        groupPicture: pictureBase64,
       };
 
       setLoading(true);
@@ -323,8 +337,18 @@ const ChatList = ({ onChatSelect }) => {
           onChatSelect();
         }
       } else {
-        console.error("Failed to create group:", resultAction.error);
-        setError(resultAction.error?.message || "Failed to create group");
+        console.error(
+          "Failed to create group:",
+          resultAction.error,
+          resultAction
+        );
+        setError(
+          resultAction.error?.message ||
+            (typeof resultAction.error === "string"
+              ? resultAction.error
+              : JSON.stringify(resultAction.error)) ||
+            "Failed to create group"
+        );
       }
     } catch (error) {
       console.error("Error during group creation:", error);
@@ -333,6 +357,18 @@ const ChatList = ({ onChatSelect }) => {
       setLoading(false);
       setGroupCreationLoading(false);
     }
+  };
+  const convertFileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        // إزالة البادئة data:image/jpeg;base64, للحصول على الـ base64 string فقط
+        const base64String = reader.result.split(",")[1];
+        resolve(base64String);
+      };
+      reader.onerror = (error) => reject(error);
+    });
   };
 
   const handleUserSelect = (user) => {
@@ -451,7 +487,11 @@ const ChatList = ({ onChatSelect }) => {
     const conversationData = {
       id: chat._id,
       name: chat.name,
-      picture: isValidImageUrl(chat.picture) ? chat.picture : Avatar,
+      picture: isGroupConvo
+        ? getGroupImageUrl(chat.picture)
+        : isValidImageUrl(chat.picture)
+        ? chat.picture
+        : Avatar,
       lastSeen: isGroupConvo ? "Group chat" : "Recently active",
       isGroup: isGroupConvo,
       participants: chat.participants || chat.users || [],
