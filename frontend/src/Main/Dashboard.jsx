@@ -298,24 +298,25 @@ function Dashboard() {
     }
   }, [])
 
-  // Fetch data on mount
+  // Fetch data on mount (only once)
   useEffect(() => {
     const fetchData = async () => {
       setIsInitialLoad(true)
       await Promise.all([
         dispatch(fetchHighPriorityTasks({ page: 1, limit: 10 })),
-        dispatch(fetchCalendarDeadlines(selectedDate)),
         dispatch(fetchActivityLog({ page: 1, limit: 10 })),
         dispatch(fetchTaskStats("weekly")),
       ])
-
-      // Add a small delay to show the loading animation
       setTimeout(() => {
         setIsInitialLoad(false)
       }, 800)
     }
-
     fetchData()
+  }, [dispatch])
+
+  // Fetch deadlines when selectedDate changes
+  useEffect(() => {
+    dispatch(fetchCalendarDeadlines(selectedDate))
   }, [dispatch, selectedDate])
 
   // Get current date info
@@ -374,7 +375,6 @@ function Dashboard() {
     selectedDate.setDate(date)
     const formattedDate = selectedDate.toISOString().split("T")[0]
     dispatch(setSelectedDate(formattedDate))
-    dispatch(fetchCalendarDeadlines(formattedDate))
 
     // Add gentle bounce animation to selected date
     const dateElement = document.getElementById(`date-${date}`)
