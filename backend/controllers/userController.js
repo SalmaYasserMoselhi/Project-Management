@@ -130,7 +130,7 @@ exports.getMe = (req, res, next) => {
     data: {
       user,
     },
-    })
+  });
 };
 
 exports.searchUsers = catchAsync(async (req, res, next) => {
@@ -247,3 +247,9 @@ exports.searchWorkspaceUsers = catchAsync(async (req, res, next) => {
     data: { users },
   });
 });
+
+exports.getUserStatus = (req, res) => {
+  const { id } = req.params;
+  const online = isUserOnline(id);
+  res.json({ userId: id, status: online ? 'online' : 'offline' });
+};

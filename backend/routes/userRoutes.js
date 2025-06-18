@@ -56,7 +56,7 @@ router.patch(
 router.get(
   '/me',
   authController.protect,
-  userController.getMe,
+  userController.getMe
   // userController.getUser
 );
 router.patch(
@@ -82,5 +82,7 @@ router
   .get(userController.getUser)
   .patch(userController.updateUser)
   .delete(userController.deleteUser);
+
+router.get('/:id/status', userController.getUserStatus);
 
 module.exports = router;
