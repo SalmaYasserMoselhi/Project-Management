@@ -955,12 +955,14 @@ function Dashboard() {
                           className="w-7 h-7 rounded-full object-cover border border-gray-200"
                           style={{ minWidth: 28, minHeight: 28 }}
                         />
-                        <span>{activity.user.name}</span>
+                        <span className="font-medium text-gray-500">
+                          {activity.user.name}
+                        </span>
                       </td>
                       <td className="py-2 px-2">
                         <span
-                          className="font-bold"
-                          style={{ color: "#725483", opacity: 0.98 }}
+                          className="font-bold text-[#6a3b82]"
+                          style={{ opacity: 0.98 }}
                         >
                           {activity.board.name}
                         </span>
@@ -975,12 +977,16 @@ function Dashboard() {
                         </span>
                       </td>
                       <td className="py-2 px-2">
-                        {activity.formattedDate.split(",")[0]},{" "}
-                        {activity.formattedDate.split(",")[1].split(" ")[1]}
+                        <span className="text-gray-500">
+                          {activity.formattedDate.split(",")[0]},{" "}
+                          {activity.formattedDate.split(",")[1].split(" ")[1]}
+                        </span>
                       </td>
                       <td className="py-2 px-2">
-                        {activity.formattedDate.split(" ")[3]}{" "}
-                        {activity.formattedDate.split(" ")[4]}
+                        <span className="text-gray-500">
+                          {activity.formattedDate.split(" ")[3]}{" "}
+                          {activity.formattedDate.split(" ")[4]}
+                        </span>
                       </td>
                     </tr>
                   ))
