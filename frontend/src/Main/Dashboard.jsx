@@ -283,8 +283,6 @@ function Dashboard() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [newItemsCount, setNewItemsCount] = useState(0)
-  const [cardMembers, setCardMembers] = useState({})
-  const fetchedCardIdsRef = useRef(new Set())
 
   // Check if mobile
   useEffect(() => {
@@ -319,36 +317,6 @@ function Dashboard() {
 
     fetchData()
   }, [dispatch, selectedDate])
-
-  // جلب أعضاء كل كارد عند تحميل highPriorityTasks
-  useEffect(() => {
-    const fetchCardMembers = async (task) => {
-      if (!task?.id || fetchedCardIdsRef.current.has(task.id)) return;
-      
-      try {
-        const res = await axios.get(`http://localhost:3000/api/v1/cards/${task.id}/members`, { withCredentials: true });
-        const members = res.data?.data?.members || [];
-        setCardMembers(prev => ({
-          ...prev,
-          [task.id]: members
-        }));
-        fetchedCardIdsRef.current.add(task.id);
-      } catch (err) {
-        setCardMembers(prev => ({
-          ...prev,
-          [task.id]: []
-        }));
-        fetchedCardIdsRef.current.add(task.id);
-      }
-    };
-
-    if (Array.isArray(highPriorityTasks) && highPriorityTasks.length > 0 && !isInitialLoad) {
-      const newTasks = highPriorityTasks.filter(task => task?.id && !fetchedCardIdsRef.current.has(task.id));
-      if (newTasks.length > 0) {
-        newTasks.forEach(task => fetchCardMembers(task));
-      }
-    }
-  }, [highPriorityTasks, isInitialLoad]);
 
   // Get current date info
   const currentDate = new Date()
@@ -415,6 +383,17 @@ function Dashboard() {
       setTimeout(() => {
         dateElement.classList.remove("animate-bounce-gentle")
       }, 600)
+      // Scroll to center the selected date
+      let scrollParent = dateElement.parentElement;
+      while (scrollParent && !scrollParent.classList.contains("overflow-x-auto")) {
+        scrollParent = scrollParent.parentElement;
+      }
+      if (scrollParent) {
+        const parentRect = scrollParent.getBoundingClientRect();
+        const elemRect = dateElement.getBoundingClientRect();
+        const scrollLeft = scrollParent.scrollLeft + (elemRect.left - parentRect.left) - (parentRect.width / 2) + (elemRect.width / 2);
+        scrollParent.scrollTo({ left: scrollLeft, behavior: "smooth" });
+      }
     }
   }
 
@@ -545,30 +524,33 @@ function Dashboard() {
 
   // Helper function to get avatar url (copy from TaskCard.jsx)
   const getUserAvatar = (user) => {
+    const BASE_URL = "http://localhost:3000";
     if (user.avatar && user.avatar !== "null" && user.avatar !== "undefined") {
+      if (user.avatar.startsWith("/uploads/")) {
+        return BASE_URL + user.avatar;
+      }
+      if (!user.avatar.startsWith("http") && !user.avatar.startsWith("/")) {
+        return BASE_URL + "/uploads/users/" + user.avatar;
+      }
       return user.avatar;
     }
-    if (
-      user.user &&
-      user.user.avatar &&
-      user.user.avatar !== "null" &&
-      user.user.avatar !== "undefined"
-    ) {
-      return user.user.avatar;
-    }
+    // Use first letter of name or fallback
     let initials;
     let firstName = user.firstName || (user.user && user.user.firstName);
     let lastName = user.lastName || (user.user && user.user.lastName);
+    let name = user.name || (user.user && user.user.name);
     let username = user.username || (user.user && user.user.username);
     let email = user.email || (user.user && user.user.email);
-    if (firstName && lastName) {
-      initials = `${firstName[0]}${lastName[0]}`;
-    } else if (username) {
-      initials = username.substring(0, 2).toUpperCase();
-    } else if (email) {
-      initials = email.substring(0, 2).toUpperCase();
+    if (name && name.trim().length > 0) {
+      initials = name.trim()[0].toUpperCase();
+    } else if (firstName && firstName.length > 0) {
+      initials = firstName[0].toUpperCase();
+    } else if (username && username.length > 0) {
+      initials = username[0].toUpperCase();
+    } else if (email && email.length > 0) {
+      initials = email[0].toUpperCase();
     } else {
-      initials = "UN";
+      initials = "U";
     }
     return `https://ui-avatars.com/api/?name=${initials}&background=4D2D61&color=fff&bold=true&size=128`;
   };
@@ -649,7 +631,7 @@ function Dashboard() {
 
                       <div className="flex -space-x-0.5 mt-2 items-center">
                         {(() => {
-                          const members = cardMembers[task.id] || [];
+                          const members = task.members || [];
                           if (!Array.isArray(members) || members.length === 0) {
                             return null;
                           }
@@ -662,7 +644,7 @@ function Dashboard() {
                                   title={member?.name || 'Member'}
                                 >
                                   <img
-                                    src={getUserAvatar(member?.user || member)}
+                                    src={getUserAvatar(member)}
                                     alt={member?.name || 'Member'}
                                     className="w-full h-full object-cover rounded-full"
                                   />
@@ -746,18 +728,31 @@ function Dashboard() {
                         className="relative group animate-fade-in"
                         style={{ animationDelay: `${index * 0.1}s` }}
                       >
-                        <div className="absolute left-3 top-0 bottom-0 w-1 rounded-full bg-[#4d2d61]" />
-                        <div className="pl-4 md:pl-5">
-                          <div className="flex justify-between items-start bg-white p-3 rounded-lg shadow-sm hover:bg-gray-50 transition-all duration-200 card-hover">
-                            <div>
-                              <p className="font-medium text-[#6a3b82] text-sm">{event.title}</p>
-                              <p className="text-xs text-gray-500">
-                                {event.dueTime} • {event.boardName}
-                              </p>
+                        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-full bg-[#4d2d61]" />
+                        <div className="pl-3 md:pl-4">
+                          <div
+                            className="card-hover my-2 bg-white border border-gray-200 rounded-lg p-3 shadow-sm cursor-pointer transition-all duration-200"
+                            style={{ marginTop: 8, marginBottom: 8, marginLeft: 0, marginRight: 8, paddingLeft: 20 }}
+                            onClick={() => {
+                              if (event.boardId) {
+                                window.location.href = `/main/workspaces/${event.boardId}/boards/${event.boardId}?cardId=${event.id}`;
+                              } else if (event.list && event.list.board) {
+                                window.location.href = `/main/workspaces/${event.list.board}/boards/${event.list.board}?cardId=${event.id}`;
+                              }
+                              console.log('event:', event);
+                            }}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-medium text-[#6a3b82] text-sm">{event.title}</span>
+                              {event.boardName && (
+                                <span className="text-xs text-gray-400 font-semibold ml-2 whitespace-nowrap" style={{ zIndex: 20 }}>
+                                  {event.boardName}
+                                </span>
+                              )}
                             </div>
-                            <button className="p-1 rounded-full hover:bg-gray-100 transition-all duration-200 button-hover">
-                              <MoreHorizontal className="w-4 h-4 text-gray-400" />
-                            </button>
+                            <p className="text-xs text-gray-500">
+                              {event.dueTime} • {event.boardName}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -813,7 +808,15 @@ function Dashboard() {
                 ) : Array.isArray(activityLog) && activityLog.length > 0 ? (
                   activityLog.map((activity, index) => (
                     <tr key={`${activity.id}-${index}`} className="activity-row border-t border-gray-100 table-row">
-                      <td className="py-2 px-2">{activity.user.name}</td>
+                      <td className="py-2 px-2 flex items-center gap-2">
+                        <img
+                          src={getUserAvatar(activity.user)}
+                          alt={activity.user.name}
+                          className="w-7 h-7 rounded-full object-cover border border-gray-200"
+                          style={{ minWidth: 28, minHeight: 28 }}
+                        />
+                        <span>{activity.user.name}</span>
+                      </td>
                       <td className="py-2 px-2">{activity.board.name}</td>
                       <td className="py-2 px-2">{activity.actionText}</td>
                       <td className="py-2 px-2">

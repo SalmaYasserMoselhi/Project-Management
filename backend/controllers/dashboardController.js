@@ -212,6 +212,7 @@ exports.getCalendarDeadlines = catchAsync(async (req, res, next) => {
         timeZone: userTimezone 
       }),
       dueDateTime: dueDate,
+      boardId: card.list.board._id,
       boardName: card.list.board.name,
       listName: card.list.name,
       priority: card.priority,
