@@ -248,8 +248,15 @@ exports.searchWorkspaceUsers = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.getUserStatus = (req, res) => {
+exports.getUserStatus = async (req, res) => {
   const { id } = req.params;
-  const online = isUserOnline(id);
-  res.json({ userId: id, status: online ? 'online' : 'offline' });
+
+  try {
+    const user = await User.findById(id).select('status');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json({ userId: id, status: user.status });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
 };
