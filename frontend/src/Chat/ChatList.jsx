@@ -569,7 +569,7 @@ const ChatList = ({ onChatSelect }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-10 py-3.5 text-sm bg-white/80 backdrop-blur-sm rounded-xl border border-[#E5D8F6] focus:outline-none focus:ring-2 focus:ring-[#4D2D61]/20 focus:border-[#C1A7E6] text-gray-700 transition-all duration-300 hover:shadow-sm placeholder:text-gray-400"
           />
-          {showUserSearch && (
+          {(showUserSearch || searchTerm) && (
             <button
               onClick={handleClearSearch}
               className="absolute right-3 top-4 text-gray-400 hover:text-[#4D2D61] transition-all duration-300 hover:scale-110"
