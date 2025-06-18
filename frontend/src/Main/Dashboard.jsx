@@ -266,12 +266,12 @@ const ActivityRowSkeleton = () => (
 function Dashboard() {
   const dispatch = useDispatch()
   const {
-    highPriorityTasks,
-    highPriorityTasksPagination,
-    deadlines,
-    activityLog,
-    activityLogPagination,
-    taskStats,
+    highPriorityTasks = [],
+    highPriorityTasksPagination = { currentPage: 1, totalPages: 1 },
+    deadlines = [],
+    activityLog = [],
+    activityLogPagination = { currentPage: 1, totalPages: 1 },
+    taskStats = { breakdown: [] },
     selectedDate,
     loading,
     error,
@@ -283,7 +283,7 @@ function Dashboard() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [newItemsCount, setNewItemsCount] = useState(0)
-  const [cardMembers, setCardMembers] = useState({});
+  const [cardMembers, setCardMembers] = useState({})
 
   // Check if mobile
   useEffect(() => {
@@ -321,14 +321,28 @@ function Dashboard() {
 
   // جلب أعضاء كل كارد عند تحميل highPriorityTasks
   useEffect(() => {
-    if (Array.isArray(highPriorityTasks)) {
-      highPriorityTasks.forEach(async (task) => {
-        if (!task.id) return;
-        try {
-          const res = await axios.get(`http://localhost:3000/api/v1/cards/${task.id}/members`, { withCredentials: true });
-          setCardMembers((prev) => ({ ...prev, [task.id]: res.data?.data?.members || [] }));
-        } catch (err) {
-          setCardMembers((prev) => ({ ...prev, [task.id]: [] }));
+    const fetchCardMembers = async (task) => {
+      if (!task?.id) return;
+      try {
+        const res = await axios.get(`http://localhost:3000/api/v1/cards/${task.id}/members`, { withCredentials: true });
+        const members = res.data?.data?.members || [];
+        setCardMembers(prev => ({
+          ...prev,
+          [task.id]: members
+        }));
+      } catch (err) {
+        console.error(`Error fetching members for card ${task.id}:`, err);
+        setCardMembers(prev => ({
+          ...prev,
+          [task.id]: []
+        }));
+      }
+    };
+
+    if (Array.isArray(highPriorityTasks) && highPriorityTasks.length > 0) {
+      highPriorityTasks.forEach(task => {
+        if (task?.id && !cardMembers[task.id]) {
+          fetchCardMembers(task);
         }
       });
     }
@@ -632,24 +646,34 @@ function Dashboard() {
                       <div className="border-t border-gray-200 my-2"></div>
 
                       <div className="flex -space-x-0.5 mt-2 items-center">
-                        {Array.isArray(cardMembers[task.id]) && cardMembers[task.id].slice(0, 3).map((member, i) => (
-                          <div
-                            key={i}
-                            className="avatar-hover w-7 h-7 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold border-2 border-white overflow-hidden"
-                            title={member.name}
-                          >
-                            <img
-                              src={getUserAvatar(member.user || member)}
-                              alt={member.name}
-                              className="w-full h-full object-cover rounded-full"
-                            />
-                          </div>
-                        ))}
-                        {Array.isArray(cardMembers[task.id]) && cardMembers[task.id].length > 3 && (
-                          <div className="avatar-hover w-7 h-7 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold border-2 border-white">
-                            +{cardMembers[task.id].length - 3}
-                          </div>
-                        )}
+                        {(() => {
+                          const members = cardMembers[task.id] || [];
+                          if (!Array.isArray(members) || members.length === 0) {
+                            return null;
+                          }
+                          return (
+                            <>
+                              {members.slice(0, 3).map((member, i) => (
+                                <div
+                                  key={i}
+                                  className="avatar-hover w-7 h-7 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold border-2 border-white overflow-hidden"
+                                  title={member?.name || 'Member'}
+                                >
+                                  <img
+                                    src={getUserAvatar(member?.user || member)}
+                                    alt={member?.name || 'Member'}
+                                    className="w-full h-full object-cover rounded-full"
+                                  />
+                                </div>
+                              ))}
+                              {members.length > 3 && (
+                                <div className="avatar-hover w-7 h-7 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold border-2 border-white">
+                                  +{members.length - 3}
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   ))
