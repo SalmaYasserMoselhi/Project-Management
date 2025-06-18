@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { MoreHorizontal, Clock, Menu, ChevronDown } from "lucide-react"
 import Chart from "react-apexcharts"
 import Breadcrumb from "../Components/Breadcrumb"
@@ -284,6 +284,7 @@ function Dashboard() {
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [newItemsCount, setNewItemsCount] = useState(0)
   const [cardMembers, setCardMembers] = useState({})
+  const fetchedCardIdsRef = useRef(new Set())
 
   // Check if mobile
   useEffect(() => {
@@ -322,7 +323,8 @@ function Dashboard() {
   // جلب أعضاء كل كارد عند تحميل highPriorityTasks
   useEffect(() => {
     const fetchCardMembers = async (task) => {
-      if (!task?.id) return;
+      if (!task?.id || fetchedCardIdsRef.current.has(task.id)) return;
+      
       try {
         const res = await axios.get(`http://localhost:3000/api/v1/cards/${task.id}/members`, { withCredentials: true });
         const members = res.data?.data?.members || [];
@@ -330,23 +332,23 @@ function Dashboard() {
           ...prev,
           [task.id]: members
         }));
+        fetchedCardIdsRef.current.add(task.id);
       } catch (err) {
-        console.error(`Error fetching members for card ${task.id}:`, err);
         setCardMembers(prev => ({
           ...prev,
           [task.id]: []
         }));
+        fetchedCardIdsRef.current.add(task.id);
       }
     };
 
-    if (Array.isArray(highPriorityTasks) && highPriorityTasks.length > 0) {
-      highPriorityTasks.forEach(task => {
-        if (task?.id && !cardMembers[task.id]) {
-          fetchCardMembers(task);
-        }
-      });
+    if (Array.isArray(highPriorityTasks) && highPriorityTasks.length > 0 && !isInitialLoad) {
+      const newTasks = highPriorityTasks.filter(task => task?.id && !fetchedCardIdsRef.current.has(task.id));
+      if (newTasks.length > 0) {
+        newTasks.forEach(task => fetchCardMembers(task));
+      }
     }
-  }, [highPriorityTasks]);
+  }, [highPriorityTasks, isInitialLoad]);
 
   // Get current date info
   const currentDate = new Date()
