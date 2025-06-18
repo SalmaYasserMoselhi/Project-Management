@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { toast } from "react-toastify";
 import {
   addSubtask,
   toggleSubtask,
@@ -18,9 +19,15 @@ export default function CardSubtasks() {
   const subtasksError = useSelector((state) => state.cardDetails.subtasksError);
   const [newTaskText, setNewTaskText] = useState("");
   const [isAdding, setIsAdding] = useState(false);
-  const [error, setError] = useState(null);
 
-  // جلب المهام الفرعية عند تحميل المكون إذا كان هناك معرف بطاقة
+  // Show toast on API error
+  useEffect(() => {
+    if (subtasksError) {
+      toast.error(subtasksError);
+    }
+  }, [subtasksError]);
+
+  // fetch the subtasks when the component loads if there is a card id
   useEffect(() => {
     if (cardId) {
       dispatch(fetchCardSubtasks(cardId))
@@ -35,16 +42,14 @@ export default function CardSubtasks() {
     const trimmedTitle = newTaskText.trim();
 
     if (!trimmedTitle) {
-      setError("Task title cannot be empty");
+      toast.error("Task title cannot be empty");
       return;
     }
 
-    setError(null);
-
-    // استخدم الإجراء المحلي دائماً، بغض النظر عن وجود معرف بطاقة
+    // use the local action always, regardless of the card id
     dispatch(
       addSubtask({
-        id: Date.now(), // استخدم معرف مؤقت
+        id: Date.now(), // use a temporary id
         text: trimmedTitle,
         title: trimmedTitle,
         completed: false,
@@ -55,21 +60,21 @@ export default function CardSubtasks() {
   };
 
   const handleToggleSubtask = (id) => {
-    // استخدم الإجراء المحلي دائماً
+    // use the local action always
     dispatch(toggleSubtask(id));
   };
 
   const handleRemoveSubtask = (id) => {
-    // استخدم الإجراء المحلي دائماً
+    // use the local action always
     dispatch(removeSubtask(id));
   };
 
-  // تحديد ما إذا كانت المهمة مكتملة استنادًا إلى API أو واجهة المستخدم
+  // check if the task is completed based on API or UI
   const isTaskCompleted = (task) => {
     return task.isCompleted !== undefined ? task.isCompleted : task.completed;
   };
 
-  // الحصول على نص المهمة استنادًا إلى API أو واجهة المستخدم
+  // get the task text based on API or UI
   const getTaskText = (task) => {
     return task.title || task.text;
   };
@@ -84,13 +89,6 @@ export default function CardSubtasks() {
 
   return (
     <div className="mt-3">
-      {/* Error message */}
-      {(error || subtasksError) && (
-        <div className="mb-3 text-red-500 text-sm bg-red-50 p-2 rounded">
-          {error || subtasksError}
-        </div>
-      )}
-
       {/* Subtasks list */}
       {subtasks.length > 0 ? (
         subtasks.map((task) => (

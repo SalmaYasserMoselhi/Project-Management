@@ -94,7 +94,7 @@ export default function CardDueDate({ cardId }) {
   };
 
   return (
-    <div className="flex flex-row items-center mt-4 w-full max-[320px]:flex-col max-[320px]:items-start">
+    <div className="flex flex-row items-center mt-4 w-full">
       {/* أيقونة وعنوان تاريخ الاستحقاق */}
       <div className="w-30 text-gray-500 flex items-center">
         <svg
@@ -115,11 +115,11 @@ export default function CardDueDate({ cardId }) {
 
       {/* حقل التاريخ مع أيقونة التقويم */}
       <div
-        className="relative max-[320px]:ml-4 max-[320px]:mt-2"
+        className="relative"
         ref={datePickerRef}
       >
         <div
-          className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-400 flex items-center cursor-pointer w-34 max-[320px]:w-full"
+          className="px-2 py-1 border border-gray-300 rounded-md text-sm text-gray-400 flex items-center cursor-pointer w-34"
           onClick={() => setIsOpen(!isOpen)}
         >
           <span className="mr-1">{formatDateForDisplay(endDate)}</span>

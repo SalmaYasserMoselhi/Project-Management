@@ -1,30 +1,30 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
+import { toast } from "react-toastify";
 import { updateListId } from "../features/Slice/cardSlice/cardDetailsSlice";
 
 export default function CardStatus({ boardId, lists = [], currentListId }) {
   const [isOpen, setIsOpen] = useState(false);
   const [boardLists, setBoardLists] = useState([]);
   const [selectedList, setSelectedList] = useState(null);
-  const [error, setError] = useState(null);
   const dropdownRef = useRef(null);
   const dispatch = useDispatch();
   const BASE_URL = "http://localhost:3000";
 
-  // جلب معلومات البطاقة من Redux
+  // get the card information from Redux
   const { listId, id: cardId } = useSelector((state) => state.cardDetails);
 
-  // استخدام القوائم الممررة أو جلبها من API
+  // use the passed lists or fetch them from the API
   useEffect(() => {
     console.log("CardStatus - Current List ID:", currentListId);
     console.log("CardStatus - Lists available:", lists);
 
-    // إذا كانت القوائم قد تم تمريرها، نستخدمها
+    // if the lists are passed, use them
     if (lists && lists.length > 0) {
       setBoardLists(lists);
 
-      // تحديد القائمة المحددة من Redux أو من props
+      // select the list from Redux or props
       const currentId = listId || currentListId;
       console.log("CardStatus - Using list ID:", currentId);
 
@@ -32,11 +32,11 @@ export default function CardStatus({ boardId, lists = [], currentListId }) {
         const current = lists.find((list) => list.id === currentId);
         if (current) {
           setSelectedList(current);
-          // تحديث قيمة القائمة في Redux
+          // update the list value in Redux
           dispatch(updateListId(current.id));
           console.log("CardStatus - Selected list:", current.name, current.id);
         } else if (lists.length > 0) {
-          // إذا لم نجد القائمة المحددة، نستخدم الأولى
+          // if no list is selected, use the first one
           setSelectedList(lists[0]);
           dispatch(updateListId(lists[0].id));
           console.log(
@@ -46,7 +46,7 @@ export default function CardStatus({ boardId, lists = [], currentListId }) {
           );
         }
       } else if (lists.length > 0) {
-        // إذا لم تكن هناك قائمة محددة، نستخدم الأولى
+        // if no list is selected, use the first one
         setSelectedList(lists[0]);
         dispatch(updateListId(lists[0].id));
         console.log(
@@ -58,7 +58,7 @@ export default function CardStatus({ boardId, lists = [], currentListId }) {
       return;
     }
 
-    // إذا لم يتم تمرير القوائم، نجلبها من API
+    // if the lists are not passed, fetch them from the API
     const fetchLists = async () => {
       if (!boardId) return;
 
@@ -70,7 +70,7 @@ export default function CardStatus({ boardId, lists = [], currentListId }) {
           const fetchedLists = res.data.data.lists;
           setBoardLists(fetchedLists);
 
-          // تحديد القائمة المحددة
+          // select the list
           const currentId = listId || currentListId;
           console.log("CardStatus - Using list ID:", currentId);
 
@@ -105,14 +105,14 @@ export default function CardStatus({ boardId, lists = [], currentListId }) {
         }
       } catch (error) {
         console.error("Error fetching lists:", error);
-        setError("Could not load lists");
+        toast.error("Could not load lists");
       }
     };
 
     fetchLists();
   }, [boardId, lists, currentListId, listId, dispatch]);
 
-  // إغلاق القائمة المنسدلة عند النقر خارجها
+  // close the dropdown when clicking outside it
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -129,18 +129,17 @@ export default function CardStatus({ boardId, lists = [], currentListId }) {
     };
   }, [isOpen]);
 
-  // تحديث القائمة المحددة في Redux فقط، دون إرسال التغييرات إلى الخادم
+  // update the selected list in Redux only, without sending the changes to the server
   const handleListChange = (list) => {
     setSelectedList(list);
 
-    // تحديث Redux فقط
+    // update Redux only
     dispatch(updateListId(list.id));
     setIsOpen(false);
   };
 
   return (
-    <div className="flex flex-row items-center mt-4 w-full max-[320px]:flex-col max-[320px]:items-start">
-      {/* أيقونة وعنوان */}
+    <div className="flex flex-row items-center mt-4 w-full">
       <div className="w-30 text-gray-500 flex items-center">
         <svg
           className="w-5 h-5 mr-2"
@@ -156,22 +155,20 @@ export default function CardStatus({ boardId, lists = [], currentListId }) {
         Status
       </div>
 
-      {/* زر القائمة المحددة */}
-      <div
-        className="relative max-[320px]:ml-4 max-[320px]:mt-2"
-        ref={dropdownRef}
-      >
+      <div className="relative" ref={dropdownRef}>
         <button
-          className="px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2 max-[320px]:w-full max-[320px]:justify-between"
+          className="px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2"
           style={{
-            backgroundColor: "#4D2D6120", // بنفسجي مع شفافية
-            color: "#4D2D61", // بنفسجي
+            backgroundColor: "#4D2D6120",
+            color: "#4D2D61",
           }}
           onClick={() => setIsOpen(!isOpen)}
         >
           {selectedList ? selectedList.name : "Select a list"}
           <svg
-            className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 transition-transform duration-200 ${
+              isOpen ? "rotate-180" : ""
+            }`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -185,9 +182,9 @@ export default function CardStatus({ boardId, lists = [], currentListId }) {
           </svg>
         </button>
 
-        {/* القائمة المنسدلة */}
+        {/* dropdown */}
         {isOpen && (
-          <div className="absolute left-0 mt-2 w-48 max-[320px]:w-full bg-white border border-gray-300 rounded-md shadow-lg z-50">
+          <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-300 rounded-md shadow-lg z-50">
             {boardLists.map((list) => (
               <div
                 key={list.id}
@@ -201,12 +198,6 @@ export default function CardStatus({ boardId, lists = [], currentListId }) {
                 <span style={{ color: "#4D2D61" }}>{list.name}</span>
               </div>
             ))}
-
-            {error && (
-              <div className="px-3 py-2 text-xs text-red-500 border-t border-gray-200">
-                {error}
-              </div>
-            )}
           </div>
         )}
       </div>

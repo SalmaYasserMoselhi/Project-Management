@@ -49,7 +49,7 @@ export default function CardPriority() {
     priorities.find((p) => p.value === currentPriority) || priorities[1]; // الافتراضي هو "medium"
 
   return (
-    <div className="flex flex-row items-center mt-4 w-full max-[320px]:flex-col max-[320px]:items-start">
+    <div className="flex flex-row items-center mt-4 w-full">
       {/* أيقونة و عنوان الأولوية */}
       <div className="w-30 text-gray-500 flex items-center">
         <svg
@@ -70,11 +70,11 @@ export default function CardPriority() {
 
       {/* زر عرض الأولوية الحالية */}
       <div
-        className="relative max-[320px]:ml-4 max-[320px]:mt-2"
+        className="relative"
         ref={dropdownRef}
       >
         <button
-          className="px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2 max-[320px]:w-full max-[320px]:justify-between"
+          className="px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2"
           style={{
             backgroundColor: `${currentPriorityObj.color}33`, // شفافية للخلفية
             color: currentPriorityObj.color, // لون النص
