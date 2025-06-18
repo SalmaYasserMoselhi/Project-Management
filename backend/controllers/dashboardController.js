@@ -7,10 +7,6 @@ const AppError = require('../utils/appError');
 
 exports.getHighPriorityTasks = catchAsync(async (req, res, next) => {
   try {
-    const limit = parseInt(req.query.limit) || 10;
-    const page = parseInt(req.query.page) || 1;
-    const skip = (page - 1) * limit;
-
     // 1. Get all boards where user is a member
     const boards = await Board.find({
       'members.user': req.user._id
@@ -99,8 +95,6 @@ exports.getHighPriorityTasks = catchAsync(async (req, res, next) => {
     res.status(200).json({
       status: 'success',
       results: formattedCards.length,
-      currentPage: page,
-      totalPages: Math.ceil(formattedCards.length / limit),
       data: {
         tasks: formattedCards
       }
@@ -239,20 +233,15 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
   // Get user's timezone
   const userTimezone = req.user.timezone || 'Africa/Cairo';
   
-  // 1. Get pagination parameters
-  const limit = parseInt(req.query.limit) || 10;
-  const page = parseInt(req.query.page) || 1;
-  const skip = (page - 1) * limit;
-
-    // Add sorting parameters
+  // Add sorting parameters
   const sortBy = req.query.sortBy || 'createdAt'; // createdAt, action, entityType
   const sortOrder = req.query.sortOrder || 'desc'; // asc or desc
 
-    // Validate sort parameters
+  // Validate sort parameters
   const validSortFields = ['createdAt', 'action', 'entityType'];
   const validSortOrders = ['asc', 'desc'];
 
-    if (!validSortFields.includes(sortBy)) {
+  if (!validSortFields.includes(sortBy)) {
     return next(new AppError('Invalid sort field. Use: createdAt, action, or entityType', 400));
   }
   
@@ -265,13 +254,10 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
     'members.user': req.user._id
   }).select('_id name');
 
-    if (!boards || boards.length === 0) {
+  if (!boards || boards.length === 0) {
     return res.status(200).json({
       status: 'success',
       results: 0,
-      totalResults: 0,
-      currentPage: page,
-      totalPages: 0,
       sortBy,
       sortOrder,
       data: {
@@ -282,26 +268,16 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
 
   const boardIds = boards.map(board => board._id);
 
-    // 3. Build sort object for aggregation
+  // 3. Build sort object for aggregation
   const sortObject = {};
   sortObject[`activities.${sortBy}`] = sortOrder === 'asc' ? 1 : -1;
 
-  // 4. Get total count first for pagination
-  const totalActivities = await Board.aggregate([
-    { $match: { _id: { $in: boardIds } } },
-    { $unwind: '$activities' },
-    { $count: 'total' }
-  ]);
-  const totalCount = totalActivities.length > 0 ? totalActivities[0].total : 0;
-
-  // 3. Aggregate activities from all boards
+  // 4. Aggregate activities from all boards
   const activities = await Board.aggregate([
     { $match: { _id: { $in: boardIds } } },
     { $unwind: '$activities' },
     { $sort: { 'activities.createdAt': -1 } },
     { $sort: sortObject },
-    { $skip: skip },
-    { $limit: limit },
     { 
       $lookup: {
         from: 'users',
@@ -352,7 +328,7 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
     }
   ]);
 
-  // 6. Format action types for display and add time formatting
+  // 5. Format action types for display and add time formatting
   const formattedActivities = activities.map(activity => {
     return {
       ...activity,
@@ -367,12 +343,9 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
     };
   });
 
- res.status(200).json({
+  res.status(200).json({
     status: 'success',
     results: formattedActivities.length,
-    totalResults: totalCount,
-    currentPage: page,
-    totalPages: Math.ceil(totalCount / limit),
     sortBy,
     sortOrder,
     data: {
@@ -382,8 +355,8 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
 });
 
 // Helper function to convert action types to display text
-function getActionText(action, entityType) {
-   const actionMap = {
+function getActionText(action, entityType, entityName) {  // Fixed: Added entityName parameter
+  const actionMap = {
     'card_created': `created ${entityType}`,
     'card_updated': `updated ${entityType}`,
     'card_moved': `moved ${entityType}`,
@@ -415,6 +388,7 @@ function getActionText(action, entityType) {
   };
 
   let actionText = actionMap[action] || `${action.replace(/_/g, ' ')} ${entityType}`;
+  
   // Add entity name if available
   if (entityName) {
     actionText += ` "${entityName}"`;
@@ -434,6 +408,33 @@ function formatActivityDate(date, timezone = 'Africa/Cairo') {
     hour12: true,
     timeZone: timezone
   });
+}
+
+// Helper function to group activities by date for UI display
+function getDateGroup(date, timezone = 'Africa/Cairo') {
+  const activityDate = new Date(date);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  // Format dates in user's timezone
+  const activityDateStr = activityDate.toLocaleDateString('en-CA', { timeZone: timezone });
+  const todayStr = today.toLocaleDateString('en-CA', { timeZone: timezone });
+  const yesterdayStr = yesterday.toLocaleDateString('en-CA', { timeZone: timezone });
+  
+  if (activityDateStr === todayStr) {
+    return 'Today';
+  } else if (activityDateStr === yesterdayStr) {
+    return 'Yesterday';
+  } else {
+    return activityDate.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      timeZone: timezone 
+    });
+  }
 }
 
 exports.getTaskStats = catchAsync(async (req, res, next) => {

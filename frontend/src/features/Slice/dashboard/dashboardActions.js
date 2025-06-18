@@ -2,19 +2,15 @@
 import axios from '../../../utils/axiosConfig';
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
-// Fetch high priority tasks with pagination
+// Fetch high priority tasks
 export const fetchHighPriorityTasks = createAsyncThunk(
   'dashboard/fetchHighPriorityTasks',
-  async ({ page = 1, limit = 10 } = {}, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`/api/v1/dashboard/high-priority-tasks?page=${page}&limit=${limit}`);
+      const response = await axios.get('/api/v1/dashboard/high-priority-tasks');
       return {
         tasks: response.data.data.tasks,
-        pagination: {
-          currentPage: response.data.currentPage,
-          totalPages: response.data.totalPages,
-          results: response.data.results
-        }
+        results: response.data.results
       };
     } catch (error) {
       return rejectWithValue(error.response.data);
@@ -38,19 +34,17 @@ export const fetchCalendarDeadlines = createAsyncThunk(
   }
 );
 
-// Fetch activity log with pagination
+// Fetch activity log
 export const fetchActivityLog = createAsyncThunk(
   'dashboard/fetchActivityLog',
-  async ({ page = 1, limit = 10 } = {}, { rejectWithValue }) => {
+  async ({ sortBy = 'createdAt', sortOrder = 'desc' } = {}, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`/api/v1/dashboard/activity-log?page=${page}&limit=${limit}`);
+      const response = await axios.get(`/api/v1/dashboard/activity-log?sortBy=${sortBy}&sortOrder=${sortOrder}`);
       return {
         activities: response.data.data.activities,
-        pagination: {
-          currentPage: response.data.currentPage,
-          totalPages: response.data.totalPages,
-          results: response.data.results
-        }
+        results: response.data.results,
+        sortBy: response.data.sortBy,
+        sortOrder: response.data.sortOrder
       };
     } catch (error) {
       return rejectWithValue(error.response.data);
