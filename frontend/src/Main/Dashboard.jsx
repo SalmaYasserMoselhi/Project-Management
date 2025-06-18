@@ -1,23 +1,23 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { MoreHorizontal, Clock, Menu, ChevronDown } from "lucide-react"
-import Chart from "react-apexcharts"
-import Breadcrumb from "../Components/Breadcrumb"
-import { useDispatch, useSelector } from "react-redux"
-import { toggleSidebar } from "../features/Slice/ComponentSlice/sidebarSlice"
-import CustomDropdown from "../Components/CustomDropdown"
+import { useState, useEffect, useCallback, useRef } from "react";
+import { MoreHorizontal, Clock, Menu, ChevronDown } from "lucide-react";
+import Chart from "react-apexcharts";
+import Breadcrumb from "../Components/Breadcrumb";
+import { useDispatch, useSelector } from "react-redux";
+import { toggleSidebar } from "../features/Slice/ComponentSlice/sidebarSlice";
+import CustomDropdown from "../Components/CustomDropdown";
 // Import async actions from dashboardActions.js
 import {
   fetchHighPriorityTasks,
   fetchCalendarDeadlines,
   fetchActivityLog,
   fetchTaskStats,
-} from "../features/Slice/dashboard/dashboardActions"
+} from "../features/Slice/dashboard/dashboardActions";
 
 // Import the action creator from dashboardSlice.js
-import { setSelectedDate } from "../features/Slice/dashboard/dashboardSlice"
-import axios from "axios"
+import { setSelectedDate } from "../features/Slice/dashboard/dashboardSlice";
+import axios from "axios";
 
 const styles = `
 .no-scrollbar::-webkit-scrollbar {
@@ -194,7 +194,7 @@ const styles = `
 }
 
 .table-row:hover {
-  background-color: rgba(77, 45, 97, 0.05);
+  background-color: #faf7fd;
   transform: translateX(4px);
 }
 
@@ -224,7 +224,7 @@ const styles = `
   opacity: 0;
   animation: fadeIn 0.8s ease-out 0.5s forwards;
 }
-`
+`;
 
 // Skeleton components
 const TaskCardSkeleton = () => (
@@ -241,7 +241,7 @@ const TaskCardSkeleton = () => (
       <div className="loading-skeleton w-5 h-5 rounded-full"></div>
     </div>
   </div>
-)
+);
 
 const ActivityRowSkeleton = () => (
   <tr className="border-t border-gray-100">
@@ -261,10 +261,10 @@ const ActivityRowSkeleton = () => (
       <div className="loading-skeleton h-4 w-12"></div>
     </td>
   </tr>
-)
+);
 
 function Dashboard() {
-  const dispatch = useDispatch()
+  const dispatch = useDispatch();
   const {
     highPriorityTasks = [],
     highPriorityTasksPagination = { currentPage: 1, totalPages: 1 },
@@ -275,69 +275,72 @@ function Dashboard() {
     selectedDate,
     loading,
     error,
-  } = useSelector((state) => state.dashboard)
+  } = useSelector((state) => state.dashboard);
 
-  const [isMobile, setIsMobile] = useState(false)
-  const [initialScrollDone, setInitialScrollDone] = useState(false)
-  const [selectedDay, setSelectedDay] = useState(new Date().getDate())
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
-  const [newItemsCount, setNewItemsCount] = useState(0)
+  const [isMobile, setIsMobile] = useState(false);
+  const [initialScrollDone, setInitialScrollDone] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(new Date().getDate());
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [newItemsCount, setNewItemsCount] = useState(0);
+  const [period, setPeriod] = useState(
+    () => localStorage.getItem("dashboardPeriod") || "weekly"
+  );
 
   // Check if mobile
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
+      setIsMobile(window.innerWidth < 768);
+    };
 
-    checkMobile()
-    window.addEventListener("resize", checkMobile)
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
 
     return () => {
-      window.removeEventListener("resize", checkMobile)
-    }
-  }, [])
+      window.removeEventListener("resize", checkMobile);
+    };
+  }, []);
 
-  // Fetch data on mount (only once)
+  // useEffect لجلب high priority وactivity log مرة واحدة فقط عند mount
   useEffect(() => {
-    const fetchData = async () => {
-      setIsInitialLoad(true)
-      await Promise.all([
-        dispatch(fetchHighPriorityTasks({ page: 1, limit: 10 })),
-        dispatch(fetchActivityLog({ page: 1, limit: 10 })),
-        dispatch(fetchTaskStats("weekly")),
-      ])
-      setTimeout(() => {
-        setIsInitialLoad(false)
-      }, 800)
-    }
-    fetchData()
-  }, [dispatch])
+    setIsInitialLoad(true);
+    Promise.all([
+      dispatch(fetchHighPriorityTasks({ page: 1, limit: 10 })),
+      dispatch(fetchActivityLog({ page: 1, limit: 10 })),
+    ]).then(() => setIsInitialLoad(false));
+  }, [dispatch]);
+
+  // useEffect منفصل لجلب الإحصائيات عند تغيير الفترة فقط
+  useEffect(() => {
+    dispatch(fetchTaskStats(period));
+  }, [dispatch, period]);
 
   // Fetch deadlines when selectedDate changes
   useEffect(() => {
-    dispatch(fetchCalendarDeadlines(selectedDate))
-  }, [dispatch, selectedDate])
+    dispatch(fetchCalendarDeadlines(selectedDate));
+  }, [dispatch, selectedDate]);
 
   // Get current date info
-  const currentDate = new Date()
-  const currentMonth = currentDate.getMonth()
-  const currentDay = currentDate.getDate()
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth();
+  const currentDay = currentDate.getDate();
 
   // Generate dates for the current month
   const generateDates = (month, year) => {
-    const dates = []
-    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const dates = [];
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
     for (let i = 1; i <= daysInMonth; i++) {
       dates.push({
-        day: new Date(year, month, i).toLocaleDateString("en-EG", { weekday: "short" }).toLowerCase(),
+        day: new Date(year, month, i)
+          .toLocaleDateString("en-EG", { weekday: "short" })
+          .toLowerCase(),
         date: i,
-      })
+      });
     }
-    return dates
-  }
+    return dates;
+  };
 
-  const dates = generateDates(currentMonth, currentDate.getFullYear())
+  const dates = generateDates(currentMonth, currentDate.getFullYear());
 
   const monthNames = [
     "January",
@@ -352,114 +355,150 @@ function Dashboard() {
     "October",
     "November",
     "December",
-  ]
+  ];
 
   // Scroll to current date
   useEffect(() => {
     if (!initialScrollDone && currentDay) {
-      const todayElement = document.getElementById(`date-${currentDay}`)
+      const todayElement = document.getElementById(`date-${currentDay}`);
       if (todayElement) {
-        todayElement.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        })
+        let scrollParent = todayElement.parentElement;
+        while (
+          scrollParent &&
+          !scrollParent.classList.contains("overflow-x-auto")
+        ) {
+          scrollParent = scrollParent.parentElement;
+        }
+        if (scrollParent) {
+          const parentRect = scrollParent.getBoundingClientRect();
+          const elemRect = todayElement.getBoundingClientRect();
+          const scrollLeft =
+            scrollParent.scrollLeft +
+            (elemRect.left - parentRect.left) -
+            parentRect.width / 2 +
+            elemRect.width / 2;
+          scrollParent.scrollTo({ left: scrollLeft, behavior: "smooth" });
+        }
       }
-      setInitialScrollDone(true)
+      setInitialScrollDone(true);
     }
-  }, [currentDay, initialScrollDone])
+  }, [currentDay, initialScrollDone]);
 
   // Handle date selection with animation
   const handleDateSelect = (date) => {
-    setSelectedDay(date)
-    const selectedDate = new Date()
-    selectedDate.setDate(date)
-    const formattedDate = selectedDate.toISOString().split("T")[0]
-    dispatch(setSelectedDate(formattedDate))
+    setSelectedDay(date);
+    const selectedDate = new Date();
+    selectedDate.setDate(date);
+    const formattedDate = selectedDate.toISOString().split("T")[0];
+    dispatch(setSelectedDate(formattedDate));
 
     // Add gentle bounce animation to selected date
-    const dateElement = document.getElementById(`date-${date}`)
+    const dateElement = document.getElementById(`date-${date}`);
     if (dateElement) {
-      dateElement.classList.add("animate-bounce-gentle")
+      dateElement.classList.add("animate-bounce-gentle");
       setTimeout(() => {
-        dateElement.classList.remove("animate-bounce-gentle")
-      }, 600)
+        dateElement.classList.remove("animate-bounce-gentle");
+      }, 600);
       // Scroll to center the selected date
       let scrollParent = dateElement.parentElement;
-      while (scrollParent && !scrollParent.classList.contains("overflow-x-auto")) {
+      while (
+        scrollParent &&
+        !scrollParent.classList.contains("overflow-x-auto")
+      ) {
         scrollParent = scrollParent.parentElement;
       }
       if (scrollParent) {
         const parentRect = scrollParent.getBoundingClientRect();
         const elemRect = dateElement.getBoundingClientRect();
-        const scrollLeft = scrollParent.scrollLeft + (elemRect.left - parentRect.left) - (parentRect.width / 2) + (elemRect.width / 2);
+        const scrollLeft =
+          scrollParent.scrollLeft +
+          (elemRect.left - parentRect.left) -
+          parentRect.width / 2 +
+          elemRect.width / 2;
         scrollParent.scrollTo({ left: scrollLeft, behavior: "smooth" });
       }
     }
-  }
+  };
 
   // Load more high priority tasks with animation
   const loadMoreHighPriorityTasks = useCallback(async () => {
-    if (highPriorityTasksPagination.currentPage < highPriorityTasksPagination.totalPages && !loadingMore) {
-      setLoadingMore(true)
-      const prevCount = highPriorityTasks.length
+    if (
+      highPriorityTasksPagination.currentPage <
+        highPriorityTasksPagination.totalPages &&
+      !loadingMore
+    ) {
+      setLoadingMore(true);
+      const prevCount = highPriorityTasks.length;
 
       try {
         await dispatch(
           fetchHighPriorityTasks({
             page: highPriorityTasksPagination.currentPage + 1,
             limit: 10,
-          }),
-        )
+          })
+        );
 
         // Animate new items
         setTimeout(() => {
-          const newItems = document.querySelectorAll(".task-card:nth-last-child(-n+10)")
+          const newItems = document.querySelectorAll(
+            ".task-card:nth-last-child(-n+10)"
+          );
           newItems.forEach((item, index) => {
-            item.style.opacity = "0"
-            item.style.transform = "translateY(20px)"
+            item.style.opacity = "0";
+            item.style.transform = "translateY(20px)";
             setTimeout(() => {
-              item.style.transition = "all 0.4s ease-out"
-              item.style.opacity = "1"
-              item.style.transform = "translateY(0)"
-            }, index * 100)
-          })
-        }, 100)
+              item.style.transition = "all 0.4s ease-out";
+              item.style.opacity = "1";
+              item.style.transform = "translateY(0)";
+            }, index * 100);
+          });
+        }, 100);
       } finally {
-        setLoadingMore(false)
+        setLoadingMore(false);
       }
     }
-  }, [dispatch, highPriorityTasksPagination, loadingMore, highPriorityTasks.length])
+  }, [
+    dispatch,
+    highPriorityTasksPagination,
+    loadingMore,
+    highPriorityTasks.length,
+  ]);
 
   // Load more activity log with animation
   const loadMoreActivityLog = useCallback(async () => {
-    if (activityLogPagination.currentPage < activityLogPagination.totalPages && !loadingMore) {
-      setLoadingMore(true)
+    if (
+      activityLogPagination.currentPage < activityLogPagination.totalPages &&
+      !loadingMore
+    ) {
+      setLoadingMore(true);
       try {
         await dispatch(
           fetchActivityLog({
             page: activityLogPagination.currentPage + 1,
             limit: 10,
-          }),
-        )
+          })
+        );
 
         // Animate new rows
         setTimeout(() => {
-          const newRows = document.querySelectorAll(".activity-row:nth-last-child(-n+10)")
+          const newRows = document.querySelectorAll(
+            ".activity-row:nth-last-child(-n+10)"
+          );
           newRows.forEach((row, index) => {
-            row.style.opacity = "0"
-            row.style.transform = "translateX(-20px)"
+            row.style.opacity = "0";
+            row.style.transform = "translateX(-20px)";
             setTimeout(() => {
-              row.style.transition = "all 0.3s ease-out"
-              row.style.opacity = "1"
-              row.style.transform = "translateX(0)"
-            }, index * 50)
-          })
-        }, 100)
+              row.style.transition = "all 0.3s ease-out";
+              row.style.opacity = "1";
+              row.style.transform = "translateX(0)";
+            }, index * 50);
+          });
+        }, 100);
       } finally {
-        setLoadingMore(false)
+        setLoadingMore(false);
       }
     }
-  }, [dispatch, activityLogPagination, loadingMore])
+  }, [dispatch, activityLogPagination, loadingMore]);
 
   // Format chart data from task stats
   const chartOptions = {
@@ -483,7 +522,39 @@ function Dashboard() {
     },
     grid: { show: false },
     xaxis: {
-      categories: Array.isArray(taskStats?.breakdown) ? taskStats.breakdown.map((item) => item.period) : [],
+      categories: Array.isArray(taskStats?.breakdown)
+        ? taskStats.breakdown
+            .filter((item) => {
+              if ((taskStats?.period || "weekly") === "monthly") {
+                // اعرض فقط الأيام من الشهر الحالي
+                const date = new Date(item.period);
+                const now = new Date();
+                return (
+                  date.getMonth() === now.getMonth() &&
+                  date.getFullYear() === now.getFullYear()
+                );
+              }
+              return true;
+            })
+            .map((item) => {
+              const date = new Date(item.period);
+              if (!isNaN(date)) {
+                if ((taskStats?.period || "weekly") === "monthly") {
+                  const day = date.toLocaleDateString("en-US", {
+                    weekday: "short",
+                  });
+                  const dayNum = date.getDate().toString().padStart(2, "0");
+                  const monthNum = (date.getMonth() + 1)
+                    .toString()
+                    .padStart(2, "0");
+                  return `${day} ${dayNum}/${monthNum}`;
+                } else {
+                  return date.toLocaleDateString("en-US", { weekday: "short" });
+                }
+              }
+              return item.period;
+            })
+        : [],
       labels: { style: { fontSize: "12px" } },
     },
     yaxis: {
@@ -513,14 +584,16 @@ function Dashboard() {
         stops: [0, 100],
       },
     },
-  }
+  };
 
   const chartSeries = [
     {
       name: "Tasks Completed",
-      data: Array.isArray(taskStats?.breakdown) ? taskStats.breakdown.map((item) => item.completed) : [],
+      data: Array.isArray(taskStats?.breakdown)
+        ? taskStats.breakdown.map((item) => item.completed)
+        : [],
     },
-  ]
+  ];
 
   // Helper function to get avatar url (copy from TaskCard.jsx)
   const getUserAvatar = (user) => {
@@ -553,6 +626,25 @@ function Dashboard() {
       initials = "U";
     }
     return `https://ui-avatars.com/api/?name=${initials}&background=4D2D61&color=fff&bold=true&size=128`;
+  };
+
+  // دالة تعطي ستايل حسب نوع النشاط
+  const getActivityStyle = (action) => {
+    if (action.toLowerCase().includes("added member"))
+      return "bg-green-50 text-green-700 border-green-100";
+    if (action.toLowerCase().includes("removed"))
+      return "bg-red-50 text-red-700 border-red-100";
+    if (action.toLowerCase().includes("comment"))
+      return "bg-blue-50 text-blue-700 border-blue-100";
+    if (action.toLowerCase().includes("updated"))
+      return "bg-yellow-50 text-yellow-700 border-yellow-100";
+    return "bg-purple-50 text-purple-700 border-purple-100";
+  };
+
+  const handlePeriodChange = (value) => {
+    setPeriod(value);
+    localStorage.setItem("dashboardPeriod", value);
+    dispatch(fetchTaskStats(value));
   };
 
   return (
@@ -591,13 +683,18 @@ function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3 md:gap-4">
           {/* High Priority Tasks with staggered animation */}
           <div className="lg:col-span-3 bg-gray-50 rounded-xl shadow-sm p-3 md:p-4 border border-purple-200 card-hover animate-fade-in-up stagger-1">
-            <h2 className="text-lg font-semibold mb-2 text-[#4d2d61]">High priority tasks</h2>
+            <h2 className="text-lg font-semibold mb-2 text-[#4d2d61]">
+              High priority tasks
+            </h2>
             <div className="h-[350px] md:h-[390px] flex flex-col">
               <div className="flex-1 space-y-1 overflow-y-auto no-scrollbar px-1">
                 {isInitialLoad ? (
                   // Show skeleton loading
-                  Array.from({ length: 3 }).map((_, index) => <TaskCardSkeleton key={index} />)
-                ) : Array.isArray(highPriorityTasks) && highPriorityTasks.length > 0 ? (
+                  Array.from({ length: 3 }).map((_, index) => (
+                    <TaskCardSkeleton key={index} />
+                  ))
+                ) : Array.isArray(highPriorityTasks) &&
+                  highPriorityTasks.length > 0 ? (
                   highPriorityTasks.map((task, index) => (
                     <div
                       key={`${task.id}-${index}`}
@@ -609,9 +706,14 @@ function Dashboard() {
                       }}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-[#6a3b82] text-sm">{task.title}</span>
+                        <span className="font-medium text-[#6a3b82] text-sm">
+                          {task.title}
+                        </span>
                         {task.board && (
-                          <span className="text-xs text-gray-400 font-semibold ml-2 whitespace-nowrap" style={{ zIndex: 20 }}>
+                          <span
+                            className="text-xs text-gray-400 font-semibold ml-2 whitespace-nowrap"
+                            style={{ zIndex: 20 }}
+                          >
                             {task.board.name}
                           </span>
                         )}
@@ -641,11 +743,11 @@ function Dashboard() {
                                 <div
                                   key={i}
                                   className="avatar-hover w-7 h-7 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold border-2 border-white overflow-hidden"
-                                  title={member?.name || 'Member'}
+                                  title={member?.name || "Member"}
                                 >
                                   <img
                                     src={getUserAvatar(member)}
-                                    alt={member?.name || 'Member'}
+                                    alt={member?.name || "Member"}
                                     className="w-full h-full object-cover rounded-full"
                                   />
                                 </div>
@@ -662,12 +764,15 @@ function Dashboard() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-3 text-gray-500 text-sm animate-fade-in">No high priority tasks</div>
+                  <div className="text-center py-3 text-gray-500 text-sm animate-fade-in">
+                    No high priority tasks
+                  </div>
                 )}
               </div>
 
               {/* Load More Button with bounce animation */}
-              {highPriorityTasksPagination.currentPage < highPriorityTasksPagination.totalPages && (
+              {highPriorityTasksPagination.currentPage <
+                highPriorityTasksPagination.totalPages && (
                 <div className="pt-2 border-t border-gray-200 mt-2">
                   <button
                     onClick={loadMoreHighPriorityTasks}
@@ -690,10 +795,14 @@ function Dashboard() {
 
           {/* Deadlines with Enhanced Scrolling and animations */}
           <div className="lg:col-span-3 bg-gray-50 rounded-xl shadow-sm p-3 md:p-4 border border-purple-200 card-hover animate-fade-in-up stagger-2">
-            <h2 className="text-lg font-semibold text-[#4d2d61] mb-3">Deadlines</h2>
+            <h2 className="text-lg font-semibold text-[#4d2d61] mb-3">
+              Deadlines
+            </h2>
             <div className="h-[350px] md:h-[390px] flex flex-col">
               <div className="mb-4 bg-white border border-white rounded-lg p-3 shadow-sm">
-                <h3 className="text-base font-semibold text-[#6a3b82] mb-3">{monthNames[currentMonth]}</h3>
+                <h3 className="text-base font-semibold text-[#6a3b82] mb-3">
+                  {monthNames[currentMonth]}
+                </h3>
                 <div className="relative text-[#6a3b82]">
                   <div className="overflow-x-auto no-scrollbar">
                     <div className="flex space-x-3 mb-3 min-w-max pb-2 pt-3">
@@ -702,7 +811,7 @@ function Dashboard() {
                           key={item.date}
                           id={`date-${item.date}`}
                           onClick={() => handleDateSelect(item.date)}
-                          className={`date-button flex flex-col items-center min-w-[26px] md:min-w-[36px] rounded-lg px-2 md:px-3 py-1
+                          className={`date-button flex flex-col items-center w-14 h-14 rounded-lg px-0 py-1
                             ${
                               selectedDay === item.date
                                 ? "bg-[#4d2d61] text-white selected"
@@ -710,10 +819,15 @@ function Dashboard() {
                             }
                             ${item.date === currentDay ? "animate-glow" : ""}`}
                         >
-                          <span className="text-xs md:text-sm font-bold">{item.day}</span>
-                          <span className="font-bold mt-1.5 md:mt-2 text-sm">{item.date}</span>
+                          <span className="text-xs md:text-sm font-bold">
+                            {item.day}
+                          </span>
+                          <span className="font-bold mt-1.5 md:mt-2 text-sm">
+                            {item.date}
+                          </span>
                         </button>
                       ))}
+                      <span className="w-1 md:w-2 inline-block"></span>
                     </div>
                   </div>
                 </div>
@@ -732,20 +846,31 @@ function Dashboard() {
                         <div className="pl-3 md:pl-4">
                           <div
                             className="card-hover my-2 bg-white border border-gray-200 rounded-lg p-3 shadow-sm cursor-pointer transition-all duration-200"
-                            style={{ marginTop: 8, marginBottom: 8, marginLeft: 0, marginRight: 8, paddingLeft: 20 }}
+                            style={{
+                              marginTop: 8,
+                              marginBottom: 8,
+                              marginLeft: 0,
+                              marginRight: 8,
+                              paddingLeft: 20,
+                            }}
                             onClick={() => {
                               if (event.boardId) {
                                 window.location.href = `/main/workspaces/${event.boardId}/boards/${event.boardId}?cardId=${event.id}`;
                               } else if (event.list && event.list.board) {
                                 window.location.href = `/main/workspaces/${event.list.board}/boards/${event.list.board}?cardId=${event.id}`;
                               }
-                              console.log('event:', event);
+                              console.log("event:", event);
                             }}
                           >
                             <div className="flex items-center justify-between mb-2">
-                              <span className="font-medium text-[#6a3b82] text-sm">{event.title}</span>
+                              <span className="font-medium text-[#6a3b82] text-sm">
+                                {event.title}
+                              </span>
                               {event.boardName && (
-                                <span className="text-xs text-gray-400 font-semibold ml-2 whitespace-nowrap" style={{ zIndex: 20 }}>
+                                <span
+                                  className="text-xs text-gray-400 font-semibold ml-2 whitespace-nowrap"
+                                  style={{ zIndex: 20 }}
+                                >
                                   {event.boardName}
                                 </span>
                               )}
@@ -770,26 +895,36 @@ function Dashboard() {
           {/* Total Tasks Chart with progressive animation */}
           <div className="lg:col-span-6 bg-gray-50 rounded-xl shadow-sm p-3 md:p-4 border border-purple-200 card-hover animate-fade-in-up stagger-3">
             <div className="flex justify-between items-center mb-3">
-              <h2 className="text-lg font-semibold text-[#4d2d61]">Task Completion</h2>
+              <h2 className="text-lg font-semibold text-[#4d2d61]">
+                Task Completion
+              </h2>
               <CustomDropdown
                 options={[
                   { label: "Weekly", value: "weekly" },
                   { label: "Monthly", value: "monthly" },
                   { label: "Yearly", value: "yearly" },
                 ]}
-                selected={taskStats?.period || "weekly"}
-                onChange={(value) => dispatch(fetchTaskStats(value))}
+                selected={period}
+                onChange={handlePeriodChange}
               />
             </div>
             <div className="h-[190px] md:h-[280px] lg:h-[385px] chart-container">
-              <Chart options={chartOptions} series={chartSeries} type="area" height="100%" width="100%" />
+              <Chart
+                options={chartOptions}
+                series={chartSeries}
+                type="area"
+                height="100%"
+                width="100%"
+              />
             </div>
           </div>
         </div>
 
         {/* Activity Log with staggered row animations */}
         <div className="bg-gray-50 rounded-xl shadow-sm p-3 md:p-4 border border-purple-200 overflow-x-auto card-hover animate-fade-in-up stagger-4 mb-6">
-          <h2 className="text-lg font-semibold text-[#4d2d61] mb-3">Activity Log</h2>
+          <h2 className="text-lg font-semibold text-[#4d2d61] mb-3">
+            Activity Log
+          </h2>
           <div className="min-w-full max-h-[270px] overflow-y-auto no-scrollbar">
             <table className="w-full">
               <thead>
@@ -804,10 +939,15 @@ function Dashboard() {
               <tbody className="text-sm">
                 {isInitialLoad ? (
                   // Show skeleton loading
-                  Array.from({ length: 5 }).map((_, index) => <ActivityRowSkeleton key={index} />)
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <ActivityRowSkeleton key={index} />
+                  ))
                 ) : Array.isArray(activityLog) && activityLog.length > 0 ? (
                   activityLog.map((activity, index) => (
-                    <tr key={`${activity.id}-${index}`} className="activity-row border-t border-gray-100 table-row">
+                    <tr
+                      key={`${activity.id}-${index}`}
+                      className="activity-row border-t border-gray-100 table-row"
+                    >
                       <td className="py-2 px-2 flex items-center gap-2">
                         <img
                           src={getUserAvatar(activity.user)}
@@ -817,19 +957,39 @@ function Dashboard() {
                         />
                         <span>{activity.user.name}</span>
                       </td>
-                      <td className="py-2 px-2">{activity.board.name}</td>
-                      <td className="py-2 px-2">{activity.actionText}</td>
                       <td className="py-2 px-2">
-                        {activity.formattedDate.split(",")[0]}, {activity.formattedDate.split(",")[1].split(" ")[1]}
+                        <span
+                          className="font-bold"
+                          style={{ color: "#725483", opacity: 0.98 }}
+                        >
+                          {activity.board.name}
+                        </span>
                       </td>
                       <td className="py-2 px-2">
-                        {activity.formattedDate.split(" ")[3]} {activity.formattedDate.split(" ")[4]}
+                        <span
+                          className={`inline-block px-3 py-1 rounded-full font-semibold text-xs shadow-sm border ${getActivityStyle(
+                            activity.actionText
+                          )}`}
+                        >
+                          {activity.actionText}
+                        </span>
+                      </td>
+                      <td className="py-2 px-2">
+                        {activity.formattedDate.split(",")[0]},{" "}
+                        {activity.formattedDate.split(",")[1].split(" ")[1]}
+                      </td>
+                      <td className="py-2 px-2">
+                        {activity.formattedDate.split(" ")[3]}{" "}
+                        {activity.formattedDate.split(" ")[4]}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="5" className="py-4 text-center text-gray-500 animate-fade-in">
+                    <td
+                      colSpan="5"
+                      className="py-4 text-center text-gray-500 animate-fade-in"
+                    >
                       No activities found
                     </td>
                   </tr>
@@ -837,30 +997,10 @@ function Dashboard() {
               </tbody>
             </table>
           </div>
-
-          {/* Load More Button with bounce animation */}
-          {activityLogPagination.currentPage < activityLogPagination.totalPages && (
-            <div className="mt-3 flex justify-center">
-              <button
-                onClick={loadMoreActivityLog}
-                disabled={loadingMore}
-                className="py-2 px-6 bg-[#4d2d61] text-white rounded-lg hover:bg-[#4a2c57] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 button-hover"
-              >
-                {loadingMore ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white animate-pulse-soft"></div>
-                ) : (
-                  <>
-                    <ChevronDown size={16} />
-                    Load More Activities
-                  </>
-                )}
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default Dashboard
+export default Dashboard;
