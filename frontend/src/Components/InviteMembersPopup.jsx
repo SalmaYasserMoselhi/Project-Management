@@ -67,7 +67,10 @@ const InviteMembersPopup = ({
     if (!entityId) return;
     const fetchMembers = async () => {
       try {
-        const endpoint = `${BASE_URL}/api/v1/workspaces/${entityId}/members`;
+        const endpoint =
+          entityType === "board"
+            ? `${BASE_URL}/api/v1/boards/${entityId}/members`
+            : `${BASE_URL}/api/v1/workspaces/${entityId}/members`;
         const res = await fetch(endpoint, {
           credentials: "include",
         });
@@ -80,7 +83,7 @@ const InviteMembersPopup = ({
       }
     };
     fetchMembers();
-  }, [entityId]);
+  }, [entityId, entityType]);
 
   // Handle input change and suggestions
   useEffect(() => {
@@ -139,7 +142,8 @@ const InviteMembersPopup = ({
         m.user.email.trim().toLowerCase() === user.email.trim().toLowerCase()
     );
     if (member) {
-      toast.error("This user is already a member of the workspace.");
+      const entityName = entityType === "board" ? "board" : "workspace";
+      toast.error(`This user is already a member of the ${entityName}.`);
       return;
     }
     if (!emails.includes(user.email)) {
@@ -293,7 +297,7 @@ const InviteMembersPopup = ({
               ))}
               <input
                 type="text"
-                placeholder="Search names or emails"
+                placeholder="Search emails"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleInput}
