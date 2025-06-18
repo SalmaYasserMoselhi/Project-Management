@@ -17,6 +17,7 @@ import {
 
 // Import the action creator from dashboardSlice.js
 import { setSelectedDate } from "../features/Slice/dashboard/dashboardSlice"
+import axios from "axios"
 
 const styles = `
 .no-scrollbar::-webkit-scrollbar {
@@ -282,6 +283,7 @@ function Dashboard() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [newItemsCount, setNewItemsCount] = useState(0)
+  const [cardMembers, setCardMembers] = useState({});
 
   // Check if mobile
   useEffect(() => {
@@ -316,6 +318,21 @@ function Dashboard() {
 
     fetchData()
   }, [dispatch, selectedDate])
+
+  // جلب أعضاء كل كارد عند تحميل highPriorityTasks
+  useEffect(() => {
+    if (Array.isArray(highPriorityTasks)) {
+      highPriorityTasks.forEach(async (task) => {
+        if (!task.id) return;
+        try {
+          const res = await axios.get(`http://localhost:3000/api/v1/cards/${task.id}/members`, { withCredentials: true });
+          setCardMembers((prev) => ({ ...prev, [task.id]: res.data?.data?.members || [] }));
+        } catch (err) {
+          setCardMembers((prev) => ({ ...prev, [task.id]: [] }));
+        }
+      });
+    }
+  }, [highPriorityTasks]);
 
   // Get current date info
   const currentDate = new Date()
@@ -510,6 +527,36 @@ function Dashboard() {
     },
   ]
 
+  // Helper function to get avatar url (copy from TaskCard.jsx)
+  const getUserAvatar = (user) => {
+    if (user.avatar && user.avatar !== "null" && user.avatar !== "undefined") {
+      return user.avatar;
+    }
+    if (
+      user.user &&
+      user.user.avatar &&
+      user.user.avatar !== "null" &&
+      user.user.avatar !== "undefined"
+    ) {
+      return user.user.avatar;
+    }
+    let initials;
+    let firstName = user.firstName || (user.user && user.user.firstName);
+    let lastName = user.lastName || (user.user && user.user.lastName);
+    let username = user.username || (user.user && user.user.username);
+    let email = user.email || (user.user && user.user.email);
+    if (firstName && lastName) {
+      initials = `${firstName[0]}${lastName[0]}`;
+    } else if (username) {
+      initials = username.substring(0, 2).toUpperCase();
+    } else if (email) {
+      initials = email.substring(0, 2).toUpperCase();
+    } else {
+      initials = "UN";
+    }
+    return `https://ui-avatars.com/api/?name=${initials}&background=4D2D61&color=fff&bold=true&size=128`;
+  };
+
   return (
     <div className="bg-white min-h-screen">
       <style>{styles}</style>
@@ -573,7 +620,7 @@ function Dashboard() {
                       </div>
 
                       <div className="flex flex-wrap gap-2 text-xs text-gray-500 mb-2">
-                        <span className="priority-badge bg-red-100 text-red-500 text-xs font-semibold px-2 py-1 rounded-lg animate-pulse-soft">
+                        <span className="priority-badge bg-red-100 text-red-500 text-xs font-semibold px-2 py-1 rounded-lg">
                           High
                         </span>
                         <div className="flex items-center text-xs px-2 py-1 rounded-lg bg-gray-100">
@@ -584,20 +631,23 @@ function Dashboard() {
 
                       <div className="border-t border-gray-200 my-2"></div>
 
-                      <div className="flex -space-x-0.5 mt-2">
-                        {Array.isArray(task.members) &&
-                          task.members.slice(0, 3).map((member, i) => (
-                            <div
-                              key={i}
-                              className="avatar-hover w-5 h-5 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold border-2 border-white"
-                              title={member.name}
-                            >
-                              {member.name.charAt(0)}
-                            </div>
-                          ))}
-                        {Array.isArray(task.members) && task.members.length > 3 && (
-                          <div className="avatar-hover w-5 h-5 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold border-2 border-white">
-                            +{task.members.length - 3}
+                      <div className="flex -space-x-0.5 mt-2 items-center">
+                        {Array.isArray(cardMembers[task.id]) && cardMembers[task.id].slice(0, 3).map((member, i) => (
+                          <div
+                            key={i}
+                            className="avatar-hover w-7 h-7 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold border-2 border-white overflow-hidden"
+                            title={member.name}
+                          >
+                            <img
+                              src={getUserAvatar(member.user || member)}
+                              alt={member.name}
+                              className="w-full h-full object-cover rounded-full"
+                            />
+                          </div>
+                        ))}
+                        {Array.isArray(cardMembers[task.id]) && cardMembers[task.id].length > 3 && (
+                          <div className="avatar-hover w-7 h-7 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold border-2 border-white">
+                            +{cardMembers[task.id].length - 3}
                           </div>
                         )}
                       </div>
