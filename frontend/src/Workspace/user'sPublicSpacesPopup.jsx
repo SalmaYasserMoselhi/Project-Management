@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
@@ -14,6 +14,7 @@ import {
   setSortOption,
   selectShouldFetchWorkspaces,
 } from "../features/Slice/WorkspaceSlice/userWorkspacesSlice";
+import InviteMembersPopup from "../Components/InviteMembersPopup";
 
 const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
   const dispatch = useDispatch();
@@ -36,9 +37,13 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
   // Add this at the top level
   const shouldFetch = useSelector(selectShouldFetchWorkspaces);
 
+  const [isInvitePopupOpen, setIsInvitePopupOpen] = useState(false);
+
   // Global click handler to close popup
   useEffect(() => {
     const handleGlobalClick = (e) => {
+      // Prevent closing if InviteMembersPopup is open
+      if (isInvitePopupOpen) return;
       if (
         popupRef.current &&
         !popupRef.current.contains(e.target) &&
@@ -55,7 +60,7 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     return () => {
       document.removeEventListener("mousedown", handleGlobalClick);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isInvitePopupOpen]);
 
   // Update the fetch effect to use centralized logic
   useEffect(() => {
@@ -72,12 +77,17 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
         try {
           const parsed = JSON.parse(saved);
           // Check if the saved workspace exists in the loaded list
-          const exists = workspaces.some(ws => ws._id === parsed._id);
+          const exists = workspaces.some((ws) => ws._id === parsed._id);
           if (exists) {
-            dispatch({ type: "userWorkspaces/selectUserWorkspace/fulfilled", payload: parsed });
+            dispatch({
+              type: "userWorkspaces/selectUserWorkspace/fulfilled",
+              payload: parsed,
+            });
           } else {
             // If not valid, set default to owned workspace
-            const ownedWorkspace = workspaces.find(ws => ws.userRole === "owner" && ws.createdBy === user._id);
+            const ownedWorkspace = workspaces.find(
+              (ws) => ws.userRole === "owner" && ws.createdBy === user._id
+            );
             if (ownedWorkspace) {
               const workspaceData = {
                 id: ownedWorkspace._id,
@@ -88,8 +98,14 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
                 createdBy: ownedWorkspace.createdBy,
                 userRole: ownedWorkspace.userRole,
               };
-              localStorage.setItem("selectedPublicWorkspace", JSON.stringify(workspaceData));
-              dispatch({ type: "userWorkspaces/selectUserWorkspace/fulfilled", payload: workspaceData });
+              localStorage.setItem(
+                "selectedPublicWorkspace",
+                JSON.stringify(workspaceData)
+              );
+              dispatch({
+                type: "userWorkspaces/selectUserWorkspace/fulfilled",
+                payload: workspaceData,
+              });
             } else {
               localStorage.removeItem("selectedPublicWorkspace");
             }
@@ -99,7 +115,9 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
         }
       } else {
         // If no workspace is saved, set the owned workspace as default
-        const ownedWorkspace = workspaces.find(ws => ws.userRole === "owner" && ws.createdBy === user._id);
+        const ownedWorkspace = workspaces.find(
+          (ws) => ws.userRole === "owner" && ws.createdBy === user._id
+        );
         if (ownedWorkspace) {
           const workspaceData = {
             id: ownedWorkspace._id,
@@ -110,8 +128,14 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
             createdBy: ownedWorkspace.createdBy,
             userRole: ownedWorkspace.userRole,
           };
-          localStorage.setItem("selectedPublicWorkspace", JSON.stringify(workspaceData));
-          dispatch({ type: "userWorkspaces/selectUserWorkspace/fulfilled", payload: workspaceData });
+          localStorage.setItem(
+            "selectedPublicWorkspace",
+            JSON.stringify(workspaceData)
+          );
+          dispatch({
+            type: "userWorkspaces/selectUserWorkspace/fulfilled",
+            payload: workspaceData,
+          });
         }
       }
     }
@@ -123,7 +147,10 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     try {
       // Only save to localStorage if it's a public workspace
       if (workspace.type === "public") {
-        localStorage.setItem("selectedPublicWorkspace", JSON.stringify(workspace));
+        localStorage.setItem(
+          "selectedPublicWorkspace",
+          JSON.stringify(workspace)
+        );
       }
 
       // Select the workspace in userWorkspaces slice
@@ -142,10 +169,13 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
         if (workspace.type === "public") {
           dispatch(setActiveWorkspaceType(typeMapping[workspace.type]));
           dispatch(selectWorkspace(workspaceData));
-          
+
           // Check if we're currently on a workspace settings page
           const currentPath = window.location.pathname;
-          if (currentPath.includes('/workspaces/') && currentPath.includes('/settings')) {
+          if (
+            currentPath.includes("/workspaces/") &&
+            currentPath.includes("/settings")
+          ) {
             // Force a reload of the page to ensure fresh data
             window.location.href = `/main/workspaces/${workspaceData.id}/settings`;
             return;
@@ -163,14 +193,12 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     return name ? name.charAt(0).toUpperCase() : "?";
   };
 
-
   // Prefer the owned workspace as default
   const ownedWorkspace = workspaces.find(
     (workspace) => workspace.userRole === "owner"
   );
   const workspaceToShow =
-    ownedWorkspace ||
-    (workspaces.length > 0 ? workspaces[0] : null);
+    ownedWorkspace || (workspaces.length > 0 ? workspaces[0] : null);
 
   // Get selected workspace from localStorage if not in Redux
   let localStorageSelectedWorkspace = null;
@@ -182,10 +210,13 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
   } catch {}
 
   // For avatar and member count: use selected workspace from Redux, then localStorage
-  const selectedOrLocalWorkspace = popupSelectedWorkspace || localStorageSelectedWorkspace;
+  const selectedOrLocalWorkspace =
+    popupSelectedWorkspace || localStorageSelectedWorkspace;
   const avatarLetter = selectedOrLocalWorkspace
     ? getInitial(selectedOrLocalWorkspace.name)
-    : (user ? user.firstName.charAt(0).toUpperCase() : "?");
+    : user
+    ? user.firstName.charAt(0).toUpperCase()
+    : "?";
   const memberCount = selectedOrLocalWorkspace?.memberCount || 0;
 
   // Sidebar header name logic for popup
@@ -196,15 +227,26 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     (workspaces.length > 0 && workspaces[0].name) ||
     (user ? `${user.firstName}'s Workspace` : "Workspace");
 
-  const workspaceHeader = popupSelectedWorkspace
-    || localStorageSelectedWorkspace
-    || ownedWorkspace
-    || (workspaces.length > 0 ? workspaces[0] : null);
+  const workspaceHeader =
+    popupSelectedWorkspace ||
+    localStorageSelectedWorkspace ||
+    ownedWorkspace ||
+    (workspaces.length > 0 ? workspaces[0] : null);
 
   // console.log('Popup header workspace:', workspaceHeader);
 
   // Only show settings if user is owner or admin
-  const canEditSettings = selectedOrLocalWorkspace && ["owner", "admin"].includes(selectedOrLocalWorkspace.userRole);
+  const canEditSettings =
+    selectedOrLocalWorkspace &&
+    ["owner", "admin"].includes(selectedOrLocalWorkspace.userRole);
+
+  // Close Invite Popup when main popup closes or workspace changes
+  useEffect(() => {
+    if (!isOpen) setIsInvitePopupOpen(false);
+  }, [isOpen]);
+  useEffect(() => {
+    setIsInvitePopupOpen(false);
+  }, [popupSelectedWorkspace]);
 
   if (!isOpen && !isAnimating) return null;
 
@@ -226,13 +268,17 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
           </div>
           <div>
             <h3 className="text-gray-900 font-medium">
-              {loading ? (localStorageSelectedWorkspace?.name || (
-                <span className="h-5 w-32 bg-gray-200 rounded animate-pulse inline-block"></span>
-              )) : popupHeaderWorkspaceName}
+              {loading
+                ? localStorageSelectedWorkspace?.name || (
+                    <span className="h-5 w-32 bg-gray-200 rounded animate-pulse inline-block"></span>
+                  )
+                : popupHeaderWorkspaceName}
             </h3>
             <p className="text-sm text-gray-500">
               {loading ? memberCount : workspaceHeader?.memberCount || 0} member
-              {(loading ? memberCount : workspaceHeader?.memberCount || 0) > 1 ? "s" : ""}
+              {(loading ? memberCount : workspaceHeader?.memberCount || 0) > 1
+                ? "s"
+                : ""}
             </p>
           </div>
         </div>
@@ -244,7 +290,12 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
               className="flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-200 rounded-md bg-gray-100 transition-colors w-full h-7 cursor-pointer"
               onClick={() => {
                 if (selectedOrLocalWorkspace) {
-                  navigate(`/main/workspaces/${selectedOrLocalWorkspace.id || selectedOrLocalWorkspace._id}/settings`);
+                  navigate(
+                    `/main/workspaces/${
+                      selectedOrLocalWorkspace.id ||
+                      selectedOrLocalWorkspace._id
+                    }/settings`
+                  );
                   onClose();
                 }
               }}
@@ -253,7 +304,10 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
               <span>Settings</span>
             </button>
           )}
-          <button className="flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-200 rounded-md bg-gray-100 transition-colors h-7 w-full cursor-pointer">
+          <button
+            className="flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-200 rounded-md bg-gray-100 transition-colors h-7 w-full cursor-pointer"
+            onClick={() => setIsInvitePopupOpen(true)}
+          >
             <Users className="w-3.5 h-3.5" />
             <span>Invite members</span>
           </button>
@@ -273,39 +327,64 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
           {loading ? (
             <div className="text-center py-4">
               <div className="animate-spin h-5 w-5 border-t-2 border-[#4D2D61] rounded-full mx-auto"></div>
-              <p className="mt-2 text-sm text-gray-500">Loading workspaces...</p>
+              <p className="mt-2 text-sm text-gray-500">
+                Loading workspaces...
+              </p>
             </div>
           ) : error ? (
             <div className="text-center py-4 text-red-500">{error}</div>
           ) : workspaces.length === 0 ? (
-            <div className="text-center py-4 text-gray-500">No workspaces found</div>
+            <div className="text-center py-4 text-gray-500">
+              No workspaces found
+            </div>
           ) : (
-            workspaces.map((workspace, index) => (
-              <div
-                key={workspace?._id || index}
-                className="flex items-center justify-between px-3 h-12 cursor-pointer hover:bg-gray-100 group"
-                onClick={() => handleWorkspaceSelect(workspace)}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-8 h-8 flex items-center justify-center bg-[#6a3b82] text-white rounded-sm text-xl font-medium shrink-0">
-                    {getInitial(workspace?.name)}
+            workspaces.map((workspace, index) => {
+              // إذا كان هذا هو الوورك سبيس الحالي، استخدم الاسم والوصف المحدثين
+              const isCurrent =
+                selectedOrLocalWorkspace &&
+                (workspace._id === selectedOrLocalWorkspace.id ||
+                  workspace._id === selectedOrLocalWorkspace._id);
+              const displayName = isCurrent
+                ? selectedOrLocalWorkspace.name
+                : workspace?.name;
+              return (
+                <div
+                  key={workspace?._id || index}
+                  className="flex items-center justify-between px-3 h-12 cursor-pointer hover:bg-gray-100 group"
+                  onClick={() => handleWorkspaceSelect(workspace)}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-8 h-8 flex items-center justify-center bg-[#6a3b82] text-white rounded-sm text-xl font-medium shrink-0">
+                      {getInitial(displayName)}
+                    </div>
+                    <div className="min-w-0 overflow-hidden">
+                      <span className="text-sm text-gray-700 block truncate">
+                        {displayName}
+                      </span>
+                    </div>
                   </div>
-                  <div className="min-w-0 overflow-hidden">
-                    <span className="text-sm text-gray-700 block truncate">
-                      {workspace?.name}
+                  {workspace.userRole === "owner" && (
+                    <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 group-hover:bg-white transition-colors shrink-0">
+                      Owner
                     </span>
-                  </div>
+                  )}
                 </div>
-                {workspace.userRole === "owner" && (
-                  <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 group-hover:bg-white transition-colors shrink-0">
-                    Owner
-                  </span>
-                )}
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
+
+      {/* Invite Members Popup */}
+      {isInvitePopupOpen && (
+        <InviteMembersPopup
+          onClose={() => setIsInvitePopupOpen(false)}
+          entityType="workspace"
+          entityId={
+            selectedOrLocalWorkspace?.id || selectedOrLocalWorkspace?._id
+          }
+        />
+      )}
 
       <style jsx>{`
         .overflow-y-auto::-webkit-scrollbar {

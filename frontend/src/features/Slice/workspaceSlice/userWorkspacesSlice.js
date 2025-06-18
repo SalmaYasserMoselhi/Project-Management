@@ -105,6 +105,14 @@ const userWorkspacesSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    updateWorkspaceInList: (state, action) => {
+      const { id, name, description } = action.payload;
+      const idx = state.workspaces.findIndex(ws => ws._id === id || ws.id === id);
+      if (idx !== -1) {
+        if (name) state.workspaces[idx].name = name;
+        if (description !== undefined) state.workspaces[idx].description = description;
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -157,6 +165,7 @@ export const {
   setSearchTerm,
   setSortOption,
   clearError,
+  updateWorkspaceInList,
 } = userWorkspacesSlice.actions;
 
 export default userWorkspacesSlice.reducer;
