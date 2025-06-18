@@ -13,8 +13,9 @@ module.exports = function (socket, io) {
   }
 
   // user join or open the chat app
-  socket.on('join', (user) => {
+  socket.on('join', async (user) => {
     socket.join(user);
+    await User.findByIdAndUpdate(user, { status: 'online' });
     // add joined users to online users
     if (!onlineUsers.some((u) => u.userId === user)) {
       console.log(`user ${user} is now online`);
@@ -26,8 +27,9 @@ module.exports = function (socket, io) {
     io.emit('setup socket', socket.id);
   });
   // socket disconnect
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     onlineUsers = onlineUsers.filter((user) => user.socketId !== socket.id);
+    await User.findByIdAndUpdate(disconnectedUser.userId, { status: 'offline' });
     console.log('user disconnected');
     io.emit('get-online-users', onlineUsers);
   });
