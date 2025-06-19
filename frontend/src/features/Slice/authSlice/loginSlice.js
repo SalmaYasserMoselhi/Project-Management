@@ -68,11 +68,11 @@ export const loginUser = createAsyncThunk(
       // Fetch user data after successful login
       const userDataResponse = await dispatch(fetchUserData()).unwrap();
       console.log("User data fetched, now fetching workspaces...");
-      
+
       // Fetch user workspaces after successful login
       await dispatch(fetchUserPublicWorkspaces());
       console.log("Workspaces fetch dispatched");
-      
+
       return { ...data, user: userDataResponse };
     } catch (error) {
       console.error("Login error:", error);
@@ -85,7 +85,7 @@ export const loginUser = createAsyncThunk(
 
 export const logoutUser = createAsyncThunk(
   "auth/logout",
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, dispatch }) => {
     try {
       const response = await fetch(`${API_BASE_URL}/users/logout`, {
         method: "GET",
@@ -96,6 +96,8 @@ export const logoutUser = createAsyncThunk(
         const errorData = await response.json();
         return rejectWithValue(errorData.message || "Logout failed");
       }
+      localStorage.removeItem("selectedPublicWorkspace");
+      localStorage.removeItem("token");
 
       return true;
     } catch (error) {
@@ -169,10 +171,13 @@ const loginSlice = createSlice({
         return {
           ...initialState,
           isAuthenticated: false,
+          user: null,
         };
       })
       .addCase(logoutUser.rejected, (state, action) => {
         state.errorMessage = action.payload;
+        state.isAuthenticated = false;
+        state.user = null;
       })
       // Check auth status cases
       .addCase(checkAuthStatus.fulfilled, (state, action) => {

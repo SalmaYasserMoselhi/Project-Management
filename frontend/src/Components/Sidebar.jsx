@@ -168,27 +168,50 @@ const Sidebar = () => {
   };
 
   // Handle logout
+  // const handleLogout = async () => {
+  //   try {
+  //     // Implement direct API call since the Redux action is failing
+  //     const response = await fetch(`${BASE_URL}/api/v1/users/logout`, {
+  //       method: "GET",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       credentials: "include",
+  //     });
+
+  //     if (response.ok) {
+  //       // Clear any local storage items related to user state
+  //       localStorage.removeItem("selectedPublicWorkspace");
+  //       // Redirect to login page
+  //       navigate("/login");
+  //     } else {
+  //       console.error("Logout failed:", await response.text());
+  //     }
+  //   } catch (error) {
+  //     console.error("Logout failed:", error);
+  //   }
+  // };
+
+  // Handle logout
   const handleLogout = async () => {
     try {
-      // Implement direct API call since the Redux action is failing
-      const response = await fetch(`${BASE_URL}/api/v1/users/logout`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
+      // Dispatch the logout action
+      const result = await dispatch(logoutUser());
 
-      if (response.ok) {
-        // Clear any local storage items related to user state
+      if (result.type === logoutUser.fulfilled.type) {
+        // Clear any remaining local storage items
         localStorage.removeItem("selectedPublicWorkspace");
-        // Redirect to login page
-        navigate("/login");
-      } else {
-        console.error("Logout failed:", await response.text());
+        localStorage.removeItem("token");
+
+        // Navigate to login page
+        navigate("/login", { replace: true });
       }
     } catch (error) {
       console.error("Logout failed:", error);
+      // Even if logout fails, try to clear state and redirect
+      localStorage.removeItem("selectedPublicWorkspace");
+      localStorage.removeItem("token");
+      navigate("/login", { replace: true });
     }
   };
 
