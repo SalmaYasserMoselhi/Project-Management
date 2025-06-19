@@ -123,7 +123,7 @@ const MainBoard = () => {
   }, [cardId]);
 
   return (
-    <div className="min-h-screen flex bg-[#f5f5f5] overflow-hidden relative -mt-6">
+    <div className="min-h-screen flex bg-[#f5f5f5] overflow-hidden relative -mt-8">
      
       {/* Main Content */}
       <div className="flex-1 h-screen overflow-y-auto overflow-x-hidden p-3 transition-all duration-300 w-[1115px]">

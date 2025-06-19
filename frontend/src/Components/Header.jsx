@@ -14,6 +14,11 @@ const Header = () => {
   const { isSidebarOpen } = useSelector((state) => state.sidebar);
   const [isMobile, setIsMobile] = useState(false);
 
+   // Determine background color based on route
+  const headerBgColor = location.pathname.match(/^\/main\/workspaces\/[^/]+\/boards\/[^/]+/)
+    ? "bg-[#f5f5f5]"
+    : "bg-white";
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -71,7 +76,7 @@ const Header = () => {
   }, []);
 
   return (
-    <header className="w-full px-6 py-2">
+    <header className={`w-full px-6 py-2 ${headerBgColor}`}>
       {/* Top section with title and user info */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center animate-slide-in-left">
@@ -117,3 +122,6 @@ const Header = () => {
 };
 
 export default Header;
+
+
+
