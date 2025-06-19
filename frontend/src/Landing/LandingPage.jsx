@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useRef } from "react";
 import {
   motion,
@@ -16,11 +18,10 @@ import {
   Plus,
   X,
   Clock,
-  Link as LinkIcon,
+  LinkIcon,
   Users,
   ChevronLeft,
   ChevronRight,
-  GripHorizontal,
   Smile,
   Paperclip,
   Send,
@@ -565,46 +566,50 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-[#f9f5ff] overflow-hidden">
       {/* Header */}
-      <header className="fixed top-0 w-full z-50 py-3 px-4">
+      <header className="fixed top-0 w-full z-50 py-2 sm:py-3 px-4">
         <div className="container mx-auto max-w-6xl">
-          <div className="bg-white rounded-full shadow-sm border border-gray-100 px-6 py-3 flex justify-between items-center">
+          <div className="bg-white rounded-full shadow-sm border border-gray-100 px-4 sm:px-6 py-2 sm:py-3 flex justify-between items-center">
             <div className="flex-shrink-0">
-              <img src={logoImage} alt="Nexus Logo" className="h-10" />
+              <img
+                src={logoImage || "/placeholder.svg"}
+                alt="Nexus Logo"
+                className="h-8 sm:h-9 md:h-10"
+              />
             </div>
 
             <div className="flex-grow flex justify-center">
-              <div className="hidden md:flex items-center space-x-8">
+              <div className="hidden md:flex items-center space-x-6 lg:space-x-8">
                 <a
                   href="#features"
-                  className="text-gray-700 hover:text-[#4d2d61] font-medium text-lg transition-colors"
+                  className="text-gray-700 hover:text-[#4d2d61] font-medium text-base lg:text-lg transition-colors"
                 >
                   Features
                 </a>
                 <a
                   href="#how-it-works"
-                  className="text-gray-700 hover:text-[#4d2d61] font-medium text-lg transition-colors"
+                  className="text-gray-700 hover:text-[#4d2d61] font-medium text-base lg:text-lg transition-colors"
                 >
                   How It Works
                 </a>
                 <a
                   href="#about-us"
-                  className="text-gray-700 hover:text-[#4d2d61] font-medium text-lg transition-colors"
+                  className="text-gray-700 hover:text-[#4d2d61] font-medium text-base lg:text-lg transition-colors"
                 >
                   About Us
                 </a>
               </div>
             </div>
 
-            <div className="flex-shrink-0 flex items-center space-x-3">
+            <div className="flex-shrink-0 flex items-center space-x-2 sm:space-x-3">
               <button
                 onClick={() => navigate("/login")}
-                className="px-5 py-2 text-[#4d2d61] font-medium border border-gray-200 rounded-full hover:border-[#4d2d61] transition-colors text-sm"
+                className="px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 text-[#4d2d61] font-medium border border-gray-200 rounded-full hover:border-[#4d2d61] transition-colors text-sm"
               >
                 Log In
               </button>
               <motion.button
                 onClick={() => navigate("/signup")}
-                className="px-5 py-2 bg-[#4d2d61] text-white font-medium rounded-full shadow-sm text-sm"
+                className="px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 bg-[#4d2d61] text-white font-medium rounded-full shadow-sm text-sm"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
@@ -618,7 +623,7 @@ const LandingPage = () => {
       {/* Hero Section */}
       <section
         ref={heroRef}
-        className="pt-32 pb-20 md:pt-40 md:pb-32 relative overflow-hidden"
+        className="pt-24 pb-16 sm:pt-28 sm:pb-20 md:pt-32 md:pb-24 lg:pt-40 lg:pb-32 relative overflow-hidden"
       >
         {/* Animated background elements */}
         <div className="absolute inset-0 -z-10">
@@ -638,7 +643,7 @@ const LandingPage = () => {
               }}
               transition={{
                 duration: Math.random() * 5 + 5,
-                repeat: Infinity,
+                repeat: Number.POSITIVE_INFINITY,
                 repeatType: "reverse",
               }}
             />
@@ -652,7 +657,7 @@ const LandingPage = () => {
             transition={{ duration: 0.8 }}
             className="max-w-4xl mx-auto"
           >
-            <h1 className="text-4xl md:text-6xl font-bold text-[#4d2d61] mb-6">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-[#4d2d61] mb-4 sm:mb-5 md:mb-6 leading-tight">
               <TypeAnimation
                 sequence={[
                   "Unite Your Team",
@@ -662,25 +667,25 @@ const LandingPage = () => {
                 ]}
                 wrapper="span"
                 speed={50}
-                repeat={Infinity}
+                repeat={Number.POSITIVE_INFINITY}
               />
             </h1>
-            <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg md:text-xl text-gray-600 mb-6 sm:mb-7 md:mb-8 max-w-2xl mx-auto leading-relaxed px-4 sm:px-0">
               Everything your team needs in one place. Combine the power of
               Trello, Slack, and Google Calendar in a single, seamless platform.
             </p>
 
-            <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12">
+            <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mb-8 sm:mb-10 md:mb-12 px-4 sm:px-0">
               <motion.button
                 onClick={() => navigate("/signup")}
-                className="px-8 py-3 bg-gradient-to-r from-[#4d2d61] to-[#725483] text-white font-medium rounded-lg text-lg shadow-xl shadow-purple-300/30"
+                className="px-6 sm:px-7 md:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-[#4d2d61] to-[#725483] text-white font-medium rounded-lg text-base sm:text-lg shadow-xl shadow-purple-300/30 w-full sm:w-auto"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
                 Start Your Free Trial
               </motion.button>
               <motion.button
-                className="px-8 py-3 bg-white text-[#4d2d61] border border-[#4d2d61]/20 font-medium rounded-lg text-lg shadow-lg"
+                className="px-6 sm:px-7 md:px-8 py-2.5 sm:py-3 bg-white text-[#4d2d61] border border-[#4d2d61]/20 font-medium rounded-lg text-base sm:text-lg shadow-lg w-full sm:w-auto"
                 whileHover={{ scale: 1.05, backgroundColor: "#f9f5ff" }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -689,160 +694,346 @@ const LandingPage = () => {
             </div>
           </motion.div>
 
-          {/* Floating feature cards */}
-          <div className="relative h-[500px] md:h-[600px] mt-12">
-            {/* Kanban Board Card */}
-            <motion.div
-              className="absolute top-[20px] left-[50%] transform -translate-x-[180px] w-[280px] md:w-[320px] bg-white/80 backdrop-blur-md rounded-xl shadow-2xl p-4 border border-purple-100 z-10"
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.5, duration: 0.8 }}
-            >
-              <div className="flex items-center mb-3">
-                <div className="w-10 h-10 rounded-lg bg-[#4d2d61]/10 flex items-center justify-center mr-3">
-                  <LayoutGrid className="w-5 h-5 text-[#4d2d61]" />
-                </div>
-                <h3 className="font-semibold text-[#4d2d61]">Kanban Boards</h3>
-              </div>
-              <div className="bg-gradient-to-r from-[#f9f5ff] to-white rounded-lg p-3">
-                <div className="flex gap-2 mb-2">
-                  <div className="flex-1 bg-white p-2 rounded shadow-sm">
-                    <div className="text-xs text-gray-500 mb-1">To Do</div>
-                    <div className="text-xs bg-gray-100 p-1 rounded mb-1">
-                      Task 1
+          {/* Floating feature cards - Responsive layout */}
+          <div className="relative mt-8 sm:mt-10 md:mt-12">
+            {/* Mobile and Small Tablet Layout */}
+            <div className="block lg:hidden">
+              <div className="max-w-md mx-auto space-y-4 sm:space-y-6">
+                {/* Kanban Board Card - Mobile */}
+                <motion.div
+                  className="bg-white/90 backdrop-blur-md rounded-xl shadow-xl p-4 sm:p-5 border border-purple-100"
+                  initial={{ y: 50, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.5, duration: 0.8 }}
+                >
+                  <div className="flex items-center mb-3 sm:mb-4">
+                    <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg bg-[#4d2d61]/10 flex items-center justify-center mr-3">
+                      <LayoutGrid className="w-4 sm:w-5 h-4 sm:h-5 text-[#4d2d61]" />
                     </div>
+                    <h3 className="font-semibold text-[#4d2d61] text-sm sm:text-base">
+                      Kanban Boards
+                    </h3>
                   </div>
-                  <div className="flex-1 bg-white p-2 rounded shadow-sm">
-                    <div className="text-xs text-gray-500 mb-1">
-                      In Progress
-                    </div>
-                    <div className="text-xs bg-gray-100 p-1 rounded mb-1">
-                      Task 2
-                    </div>
-                  </div>
-                  <div className="flex-1 bg-white p-2 rounded shadow-sm">
-                    <div className="text-xs text-gray-500 mb-1">Done</div>
-                    <div className="text-xs bg-gray-100 p-1 rounded mb-1">
-                      Task 3
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Team Chat Card */}
-            <motion.div
-              className="absolute top-[180px] left-[50%] transform -translate-x-[380px] w-[280px] md:w-[320px] bg-white rounded-xl shadow-xl p-4 border border-gray-100 z-10"
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.7, duration: 0.8 }}
-            >
-              <div className="flex items-center mb-3">
-                <div className="w-8 h-8 rounded-lg bg-[#f9f5ff] flex items-center justify-center mr-3">
-                  <MessageSquare className="w-5 h-5 text-[#4d2d61]" />
-                </div>
-                <h3 className="font-semibold text-[#4d2d61]">Team Chat</h3>
-              </div>
-              <div className="bg-[#f9f5ff] rounded-lg p-3">
-                <div className="flex items-start mb-3">
-                  <div className="w-8 h-8 rounded-full bg-[#4d2d61] flex-shrink-0"></div>
-                  <div className="ml-2 p-2 bg-white rounded-lg text-sm">
-                    Hey team, how's the project going?
-                  </div>
-                </div>
-                <div className="flex items-start justify-end">
-                  <div className="mr-2 p-2 bg-white rounded-lg text-sm">
-                    Making great progress!
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-[#725483] flex-shrink-0"></div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Calendar Card */}
-            <motion.div
-              className="absolute top-[180px] left-[50%] transform translate-x-[50px] w-[280px] md:w-[320px] bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-10"
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.9, duration: 0.8 }}
-            >
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-lg bg-[#f9f5ff] flex items-center justify-center mr-3">
-                      <Calendar className="w-5 h-5 text-[#4d2d61]" />
-                    </div>
-                    <h3 className="font-semibold text-[#4d2d61]">Calendar</h3>
-                  </div>
-                  <button className="w-6 h-6 rounded-full bg-[#f9f5ff] flex items-center justify-center">
-                    <Plus className="w-4 h-4 text-[#4d2d61]" />
-                  </button>
-                </div>
-
-                <div className="bg-[#f9f5ff] rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center">
-                      <button className="text-gray-500 mr-1">
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <span className="text-sm font-medium">June 2023</span>
-                      <button className="text-gray-500 ml-1">
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="flex bg-white rounded-md text-xs overflow-hidden">
-                      <button className="px-2 py-1 bg-[#4d2d61] text-white">
-                        Month
-                      </button>
-                      <button className="px-2 py-1 text-gray-600">Week</button>
-                      <button className="px-2 py-1 text-gray-600">Day</button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-7 gap-1 text-xs text-center">
-                    {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => (
-                      <div key={i} className="text-gray-500 py-1">
-                        {day}
+                  <div className="bg-gradient-to-r from-[#f9f5ff] to-white rounded-lg p-3 sm:p-4">
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                      <div className="bg-white p-2 sm:p-3 rounded shadow-sm">
+                        <div className="text-xs text-gray-500 mb-1 sm:mb-2 font-medium">
+                          To Do
+                        </div>
+                        <div className="text-xs bg-gray-100 p-1.5 sm:p-2 rounded">
+                          Task 1
+                        </div>
                       </div>
-                    ))}
+                      <div className="bg-white p-2 sm:p-3 rounded shadow-sm">
+                        <div className="text-xs text-gray-500 mb-1 sm:mb-2 font-medium">
+                          In Progress
+                        </div>
+                        <div className="text-xs bg-gray-100 p-1.5 sm:p-2 rounded">
+                          Task 2
+                        </div>
+                      </div>
+                      <div className="bg-white p-2 sm:p-3 rounded shadow-sm">
+                        <div className="text-xs text-gray-500 mb-1 sm:mb-2 font-medium">
+                          Done
+                        </div>
+                        <div className="text-xs bg-gray-100 p-1.5 sm:p-2 rounded">
+                          Task 3
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
 
-                    {[
-                      [1, 2, 3, 4, 5, 6, 7],
-                      [8, 9, 10, 11, 12, 13, 14],
-                      [15, 16, 17, 18, 19, 20, 21],
-                      [22, 23, 24, 25, 26, 27, 28],
-                      [29, 30, 31, "", "", "", ""],
-                    ].map((week, weekIndex) => (
-                      <React.Fragment key={weekIndex}>
-                        {week.map((day, dayIndex) => {
-                          const isToday = day === 15;
-                          const hasMeeting = [16, 22].includes(day);
+                {/* Team Chat and Calendar Cards - Mobile */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  {/* Team Chat Card - Mobile */}
+                  <motion.div
+                    className="bg-white rounded-xl shadow-xl p-4 sm:p-5 border border-gray-100"
+                    initial={{ y: 50, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.7, duration: 0.8 }}
+                  >
+                    <div className="flex items-center mb-3 sm:mb-4">
+                      <div className="w-6 sm:w-8 h-6 sm:h-8 rounded-lg bg-[#f9f5ff] flex items-center justify-center mr-2 sm:mr-3">
+                        <MessageSquare className="w-3 sm:w-4 h-3 sm:h-4 text-[#4d2d61]" />
+                      </div>
+                      <h3 className="font-semibold text-[#4d2d61] text-sm">
+                        Team Chat
+                      </h3>
+                    </div>
+                    <div className="bg-[#f9f5ff] rounded-lg p-2 sm:p-3">
+                      <div className="flex items-start mb-2 sm:mb-3">
+                        <div className="w-5 sm:w-6 h-5 sm:h-6 rounded-full bg-[#4d2d61] flex-shrink-0"></div>
+                        <div className="ml-1.5 sm:ml-2 p-1.5 sm:p-2 bg-white rounded-lg text-xs">
+                          Hey team, how's the project going?
+                        </div>
+                      </div>
+                      <div className="flex items-start justify-end">
+                        <div className="mr-1.5 sm:mr-2 p-1.5 sm:p-2 bg-white rounded-lg text-xs">
+                          Making great progress!
+                        </div>
+                        <div className="w-5 sm:w-6 h-5 sm:h-6 rounded-full bg-[#725483] flex-shrink-0"></div>
+                      </div>
+                    </div>
+                  </motion.div>
 
-                          return (
-                            <div
-                              key={dayIndex}
-                              className={`aspect-square flex flex-col items-center justify-center relative py-1
+                  {/* Calendar Card - Mobile */}
+                  <motion.div
+                    className="bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden"
+                    initial={{ y: 50, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.9, duration: 0.8 }}
+                  >
+                    <div className="p-3 sm:p-4">
+                      <div className="flex items-center justify-between mb-3 sm:mb-4">
+                        <div className="flex items-center">
+                          <div className="w-6 sm:w-8 h-6 sm:h-8 rounded-lg bg-[#f9f5ff] flex items-center justify-center mr-2 sm:mr-3">
+                            <Calendar className="w-3 sm:w-4 h-3 sm:h-4 text-[#4d2d61]" />
+                          </div>
+                          <h3 className="font-semibold text-[#4d2d61] text-sm">
+                            Calendar
+                          </h3>
+                        </div>
+                        <button className="w-4 sm:w-5 h-4 sm:h-5 rounded-full bg-[#f9f5ff] flex items-center justify-center">
+                          <Plus className="w-2.5 sm:w-3 h-2.5 sm:h-3 text-[#4d2d61]" />
+                        </button>
+                      </div>
+
+                      <div className="bg-[#f9f5ff] rounded-lg p-2 sm:p-3">
+                        <div className="flex items-center justify-between mb-2 sm:mb-3">
+                          <div className="flex items-center">
+                            <button className="text-gray-500 mr-1">
+                              <ChevronLeft className="w-3 h-3" />
+                            </button>
+                            <span className="text-xs font-medium">
+                              June 2023
+                            </span>
+                            <button className="text-gray-500 ml-1">
+                              <ChevronRight className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <div className="flex bg-white rounded text-xs overflow-hidden">
+                            <button className="px-1.5 py-0.5 bg-[#4d2d61] text-white text-xs">
+                              Month
+                            </button>
+                            <button className="px-1.5 py-0.5 text-gray-600 text-xs">
+                              Week
+                            </button>
+                            <button className="px-1.5 py-0.5 text-gray-600 text-xs">
+                              Day
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-0.5 text-xs text-center">
+                          {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => (
+                            <div key={i} className="text-gray-500 py-1 text-xs">
+                              {day}
+                            </div>
+                          ))}
+                          {[
+                            [1, 2, 3, 4, 5, 6, 7],
+                            [8, 9, 10, 11, 12, 13, 14],
+                            [15, 16, 17, 18, 19, 20, 21],
+                            [22, 23, 24, 25, 26, 27, 28],
+                            [29, 30, 31, "", "", "", ""],
+                          ].map((week, weekIndex) => (
+                            <React.Fragment key={weekIndex}>
+                              {week.map((day, dayIndex) => {
+                                const isToday = day === 15;
+                                const hasMeeting = [16, 22].includes(day);
+                                return (
+                                  <div
+                                    key={dayIndex}
+                                    className={`aspect-square flex flex-col items-center justify-center relative text-xs
                                 ${
                                   isToday
                                     ? "bg-[#4d2d61] text-white rounded-full"
                                     : ""
                                 }
                               `}
-                            >
-                              {day}
-                              {hasMeeting && (
-                                <div className="absolute bottom-1 w-1 h-1 rounded-full bg-[#4d2d61]"></div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </React.Fragment>
-                    ))}
-                  </div>
+                                  >
+                                    {day}
+                                    {hasMeeting && (
+                                      <div className="absolute bottom-0 w-1 h-1 rounded-full bg-[#4d2d61]"></div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
                 </div>
               </div>
-            </motion.div>
+            </div>
+
+            {/* Desktop Layout */}
+            <div className="hidden lg:block relative h-[500px] xl:h-[600px]">
+              {/* Kanban Board Card - Desktop */}
+              <motion.div
+                className="absolute top-[20px] left-[50%] transform -translate-x-[50%] w-[320px] xl:w-[380px] bg-white/80 backdrop-blur-md rounded-xl shadow-2xl p-4 xl:p-5 border border-purple-100 z-10"
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.5, duration: 0.8 }}
+              >
+                <div className="flex items-center mb-4">
+                  <div className="w-10 xl:w-12 h-10 xl:h-12 rounded-lg bg-[#4d2d61]/10 flex items-center justify-center mr-3">
+                    <LayoutGrid className="w-5 xl:w-6 h-5 xl:h-6 text-[#4d2d61]" />
+                  </div>
+                  <h3 className="font-semibold text-[#4d2d61] text-base xl:text-lg">
+                    Kanban Boards
+                  </h3>
+                </div>
+                <div className="bg-gradient-to-r from-[#f9f5ff] to-white rounded-lg p-3 xl:p-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-white p-3 rounded shadow-sm">
+                      <div className="text-xs text-gray-500 mb-2 font-medium">
+                        To Do
+                      </div>
+                      <div className="text-xs bg-gray-100 p-2 rounded">
+                        Task 1
+                      </div>
+                    </div>
+                    <div className="bg-white p-3 rounded shadow-sm">
+                      <div className="text-xs text-gray-500 mb-2 font-medium">
+                        In Progress
+                      </div>
+                      <div className="text-xs bg-gray-100 p-2 rounded">
+                        Task 2
+                      </div>
+                    </div>
+                    <div className="bg-white p-3 rounded shadow-sm">
+                      <div className="text-xs text-gray-500 mb-2 font-medium">
+                        Done
+                      </div>
+                      <div className="text-xs bg-gray-100 p-2 rounded">
+                        Task 3
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Team Chat Card - Desktop */}
+              <motion.div
+                className="absolute top-[200px] xl:top-[240px] left-[50%] transform -translate-x-[400px] xl:-translate-x-[480px] w-[280px] xl:w-[320px] bg-white rounded-xl shadow-xl p-4 xl:p-5 border border-gray-100 z-10"
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.7, duration: 0.8 }}
+              >
+                <div className="flex items-center mb-4">
+                  <div className="w-8 xl:w-10 h-8 xl:h-10 rounded-lg bg-[#f9f5ff] flex items-center justify-center mr-3">
+                    <MessageSquare className="w-4 xl:w-5 h-4 xl:h-5 text-[#4d2d61]" />
+                  </div>
+                  <h3 className="font-semibold text-[#4d2d61] text-base xl:text-lg">
+                    Team Chat
+                  </h3>
+                </div>
+                <div className="bg-[#f9f5ff] rounded-lg p-3 xl:p-4">
+                  <div className="flex items-start mb-3">
+                    <div className="w-8 h-8 rounded-full bg-[#4d2d61] flex-shrink-0"></div>
+                    <div className="ml-2 p-2 bg-white rounded-lg text-sm">
+                      Hey team, how's the project going?
+                    </div>
+                  </div>
+                  <div className="flex items-start justify-end">
+                    <div className="mr-2 p-2 bg-white rounded-lg text-sm">
+                      Making great progress!
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-[#725483] flex-shrink-0"></div>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Calendar Card - Desktop */}
+              <motion.div
+                className="absolute top-[200px] xl:top-[240px] left-[50%] transform translate-x-[120px] xl:translate-x-[160px] w-[280px] xl:w-[320px] bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-10"
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.9, duration: 0.8 }}
+              >
+                <div className="p-4 xl:p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center">
+                      <div className="w-8 xl:w-10 h-8 xl:h-10 rounded-lg bg-[#f9f5ff] flex items-center justify-center mr-3">
+                        <Calendar className="w-4 xl:w-5 h-4 xl:h-5 text-[#4d2d61]" />
+                      </div>
+                      <h3 className="font-semibold text-[#4d2d61] text-base xl:text-lg">
+                        Calendar
+                      </h3>
+                    </div>
+                    <button className="w-6 xl:w-7 h-6 xl:h-7 rounded-full bg-[#f9f5ff] flex items-center justify-center">
+                      <Plus className="w-4 xl:w-5 h-4 xl:h-5 text-[#4d2d61]" />
+                    </button>
+                  </div>
+
+                  <div className="bg-[#f9f5ff] rounded-lg p-3 xl:p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center">
+                        <button className="text-gray-500 mr-1">
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span className="text-sm font-medium">June 2023</span>
+                        <button className="text-gray-500 ml-1">
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="flex bg-white rounded-md text-xs overflow-hidden">
+                        <button className="px-2 py-1 bg-[#4d2d61] text-white">
+                          Month
+                        </button>
+                        <button className="px-2 py-1 text-gray-600">
+                          Week
+                        </button>
+                        <button className="px-2 py-1 text-gray-600">Day</button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1 text-xs text-center">
+                      {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => (
+                        <div key={i} className="text-gray-500 py-1">
+                          {day}
+                        </div>
+                      ))}
+                      {[
+                        [1, 2, 3, 4, 5, 6, 7],
+                        [8, 9, 10, 11, 12, 13, 14],
+                        [15, 16, 17, 18, 19, 20, 21],
+                        [22, 23, 24, 25, 26, 27, 28],
+                        [29, 30, 31, "", "", "", ""],
+                      ].map((week, weekIndex) => (
+                        <React.Fragment key={weekIndex}>
+                          {week.map((day, dayIndex) => {
+                            const isToday = day === 15;
+                            const hasMeeting = [16, 22].includes(day);
+                            return (
+                              <div
+                                key={dayIndex}
+                                className={`aspect-square flex flex-col items-center justify-center relative
+                            ${
+                              isToday
+                                ? "bg-[#4d2d61] text-white rounded-full"
+                                : ""
+                            }
+                          `}
+                              >
+                                {day}
+                                {hasMeeting && (
+                                  <div className="absolute bottom-1 w-1 h-1 rounded-full bg-[#4d2d61]"></div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
           </div>
         </div>
       </section>
@@ -851,7 +1042,7 @@ const LandingPage = () => {
       <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="flex flex-col lg:flex-row items-center gap-12">
-          <div className="w-full lg:w-1/2">
+            <div className="w-full lg:w-1/2">
               <motion.div
                 className="bg-white rounded-xl shadow-xl overflow-hidden"
                 initial={{ opacity: 0, y: 30 }}
@@ -937,7 +1128,6 @@ const LandingPage = () => {
                 ))}
               </div>
             </div>
-            
           </div>
         </div>
       </section>
@@ -1435,7 +1625,7 @@ const LandingPage = () => {
               >
                 <div className="flex flex-col items-center text-center">
                   <img
-                    src={member.avatar}
+                    src={member.avatar || "/placeholder.svg"}
                     alt={member.name}
                     className="w-24 h-24 rounded-full mb-4 shadow-md"
                   />
@@ -1495,7 +1685,11 @@ const LandingPage = () => {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <img src={logoImage} alt="Nexus Logo" className="h-10 mb-4" />
+              <img
+                src={logoImage || "/placeholder.svg"}
+                alt="Nexus Logo"
+                className="h-10 mb-4"
+              />
               <p className="text-gray-600 mb-4">
                 Unite your team, amplify your success with the most
                 comprehensive collaboration platform.
@@ -1630,20 +1824,6 @@ const LandingPage = () => {
                   ></path>
                 </svg>
               </a>
-              <a href="#" className="text-gray-400 hover:text-[#4d2d61]">
-                <svg
-                  className="w-5 h-5"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-                    clipRule="evenodd"
-                  ></path>
-                </svg>
-              </a>
             </div>
           </div>
         </div>
@@ -1763,10 +1943,10 @@ const CalendarDemoComponent = () => {
   // Render meeting events for the demo
   const renderMeetings = () => {
     return meetings.map((meeting, index) => {
-      const startHour = parseInt(meeting.time.startTime.split(":")[0]);
-      const startMinute = parseInt(meeting.time.startTime.split(":")[1]);
-      const endHour = parseInt(meeting.time.endTime.split(":")[0]);
-      const endMinute = parseInt(meeting.time.endTime.split(":")[1]);
+      const startHour = Number.parseInt(meeting.time.startTime.split(":")[0]);
+      const startMinute = Number.parseInt(meeting.time.startTime.split(":")[1]);
+      const endHour = Number.parseInt(meeting.time.endTime.split(":")[0]);
+      const endMinute = Number.parseInt(meeting.time.endTime.split(":")[1]);
 
       const top = ((startHour * 60 + startMinute - 8 * 60) / (12 * 60)) * 100;
       const height =
@@ -1901,13 +2081,13 @@ const CalendarDemoComponent = () => {
                 </button>
               </div>
               <div className="flex space-x-1">
-                <button className="px-2 py-0.5 text-[10px] text-gray-600 bg-gray-100 rounded">
+                <button className="px-2 py-0.5 text-[10px] text-gray-600 bg-gray-100">
                   Month
                 </button>
-                <button className="px-2 py-0.5 text-[10px] text-gray-600 bg-gray-100 rounded">
+                <button className="px-2 py-0.5 text-[10px] text-gray-600 bg-gray-100">
                   Week
                 </button>
-                <button className="px-2 py-0.5 text-[10px] bg-[#4d2d61] text-white rounded">
+                <button className="px-2 py-0.5 text-[10px] bg-[#4d2d61] text-white">
                   Day
                 </button>
               </div>
@@ -2019,4 +2199,3 @@ const CalendarDemoComponent = () => {
     </div>
   );
 };
-
