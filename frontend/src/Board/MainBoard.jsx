@@ -123,14 +123,14 @@ const MainBoard = () => {
   }, [cardId]);
 
   return (
-    <div className="min-h-screen flex bg-[#f5f5f5] overflow-hidden relative">
+    <div className="min-h-screen flex bg-[#f5f5f5] overflow-hidden relative -mt-6">
      
       {/* Main Content */}
       <div className="flex-1 h-screen overflow-y-auto overflow-x-hidden p-3 transition-all duration-300 w-[1115px]">
 
-        {/* 🔔 Top Right Bar */}
-        <div className="w-full flex justify-end items-center px-2 py-1 rounded-md -mb-5 relative">
-          {/* Notification Button */}
+{/*       
+         <div className="w-full flex justify-end items-center px-2 py-1 rounded-md -mb-5 relative">
+         
           <button
             className="relative mr-4"
             onClick={() => setShowNotifications(!showNotifications)}
@@ -148,7 +148,7 @@ const MainBoard = () => {
           </button>
 
           {/* Notification Popup */}
-          {showNotifications && (
+          {/* {showNotifications && (
             <NotificationPopup
               ref={notificationRef}
               notifications={notifications}
@@ -157,13 +157,13 @@ const MainBoard = () => {
             />
           )}
 
-          {/* Profile */}
+          
           <img
             src={profile}
             alt="Profile"
             className="w-8 h-8 rounded-full object-cover cursor-pointer"
           />
-        </div>
+        </div>   */}
 
         {/* Project Info and Board */}
         <ProjectInfo
