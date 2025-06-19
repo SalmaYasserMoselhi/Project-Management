@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { toast } from "react-toastify";
 import {
   updateTitle,
   setSaveError,
@@ -10,7 +11,6 @@ export default function CardHeader({ cardId, externalError }) {
   const title = useSelector((state) => state.cardDetails.title);
   const [localTitle, setLocalTitle] = useState("");
   const [isEditing, setIsEditing] = useState(false);
-  const [error, setError] = useState("");
   const inputRef = useRef(null);
 
   // تحديث العنوان المحلي عند تغيير عنوان البطاقة في Redux
@@ -24,7 +24,6 @@ export default function CardHeader({ cardId, externalError }) {
   // تتبع الخطأ الخارجي
   useEffect(() => {
     if (externalError) {
-      setError(externalError);
       // إذا وجد خطأ خارجي وكان متعلقًا بالعنوان، ابدأ وضع التعديل تلقائيًا
       if (
         externalError.includes("title") ||
@@ -42,10 +41,7 @@ export default function CardHeader({ cardId, externalError }) {
 
   const handleTitleChange = (e) => {
     setLocalTitle(e.target.value);
-    // عند بدء الكتابة، إزالة أي رسالة خطأ موجودة
-    if (error) setError("");
-
-    // كذلك إزالة أي خطأ في Redux
+    // عند بدء الكتابة، إزالة أي خطأ في Redux
     if (e.target.value.trim() !== "") {
       dispatch(setSaveError(null));
     }
@@ -57,8 +53,6 @@ export default function CardHeader({ cardId, externalError }) {
     if (!localTitle || localTitle === "Card name") {
       setLocalTitle("");
     }
-    // إزالة أي رسائل خطأ
-    setError("");
 
     // تركيز حقل الإدخال في الدورة التالية
     setTimeout(() => {
@@ -73,7 +67,7 @@ export default function CardHeader({ cardId, externalError }) {
     // التحقق من العنوان ليس فارغًا
     const trimmedTitle = localTitle.trim();
     if (!trimmedTitle) {
-      setError("Card title is required");
+      toast.error("Card title is required");
       return;
     }
 
@@ -86,7 +80,6 @@ export default function CardHeader({ cardId, externalError }) {
     dispatch(setSaveError(null));
 
     setIsEditing(false);
-    setError("");
   };
 
   const handleKeyDown = (e) => {
@@ -97,7 +90,6 @@ export default function CardHeader({ cardId, externalError }) {
       // استعادة القيمة الأصلية عند الضغط على Escape
       setLocalTitle(title === "Card name" ? "" : title);
       setIsEditing(false);
-      setError("");
     }
   };
 
@@ -119,7 +111,6 @@ export default function CardHeader({ cardId, externalError }) {
             className="text-xl font-bold w-full border-none focus:ring-0 focus:outline-none"
             placeholder="Card name"
           />
-          {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
         </div>
       ) : (
         <div className="flex-1 relative">
@@ -131,7 +122,6 @@ export default function CardHeader({ cardId, externalError }) {
           >
             {localTitle || "Card name"}
           </h1>
-          {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
         </div>
       )}
     </div>

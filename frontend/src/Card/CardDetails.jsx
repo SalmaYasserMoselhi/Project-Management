@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
   fetchCardDetails,
   saveCard,
@@ -56,6 +57,21 @@ export default function CardDetails({
     saveLoading,
     saveError,
   } = cardDetails;
+
+  // Show toast on error
+  useEffect(() => {
+    if (error) {
+      toast.error(typeof error === "string" ? error : error.message);
+    }
+  }, [error]);
+
+  useEffect(() => {
+    if (saveError) {
+      toast.error(
+        typeof saveError === "string" ? saveError : saveError.message
+      );
+    }
+  }, [saveError]);
 
   // إعادة تعيين حالة البطاقة عند فتح البطاقة
   useEffect(() => {
@@ -318,18 +334,6 @@ export default function CardDetails({
     }
   };
 
-  // عرض شاشة التحميل أثناء جلب بيانات البطاقة
-  if (loading && cardId) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4">
-        <div className="w-full max-w-[550px] max-h-[90vh] bg-white shadow-lg rounded-lg border border-gray-300 flex flex-col items-center justify-center p-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4D2D61]"></div>
-          <p className="mt-4 text-gray-600">Loading card details...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       {isOpen && (
@@ -338,76 +342,74 @@ export default function CardDetails({
             ref={cardRef}
             className="w-full max-w-[550px] max-h-[90vh] bg-white shadow-lg rounded-lg border border-gray-300 flex flex-col relative"
           >
-            {/* زر الإغلاق في الأعلى على اليمين */}
-            <button
-              className="absolute top-2 right-3 text-gray-500 hover:text-gray-700 text-2xl z-10"
-              onClick={handleCloseAttempt}
-            >
-              &times;
-            </button>
-
-            {/* الرأس - يبقى ثابتًا في الأعلى */}
-            <div
-              className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2"
-              id="card-title-container"
-            >
-              <div className="flex-grow">
-                <CardHeader
-                  cardId={cardId || id}
-                  externalError={
-                    saveError && saveError.includes("title") ? saveError : null
-                  }
-                />
+            {loading && cardId ? (
+              <div className="flex flex-col items-center justify-center h-full p-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4D2D61]"></div>
+                <p className="mt-4 text-gray-600">Loading card details...</p>
               </div>
-            </div>
+            ) : (
+              <>
+                {/* زر الإغلاق في الأعلى على اليمين */}
+                <button
+                  className="absolute top-2 right-3 text-gray-500 hover:text-gray-700 text-2xl z-10"
+                  onClick={handleCloseAttempt}
+                >
+                  &times;
+                </button>
 
-            {/* منطقة المحتوى القابلة للتمرير */}
-            <div className="flex-grow overflow-y-auto px-3 sm:px-4">
-              {/* قسم معلومات البطاقة الرئيسي */}
-              <div className="space-y-3 sm:space-y-4">
-                <CardStatus
-                  boardId={boardId}
-                  lists={allLists}
-                  currentListId={listId || currentListId}
-                />
-                <CardDueDate cardId={cardId || id} />
-                <CardAssignees cardId={cardId || id} />
-                <CardLabels cardId={cardId || id} />
-                <CardPriority cardId={cardId || id} />
-                <CardDescription cardId={cardId || id} />
-                <CardAttachments ref={attachmentsRef} cardId={cardId || id} />
-                <TabsContainer cardId={cardId || id} />
-
-                {error && (
-                  <div className="text-red-500 text-sm py-2 px-3 bg-red-50 rounded-md">
-                    {typeof error === "string"
-                      ? error
-                      : error.message || "An error occurred"}
+                {/* الرأس - يبقى ثابتًا في الأعلى */}
+                <div
+                  className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2"
+                  id="card-title-container"
+                >
+                  <div className="flex-grow">
+                    <CardHeader
+                      cardId={cardId || id}
+                      externalError={
+                        saveError && saveError.includes("title")
+                          ? saveError
+                          : null
+                      }
+                    />
                   </div>
-                )}
+                </div>
 
-                {saveError && (
-                  <div className="text-red-500 text-sm py-2 px-3 bg-red-50 rounded-md">
-                    {typeof saveError === "string"
-                      ? saveError
-                      : saveError.message || "Failed to save card"}
+                {/* منطقة المحتوى القابلة للتمرير */}
+                <div className="flex-grow overflow-y-auto px-3 sm:px-4">
+                  {/* قسم معلومات البطاقة الرئيسي */}
+                  <div className="space-y-3 sm:space-y-4">
+                    <CardStatus
+                      boardId={boardId}
+                      lists={allLists}
+                      currentListId={listId || currentListId}
+                    />
+                    <CardDueDate cardId={cardId || id} />
+                    <CardAssignees cardId={cardId || id} />
+                    <CardLabels cardId={cardId || id} />
+                    <CardPriority cardId={cardId || id} />
+                    <CardDescription cardId={cardId || id} />
+                    <CardAttachments
+                      ref={attachmentsRef}
+                      cardId={cardId || id}
+                    />
+                    <TabsContainer cardId={cardId || id} />
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
 
-            {/* تذييل مع زر "تم" */}
-            <div className="px-3 sm:px-4 py-3 border-t border-gray-200 flex justify-end mt-2">
-              <button
-                onClick={handleDone}
-                disabled={saveLoading}
-                className={`bg-gradient-to-r from-[#4d2d61] to-[#7b4397] hover:shadow-lg hover:scale-[1.01] hover:translate-y-[-2px] text-white font-medium py-2 px-6 rounded-md transition-colors ${
-                  saveLoading ? "opacity-70 cursor-not-allowed" : ""
-                }`}
-              >
-                {saveLoading ? "Saving..." : "Save"}
-              </button>
-            </div>
+                {/* تذييل مع زر "تم" */}
+                <div className="px-3 sm:px-4 py-3 border-t border-gray-200 flex justify-end mt-2">
+                  <button
+                    onClick={handleDone}
+                    disabled={saveLoading}
+                    className={`bg-gradient-to-r from-[#4d2d61] to-[#7b4397] hover:shadow-lg hover:scale-[1.01] hover:translate-y-[-2px] text-white font-medium py-2 px-6 rounded-md transition-colors ${
+                      saveLoading ? "opacity-70 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {saveLoading ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* مربع حوار التأكيد */}

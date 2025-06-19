@@ -12,7 +12,10 @@ router
   .get(authController.protect, conversationController.getConversations);
 router
   .route('/group')
-  .post(authController.protect, conversationController.createGroup);
+  .post(authController.protect,
+    conversationController.uploadGroupPicture,
+    conversationController.resizeUserAvatar,
+    conversationController.createGroup);
 
 router.patch(
   '/group/add-user',

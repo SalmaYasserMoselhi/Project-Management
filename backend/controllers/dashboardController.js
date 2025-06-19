@@ -7,10 +7,6 @@ const AppError = require('../utils/appError');
 
 exports.getHighPriorityTasks = catchAsync(async (req, res, next) => {
   try {
-    const limit = parseInt(req.query.limit) || 10;
-    const page = parseInt(req.query.page) || 1;
-    const skip = (page - 1) * limit;
-
     // 1. Get all boards where user is a member
     const boards = await Board.find({
       'members.user': req.user._id
@@ -99,8 +95,6 @@ exports.getHighPriorityTasks = catchAsync(async (req, res, next) => {
     res.status(200).json({
       status: 'success',
       results: formattedCards.length,
-      currentPage: page,
-      totalPages: Math.ceil(formattedCards.length / limit),
       data: {
         tasks: formattedCards
       }
@@ -212,6 +206,7 @@ exports.getCalendarDeadlines = catchAsync(async (req, res, next) => {
         timeZone: userTimezone 
       }),
       dueDateTime: dueDate,
+      boardId: card.list.board._id,
       boardName: card.list.board.name,
       listName: card.list.name,
       priority: card.priority,
@@ -238,10 +233,21 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
   // Get user's timezone
   const userTimezone = req.user.timezone || 'Africa/Cairo';
   
-  // 1. Get pagination parameters
-  const limit = parseInt(req.query.limit) || 10;
-  const page = parseInt(req.query.page) || 1;
-  const skip = (page - 1) * limit;
+  // Add sorting parameters
+  const sortBy = req.query.sortBy || 'createdAt'; // createdAt, action, entityType
+  const sortOrder = req.query.sortOrder || 'desc'; // asc or desc
+
+  // Validate sort parameters
+  const validSortFields = ['createdAt', 'action', 'entityType'];
+  const validSortOrders = ['asc', 'desc'];
+
+  if (!validSortFields.includes(sortBy)) {
+    return next(new AppError('Invalid sort field. Use: createdAt, action, or entityType', 400));
+  }
+  
+  if (!validSortOrders.includes(sortOrder)) {
+    return next(new AppError('Invalid sort order. Use: asc or desc', 400));
+  }
 
   // 2. Get all boards where user is a member
   const boards = await Board.find({
@@ -252,19 +258,26 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
     return res.status(200).json({
       status: 'success',
       results: 0,
-      data: []
+      sortBy,
+      sortOrder,
+      data: {
+        activities: []
+      }
     });
   }
 
   const boardIds = boards.map(board => board._id);
 
-  // 3. Aggregate activities from all boards
+  // 3. Build sort object for aggregation
+  const sortObject = {};
+  sortObject[`activities.${sortBy}`] = sortOrder === 'asc' ? 1 : -1;
+
+  // 4. Aggregate activities from all boards
   const activities = await Board.aggregate([
     { $match: { _id: { $in: boardIds } } },
     { $unwind: '$activities' },
     { $sort: { 'activities.createdAt': -1 } },
-    { $skip: skip },
-    { $limit: limit },
+    { $sort: sortObject },
     { 
       $lookup: {
         from: 'users',
@@ -273,20 +286,39 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
         as: 'user'
       }
     },
-    { $unwind: '$user' },
+    { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
     {
-      $project: {
+       $project: {
         _id: 0,
         id: '$activities._id',
         action: '$activities.action',
         entityType: '$activities.entityType',
         entityId: '$activities.entityId',
+        entityName: '$activities.data.entityName',
         data: '$activities.data',
         createdAt: '$activities.createdAt',
         user: {
-          id: '$user._id',
-          name: { $concat: ['$user.firstName', ' ', '$user.lastName'] },
-          avatar: '$user.avatar'
+          $cond: {
+            if: '$user',
+            then: {
+              id: '$user._id',
+              name: { 
+                $trim: { 
+                  input: { $concat: [
+                    { $ifNull: ['$user.firstName', ''] }, 
+                    ' ', 
+                    { $ifNull: ['$user.lastName', ''] }
+                  ]}
+                }
+              },
+              avatar: '$user.avatar'
+            },
+            else: {
+              id: null,
+              name: 'Unknown User',
+              avatar: null
+            }
+          }
         },
         board: {
           id: '$_id',
@@ -296,22 +328,26 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
     }
   ]);
 
-  // 4. Format action types for display
+  // 5. Format action types for display and add time formatting
   const formattedActivities = activities.map(activity => {
     return {
       ...activity,
-      actionText: getActionText(activity.action, activity.entityType),
+      actionText: getActionText(activity.action, activity.entityType, activity.entityName),
       timestamp: activity.createdAt,
       // Format date in user's timezone
-      formattedDate: formatActivityDate(activity.createdAt, userTimezone)
+      formattedDate: formatActivityDate(activity.createdAt, userTimezone),
+      // Add relative time
+      timeAgo: getTimeAgo(activity.createdAt),
+      // Add date grouping for UI
+      dateGroup: getDateGroup(activity.createdAt, userTimezone)
     };
   });
 
   res.status(200).json({
     status: 'success',
     results: formattedActivities.length,
-    currentPage: page,
-    totalPages: Math.ceil(formattedActivities.length / limit),
+    sortBy,
+    sortOrder,
     data: {
       activities: formattedActivities
     }
@@ -319,18 +355,46 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
 });
 
 // Helper function to convert action types to display text
-function getActionText(action, entityType) {
+function getActionText(action, entityType, entityName) {  // Fixed: Added entityName parameter
   const actionMap = {
-    'card_created': 'created card',
-    'card_updated': 'updated card',
-    'card_moved': 'moved card',
-    'card_deleted': 'deleted card',
-    'list_created': 'created list',
-    'member_added': 'added member',
-    // Add more mappings as needed
+    'card_created': `created ${entityType}`,
+    'card_updated': `updated ${entityType}`,
+    'card_moved': `moved ${entityType}`,
+    'card_deleted': `deleted ${entityType}`,
+    'card_archived': `archived ${entityType}`,
+    'card_restored': `restored ${entityType}`,
+    'card_assigned': `assigned ${entityType}`,
+    'card_unassigned': `unassigned ${entityType}`,
+    'card_due_date_set': `set due date for ${entityType}`,
+    'card_due_date_changed': `changed due date for ${entityType}`,
+    'card_due_date_removed': `removed due date from ${entityType}`,
+    'card_priority_changed': `changed priority of ${entityType}`,
+    'card_comment_added': `commented on ${entityType}`,
+    'card_attachment_added': `added attachment to ${entityType}`,
+    'card_checklist_added': `added checklist to ${entityType}`,
+    'card_checklist_item_completed': `completed checklist item in ${entityType}`,
+    'list_created': `created ${entityType}`,
+    'list_updated': `updated ${entityType}`,
+    'list_deleted': `deleted ${entityType}`,
+    'list_archived': `archived ${entityType}`,
+    'list_moved': `moved ${entityType}`,
+    'member_added': `added member to ${entityType}`,
+    'member_removed': `removed member from ${entityType}`,
+    'board_created': `created ${entityType}`,
+    'board_updated': `updated ${entityType}`,
+    'board_deleted': `deleted ${entityType}`,
+    'board_archived': `archived ${entityType}`,
+    'board_restored': `restored ${entityType}`
   };
 
-  return actionMap[action] || `${action.replace('_', ' ')} ${entityType}`;
+  let actionText = actionMap[action] || `${action.replace(/_/g, ' ')} ${entityType}`;
+  
+  // Add entity name if available
+  if (entityName) {
+    actionText += ` "${entityName}"`;
+  }
+
+  return actionText;
 }
 
 // Helper function to format date in user's timezone
@@ -344,6 +408,33 @@ function formatActivityDate(date, timezone = 'Africa/Cairo') {
     hour12: true,
     timeZone: timezone
   });
+}
+
+// Helper function to group activities by date for UI display
+function getDateGroup(date, timezone = 'Africa/Cairo') {
+  const activityDate = new Date(date);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  // Format dates in user's timezone
+  const activityDateStr = activityDate.toLocaleDateString('en-CA', { timeZone: timezone });
+  const todayStr = today.toLocaleDateString('en-CA', { timeZone: timezone });
+  const yesterdayStr = yesterday.toLocaleDateString('en-CA', { timeZone: timezone });
+  
+  if (activityDateStr === todayStr) {
+    return 'Today';
+  } else if (activityDateStr === yesterdayStr) {
+    return 'Yesterday';
+  } else {
+    return activityDate.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      timeZone: timezone 
+    });
+  }
 }
 
 exports.getTaskStats = catchAsync(async (req, res, next) => {
@@ -425,36 +516,54 @@ exports.getTaskStats = catchAsync(async (req, res, next) => {
   });
 });
 
-// Helper functions
+// Fixed helper functions for getTaskStats
+
 function getDateRange(period, timezone = 'Africa/Cairo') {
   const now = new Date();
-  const endDate = new Date();
+  const endDate = new Date(now);
   let startDate = new Date();
   const intervals = [];
 
   switch (period) {
     case 'weekly':
-      startDate.setDate(endDate.getDate() - 7);
+      startDate.setDate(endDate.getDate() - 6); // 7 days total including today
       for (let i = 6; i >= 0; i--) {
-        const date = new Date();
+        const date = new Date(endDate);
         date.setDate(date.getDate() - i);
         intervals.push(date.toLocaleDateString('en-CA', { timeZone: timezone }));
       }
       break;
+      
     case 'monthly':
-      startDate.setMonth(endDate.getMonth() - 1);
+      startDate.setDate(endDate.getDate() - 29); // 30 days total
+      // Create 5 week intervals
       for (let i = 4; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - (i * 7));
-        intervals.push(`Week ${5 - i}`);
+        const weekStart = new Date(endDate);
+        weekStart.setDate(weekStart.getDate() - (i * 7) - 6);
+        const weekEnd = new Date(endDate);
+        weekEnd.setDate(weekEnd.getDate() - (i * 7));
+        
+        intervals.push({
+          label: `Week ${5 - i}`,
+          start: weekStart.toLocaleDateString('en-CA', { timeZone: timezone }),
+          end: weekEnd.toLocaleDateString('en-CA', { timeZone: timezone })
+        });
       }
       break;
+      
     case 'yearly':
       startDate.setFullYear(endDate.getFullYear() - 1);
+      startDate.setMonth(endDate.getMonth() + 1); // Start from next month of last year
+      
       for (let i = 11; i >= 0; i--) {
-        const date = new Date();
+        const date = new Date(endDate);
         date.setMonth(date.getMonth() - i);
-        intervals.push(date.toLocaleString('default', { month: 'short', timeZone: timezone }));
+        intervals.push({
+          label: date.toLocaleString('default', { month: 'short', timeZone: timezone }),
+          year: date.getFullYear(),
+          month: date.getMonth() + 1, // 1-based month
+          key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+        });
       }
       break;
   }
@@ -466,24 +575,85 @@ function getGroupingExpression(period) {
   switch (period) {
     case 'weekly':
       return { $dateToString: { format: "%Y-%m-%d", date: "$localCompletedAt" } };
+      
     case 'monthly':
-      return { $ceil: { $divide: [{ $subtract: [new Date(), "$localCompletedAt"] }, 604800000] } }; // Weeks
+      // Group by week number within the period
+      return {
+        $dateToString: { 
+          format: "%Y-%m-%d", 
+          date: {
+            $dateFromParts: {
+              year: { $year: "$localCompletedAt" },
+              month: { $month: "$localCompletedAt" },
+              day: { $dayOfMonth: "$localCompletedAt" }
+            }
+          }
+        }
+      };
+      
     case 'yearly':
-      return { $month: "$localCompletedAt" };
+      // Group by year-month
+      return {
+        $dateToString: { 
+          format: "%Y-%m", 
+          date: "$localCompletedAt" 
+        }
+      };
   }
 }
 
 function buildStatsResponse(period, intervals, completedStats, totalCards) {
-  const completedMap = {};
-  completedStats.forEach(stat => {
-    const key = period === 'monthly' ? `Week ${stat._id}` : stat._id;
-    completedMap[key] = stat.count;
-  });
-
-  const stats = intervals.map(interval => ({
-    period: interval,
-    completed: completedMap[interval] || 0
-  }));
+  let stats = [];
+  
+  if (period === 'weekly') {
+    // Direct mapping for weekly
+    const completedMap = {};
+    completedStats.forEach(stat => {
+      completedMap[stat._id] = stat.count;
+    });
+    
+    stats = intervals.map(interval => ({
+      period: interval,
+      completed: completedMap[interval] || 0
+    }));
+    
+  } else if (period === 'monthly') {
+    // Group daily completions into weeks
+    const completedMap = {};
+    completedStats.forEach(stat => {
+      completedMap[stat._id] = stat.count;
+    });
+    
+    stats = intervals.map(weekInterval => {
+      let weekTotal = 0;
+      
+      // Sum up all days in this week range
+      const startDate = new Date(weekInterval.start);
+      const endDate = new Date(weekInterval.end);
+      
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateKey = d.toLocaleDateString('en-CA');
+        weekTotal += completedMap[dateKey] || 0;
+      }
+      
+      return {
+        period: weekInterval.label,
+        completed: weekTotal
+      };
+    });
+    
+  } else if (period === 'yearly') {
+    // Direct mapping for yearly (month-based)
+    const completedMap = {};
+    completedStats.forEach(stat => {
+      completedMap[stat._id] = stat.count;
+    });
+    
+    stats = intervals.map(monthInterval => ({
+      period: monthInterval.label,
+      completed: completedMap[monthInterval.key] || 0
+    }));
+  }
 
   const totalCompleted = stats.reduce((sum, item) => sum + item.completed, 0);
   const completionRate = totalCards > 0 ? Math.round((totalCompleted / totalCards) * 100) : 0;
@@ -498,10 +668,24 @@ function buildStatsResponse(period, intervals, completedStats, totalCards) {
 }
 
 function emptyStatsResponse(res, period, intervals) {
-  const stats = intervals.map(interval => ({
-    period: interval,
-    completed: 0
-  }));
+  let stats = [];
+  
+  if (period === 'weekly') {
+    stats = intervals.map(interval => ({
+      period: interval,
+      completed: 0
+    }));
+  } else if (period === 'monthly') {
+    stats = intervals.map(interval => ({
+      period: interval.label,
+      completed: 0
+    }));
+  } else if (period === 'yearly') {
+    stats = intervals.map(interval => ({
+      period: interval.label,
+      completed: 0
+    }));
+  }
 
   return res.status(200).json({
     status: 'success',
@@ -514,7 +698,6 @@ function emptyStatsResponse(res, period, intervals) {
     }
   });
 }
-
 // Helper function to get timezone offset in minutes
 function getTimezoneOffset(timezone) {
   const date = new Date();

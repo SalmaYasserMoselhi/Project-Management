@@ -23,6 +23,13 @@ exports.uploadSingleImage = (fieldName) => {
   return upload.single(fieldName);
 };
 
+
+
+
+
+
+
+
 exports.uploadMultipleFiles = () => {
   const storage = multer.diskStorage({
     destination: function (req, file, cb) {

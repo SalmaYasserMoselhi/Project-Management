@@ -143,11 +143,19 @@ const Sidebar = () => {
   // Always use localStorage selected workspace if available
   const selectedOrLocalWorkspace = localStorageSelectedWorkspace;
   const sidebarAvatarLetter = selectedOrLocalWorkspace
-    ? (selectedOrLocalWorkspace.name ? selectedOrLocalWorkspace.name.charAt(0).toUpperCase() : "?")
-    : (user ? user.firstName.charAt(0).toUpperCase() : "?");
+    ? selectedOrLocalWorkspace.name
+      ? selectedOrLocalWorkspace.name.charAt(0).toUpperCase()
+      : "?"
+    : user
+    ? user.firstName.charAt(0).toUpperCase()
+    : "?";
 
   // Determine if user is not the owner of the selected public workspace
-  const isNotOwner = (ws) => ws && ws.type === "public" && user && (ws.userRole !== "owner" || ws.createdBy !== user._id);
+  const isNotOwner = (ws) =>
+    ws &&
+    ws.type === "public" &&
+    user &&
+    (ws.userRole !== "owner" || ws.createdBy !== user._id);
   const hideCollabAndPrivate = isNotOwner(selectedOrLocalWorkspace);
 
   const handleItemClick = (title, path) => {
@@ -170,7 +178,7 @@ const Sidebar = () => {
         },
         credentials: "include",
       });
-      
+
       if (response.ok) {
         // Clear any local storage items related to user state
         localStorage.removeItem("selectedPublicWorkspace");
@@ -279,7 +287,6 @@ const Sidebar = () => {
         return;
       }
 
-  
       return;
     }
 
@@ -403,7 +410,7 @@ const Sidebar = () => {
   return (
     <div
       id="sidebar"
-      className={`fixed z-50 left-0 top-0 bottom-0 bg-[#4D2D61] shadow-lg p-4 flex flex-col font-normal transition-all duration-300 
+      className={`fixed z-50 left-0 top-0 bottom-0 bg-[#4D2D61]  shadow-lg p-4 flex flex-col font-normal transition-all duration-300 
         ${isSidebarOpen ? "w-60" : "w-20"}
         ${
           isMobile
@@ -412,7 +419,7 @@ const Sidebar = () => {
               : "-translate-x-full"
             : "translate-x-0"
         }
-        ${isMobile && "bg-opacity-30 backdrop-blur-xs"}
+      
       `}
     >
       {/* Logo and Close Button Section */}
@@ -437,7 +444,7 @@ const Sidebar = () => {
         {isMobile && isSidebarOpen && (
           <button
             onClick={() => dispatch(toggleSidebar())}
-            className="ml-auto p-1 rounded-full bg-white text-[#4d2d61]"
+            className="ml-auto p-1  text-white"
           >
             <X size={18} />
           </button>
@@ -651,7 +658,9 @@ const Sidebar = () => {
                 {/* Private */}
                 <div
                   className={`group flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
-                    activeItem === "Private" ? "bg-white/90" : "hover:bg-white/90"
+                    activeItem === "Private"
+                      ? "bg-white/90"
+                      : "hover:bg-white/90"
                   } ${isSidebarOpen ? "w-full" : "w-12 justify-center"}`}
                   onClick={(e) => {
                     handleWorkspaceToggle("private", e);
@@ -696,9 +705,7 @@ const Sidebar = () => {
             onClick={handleLogout}
           >
             <div className="flex items-center gap-3">
-              <LogOut
-                className="h-5 w-5 text-white group-hover:text-[#4D2D61]"
-              />
+              <LogOut className="h-5 w-5 text-white group-hover:text-[#4D2D61]" />
               {isSidebarOpen && (
                 <span className="text-sm text-white group-hover:text-[#4D2D61]">
                   Logout

@@ -6,7 +6,11 @@ import { IoMdArrowBack } from "react-icons/io";
 import { useChat } from "../context/chat-context";
 import { useMemo, useCallback } from "react";
 import Avatar from "../assets/defaultAvatar.png";
-import { isValidImageUrl, getAvatarUrl } from "../utils/imageUtils";
+import {
+  isValidImageUrl,
+  getAvatarUrl,
+  getGroupImageUrl,
+} from "../utils/imageUtils";
 import ImageWithFallback from "../Components/ImageWithFallback";
 import { Suspense } from "react";
 import { motion } from "framer-motion";
@@ -53,7 +57,7 @@ function ChatHeader({ user, onToggleInfo, onBackClick, isMobile }) {
         return {
           id: chatUser.id,
           name: chatUser.name || "Group Chat",
-          avatar: chatUser.picture || Avatar,
+          avatar: getGroupImageUrl(chatUser.picture) || Avatar,
           isOnline: false,
           isGroup: true,
         };
@@ -93,7 +97,7 @@ function ChatHeader({ user, onToggleInfo, onBackClick, isMobile }) {
   }, [chatUser, currentUser?._id, userMap, isUserOnline]);
 
   return (
-    <div className="bg-white flex items-center justify-between px-4 py-3 border-b border-gray-100 sticky top-0 z-10 shadow-sm">
+    <div className="bg-white flex items-center justify-between px-4 py-3 border-b border-t border-gray-100 sticky top-0 z-10 shadow-sm">
       <div className="flex items-center gap-4">
         {/* زر الرجوع للموبايل */}
         {isMobile && onBackClick && (

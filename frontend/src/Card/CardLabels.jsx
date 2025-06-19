@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { SketchPicker } from "react-color";
+import { toast } from "react-toastify";
 import {
   addLabel,
   updateLabel,
@@ -20,7 +21,6 @@ export default function CardLabels({ cardId }) {
   const [selectedColor, setSelectedColor] = useState("#3498db");
   const [editingLabel, setEditingLabel] = useState(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const [error, setError] = useState(null);
 
   const pickerRef = useRef(null);
   const popupRef = useRef(null);
@@ -47,40 +47,47 @@ export default function CardLabels({ cardId }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (saveError) {
+      toast.error(saveError);
+    }
+  }, [saveError]);
+
   const handleAddOrUpdateLabel = () => {
-    if (labelName.trim()) {
-      setError(null);
+    if (!labelName.trim()) {
+      toast.error("Label name cannot be empty");
+      return;
+    }
 
-      // Prepare the label data
-      const labelData = {
-        name: labelName,
-        color: selectedColor,
-      };
+    // Prepare the label data
+    const labelData = {
+      name: labelName,
+      color: selectedColor,
+    };
 
-      try {
-        if (editingLabel) {
-          // Update existing label locally
-          dispatch(
-            updateLabel({
-              index: labels.findIndex((l) => l === editingLabel),
-              name: labelName,
-              color: selectedColor,
-            })
-          );
-        } else {
-          // Add new label locally
-          dispatch(addLabel(labelData));
-        }
-
-        // Close popup and reset form
-        setLabelName("");
-        setIsOpen(false);
-        setShowColorPicker(false);
-        setEditingLabel(null);
-      } catch (err) {
-        console.error("Error handling label:", err);
-        setError("Failed to save label");
+    try {
+      if (editingLabel) {
+        // Update existing label locally
+        dispatch(
+          updateLabel({
+            index: labels.findIndex((l) => l === editingLabel),
+            name: labelName,
+            color: selectedColor,
+          })
+        );
+      } else {
+        // Add new label locally
+        dispatch(addLabel(labelData));
       }
+
+      // Close popup and reset form
+      setLabelName("");
+      setIsOpen(false);
+      setShowColorPicker(false);
+      setEditingLabel(null);
+    } catch (err) {
+      console.error("Error handling label:", err);
+      toast.error("Failed to save label");
     }
   };
 
@@ -97,7 +104,7 @@ export default function CardLabels({ cardId }) {
   };
 
   return (
-    <div className="flex flex-row items-center mt-4 w-full max-[320px]:flex-col max-[320px]:items-start">
+    <div className="flex flex-row items-center mt-4 w-full">
       <div className="w-30 text-gray-500 flex items-center">
         <svg
           className="w-5 h-5 mr-2"
@@ -115,7 +122,7 @@ export default function CardLabels({ cardId }) {
         Labels
       </div>
 
-      <div className="flex items-center max-[320px]:ml-4 max-[320px]:mt-2 max-[320px]:w-full">
+      <div className="flex items-center">
         <div className="flex flex-wrap gap-1 mr-1">
           {labels.map((label, index) => (
             <span
@@ -195,8 +202,6 @@ export default function CardLabels({ cardId }) {
                 )}
               </div>
             </div>
-
-            {error && <div className="text-red-500 text-xs mb-2">{error}</div>}
 
             <div className="flex justify-evenly gap-2">
               {editingLabel && (

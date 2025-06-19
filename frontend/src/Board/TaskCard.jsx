@@ -1,4 +1,3 @@
-
 // taskCARD
 
 import drag from "../assets/drag-icon.png";
@@ -92,6 +91,7 @@ const TaskCard = ({
 }) => {
   const [isCardDetailsOpen, setIsCardDetailsOpen] = useState(false);
   const [actualFileCount, setActualFileCount] = useState(fileCount);
+  const [actualCommentCount, setActualCommentCount] = useState(commentCount);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [members, setMembers] = useState(initialMembers);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
@@ -103,20 +103,31 @@ const TaskCard = ({
 
   useEffect(() => {
     if (id && !id.startsWith("temp-")) {
-      const fetchAttachments = async () => {
+      const fetchCardCounts = async () => {
         try {
-          const response = await axios.get(`${BASE_URL}/api/v1/cards/${id}`, {
-            withCredentials: true,
-          });
-          if (
-            response.data &&
-            response.data.data &&
-            response.data.data.attachments
-          ) {
-            setActualFileCount(response.data.data.attachments.length);
+          // Fetch attachments
+          const attachmentsResponse = await axios.get(
+            `${BASE_URL}/api/v1/cards/${id}`
+          );
+          if (attachmentsResponse.data?.data?.attachments) {
+            setActualFileCount(
+              attachmentsResponse.data.data.attachments.length
+            );
+          }
+
+          // Fetch comments
+          const commentsResponse = await axios.get(
+            `${BASE_URL}/api/v1/cards/${id}/comments`
+          );
+          if (commentsResponse.data?.data?.comments) {
+            const totalComments = commentsResponse.data.data.comments.reduce(
+              (acc, comment) => acc + 1 + (comment.replies?.length || 0),
+              0
+            );
+            setActualCommentCount(totalComments);
           }
         } catch (err) {
-          console.error(`Error fetching attachments for card ${id}:`, err);
+          console.error("Error fetching card counts:", err);
         }
       };
 
@@ -139,14 +150,20 @@ const TaskCard = ({
 
         setIsLoadingMembers(true);
         try {
-          const response = await axios.get(`${BASE_URL}/api/v1/cards/${id}/members`, {
-            withCredentials: true,
-          });
+          const response = await axios.get(
+            `${BASE_URL}/api/v1/cards/${id}/members`,
+            {
+              withCredentials: true,
+            }
+          );
           console.log(`Members API response for card ${id}:`, response.data);
           const membersData = response.data?.data?.members || [];
           console.log(`Processed members data for card ${id}:`, membersData);
           if (Array.isArray(membersData) && membersData.length > 0) {
-            console.log(`Successfully fetched ${membersData.length} members for card ${id}:`, membersData);
+            console.log(
+              `Successfully fetched ${membersData.length} members for card ${id}:`,
+              membersData
+            );
             setMembers(membersData);
             membersCache.set(id, membersData);
           } else if (Array.isArray(membersData)) {
@@ -163,14 +180,15 @@ const TaskCard = ({
         }
       };
 
-      fetchAttachments();
+      fetchCardCounts();
       fetchMembers();
     } else {
       setActualFileCount(fileCount);
+      setActualCommentCount(commentCount);
       setMembers(initialMembers);
       setIsLoadingMembers(false);
     }
-  }, [id, fileCount, initialMembers]);
+  }, [id, fileCount, commentCount, initialMembers]);
 
   useEffect(() => {
     if (scrollToMe && containerRef && containerRef.current) {
@@ -381,8 +399,16 @@ const TaskCard = ({
                   <img
                     src={getUserAvatar(members[0].user || members[0])}
                     className="w-8 h-8 rounded-full border-2 border-white"
-                    alt={`Member ${members[0].user?.firstName || members[0].firstName || "Unknown"}`}
-                    title={members[0].user?.firstName || members[0].firstName || "Unknown"}
+                    alt={`Member ${
+                      members[0].user?.firstName ||
+                      members[0].firstName ||
+                      "Unknown"
+                    }`}
+                    title={
+                      members[0].user?.firstName ||
+                      members[0].firstName ||
+                      "Unknown"
+                    }
                   />
                   {members.length > 1 && (
                     <span className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-full border-2 border-white text-sm font-bold text-[#606C80]">
@@ -421,7 +447,7 @@ const TaskCard = ({
                   alt="Comments"
                 />
                 <span className="text-sm text-gray-600 font-bold mt-1">
-                  {commentCount}
+                  {actualCommentCount}
                 </span>
               </div>
             </div>

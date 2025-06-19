@@ -100,96 +100,109 @@ notificationSchema.statics.generateMessage = function (type, data, sender) {
     ? `${sender.firstName} ${sender.lastName || ''}`.trim() 
     : sender.username;
 
+  // Helper function to safely get entity name
+  const getEntityName = (data) => {
+    return data.entityName || data.cardTitle || data.boardName || data.listName || 'item';
+  };
+
+  // Helper function to safely get entity type
+  const getEntityType = (data) => {
+    return data.entityType || 'item';
+  };
+
   switch (type) {
     // Existing notification messages
     case 'board_invitation':
-      return `${senderName} invited you to join the board "${data.boardName}"`;
+      return `${senderName} invited you to join the board "${data.boardName || 'a board'}"`;
     case 'workspace_invitation':
-      return `${senderName} invited you to join the workspace "${data.workspaceName}"`;
+      return `${senderName} invited you to join the workspace "${data.workspaceName || 'a workspace'}"`;
     case 'workspace_welcome':
-      return `Welcome to the workspace "${data.workspaceName}"! You now have ${data.role} access.`;
+      return `Welcome to the workspace "${data.workspaceName || 'a workspace'}"! You now have ${data.role || 'member'} access.`;
     case 'card_assignment':
-      return `${senderName} assigned you to the card "${data.cardTitle}"`;
+      return `${senderName} assigned you to the card "${data.cardTitle || 'a card'}"`;
     case 'card_due_soon':
-      return `Card "${data.cardTitle}" is due soon`;
+      return `Card "${data.cardTitle || 'a card'}" is due soon`;
     case 'card_comment':
-      return `${senderName} commented on card "${data.cardTitle}"`;
+      return `${senderName} commented on card "${data.cardTitle || 'a card'}"`;
     case 'card_moved':
-      return `${senderName} moved card "${data.cardTitle}" to list "${data.listName}"`;
+      return `${senderName} moved card "${data.cardTitle || 'a card'}" to list "${data.toList || data.listName || 'a list'}"`;
     case 'member_added':
-      return `${senderName} added you to the ${data.entityType} "${data.entityName}"`;
+      return `${senderName} added you to the ${getEntityType(data)} "${getEntityName(data)}"`;
     case 'list_created':
-      return `${senderName} created a new list "${data.listName}" in board "${data.boardName}"`;
+      return `${senderName} created a new list "${data.listName || 'a list'}" in board "${data.boardName || 'a board'}"`;
     case 'board_shared':
-      return `${senderName} shared a board "${data.boardName}" with you`;
+      return `${senderName} shared a board "${data.boardName || 'a board'}" with you`;
     case 'mention':
-      return `${senderName} mentioned you in ${data.entityType} "${data.entityName}"`;
+      return `${senderName} mentioned you in ${getEntityType(data)} "${getEntityName(data)}"`;
     case 'message':
       return `${senderName} sent you a message`;
 
     // New notification messages
     case 'board_created':
-      return `${senderName} created a new board "${data.boardName}"`;
+      return `${senderName} created a new board "${data.boardName || 'a board'}"`;
     case 'board_updated':
-      return `${senderName} updated the board "${data.boardName}"`;
+      return `${senderName} updated the board "${data.boardName || 'a board'}"`;
     case 'board_deleted':
-      return `${senderName} deleted the board "${data.boardName}"`;
+      return `${senderName} deleted the board "${data.boardName || 'a board'}"`;
     case 'list_updated':
-      return `${senderName} updated the list "${data.listName}" in board "${data.boardName}"`;
+      return `${senderName} updated the list "${data.listName || 'a list'}" in board "${data.boardName || 'a board'}"`;
     case 'list_deleted':
-      return `${senderName} deleted the list "${data.listName}" from board "${data.boardName}"`;
+      return `${senderName} deleted the list "${data.listName || 'a list'}" from board "${data.boardName || 'a board'}"`;
     case 'list_archived':
-      return `${senderName} archived the list "${data.listName}" in board "${data.boardName}"`;
+      return `${senderName} archived the list "${data.listName || 'a list'}" in board "${data.boardName || 'a board'}"`;
     case 'list_restored':
-      return `${senderName} restored the list "${data.listName}" in board "${data.boardName}"`;
+      return `${senderName} restored the list "${data.listName || 'a list'}" in board "${data.boardName || 'a board'}"`;
     case 'card_created':
-      return `${senderName} created a new card "${data.cardTitle}" in list "${data.listName}"`;
+      return `${senderName} created a new card "${data.cardTitle || 'a card'}" in list "${data.listName || 'a list'}"`;
     case 'card_updated':
-      return `${senderName} updated the card "${data.cardTitle}"`;
+      return `${senderName} updated the card "${data.cardTitle || 'a card'}"`;
     case 'card_deleted':
-      return `${senderName} deleted the card "${data.cardTitle}"`;
+      return `${senderName} deleted the card "${data.cardTitle || 'a card'}"`;
     case 'card_status_changed':
-      return `${senderName} changed the status of "${data.cardTitle}" to ${data.newStatus}`;
+      return `${senderName} changed the status of "${data.cardTitle || 'a card'}" to ${data.newStatus || 'a new status'}`;
     case 'card_archived':
-      return `${senderName} archived the card "${data.cardTitle}"`;
+      return `${senderName} archived the card "${data.cardTitle || 'a card'}"`;
     case 'card_restored':
-      return `${senderName} restored the card "${data.cardTitle}"`;
+      return `${senderName} restored the card "${data.cardTitle || 'a card'}"`;
     case 'member_removed':
-      return `${senderName} removed you from the ${data.entityType} "${data.entityName}"`;
+      return `${senderName} removed you from the ${getEntityType(data)} "${getEntityName(data)}"`;
     case 'member_role_updated':
-      return `${senderName} updated your role to ${data.newRole} in ${data.entityType} "${data.entityName}"`;
+      return `${senderName} updated your role to ${data.newRole || 'a new role'} in ${getEntityType(data)} "${getEntityName(data)}"`;
     case 'label_added':
-      return `${senderName} added label "${data.labelName}" to ${data.entityType} "${data.entityName}"`;
+      return `${senderName} added label "${data.labelName || 'a label'}" to ${getEntityType(data)} "${getEntityName(data)}"`;
     case 'label_updated':
-      return `${senderName} updated label "${data.labelName}" in ${data.entityType} "${data.entityName}"`;
+      return `${senderName} updated label "${data.labelName || 'a label'}" in ${getEntityType(data)} "${getEntityName(data)}"`;
     case 'label_removed':
-      return `${senderName} removed label "${data.labelName}" from ${data.entityType} "${data.entityName}"`;
+      return `${senderName} removed label "${data.labelName || 'a label'}" from ${getEntityType(data)} "${getEntityName(data)}"`;
+    
+    // Comment-related cases - fixed to use cardTitle directly since comments are always on cards
     case 'comment_added':
-      return `${senderName} added a comment on ${data.entityType} "${data.entityName}"`;
+      return `${senderName} added a comment on card "${data.cardTitle || 'a card'}"`;
     case 'comment_replied':
-      return `${senderName} replied to a comment on ${data.entityType} "${data.entityName}"`;
+      return `${senderName} replied to a comment on card "${data.cardTitle || 'a card'}"`;
     case 'comment_updated':
-      return `${senderName} updated their comment on ${data.entityType} "${data.entityName}"`;
+      return `${senderName} updated their comment on card "${data.cardTitle || 'a card'}"`;
     case 'comment_deleted':
-      return `${senderName} deleted their comment from ${data.entityType} "${data.entityName}"`;
+      return `${senderName} deleted their comment from card "${data.cardTitle || 'a card'}"`;
+    
     case 'settings_updated':
-      return `${senderName} updated settings for ${data.entityType} "${data.entityName}"`;
+      return `${senderName} updated settings for ${getEntityType(data)} "${getEntityName(data)}"`;
     case 'attachment_added':
-      return `${senderName} added an attachment to ${data.entityType} "${data.entityName}"`;
+      return `${senderName} added an attachment to ${getEntityType(data)} "${getEntityName(data)}"`;
     case 'attachment_removed':
-      return `${senderName} removed an attachment from ${data.entityType} "${data.entityName}"`;
+      return `${senderName} removed an attachment from ${getEntityType(data)} "${getEntityName(data)}"`;
     case 'meeting_created':
-      return `${senderName} scheduled a new meeting "${data.meetingTitle}"`;
+      return `${senderName} scheduled a new meeting "${data.meetingTitle || 'a meeting'}"`;
     case 'meeting_deleted':
-      return `${senderName} cancelled the meeting "${data.meetingTitle}"`;
+      return `${senderName} cancelled the meeting "${data.meetingTitle || 'a meeting'}"`;
     case 'meeting_updated':
-      return `${senderName} updated the meeting "${data.meetingTitle}"`;
+      return `${senderName} updated the meeting "${data.meetingTitle || 'a meeting'}"`;
     case 'meeting_attendees_added':
-      return `${senderName} added you to the meeting "${data.meetingTitle}"`;
+      return `${senderName} added you to the meeting "${data.meetingTitle || 'a meeting'}"`;
     case 'meeting_attendee_removed':
-      return `${senderName} removed you from the meeting "${data.meetingTitle}"`;
+      return `${senderName} removed you from the meeting "${data.meetingTitle || 'a meeting'}"`;
     default:
-      return `You have a new notification`;
+      return `You have a new notification from ${senderName}`;
   }
 };
 

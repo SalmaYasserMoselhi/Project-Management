@@ -6,13 +6,8 @@ import {
   useImperativeHandle,
 } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import {
-  addAttachment,
-  removeAttachment,
-  uploadAttachments,
-  deleteAttachment,
-} from "../features/Slice/cardSlice/cardDetailsSlice";
-import { Plus, X, Upload, FileText, Check, AlertCircle } from "lucide-react";
+import { toast } from "react-toastify";
+import { Plus, X, Upload, FileText } from "lucide-react";
 
 const MAX_FILES_PER_UPLOAD = 5;
 
@@ -30,61 +25,64 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
   const [isPendingMode, setIsPendingMode] = useState(false);
   const [localAttachments, setLocalAttachments] = useState([]);
   const [deletedAttachmentIds, setDeletedAttachmentIds] = useState([]);
-  const [errorMessage, setErrorMessage] = useState("");
 
-  // توفير وظائف لمكون الوالد عبر ref
+  // provide functions to the parent component through ref
   useImperativeHandle(ref, () => ({
     getPendingFiles: () => pendingFiles,
     getDeletedAttachmentIds: () => deletedAttachmentIds,
   }));
 
-  // تحميل المرفقات الحالية عند تغيير المكون
+  // load attachments when the component changes
   useEffect(() => {
     if (attachments && attachments.length > 0) {
       setLocalAttachments(attachments);
     }
   }, [attachments]);
 
-  // تنسيق حجم الملف
+  // Handle Redux attachment errors
+  useEffect(() => {
+    if (attachmentError) {
+      toast.error(attachmentError);
+    }
+  }, [attachmentError]);
+
+  // format file size
   const formatFileSize = (bytes) => {
     if (bytes < 1024) return bytes + " bytes";
     else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
     else return (bytes / 1048576).toFixed(1) + " MB";
   };
 
-  // إضافة ملف جديد
+  // add new file
   const handleFileChange = (event) => {
     const files = event.target.files;
     if (!files.length) return;
 
-    // تحقق من عدد الملفات التي يتم رفعها
+    // check if the number of files is less than the maximum
     if (files.length > MAX_FILES_PER_UPLOAD) {
-      setErrorMessage(
+      toast.error(
         `You can only upload up to ${MAX_FILES_PER_UPLOAD} files at a time.`
       );
-      // إعادة تعيين حقل الإدخال
+      // reset input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
       return;
     }
 
-    // التحقق من إجمالي عدد الملفات المعلقة
+    // check if the total number of pending files is less than the maximum
     if (pendingFiles.length + files.length > MAX_FILES_PER_UPLOAD) {
-      setErrorMessage(
+      toast.error(
         `You can only have ${MAX_FILES_PER_UPLOAD} pending files at a time.`
       );
-      // إعادة تعيين حقل الإدخال
+      // reset input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
       return;
     }
 
-    // مسح رسالة الخطأ إذا كانت موجودة
-    setErrorMessage("");
-
-    // إضافة الملفات إلى قائمة الملفات المعلقة
+    // add the files to the pending files list
     const newPendingFiles = [...pendingFiles];
 
     for (let i = 0; i < files.length; i++) {
@@ -95,24 +93,24 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
     setPendingFiles(newPendingFiles);
     setIsPendingMode(true);
 
-    // إعادة تعيين حقل الإدخال
+    // reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  // حذف مرفق محلي
+  // delete local attachment
   const handleDeleteLocalAttachment = (attachmentId) => {
-    // إذا كان المرفق موجودًا بالفعل في الخادم، أضفه إلى قائمة المرفقات المحذوفة
+    // if the attachment is already on the server, add it to the deleted attachments list
     setDeletedAttachmentIds([...deletedAttachmentIds, attachmentId]);
 
-    // إزالة المرفق من القائمة المحلية
+    // remove the attachment from the local list
     setLocalAttachments(
       localAttachments.filter((att) => att.id !== attachmentId)
     );
   };
 
-  // إزالة ملف معلق
+  // remove pending file
   const handleRemovePendingFile = (index) => {
     const newPendingFiles = [...pendingFiles];
     newPendingFiles.splice(index, 1);
@@ -121,25 +119,8 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
     if (newPendingFiles.length === 0) {
       setIsPendingMode(false);
     }
-
-    // مسح رسالة الخطأ إذا كانت موجودة
-    setErrorMessage("");
   };
 
-  // تنزيل مرفق
-  // const handleDownloadAttachment = (url, fileName) => {
-  //   if (!url) return;
-
-  //   // إنشاء رابط وتنزيل الملف
-  //   const link = document.createElement("a");
-  //   link.href = url;
-  //   link.download = fileName;
-  //   link.target = "_blank";
-  //   document.body.appendChild(link);
-  //   link.click();
-  //   document.body.removeChild(link);
-  // };
-  // تنزيل مرفق - Force download instead of opening in browser
   const handleDownloadAttachment = (url, fileName) => {
     if (!url) {
       console.error("Missing URL for file download");
@@ -161,15 +142,13 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
       document.body.removeChild(link);
     } catch (error) {
       console.error("Error downloading file:", error);
-      setErrorMessage(`Failed to download ${fileName}. Please try again.`);
+      toast.error(`Failed to download ${fileName}. Please try again.`);
     }
   };
 
   return (
     <div className="mt-4">
-      {/* العنوان وزر الإضافة - تم تغيير التصميم هنا */}
       <div className="flex items-center text-gray-500 mb-2 space-x-2">
-        {/* أيقونة المرفقات */}
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="20"
@@ -187,7 +166,6 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
         </svg>
 
         <span className="font-medium text-gray-600">Attachment</span>
-        {/* زر إضافة الملفات */}
         <button
           className="w-6 h-6 flex items-center justify-center bg-[#4D2D611A] text-[#4D2D61] rounded-md"
           onClick={() => fileInputRef.current.click()}
@@ -209,30 +187,19 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
           multiple
         />
 
-        {/* إضافة نص توضيحي للحد الأقصى */}
         <span className="text-xs text-gray-400">
           (Max {MAX_FILES_PER_UPLOAD} files at a time)
         </span>
       </div>
 
-      {/* عرض رسالة الخطأ إذا كانت موجودة */}
-      {errorMessage && (
-        <div className="flex items-center text-red-500 text-sm mb-2">
-          <AlertCircle className="w-4 h-4 mr-1" />
-          {errorMessage}
-        </div>
-      )}
-
-      {/* قائمة المرفقات */}
+      {/* attachments list */}
       <div className="flex flex-col gap-2 mt-2">
-        {/* عرض المرفقات المخزنة على الخادم */}
         {localAttachments.map((attachment) => (
           <div
             key={attachment.id}
             className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white shadow-sm w-full max-w-full"
           >
             <div className="flex items-center gap-3 flex-grow overflow-hidden">
-              {/* أيقونة الملف */}
               <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-[#4D2D611A] rounded-md">
                 <FileText className="w-4 h-4 text-[#4D2D61]" />
               </div>
@@ -256,7 +223,7 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
             </div>
 
             <div className="flex gap-2 ml-2">
-              {/* زر التنزيل */}
+              {/* download */}
               <button
                 className="text-blue-500 hover:text-blue-700 transition"
                 onClick={() =>
@@ -280,7 +247,7 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
                   />
                 </svg>
               </button>
-              {/* زر الحذف */}
+              {/* Delete */}
               <button
                 className="text-gray-500 hover:text-red-500 transition"
                 onClick={() => handleDeleteLocalAttachment(attachment.id)}
@@ -292,7 +259,7 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
           </div>
         ))}
 
-        {/* عرض الملفات المعلقة */}
+        {/* view pending files */}
         {pendingFiles.map((file, index) => (
           <div
             key={`pending-${index}`}
@@ -318,7 +285,7 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
             </div>
 
             <div className="flex gap-2 ml-2">
-              {/* زر الحذف */}
+              {/* delete */}
               <button
                 className="text-gray-500 hover:text-red-500 transition"
                 onClick={() => handleRemovePendingFile(index)}
@@ -330,7 +297,6 @@ const CardAttachments = forwardRef(({ cardId }, ref) => {
           </div>
         ))}
 
-        {/* رسالة في حالة عدم وجود مرفقات */}
         {localAttachments.length === 0 && pendingFiles.length === 0 && (
           <div className="text-gray-400 text-sm w-full text-center p-3 border border-dashed border-gray-300 rounded-lg">
             No attachments yet. Click the "+" button to upload files.
