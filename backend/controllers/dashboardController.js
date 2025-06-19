@@ -615,7 +615,7 @@ function getDateRange(period, timezone = 'Africa/Cairo') {
         const date = new Date(endDate);
         date.setMonth(date.getMonth() - i);
         intervals.push({
-          label: date.toLocaleString('ar-EG', { month: 'short', timeZone: timezone }),
+          label: date.toLocaleString('en-EG', { month: 'short', timeZone: timezone }),
           year: date.getFullYear(),
           month: date.getMonth() + 1, // 1-based month
           key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
