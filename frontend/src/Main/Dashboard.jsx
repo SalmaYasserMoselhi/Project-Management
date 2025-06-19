@@ -224,6 +224,12 @@ const styles = `
   opacity: 0;
   animation: fadeIn 0.8s ease-out 0.5s forwards;
 }
+
+@media (max-width: 1024px) {
+  .card-hover:hover {
+    transform: none;
+  }
+}
 `;
 
 // Skeleton components
