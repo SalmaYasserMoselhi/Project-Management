@@ -1,94 +1,109 @@
 // In your dashboardController.js (create this file if it doesn't exist)
 const Card = require('../models/cardModel');
 const catchAsync = require('../utils/catchAsync');
-const Board = require('../models/boardModel')
-const List = require('../models/listModel')
+const Board = require('../models/boardModel');
+const List = require('../models/listModel');
 const AppError = require('../utils/appError');
 
 exports.getHighPriorityTasks = catchAsync(async (req, res, next) => {
   try {
     // 1. Get all boards where user is a member
     const boards = await Board.find({
-      'members.user': req.user._id
+      'members.user': req.user._id,
     }).select('_id name');
 
     if (!boards || boards.length === 0) {
       return res.status(200).json({
         status: 'success',
         results: 0,
-        data: []
+        data: [],
       });
     }
 
-    const boardIds = boards.map(board => board._id);
+    const boardIds = boards.map((board) => board._id);
 
     // 2. Get all lists from these boards
     const lists = await List.find({
-      board: { $in: boardIds }
+      board: { $in: boardIds },
     }).select('_id name board');
 
     if (!lists || lists.length === 0) {
       return res.status(200).json({
         status: 'success',
         results: 0,
-        data: []
+        data: [],
       });
     }
 
     // 3. Find all high priority cards with member details
     const highPriorityCards = await Card.find({
-      list: { $in: lists.map(l => l._id) },
+      list: { $in: lists.map((l) => l._id) },
       priority: 'high',
-      archived: false
+      archived: false,
     })
       .sort('-createdAt')
       .populate({
         path: 'list',
         select: 'name board',
-        options: { lean: true }
+        options: { lean: true },
       })
       .populate('createdBy', 'firstName lastName avatar')
       .populate('members.user', 'firstName lastName avatar')
       .lean();
 
     // 4. Format the response with proper null checks
-    const formattedCards = highPriorityCards.map(card => {
+    const formattedCards = highPriorityCards.map((card) => {
       // Safely get list and board info
-      const list = card.list ? lists.find(l => l._id.equals(card.list._id)) : null;
-      const board = list && list.board ? boards.find(b => b._id.equals(list.board)) : null;
+      const list = card.list
+        ? lists.find((l) => l._id.equals(card.list._id))
+        : null;
+      const board =
+        list && list.board
+          ? boards.find((b) => b._id.equals(list.board))
+          : null;
 
       // Format members safely
-      const formattedMembers = (card.members || []).map(member => {
-        if (!member || !member.user) return null;
-        return {
-          id: member.user._id,
-          name: `${member.user.firstName || ''} ${member.user.lastName || ''}`.trim(),
-          avatar: member.user.avatar || null,
-          assignedAt: member.assignedAt || null
-        };
-      }).filter(member => member !== null);
+      const formattedMembers = (card.members || [])
+        .map((member) => {
+          if (!member || !member.user) return null;
+          return {
+            id: member.user._id,
+            name: `${member.user.firstName || ''} ${
+              member.user.lastName || ''
+            }`.trim(),
+            avatar: member.user.avatar || null,
+            assignedAt: member.assignedAt || null,
+          };
+        })
+        .filter((member) => member !== null);
 
       return {
         id: card._id,
         title: card.title || 'Untitled Task',
         priority: card.priority || 'high',
-        board: board ? {
-          id: board._id,
-          name: board.name || 'Unnamed Board'
-        } : null,
-        list: list ? {
-          id: list._id,
-          name: list.name || 'Unnamed List'
-        } : null,
+        board: board
+          ? {
+              id: board._id,
+              name: board.name || 'Unnamed Board',
+            }
+          : null,
+        list: list
+          ? {
+              id: list._id,
+              name: list.name || 'Unnamed List',
+            }
+          : null,
         createdAt: card.createdAt || new Date(),
         timeAgo: getTimeAgo(card.createdAt || new Date()),
-        createdBy: card.createdBy ? {
-          firstName: card.createdBy.firstName || '',
-          lastName: card.createdBy.lastName || '',
-          avatar: card.createdBy.avatar || null
-        } : null,
+        createdBy: card.createdBy
+          ? {
+              firstName: card.createdBy.firstName || '',
+              lastName: card.createdBy.lastName || '',
+              avatar: card.createdBy.avatar || null,
+            }
+          : null,
         members: formattedMembers,
-        dueDate: card.dueDate?.endDate || null
+        dueDate: card.dueDate?.endDate || null,
       };
     });
 
@@ -96,15 +111,14 @@ exports.getHighPriorityTasks = catchAsync(async (req, res, next) => {
       status: 'success',
       results: formattedCards.length,
       data: {
-        tasks: formattedCards
-      }
+        tasks: formattedCards,
+      },
     });
-
   } catch (err) {
     console.error('Error in getHighPriorityTasks:', err);
     res.status(500).json({
       status: 'error',
-      message: 'An error occurred while fetching high priority tasks'
+      message: 'An error occurred while fetching high priority tasks',
     });
   }
 });
@@ -118,7 +132,7 @@ function getTimeAgo(date) {
     week: 604800,
     day: 86400,
     hour: 3600,
-    minute: 60
+    minute: 60,
   };
 
   for (const [unit, secondsInUnit] of Object.entries(intervals)) {
@@ -133,10 +147,12 @@ function getTimeAgo(date) {
 exports.getCalendarDeadlines = catchAsync(async (req, res, next) => {
   // Get user's timezone from request or default to Egypt timezone
   const userTimezone = req.user.timezone || 'Africa/Cairo';
-  
+
   // 1. Get date from query params (default to today if not provided)
-  const dateString = req.query.date || new Date().toLocaleDateString('en-CA', { timeZone: userTimezone });
-  
+  const dateString =
+    req.query.date ||
+    new Date().toLocaleDateString('en-CA', { timeZone: userTimezone });
+
   // Validate date format (YYYY-MM-DD)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
     return next(new AppError('Invalid date format. Use YYYY-MM-DD', 400));
@@ -147,39 +163,43 @@ exports.getCalendarDeadlines = catchAsync(async (req, res, next) => {
   const endOfDay = new Date(`${dateString}T23:59:59.999`);
 
   // Convert to UTC for database query
-  const utcStart = new Date(startOfDay.getTime() - (getTimezoneOffset(userTimezone) * 60000));
-  const utcEnd = new Date(endOfDay.getTime() - (getTimezoneOffset(userTimezone) * 60000));
+  const utcStart = new Date(
+    startOfDay.getTime() - getTimezoneOffset(userTimezone) * 60000
+  );
+  const utcEnd = new Date(
+    endOfDay.getTime() - getTimezoneOffset(userTimezone) * 60000
+  );
 
   // 3. Get all boards where user is a member
   const boards = await Board.find({
-    'members.user': req.user._id
+    'members.user': req.user._id,
   }).select('_id');
 
   if (!boards || boards.length === 0) {
     return res.status(200).json({
       status: 'success',
       results: 0,
-      data: []
+      data: [],
     });
   }
 
-  const boardIds = boards.map(board => board._id);
+  const boardIds = boards.map((board) => board._id);
 
   // 4. Get all lists from these boards
   const lists = await List.find({
-    board: { $in: boardIds }
+    board: { $in: boardIds },
   }).select('_id');
 
-  const listIds = lists.map(list => list._id);
+  const listIds = lists.map((list) => list._id);
 
   // 5. Find cards due on the selected date
   const calendarDeadlines = await Card.find({
     list: { $in: listIds },
     'dueDate.endDate': {
       $gte: utcStart,
-      $lte: utcEnd
+      $lte: utcEnd,
     },
-    archived: false
+    archived: false,
   })
     .sort('dueDate.endDate')
     .populate({
@@ -187,35 +207,43 @@ exports.getCalendarDeadlines = catchAsync(async (req, res, next) => {
       select: 'name',
       populate: {
         path: 'board',
-        select: 'name'
-      }
+        select: 'name',
+      },
     })
     .populate('members.user', 'firstName lastName avatar')
     .populate('createdBy', 'firstName lastName avatar');
 
   // 6. Format the response
-  const formattedDeadlines = calendarDeadlines.map(card => {
+  const formattedDeadlines = calendarDeadlines.map((card) => {
     const dueDate = new Date(card.dueDate.endDate);
-    
+
+    // تحقق من وجود list و board
+    const list = card.list || {};
+    const board = list.board || {};
+
     return {
       id: card._id,
       title: card.title,
-      dueTime: dueDate.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
+      dueTime: dueDate.toLocaleTimeString('en-US', {
+        hour: '2-digit',
         minute: '2-digit',
-        timeZone: userTimezone 
+        timeZone: userTimezone,
       }),
       dueDateTime: dueDate,
-      boardId: card.list.board._id,
-      boardName: card.list.board.name,
-      listName: card.list.name,
+      boardId: board._id || null,
+      boardName: board.name || '',
+      listName: list.name || '',
       priority: card.priority,
-      members: card.members.map(m => ({
-        id: m.user._id,
-        name: `${m.user.firstName} ${m.user.lastName}`,
-        avatar: m.user.avatar
-      })),
-      createdBy: card.createdBy
+      members: Array.isArray(card.members)
+        ? card.members.map((m) => ({
+            id: m.user && m.user._id ? m.user._id : null,
+            name: m.user
+              ? `${m.user.firstName || ''} ${m.user.lastName || ''}`.trim()
+              : 'Unknown',
+            avatar: m.user ? m.user.avatar : null,
+          }))
+        : [],
+      createdBy: card.createdBy,
     };
   });
 
@@ -224,15 +252,15 @@ exports.getCalendarDeadlines = catchAsync(async (req, res, next) => {
     date: dateString,
     results: formattedDeadlines.length,
     data: {
-      deadlines: formattedDeadlines
-    }
+      deadlines: formattedDeadlines,
+    },
   });
 });
 
 exports.getActivityLog = catchAsync(async (req, res, next) => {
   // Get user's timezone
   const userTimezone = req.user.timezone || 'Africa/Cairo';
-  
+
   // Add sorting parameters
   const sortBy = req.query.sortBy || 'createdAt'; // createdAt, action, entityType
   const sortOrder = req.query.sortOrder || 'desc'; // asc or desc
@@ -242,16 +270,21 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
   const validSortOrders = ['asc', 'desc'];
 
   if (!validSortFields.includes(sortBy)) {
-    return next(new AppError('Invalid sort field. Use: createdAt, action, or entityType', 400));
+    return next(
+      new AppError(
+        'Invalid sort field. Use: createdAt, action, or entityType',
+        400
+      )
+    );
   }
-  
+
   if (!validSortOrders.includes(sortOrder)) {
     return next(new AppError('Invalid sort order. Use: asc or desc', 400));
   }
 
   // 2. Get all boards where user is a member
   const boards = await Board.find({
-    'members.user': req.user._id
+    'members.user': req.user._id,
   }).select('_id name');
 
   if (!boards || boards.length === 0) {
@@ -261,12 +294,12 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
       sortBy,
       sortOrder,
       data: {
-        activities: []
-      }
+        activities: [],
+      },
     });
   }
 
-  const boardIds = boards.map(board => board._id);
+  const boardIds = boards.map((board) => board._id);
 
   // 3. Build sort object for aggregation
   const sortObject = {};
@@ -278,17 +311,17 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
     { $unwind: '$activities' },
     { $sort: { 'activities.createdAt': -1 } },
     { $sort: sortObject },
-    { 
+    {
       $lookup: {
         from: 'users',
         localField: 'activities.user',
         foreignField: '_id',
-        as: 'user'
-      }
+        as: 'user',
+      },
     },
     { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
     {
-       $project: {
+      $project: {
         _id: 0,
         id: '$activities._id',
         action: '$activities.action',
@@ -302,44 +335,50 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
             if: '$user',
             then: {
               id: '$user._id',
-              name: { 
-                $trim: { 
-                  input: { $concat: [
-                    { $ifNull: ['$user.firstName', ''] }, 
-                    ' ', 
-                    { $ifNull: ['$user.lastName', ''] }
-                  ]}
-                }
+              name: {
+                $trim: {
+                  input: {
+                    $concat: [
+                      { $ifNull: ['$user.firstName', ''] },
+                      ' ',
+                      { $ifNull: ['$user.lastName', ''] },
+                    ],
+                  },
+                },
               },
-              avatar: '$user.avatar'
+              avatar: '$user.avatar',
             },
             else: {
               id: null,
               name: 'Unknown User',
-              avatar: null
-            }
-          }
+              avatar: null,
+            },
+          },
         },
         board: {
           id: '$_id',
-          name: '$name'
-        }
-      }
-    }
+          name: '$name',
+        },
+      },
+    },
   ]);
 
   // 5. Format action types for display and add time formatting
-  const formattedActivities = activities.map(activity => {
+  const formattedActivities = activities.map((activity) => {
     return {
       ...activity,
-      actionText: getActionText(activity.action, activity.entityType, activity.entityName),
+      actionText: getActionText(
+        activity.action,
+        activity.entityType,
+        activity.entityName
+      ),
       timestamp: activity.createdAt,
       // Format date in user's timezone
       formattedDate: formatActivityDate(activity.createdAt, userTimezone),
       // Add relative time
       timeAgo: getTimeAgo(activity.createdAt),
       // Add date grouping for UI
-      dateGroup: getDateGroup(activity.createdAt, userTimezone)
+      dateGroup: getDateGroup(activity.createdAt, userTimezone),
     };
   });
 
@@ -349,46 +388,48 @@ exports.getActivityLog = catchAsync(async (req, res, next) => {
     sortBy,
     sortOrder,
     data: {
-      activities: formattedActivities
-    }
+      activities: formattedActivities,
+    },
   });
 });
 
 // Helper function to convert action types to display text
-function getActionText(action, entityType, entityName) {  // Fixed: Added entityName parameter
+function getActionText(action, entityType, entityName) {
+  // Fixed: Added entityName parameter
   const actionMap = {
-    'card_created': `created ${entityType}`,
-    'card_updated': `updated ${entityType}`,
-    'card_moved': `moved ${entityType}`,
-    'card_deleted': `deleted ${entityType}`,
-    'card_archived': `archived ${entityType}`,
-    'card_restored': `restored ${entityType}`,
-    'card_assigned': `assigned ${entityType}`,
-    'card_unassigned': `unassigned ${entityType}`,
-    'card_due_date_set': `set due date for ${entityType}`,
-    'card_due_date_changed': `changed due date for ${entityType}`,
-    'card_due_date_removed': `removed due date from ${entityType}`,
-    'card_priority_changed': `changed priority of ${entityType}`,
-    'card_comment_added': `commented on ${entityType}`,
-    'card_attachment_added': `added attachment to ${entityType}`,
-    'card_checklist_added': `added checklist to ${entityType}`,
-    'card_checklist_item_completed': `completed checklist item in ${entityType}`,
-    'list_created': `created ${entityType}`,
-    'list_updated': `updated ${entityType}`,
-    'list_deleted': `deleted ${entityType}`,
-    'list_archived': `archived ${entityType}`,
-    'list_moved': `moved ${entityType}`,
-    'member_added': `added member to ${entityType}`,
-    'member_removed': `removed member from ${entityType}`,
-    'board_created': `created ${entityType}`,
-    'board_updated': `updated ${entityType}`,
-    'board_deleted': `deleted ${entityType}`,
-    'board_archived': `archived ${entityType}`,
-    'board_restored': `restored ${entityType}`
+    card_created: `created ${entityType}`,
+    card_updated: `updated ${entityType}`,
+    card_moved: `moved ${entityType}`,
+    card_deleted: `deleted ${entityType}`,
+    card_archived: `archived ${entityType}`,
+    card_restored: `restored ${entityType}`,
+    card_assigned: `assigned ${entityType}`,
+    card_unassigned: `unassigned ${entityType}`,
+    card_due_date_set: `set due date for ${entityType}`,
+    card_due_date_changed: `changed due date for ${entityType}`,
+    card_due_date_removed: `removed due date from ${entityType}`,
+    card_priority_changed: `changed priority of ${entityType}`,
+    card_comment_added: `commented on ${entityType}`,
+    card_attachment_added: `added attachment to ${entityType}`,
+    card_checklist_added: `added checklist to ${entityType}`,
+    card_checklist_item_completed: `completed checklist item in ${entityType}`,
+    list_created: `created ${entityType}`,
+    list_updated: `updated ${entityType}`,
+    list_deleted: `deleted ${entityType}`,
+    list_archived: `archived ${entityType}`,
+    list_moved: `moved ${entityType}`,
+    member_added: `added member to ${entityType}`,
+    member_removed: `removed member from ${entityType}`,
+    board_created: `created ${entityType}`,
+    board_updated: `updated ${entityType}`,
+    board_deleted: `deleted ${entityType}`,
+    board_archived: `archived ${entityType}`,
+    board_restored: `restored ${entityType}`,
   };
 
-  let actionText = actionMap[action] || `${action.replace(/_/g, ' ')} ${entityType}`;
-  
+  let actionText =
+    actionMap[action] || `${action.replace(/_/g, ' ')} ${entityType}`;
+
   // Add entity name if available
   if (entityName) {
     actionText += ` "${entityName}"`;
@@ -406,7 +447,7 @@ function formatActivityDate(date, timezone = 'Africa/Cairo') {
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
-    timeZone: timezone
+    timeZone: timezone,
   });
 }
 
@@ -416,23 +457,27 @@ function getDateGroup(date, timezone = 'Africa/Cairo') {
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  
+
   // Format dates in user's timezone
-  const activityDateStr = activityDate.toLocaleDateString('en-CA', { timeZone: timezone });
+  const activityDateStr = activityDate.toLocaleDateString('en-CA', {
+    timeZone: timezone,
+  });
   const todayStr = today.toLocaleDateString('en-CA', { timeZone: timezone });
-  const yesterdayStr = yesterday.toLocaleDateString('en-CA', { timeZone: timezone });
-  
+  const yesterdayStr = yesterday.toLocaleDateString('en-CA', {
+    timeZone: timezone,
+  });
+
   if (activityDateStr === todayStr) {
     return 'Today';
   } else if (activityDateStr === yesterdayStr) {
     return 'Yesterday';
   } else {
-    return activityDate.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
+    return activityDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
       day: 'numeric',
-      timeZone: timezone 
+      timeZone: timezone,
     });
   }
 }
@@ -440,13 +485,15 @@ function getDateGroup(date, timezone = 'Africa/Cairo') {
 exports.getTaskStats = catchAsync(async (req, res, next) => {
   // Get user's timezone
   const userTimezone = req.user.timezone || 'Africa/Cairo';
-  
+
   // 1. Get period from query (weekly/monthly/yearly)
   const period = req.query.period || 'weekly';
   const validPeriods = ['weekly', 'monthly', 'yearly'];
-  
+
   if (!validPeriods.includes(period)) {
-    return next(new AppError('Invalid period. Use weekly, monthly, or yearly', 400));
+    return next(
+      new AppError('Invalid period. Use weekly, monthly, or yearly', 400)
+    );
   }
 
   // 2. Get date ranges based on user's timezone
@@ -454,26 +501,26 @@ exports.getTaskStats = catchAsync(async (req, res, next) => {
 
   // 3. Get all boards where user is a member
   const boards = await Board.find({
-    'members.user': req.user._id
+    'members.user': req.user._id,
   }).select('_id');
 
   if (!boards || boards.length === 0) {
     return emptyStatsResponse(res, period, intervals);
   }
 
-  const boardIds = boards.map(board => board._id);
+  const boardIds = boards.map((board) => board._id);
 
   // 4. Get all lists from these boards
   const lists = await List.find({
-    board: { $in: boardIds }
+    board: { $in: boardIds },
   }).select('_id');
 
-  const listIds = lists.map(list => list._id);
+  const listIds = lists.map((list) => list._id);
 
   // 5. Get all cards (for total count)
   const totalCards = await Card.countDocuments({
     list: { $in: listIds },
-    archived: false
+    archived: false,
   });
 
   // 6. Get completed cards grouped by time period
@@ -483,8 +530,8 @@ exports.getTaskStats = catchAsync(async (req, res, next) => {
         list: { $in: listIds },
         archived: false,
         'state.current': 'completed',
-        'state.completedAt': { $gte: startDate, $lte: endDate }
-      }
+        'state.completedAt': { $gte: startDate, $lte: endDate },
+      },
     },
     {
       $addFields: {
@@ -493,26 +540,31 @@ exports.getTaskStats = catchAsync(async (req, res, next) => {
           $dateAdd: {
             startDate: '$state.completedAt',
             unit: 'millisecond',
-            amount: getTimezoneOffset(userTimezone) * 60000
-          }
-        }
-      }
+            amount: getTimezoneOffset(userTimezone) * 60000,
+          },
+        },
+      },
     },
     {
       $group: {
         _id: getGroupingExpression(period),
-        count: { $sum: 1 }
-      }
+        count: { $sum: 1 },
+      },
     },
-    { $sort: { _id: 1 } }
+    { $sort: { _id: 1 } },
   ]);
 
   // 7. Format the response
-  const stats = buildStatsResponse(period, intervals, completedStats, totalCards);
+  const stats = buildStatsResponse(
+    period,
+    intervals,
+    completedStats,
+    totalCards
+  );
 
   res.status(200).json({
     status: 'success',
-    data: stats
+    data: stats,
   });
 });
 
@@ -530,39 +582,47 @@ function getDateRange(period, timezone = 'Africa/Cairo') {
       for (let i = 6; i >= 0; i--) {
         const date = new Date(endDate);
         date.setDate(date.getDate() - i);
-        intervals.push(date.toLocaleDateString('en-CA', { timeZone: timezone }));
+        intervals.push(
+          date.toLocaleDateString('en-CA', { timeZone: timezone })
+        );
       }
       break;
-      
+
     case 'monthly':
       startDate.setDate(endDate.getDate() - 29); // 30 days total
       // Create 5 week intervals
       for (let i = 4; i >= 0; i--) {
         const weekStart = new Date(endDate);
-        weekStart.setDate(weekStart.getDate() - (i * 7) - 6);
+        weekStart.setDate(weekStart.getDate() - i * 7 - 6);
         const weekEnd = new Date(endDate);
-        weekEnd.setDate(weekEnd.getDate() - (i * 7));
-        
+        weekEnd.setDate(weekEnd.getDate() - i * 7);
+
         intervals.push({
           label: `Week ${5 - i}`,
           start: weekStart.toLocaleDateString('en-CA', { timeZone: timezone }),
-          end: weekEnd.toLocaleDateString('en-CA', { timeZone: timezone })
+          end: weekEnd.toLocaleDateString('en-CA', { timeZone: timezone }),
         });
       }
       break;
-      
+
     case 'yearly':
       startDate.setFullYear(endDate.getFullYear() - 1);
       startDate.setMonth(endDate.getMonth() + 1); // Start from next month of last year
-      
+
       for (let i = 11; i >= 0; i--) {
         const date = new Date(endDate);
         date.setMonth(date.getMonth() - i);
         intervals.push({
-          label: date.toLocaleString('default', { month: 'short', timeZone: timezone }),
+          label: date.toLocaleString('default', {
+            month: 'short',
+            timeZone: timezone,
+          }),
           year: date.getFullYear(),
           month: date.getMonth() + 1, // 1-based month
-          key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+          key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+            2,
+            '0'
+          )}`,
         });
       }
       break;
@@ -574,116 +634,121 @@ function getDateRange(period, timezone = 'Africa/Cairo') {
 function getGroupingExpression(period) {
   switch (period) {
     case 'weekly':
-      return { $dateToString: { format: "%Y-%m-%d", date: "$localCompletedAt" } };
-      
+      return {
+        $dateToString: { format: '%Y-%m-%d', date: '$localCompletedAt' },
+      };
+
     case 'monthly':
       // Group by week number within the period
       return {
-        $dateToString: { 
-          format: "%Y-%m-%d", 
+        $dateToString: {
+          format: '%Y-%m-%d',
           date: {
             $dateFromParts: {
-              year: { $year: "$localCompletedAt" },
-              month: { $month: "$localCompletedAt" },
-              day: { $dayOfMonth: "$localCompletedAt" }
-            }
-          }
-        }
+              year: { $year: '$localCompletedAt' },
+              month: { $month: '$localCompletedAt' },
+              day: { $dayOfMonth: '$localCompletedAt' },
+            },
+          },
+        },
       };
-      
+
     case 'yearly':
       // Group by year-month
       return {
-        $dateToString: { 
-          format: "%Y-%m", 
-          date: "$localCompletedAt" 
-        }
+        $dateToString: {
+          format: '%Y-%m',
+          date: '$localCompletedAt',
+        },
       };
   }
 }
 
 function buildStatsResponse(period, intervals, completedStats, totalCards) {
   let stats = [];
-  
+
   if (period === 'weekly') {
     // Direct mapping for weekly
     const completedMap = {};
-    completedStats.forEach(stat => {
+    completedStats.forEach((stat) => {
       completedMap[stat._id] = stat.count;
     });
-    
-    stats = intervals.map(interval => ({
+
+    stats = intervals.map((interval) => ({
       period: interval,
-      completed: completedMap[interval] || 0
+      completed: completedMap[interval] || 0,
     }));
-    
   } else if (period === 'monthly') {
     // Group daily completions into weeks
     const completedMap = {};
-    completedStats.forEach(stat => {
+    completedStats.forEach((stat) => {
       completedMap[stat._id] = stat.count;
     });
-    
-    stats = intervals.map(weekInterval => {
+
+    stats = intervals.map((weekInterval) => {
       let weekTotal = 0;
-      
+
       // Sum up all days in this week range
       const startDate = new Date(weekInterval.start);
       const endDate = new Date(weekInterval.end);
-      
-      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+
+      for (
+        let d = new Date(startDate);
+        d <= endDate;
+        d.setDate(d.getDate() + 1)
+      ) {
         const dateKey = d.toLocaleDateString('en-CA');
         weekTotal += completedMap[dateKey] || 0;
       }
-      
+
       return {
         period: weekInterval.label,
-        completed: weekTotal
+        completed: weekTotal,
       };
     });
-    
   } else if (period === 'yearly') {
     // Direct mapping for yearly (month-based)
     const completedMap = {};
-    completedStats.forEach(stat => {
+    completedStats.forEach((stat) => {
       completedMap[stat._id] = stat.count;
     });
-    
-    stats = intervals.map(monthInterval => ({
+
+    stats = intervals.map((monthInterval) => ({
       period: monthInterval.label,
-      completed: completedMap[monthInterval.key] || 0
+      completed: completedMap[monthInterval.key] || 0,
     }));
   }
 
   const totalCompleted = stats.reduce((sum, item) => sum + item.completed, 0);
-  const completionRate = totalCards > 0 ? Math.round((totalCompleted / totalCards) * 100) : 0;
+  const completionRate =
+    totalCards > 0 ? Math.round((totalCompleted / totalCards) * 100) : 0;
 
   return {
     period,
     totalCards,
     totalCompleted,
     completionRate: `${completionRate}%`,
-    breakdown: stats
+    breakdown: stats,
   };
 }
 
 function emptyStatsResponse(res, period, intervals) {
   let stats = [];
-  
+
   if (period === 'weekly') {
-    stats = intervals.map(interval => ({
+    stats = intervals.map((interval) => ({
       period: interval,
-      completed: 0
+      completed: 0,
     }));
   } else if (period === 'monthly') {
-    stats = intervals.map(interval => ({
+    stats = intervals.map((interval) => ({
       period: interval.label,
-      completed: 0
+      completed: 0,
     }));
   } else if (period === 'yearly') {
-    stats = intervals.map(interval => ({
+    stats = intervals.map((interval) => ({
       period: interval.label,
-      completed: 0
+      completed: 0,
     }));
   }
 
@@ -693,15 +758,17 @@ function emptyStatsResponse(res, period, intervals) {
       period,
       totalCards: 0,
       totalCompleted: 0,
-      completionRate: "0%",
-      breakdown: stats
-    }
+      completionRate: '0%',
+      breakdown: stats,
+    },
   });
 }
 // Helper function to get timezone offset in minutes
 function getTimezoneOffset(timezone) {
   const date = new Date();
   const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
-  const localDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
+  const localDate = new Date(
+    date.toLocaleString('en-US', { timeZone: timezone })
+  );
   return (localDate.getTime() - utcDate.getTime()) / (1000 * 60);
 }
