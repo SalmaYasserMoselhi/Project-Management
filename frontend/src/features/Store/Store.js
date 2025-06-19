@@ -8,8 +8,8 @@ import chatReducer from "../Slice/ChatSlice/chatSlice";
 import userWorkspacesReducer from "../Slice/WorkspaceSlice/userWorkspacesSlice";
 import boardsReducer from "../Slice/WorkspaceSlice/boardsSlice";
 import cardDetailsReducer from "../Slice/cardSlice/cardDetailsSlice";
-import meetingModalReducer from "../Slice/ComponentSlice/meetingModalSlice";
-import meetingsReducer from "../Slice/ComponentSlice/meetingsSlice";
+import meetingModalReducer from "../Slice/MeetingSlice/meetingModalSlice";
+import meetingsReducer from "../Slice/MeetingSlice/meetingsSlice";
 import dashboardReducer from "../Slice/dashboard/dashboardSlice";
 
 export const store = configureStore({
