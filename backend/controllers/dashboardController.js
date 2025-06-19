@@ -589,16 +589,18 @@ function getDateRange(period, timezone = 'Africa/Cairo') {
       break;
 
     case 'monthly':
-      startDate.setDate(endDate.getDate() - 29); // 30 days total
-      // Create 5 week intervals
-      for (let i = 4; i >= 0; i--) {
+      // FIXED: Use exactly 4 weeks (28 days) for proper monthly view
+      startDate.setDate(endDate.getDate() - 27); // 28 days total (4 weeks)
+      
+      // Create exactly 4 week intervals of 7 days each
+      for (let weekNum = 4; weekNum >= 1; weekNum--) {
         const weekStart = new Date(endDate);
-        weekStart.setDate(weekStart.getDate() - i * 7 - 6);
+        weekStart.setDate(weekStart.getDate() - (weekNum * 7) + 1);
         const weekEnd = new Date(endDate);
-        weekEnd.setDate(weekEnd.getDate() - i * 7);
-
+        weekEnd.setDate(weekEnd.getDate() - ((weekNum - 1) * 7));
+        
         intervals.push({
-          label: `Week ${5 - i}`,
+          label: `الأسبوع ${5 - weekNum}`, // Week 1, Week 2, Week 3, Week 4
           start: weekStart.toLocaleDateString('en-CA', { timeZone: timezone }),
           end: weekEnd.toLocaleDateString('en-CA', { timeZone: timezone }),
         });
@@ -613,10 +615,7 @@ function getDateRange(period, timezone = 'Africa/Cairo') {
         const date = new Date(endDate);
         date.setMonth(date.getMonth() - i);
         intervals.push({
-          label: date.toLocaleString('default', {
-            month: 'short',
-            timeZone: timezone,
-          }),
+          label: date.toLocaleString('en-EG', { month: 'short', timeZone: timezone }),
           year: date.getFullYear(),
           month: date.getMonth() + 1, // 1-based month
           key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
@@ -668,7 +667,6 @@ function buildStatsResponse(period, intervals, completedStats, totalCards) {
   let stats = [];
 
   if (period === 'weekly') {
-    // Direct mapping for weekly
     const completedMap = {};
     completedStats.forEach((stat) => {
       completedMap[stat._id] = stat.count;
@@ -679,7 +677,6 @@ function buildStatsResponse(period, intervals, completedStats, totalCards) {
       completed: completedMap[interval] || 0,
     }));
   } else if (period === 'monthly') {
-    // Group daily completions into weeks
     const completedMap = {};
     completedStats.forEach((stat) => {
       completedMap[stat._id] = stat.count;
@@ -691,12 +688,9 @@ function buildStatsResponse(period, intervals, completedStats, totalCards) {
       // Sum up all days in this week range
       const startDate = new Date(weekInterval.start);
       const endDate = new Date(weekInterval.end);
-
-      for (
-        let d = new Date(startDate);
-        d <= endDate;
-        d.setDate(d.getDate() + 1)
-      ) {
+      
+      // Include end date in the loop
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
         const dateKey = d.toLocaleDateString('en-CA');
         weekTotal += completedMap[dateKey] || 0;
       }
@@ -704,10 +698,11 @@ function buildStatsResponse(period, intervals, completedStats, totalCards) {
       return {
         period: weekInterval.label,
         completed: weekTotal,
+        // Add debug info to see the date range
+        dateRange: `${weekInterval.start} إلى ${weekInterval.end}`
       };
     });
   } else if (period === 'yearly') {
-    // Direct mapping for yearly (month-based)
     const completedMap = {};
     completedStats.forEach((stat) => {
       completedMap[stat._id] = stat.count;
@@ -729,6 +724,12 @@ function buildStatsResponse(period, intervals, completedStats, totalCards) {
     totalCompleted,
     completionRate: `${completionRate}%`,
     breakdown: stats,
+    // Add summary info
+    summary: {
+      avgPerPeriod: stats.length > 0 ? Math.round(totalCompleted / stats.length) : 0,
+      maxInPeriod: Math.max(...stats.map(s => s.completed)),
+      minInPeriod: Math.min(...stats.map(s => s.completed))
+    }
   };
 }
 

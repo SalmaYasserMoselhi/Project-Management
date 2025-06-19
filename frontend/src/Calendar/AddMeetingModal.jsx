@@ -18,7 +18,7 @@ import {
   saveMeetingData,
   updateMeetingData,
   deleteMeetingData,
-} from "../features/Slice/ComponentSlice/meetingModalSlice";
+} from "../features/Slice/MeetingSlice/meetingModalSlice";
 import MemberSelectionPopup from "../Components/MemberSelectionPopup";
 import axios from "axios";
 
