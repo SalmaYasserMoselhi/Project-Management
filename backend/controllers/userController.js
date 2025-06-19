@@ -260,3 +260,35 @@ exports.getUserStatus = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+
+exports.updateUserStatus = catchAsync(async (req, res, next) => {
+  const { status } = req.body;
+  
+  if (!['online', 'offline'].includes(status)) {
+    return next(new AppError('Status must be either online or offline', 400));
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    { 
+      status,
+      statusChangedAt: Date.now()
+    },
+    { 
+      new: true,
+      validateBeforeSave: false 
+    }
+  );
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      user: {
+        _id: user._id,
+        status: user.status,
+        statusChangedAt: user.statusChangedAt
+      }
+    }
+  });
+});

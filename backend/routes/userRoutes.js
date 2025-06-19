@@ -66,6 +66,10 @@ router.patch(
   authController.protect,
   userController.updateMe
 );
+
+// Add this route to your userRoutes.js
+router.patch('/updateStatus', authController.protect, userController.updateUserStatus);
+
 router.delete('/deleteMe', authController.protect, userController.deleteMe);
 router.get('/search', userController.searchUsers);
 router.get(

@@ -38,6 +38,30 @@ const createSendToken = (user, statusCode, req, res) => {
   });
 };
 
+// Helper function to set user status to online
+const setUserOnline = async (userId) => {
+  await User.findByIdAndUpdate(
+    userId,
+    { 
+      status: 'online',
+      statusChangedAt: Date.now()
+    },
+    { validateBeforeSave: false }
+  );
+};
+
+// Helper function to set user status to offline
+const setUserOffline = async (userId) => {
+  await User.findByIdAndUpdate(
+    userId,
+    { 
+      status: 'offline',
+      statusChangedAt: Date.now()
+    },
+    { validateBeforeSave: false }
+  );
+};
+
 // Helper function to send verification email
 const sendVerificationEmail = async (user, verificationToken) => {
   const verificationURL = `${process.env.BASE_URL}/users/verifyEmail/${verificationToken}`;
@@ -266,6 +290,9 @@ exports.login = catchAsync(async (req, res, next) => {
     );
   }
 
+  // 5) Set user status to online
+  await setUserOnline(user._id);
+
   // 5) If everything is ok, send token and log in user
   createSendToken(user, 200, req, res);
   console.log(`User logged in: ${user.email}`);
@@ -316,6 +343,9 @@ exports.handleCallback = async (req, res) => {
       user.emailVerified = true;
       await user.save({ validateBeforeSave: false });
     }
+
+    // Set user status to online
+    await setUserOnline(user._id);
 
     console.log('User data:', user);
 
@@ -404,6 +434,9 @@ exports.protect = catchAsync(async (req, res, next) => {
       new AppError('User recently changed password! please login again', 401)
     );
   }
+
+  // 5) Update user's last activity and ensure they're online
+  await setUserOnline(currentUser._id);
 
   // Grant access to protected route
   res.locals.user = currentUser;
@@ -605,6 +638,9 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
     path: '/',
   });
 
+  // Set user status to online after successful password reset
+  await setUserOnline(user._id);
+
   // Log user in
   createSendToken(user, 200, req, res);
 });
@@ -623,14 +659,70 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
   user.passwordConfirm = req.body.passwordConfirm;
   await user.save();
 
+
+  // 4) Ensure user stays online after password update
+  await setUserOnline(user._id);
+
   // 4) Log user in, send JWT
   createSendToken(user, 200, req, res);
 });
 // Single, effective approach for logout in authController.js
 
-// authController.js - Verified JWT logout solution
 
-exports.logout = (req, res) => {
+// exports.logout = (req, res) => {
+//   // Force express to expire and clear the cookie properly
+//   res.cookie('jwt', '', {
+//     httpOnly: true,
+//     secure: false, // Set to true if using HTTPS
+//     sameSite: 'lax',
+//     path: '/',
+//     expires: new Date(0), // Forces immediate expiration
+//     maxAge: 0 // Belt and suspenders - explicitly set maxAge to 0
+//   });
+
+
+  // Explicitly send cache headers to prevent browser caching
+//   res.set('Cache-Control', 'no-store');
+  
+//   // Respond with 200 status and clear body content
+//   res.status(200).json({
+//     status: 'success',
+//     message: 'Logged out successfully'
+//   });
+// };
+
+
+// Updated logout function with offline status
+exports.logout = catchAsync(async (req, res, next) => {
+  // Get user ID from JWT token if available
+  let userId = null;
+  let token;
+  
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer')
+  ) {
+    token = req.headers.authorization.split(' ')[1];
+  } else if (req.cookies.jwt) {
+    token = req.cookies.jwt;
+  }
+
+  if (token) {
+    try {
+      const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+      userId = decoded.id;
+    } catch (error) {
+      // Token might be invalid, but we still want to clear the cookie
+      console.log('Invalid token during logout:', error.message);
+    }
+  }
+
+  // Set user status to offline if we have a valid user ID
+  if (userId) {
+    await setUserOffline(userId);
+    console.log(`User logged out: ${userId}`);
+  }
+
   // Force express to expire and clear the cookie properly
   res.cookie('jwt', '', {
     httpOnly: true,
@@ -649,6 +741,10 @@ exports.logout = (req, res) => {
     status: 'success',
     message: 'Logged out successfully'
   });
-};
-
+});
 // module.exports = {signToken};
+
+
+exports.signToken = signToken;
+exports.setUserOnline = setUserOnline;
+exports.setUserOffline = setUserOffline;
