@@ -4,6 +4,7 @@ import Sidebar from "../Components/Sidebar";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { toggleSidebar } from "../features/Slice/ComponentSlice/sidebarSlice";
+import Header from "../Components/Header";
 
 const Main = () => {
   const { isSidebarOpen } = useSelector((state) => state.sidebar);
@@ -28,7 +29,7 @@ const Main = () => {
       {/* Mobile overlay with blur effect */}
       {isMobile && isSidebarOpen && (
         <div
-          className="fixed inset-0 backdrop-blur-xs bg-white/10 z-40"
+          className="fixed inset-0 backdrop-blur-[0.75px] bg-white/10 z-40  "
           onClick={() => dispatch(toggleSidebar())}
         />
       )}
@@ -42,6 +43,8 @@ const Main = () => {
           !isMobile && isSidebarOpen ? "ml-60" : !isMobile ? "ml-20" : "ml-0"
         }`}
       >
+        <Header />
+
         <div className="h-full overflow-auto no-scrollbar">
           <Outlet />
         </div>

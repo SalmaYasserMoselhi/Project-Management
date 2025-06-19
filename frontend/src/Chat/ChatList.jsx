@@ -529,7 +529,7 @@ const ChatList = ({ onChatSelect }) => {
 
   console.log("Filtered chats", filteredChats);
   return (
-    <div className="flex flex-col w-full h-full bg-gradient-to-b from-white to-gray-50/30 border-r border-gray-200/60 shadow-sm">
+    <div className="flex flex-col w-full h-full bg-gradient-to-b from-white to-gray-50/30 border-r border-t border-gray-200/60 shadow-sm">
       {/* Header with enhanced styling */}
       <div className="flex items-center justify-between w-full p-4 bg-white/80 backdrop-blur-sm">
         <h2 className="text-xl font-bold bg-gradient-to-r from-[#4d2d61] to-[#7b4397] bg-clip-text text-transparent">

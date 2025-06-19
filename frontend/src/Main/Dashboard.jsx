@@ -275,7 +275,6 @@ function Dashboard() {
     error,
   } = useSelector((state) => state.dashboard);
 
-  const [isMobile, setIsMobile] = useState(false);
   const [initialScrollDone, setInitialScrollDone] = useState(false);
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -284,20 +283,6 @@ function Dashboard() {
     () => localStorage.getItem("dashboardPeriod") || "weekly"
   );
   const [activitySortOrder, setActivitySortOrder] = useState("desc");
-
-  // Check if mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-
-    return () => {
-      window.removeEventListener("resize", checkMobile);
-    };
-  }, []);
 
   // useEffect لجلب high priority وactivity log مرة واحدة فقط عند mount
   const didMountRef = useRef(false);
@@ -603,20 +588,6 @@ function Dashboard() {
   return (
     <div className="bg-white min-h-screen">
       <style>{styles}</style>
-
-      {/* Header with slide-in animation */}
-      <div className="p-3 md:p-4 flex items-center animate-slide-in-left">
-        {isMobile && (
-          <button
-            onClick={() => dispatch(toggleSidebar())}
-            className="mr-2 p-1 rounded-md button-hover"
-            aria-label="Toggle sidebar"
-          >
-            <Menu size={24} className="text-[#4d2d61]" />
-          </button>
-        )}
-        <Breadcrumb />
-      </div>
 
       {/* Loading state with pulse animation */}
       {loading && isInitialLoad && (
