@@ -684,13 +684,13 @@ const LandingPage = () => {
               >
                 Start Your Free Trial
               </motion.button>
-              <motion.button
+              {/* <motion.button
                 className="px-6 sm:px-7 md:px-8 py-2.5 sm:py-3 bg-white text-[#4d2d61] border border-[#4d2d61]/20 font-medium rounded-lg text-base sm:text-lg shadow-lg w-full sm:w-auto"
                 whileHover={{ scale: 1.05, backgroundColor: "#f9f5ff" }}
                 whileTap={{ scale: 0.95 }}
               >
                 See It In Action
-              </motion.button>
+              </motion.button> */}
             </div>
           </motion.div>
 
@@ -1039,30 +1039,9 @@ const LandingPage = () => {
       </section>
 
       {/* Board Feature Highlight Section */}
-      <section className="py-20 bg-gray-50">
+      <section id="features" className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="flex flex-col lg:flex-row items-center gap-12">
-            <div className="w-full lg:w-1/2">
-              <motion.div
-                className="bg-white rounded-xl shadow-xl overflow-hidden"
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6 }}
-              >
-                <div className="p-4 bg-[#4d2d61]/5 border-b border-gray-100">
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-lg bg-[#4d2d61]/10 flex items-center justify-center mr-3">
-                      <LayoutGrid className="w-4 h-4 text-[#4d2d61]" />
-                    </div>
-                    <h3 className="font-semibold text-[#4d2d61]">
-                      Project Board
-                    </h3>
-                  </div>
-                </div>
-                <BoardPreviewComponent />
-              </motion.div>
-            </div>
             <div className="w-full lg:w-1/2">
               <motion.h2
                 className="text-3xl md:text-4xl font-bold text-[#4d2d61] mb-6"
@@ -1128,6 +1107,27 @@ const LandingPage = () => {
                 ))}
               </div>
             </div>
+            <div className="w-full lg:w-1/2">
+              <motion.div
+                className="bg-white rounded-xl shadow-xl overflow-hidden"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6 }}
+              >
+                <div className="p-4 bg-[#4d2d61]/5 border-b border-gray-100">
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-lg bg-[#4d2d61]/10 flex items-center justify-center mr-3">
+                      <LayoutGrid className="w-4 h-4 text-[#4d2d61]" />
+                    </div>
+                    <h3 className="font-semibold text-[#4d2d61]">
+                      Project Board
+                    </h3>
+                  </div>
+                </div>
+                <BoardPreviewComponent />
+              </motion.div>
+            </div>
           </div>
         </div>
       </section>
@@ -1136,18 +1136,6 @@ const LandingPage = () => {
       <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="flex flex-col lg:flex-row-reverse items-center gap-12">
-            <div className="w-full lg:w-1/2">
-              <motion.div
-                className="bg-white rounded-xl shadow-xl overflow-hidden max-w-lg mx-auto"
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6 }}
-              >
-                {/* Larger Calendar Demo for Feature Section */}
-                <CalendarDemoComponent />
-              </motion.div>
-            </div>
             <div className="w-full lg:w-1/2">
               <motion.h2
                 className="text-3xl md:text-4xl font-bold text-[#4d2d61] mb-6"
@@ -1213,6 +1201,18 @@ const LandingPage = () => {
                 ))}
               </div>
             </div>
+            <div className="w-full lg:w-1/2">
+              <motion.div
+                className="bg-white rounded-xl shadow-xl overflow-hidden max-w-lg mx-auto"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6 }}
+              >
+                {/* Larger Calendar Demo for Feature Section */}
+                <CalendarDemoComponent />
+              </motion.div>
+            </div>
           </div>
         </div>
       </section>
@@ -1220,7 +1220,7 @@ const LandingPage = () => {
       {/* Chat Feature Highlight Section */}
       <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col lg:flex-row-reverse items-center gap-12">
+          <div className="flex flex-col lg:flex-row items-center gap-12">
             <div className="w-full lg:w-1/2">
               <motion.h2
                 className="text-3xl md:text-4xl font-bold text-[#4d2d61] mb-6"
@@ -1310,7 +1310,7 @@ const LandingPage = () => {
       </section>
 
       {/* Features Section */}
-      <section id="features" ref={featuresRef} className="py-20 bg-white">
+      <section ref={featuresRef} className="py-20 bg-white">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <motion.h2
