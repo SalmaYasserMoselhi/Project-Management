@@ -89,6 +89,7 @@ function ChatHeader({ user, onToggleInfo, onBackClick, isMobile }) {
         isOnline: isUserOnline(other._id),
         isGroup: false,
         admin: chatUser.admin,
+        status: other.status,
       };
     } catch (error) {
       console.error("Error in otherUser calculation:", error);
@@ -135,27 +136,20 @@ function ChatHeader({ user, onToggleInfo, onBackClick, isMobile }) {
               )}
             </Suspense>
           </motion.div>
-          {otherUser.isOnline && !otherUser.isGroup && (
-            <motion.span
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"
-            />
-          )}
         </div>
         <div>
           <h3 className="font-semibold text-[#4d2d61] text-base">
             {otherUser.name}
           </h3>
-          <p className="text-xs text-gray-500 flex items-center">
-            {otherUser.isGroup ? (
-              "Group Chat"
-            ) : otherUser.isOnline ? (
-              <span className="text-green-500">Online</span>
-            ) : (
-              <span>Offline</span>
-            )}
-          </p>
+          {!otherUser.isGroup && (
+            <p className="text-xs text-gray-500 flex items-center">
+              {otherUser.status === "online" ? (
+                <span className="text-green-500">Online</span>
+              ) : (
+                <span>Offline</span>
+              )}
+            </p>
+          )}
         </div>
       </div>
 

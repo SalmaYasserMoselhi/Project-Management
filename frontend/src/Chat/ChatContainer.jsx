@@ -29,6 +29,7 @@ import {
   Users,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import axios from "../utils/axiosConfig";
 
 const ChatContainer = ({ onBackClick, isMobile }) => {
   const dispatch = useDispatch();
@@ -45,6 +46,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [isScrolling, setIsScrolling] = useState(false);
   const [hasLeftGroup, setHasLeftGroup] = useState(false);
+  const [participantsWithStatus, setParticipantsWithStatus] = useState([]);
 
   // Memoize participants calculation with optimized lookup
   const participants = useMemo(() => {
@@ -298,7 +300,13 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
                                 alt={user.name}
                               />
                               {!alreadyInGroup && (
-                                <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full"></div>
+                                <div
+                                  className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 border-2 border-white rounded-full ${
+                                    user.status === "online"
+                                      ? "bg-green-500"
+                                      : "bg-gray-400"
+                                  }`}
+                                ></div>
                               )}
                             </div>
                             <div className="flex flex-col flex-1 min-w-0">
@@ -357,7 +365,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
 
             {/* Members List */}
             <div className="space-y-2.5">
-              {participants.map((user, index) => (
+              {participantsWithStatus.map((user, index) => (
                 <motion.div
                   key={user._id}
                   initial={{ opacity: 0, y: 10 }}
@@ -376,7 +384,13 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
                         className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-lg"
                         alt="avatar"
                       />
-                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
+                      <div
+                        className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 border-2 border-white rounded-full ${
+                          user.status === "online"
+                            ? "bg-green-500"
+                            : "bg-gray-400"
+                        }`}
+                      ></div>
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-gray-800 text-sm truncate">
@@ -430,6 +444,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
     currentUser,
     allUsers,
     selectedUsers,
+    participantsWithStatus,
   ]);
 
   const handleAddUser = (userIds) => {
@@ -591,6 +606,34 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
       document.removeEventListener("keydown", handleEsc);
     };
   }, [showPopup]);
+
+  useEffect(() => {
+    const fetchMembersStatus = async () => {
+      if (showPopup && activeChat?.isGroup && participants.length > 0) {
+        try {
+          const ids = participants.map((u) => u._id);
+          const { data } = await axios.post("/api/v1/users/statuses", { ids });
+          // data.users: [{ _id, status, ... }]
+          if (data.status === "success" && Array.isArray(data.users)) {
+            setParticipantsWithStatus(
+              participants.map((u) => ({
+                ...u,
+                status:
+                  data.users.find((d) => d._id === u._id)?.status || u.status,
+              }))
+            );
+          } else {
+            setParticipantsWithStatus(participants); // fallback
+          }
+        } catch (err) {
+          setParticipantsWithStatus(participants); // fallback
+        }
+      } else {
+        setParticipantsWithStatus(participants);
+      }
+    };
+    fetchMembersStatus();
+  }, [showPopup, activeChat, participants]);
 
   // إذا لم يكن هناك محادثة نشطة، اعرض شاشة ترحيب
   if (!activeChat?.id) {

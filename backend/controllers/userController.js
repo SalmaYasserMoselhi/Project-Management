@@ -11,6 +11,7 @@ const mongoose = require('mongoose');
 exports.uploadUserAvatar = uploadSingleImage('avatar');
 
 exports.resizeUserAvatar = catchAsync(async (req, res, next) => {
+  if (!req.file) return next();
   const AvatarFileName = `user-${uuidv4()}-${Date.now()}.jpeg`;
 
   await sharp(req.file.buffer)
@@ -95,13 +96,51 @@ exports.deleteUser = catchAsync(async (req, res, next) => {
   });
 });
 //active: false
-exports.deleteMe = catchAsync(async (req, res, next) => {
-  await User.findByIdAndUpdate(req.user.id, { active: false });
+// exports.deleteMe = catchAsync(async (req, res, next) => {
+//   await User.findByIdAndUpdate(req.user.id, { active: false });
 
-  res.status(204).json({
-    status: 'success',
-    data: null,
-  });
+//   res.status(204).json({
+//     status: 'success',
+//     data: null,
+//   });
+// });
+
+exports.deleteMe = catchAsync(async (req, res, next) => {
+  const userId = req.user.id;
+
+  try {
+    // Clean up related data before deleting user
+
+    // 1. Remove user from all workspaces where they are a member
+    await Workspace.updateMany(
+      { 'members.user': userId },
+      { $pull: { members: { user: userId } } }
+    );
+
+    // 2. Delete workspaces created by this user
+    await Workspace.deleteMany({ createdBy: userId });
+
+    // 3. Actually DELETE the user from database (not just set active: false)
+    await User.findByIdAndDelete(userId);
+
+    // 4. Clear the JWT cookie since user no longer exists
+    res.cookie('jwt', '', {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      path: '/',
+      expires: new Date(0),
+      maxAge: 0,
+    });
+    res.status(200).json({
+      status: 'success',
+      message: 'Your account has been permanently deleted',
+      data: null,
+    });
+  } catch (error) {
+    console.error('Error deleting user account:', error);
+    return next(new AppError('Failed to delete account', 500));
+  }
 });
 
 exports.updateMe = catchAsync(async (req, res, next) => {
@@ -261,23 +300,22 @@ exports.getUserStatus = async (req, res) => {
   }
 };
 
-
 exports.updateUserStatus = catchAsync(async (req, res, next) => {
   const { status } = req.body;
-  
+
   if (!['online', 'offline'].includes(status)) {
     return next(new AppError('Status must be either online or offline', 400));
   }
 
   const user = await User.findByIdAndUpdate(
     req.user._id,
-    { 
+    {
       status,
-      statusChangedAt: Date.now()
+      statusChangedAt: Date.now(),
     },
-    { 
+    {
       new: true,
-      validateBeforeSave: false 
+      validateBeforeSave: false,
     }
   );
 
@@ -287,8 +325,17 @@ exports.updateUserStatus = catchAsync(async (req, res, next) => {
       user: {
         _id: user._id,
         status: user.status,
-        statusChangedAt: user.statusChangedAt
-      }
-    }
+        statusChangedAt: user.statusChangedAt,
+      },
+    },
   });
+});
+
+exports.getUsersStatuses = catchAsync(async (req, res, next) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ status: 'fail', message: 'No ids provided' });
+  }
+  const users = await User.find({ _id: { $in: ids } }).select('_id status');
+  res.status(200).json({ status: 'success', users });
 });

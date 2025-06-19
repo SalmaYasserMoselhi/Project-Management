@@ -11,8 +11,7 @@ import "react-toastify/dist/ReactToastify.css";
 import Routing from "./Routing/Routing";
 import WorkspacePopup from "./Workspace/WorkspacePopup";
 import { fetchUserPublicWorkspaces } from "./features/Slice/WorkspaceSlice/userWorkspacesSlice";
-
-
+import axios from "./utils/axiosConfig";
 
 function App() {
   const { isWorkspaceOpen, selectedWorkspace, workspaceTransitionState } =
@@ -21,8 +20,10 @@ function App() {
   const location = useLocation();
   const dispatch = useDispatch();
 
-  const currentUser = useSelector(state => state.auth?.user);
-  const userWorkspaces = useSelector(state => state.userWorkspaces.workspaces);
+  const currentUser = useSelector((state) => state.auth?.user);
+  const userWorkspaces = useSelector(
+    (state) => state.userWorkspaces.workspaces
+  );
 
   useEffect(() => {
     const initializeUser = async () => {
@@ -77,8 +78,30 @@ function App() {
     }
   }, [currentUser?._id, userWorkspaces, dispatch]);
 
+  useEffect(() => {}, [currentUser]);
+
   useEffect(() => {
-  }, [currentUser]);
+    // عند الدخول: set status online
+    const setOnline = async () => {
+      try {
+        await axios.patch("/api/v1/users/updateStatus", { status: "online" });
+      } catch (err) {}
+    };
+    setOnline();
+
+    // عند الخروج: set status offline
+    const setOffline = async () => {
+      try {
+        await axios.patch("/api/v1/users/updateStatus", { status: "offline" });
+      } catch (err) {}
+    };
+    window.addEventListener("beforeunload", setOffline);
+
+    return () => {
+      setOffline();
+      window.removeEventListener("beforeunload", setOffline);
+    };
+  }, []);
 
   return (
     <div className="w-full h-screen overflow-hidden flex">

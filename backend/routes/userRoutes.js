@@ -68,7 +68,11 @@ router.patch(
 );
 
 // Add this route to your userRoutes.js
-router.patch('/updateStatus', authController.protect, userController.updateUserStatus);
+router.patch(
+  '/updateStatus',
+  authController.protect,
+  userController.updateUserStatus
+);
 
 router.delete('/deleteMe', authController.protect, userController.deleteMe);
 router.get('/search', userController.searchUsers);
@@ -77,6 +81,7 @@ router.get(
   authController.protect,
   userController.searchWorkspaceUsers
 );
+router.post('/statuses', userController.getUsersStatuses);
 router
   .route('/')
   .get(userController.getAllUsers)
