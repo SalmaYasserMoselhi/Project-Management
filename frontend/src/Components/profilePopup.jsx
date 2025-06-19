@@ -1,12 +1,25 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import { X, Upload, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react";
-import axios from "../utils/axiosConfig";
-import { useDispatch } from "react-redux";
-import { fetchUserData } from "../features/Slice/userSlice/userSlice";
-import { logoutUser } from "../features/Slice/authSlice/loginSlice";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { logoutUser } from "../features/Slice/authSlice/loginSlice";
+import { fetchUserData } from "../features/Slice/userSlice/userSlice";
+import {
+  openPopup,
+  closePopup,
+  setFormData,
+  setPasswordData,
+  togglePasswordVisibility,
+  setShowDeleteConfirm,
+  clearMessages,
+  resetForm,
+  updateProfile,
+  updatePassword,
+  updateAvatar,
+  deleteAccount,
+} from "../features/Slice/userSlice/profilePopupSlice";
 
 const passwordEyeCss = `
 input[type='password']::-webkit-input-password-toggle-button,
@@ -16,55 +29,28 @@ input[type='password']::-ms-clear {
 }
 `;
 
-const ProfilePopup = ({ isOpen, onClose, user }) => {
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    username: "",
-    email: "",
-    avatar: "",
-  });
-
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
-
-  const [showPasswords, setShowPasswords] = useState({
-    current: false,
-    new: false,
-    confirm: false,
-  });
-
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [successMessage, setSuccessMessage] = useState("");
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  const popupRef = useRef(null);
-  const fileInputRef = useRef();
+const ProfilePopup = ({ user }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const fileInputRef = useRef();
+  const popupRef = useRef(null);
+
+  const {
+    isOpen,
+    loading,
+    error,
+    successMessage,
+    formData,
+    passwordData,
+    showPasswords,
+    showDeleteConfirm,
+  } = useSelector((state) => state.profilePopup);
 
   useEffect(() => {
     if (user) {
-      const fullName = user.fullName || "";
-      const nameParts = fullName.split(" ");
-      setFormData({
-        firstName: nameParts[0] || "",
-        lastName: nameParts.slice(1).join(" ") || "",
-        username: user.username || "",
-        email: user.email || "",
-        avatar: user.avatar || "",
-      });
-      setPasswordData({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      });
+      dispatch(resetForm(user));
     }
-  }, [user]);
+  }, [user, dispatch]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -76,7 +62,7 @@ const ProfilePopup = ({ isOpen, onClose, user }) => {
         return;
       }
       if (popupRef.current && !popupRef.current.contains(event.target)) {
-        onClose();
+        dispatch(closePopup());
       }
     };
 
@@ -89,50 +75,22 @@ const ProfilePopup = ({ isOpen, onClose, user }) => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.body.style.overflow = "unset";
     };
-  }, [isOpen, onClose, showDeleteConfirm]);
-
-  const clearMessages = () => {
-    setErrors({});
-    setSuccessMessage("");
-  };
+  }, [isOpen, showDeleteConfirm, dispatch]);
 
   const handleInputChange = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    dispatch(setFormData({ [field]: value }));
 
     // Username validation on change
     if (field === "username") {
-      if (!value) {
-        setErrors((prev) => ({ ...prev, username: "Username is required" }));
-      } else if (value.includes(" ")) {
-        setErrors((prev) => ({
-          ...prev,
-          username: "Username should not contain spaces",
-        }));
-      } else {
-        setErrors((prev) => {
-          const { username, ...rest } = prev;
-          return rest;
-        });
+      if (!value || value.includes(" ")) {
+        // Error handling is now managed in the slice
       }
     }
   };
 
   const handlePasswordChange = (field, value) => {
-    clearMessages();
-    setPasswordData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const togglePasswordVisibility = (field) => {
-    setShowPasswords((prev) => ({
-      ...prev,
-      [field]: !prev[field],
-    }));
+    dispatch(clearMessages());
+    dispatch(setPasswordData({ [field]: value }));
   };
 
   const handleChangeProfile = () => {
@@ -142,45 +100,22 @@ const ProfilePopup = ({ isOpen, onClose, user }) => {
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setLoading(true);
-    setErrors({});
-    setSuccessMessage("");
-    try {
-      const formDataToSend = new FormData();
-      formDataToSend.append("avatar", file);
-      formDataToSend.append("firstName", formData.firstName);
-      formDataToSend.append("lastName", formData.lastName);
-      formDataToSend.append("username", formData.username);
-      formDataToSend.append("email", formData.email);
-      const response = await axios.patch(
-        "/api/v1/users/updateMe",
-        formDataToSend,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
-      );
-      if (response.data.status === "success") {
-        setSuccessMessage("Profile photo updated!");
-        if (response.data.data.user.avatar) {
-          setFormData((prev) => ({
-            ...prev,
-            avatar: response.data.data.user.avatar,
-          }));
-        }
-        await dispatch(fetchUserData());
-      }
-    } catch (error) {
-      setErrors({ profile: "Failed to update profile photo" });
-    } finally {
-      setLoading(false);
-    }
+
+    const formDataToSend = new FormData();
+    formDataToSend.append("avatar", file);
+    formDataToSend.append("firstName", formData.firstName);
+    formDataToSend.append("lastName", formData.lastName);
+    formDataToSend.append("username", formData.username);
+    formDataToSend.append("email", formData.email);
+
+    await dispatch(updateAvatar(formDataToSend));
+    await dispatch(fetchUserData());
   };
 
   const validatePasswordChange = () => {
     const newErrors = {};
     const { currentPassword, newPassword, confirmPassword } = passwordData;
 
-    // Only validate if any password field is filled
     if (currentPassword || newPassword || confirmPassword) {
       if (!currentPassword)
         newErrors.currentPassword = "Current password is required";
@@ -201,228 +136,54 @@ const ProfilePopup = ({ isOpen, onClose, user }) => {
     return null;
   };
 
-  const updateProfile = async () => {
-    try {
-      setLoading(true);
-      clearMessages();
-
-      // Username validation
-      const usernameError = validateUsername(formData.username);
-      if (usernameError) {
-        setErrors({ username: usernameError });
-        setLoading(false);
-        return;
-      }
-
-      const updateData = {};
-      if (formData.firstName) updateData.firstName = formData.firstName;
-      if (formData.lastName) updateData.lastName = formData.lastName;
-      if (formData.email) updateData.email = formData.email;
-      if (formData.username) updateData.username = formData.username;
-      if (Object.keys(updateData).length === 0) {
-        setLoading(false);
-        return;
-      }
-      const response = await axios.patch("/api/v1/users/updateMe", updateData);
-      if (response.data.status === "success") {
-        setSuccessMessage("Profile updated successfully!");
-        await dispatch(fetchUserData());
-        onClose();
-      }
-    } catch (error) {
-      console.error("Profile update error:", error);
-      const errorMessage =
-        error.response?.data?.message || "Failed to update profile";
-      setErrors({ profile: errorMessage });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updatePassword = async () => {
-    try {
-      setLoading(true);
-      clearMessages();
-
-      const passwordErrors = validatePasswordChange();
-      if (Object.keys(passwordErrors).length > 0) {
-        setErrors(passwordErrors);
-        return;
-      }
-
-      if (
-        !passwordData.currentPassword ||
-        !passwordData.newPassword ||
-        !passwordData.confirmPassword
-      ) {
-        return; // No password change requested
-      }
-
-      const response = await axios.patch("/api/v1/users/updateMyPassword", {
-        passwordCurrent: passwordData.currentPassword,
-        password: passwordData.newPassword,
-        passwordConfirm: passwordData.confirmPassword,
-      });
-
-      if (response.data.status === "success") {
-        setSuccessMessage("Password updated successfully!");
-        setPasswordData({
-          currentPassword: "",
-          newPassword: "",
-          confirmPassword: "",
-        });
-      }
-    } catch (error) {
-      console.error("Password update error:", error);
-      const errorMessage =
-        error.response?.data?.message || "Failed to update password";
-      setErrors({ password: errorMessage });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSave = async () => {
-    setErrors({});
-    setSuccessMessage("");
-    let hasError = false;
+    dispatch(clearMessages());
 
-    // Username validation (live, but double-check on save)
+    // Username validation
     const usernameError = validateUsername(formData.username);
     if (usernameError) {
-      setErrors((prev) => ({ ...prev, username: usernameError }));
-      hasError = true;
-    }
-
-    // Password validation
-    const passwordErrors = validatePasswordChange();
-    if (Object.keys(passwordErrors).length > 0) {
-      setErrors((prev) => ({ ...prev, ...passwordErrors }));
-      hasError = true;
-    }
-
-    if (hasError) return;
-
-    // Update profile first
-    let profileSuccess = false;
-    try {
-      const updateData = {};
-      if (formData.firstName) updateData.firstName = formData.firstName;
-      if (formData.lastName) updateData.lastName = formData.lastName;
-      if (formData.email) updateData.email = formData.email;
-      if (formData.username) updateData.username = formData.username;
-      if (Object.keys(updateData).length > 0) {
-        const response = await axios.patch(
-          "/api/v1/users/updateMe",
-          updateData
-        );
-        if (response.data.status === "success") {
-          profileSuccess = true;
-          setSuccessMessage("Profile updated successfully!");
-          await dispatch(fetchUserData());
-        }
-      } else {
-        profileSuccess = true; // No profile changes, treat as success
-      }
-    } catch (error) {
-      const errorMessage =
-        error.response?.data?.message || "Failed to update profile";
-      setErrors((prev) => ({ ...prev, profile: errorMessage }));
       return;
     }
 
-    // If password fields are filled, update password
-    if (
-      passwordData.currentPassword ||
-      passwordData.newPassword ||
-      passwordData.confirmPassword
-    ) {
-      try {
-        const response = await axios.patch("/api/v1/users/updateMyPassword", {
-          passwordCurrent: passwordData.currentPassword,
-          password: passwordData.newPassword,
-          passwordConfirm: passwordData.confirmPassword,
-        });
-        if (response.data.status === "success") {
-          setSuccessMessage("Password updated successfully!");
-          setPasswordData({
-            currentPassword: "",
-            newPassword: "",
-            confirmPassword: "",
-          });
-        }
-      } catch (error) {
-        const errorMessage =
-          error.response?.data?.message || "Failed to update password";
-        setErrors((prev) => ({ ...prev, password: errorMessage }));
-        return;
+    // Update profile
+    const updateData = {};
+    if (formData.firstName) updateData.firstName = formData.firstName;
+    if (formData.lastName) updateData.lastName = formData.lastName;
+    if (formData.email) updateData.email = formData.email;
+    if (formData.username) updateData.username = formData.username;
+
+    if (Object.keys(updateData).length > 0) {
+      const profileResult = await dispatch(updateProfile(updateData));
+      if (profileResult.type === updateProfile.fulfilled.type) {
+        await dispatch(fetchUserData());
       }
     }
 
-    // Only close if everything succeeded
-    onClose();
+    // Update password if needed
+    const passwordErrors = validatePasswordChange();
+    if (
+      Object.keys(passwordErrors).length === 0 &&
+      (passwordData.currentPassword ||
+        passwordData.newPassword ||
+        passwordData.confirmPassword)
+    ) {
+      await dispatch(updatePassword(passwordData));
+    }
   };
 
   const handleDeleteAccount = async () => {
-    try {
-      setLoading(true);
-      clearMessages();
-
-      const response = await axios.delete("/api/v1/users/deleteMe", {
-        withCredentials: true,
-      });
-
-      if (response.status === 200) {
-        setSuccessMessage("Account deleted successfully!");
-        // امسح بيانات المستخدم من localStorage
-        localStorage.removeItem("token");
-        localStorage.removeItem("selectedPublicWorkspace");
-        // Logout من الريدكس
-        await dispatch(logoutUser());
-        // Redirect مباشرة
-        navigate("/signup", { replace: true });
-      }
-    } catch (error) {
-      console.error("Account deletion error:", error);
-      let errorMessage =
-        error.response?.data?.message || "Failed to delete account";
-      if (error.response?.status === 401) {
-        errorMessage =
-          "تم حذف الحساب بالفعل أو انتهت الجلسة. برجاء إنشاء حساب جديد.";
-        // امسح بيانات المستخدم ووجهه للساين اب
-        localStorage.removeItem("token");
-        localStorage.removeItem("selectedPublicWorkspace");
-        await dispatch(logoutUser());
-        navigate("/signup", { replace: true });
-        return;
-      }
-      setErrors({ delete: errorMessage });
-    } finally {
-      setLoading(false);
-      setShowDeleteConfirm(false);
+    const result = await dispatch(deleteAccount());
+    if (result.type === deleteAccount.fulfilled.type) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("selectedPublicWorkspace");
+      await dispatch(logoutUser());
+      navigate("/signup", { replace: true });
     }
   };
 
   const handleCancel = () => {
-    // Reset form data
-    if (user) {
-      const fullName = user.fullName || "";
-      const nameParts = fullName.split(" ");
-      setFormData({
-        firstName: nameParts[0] || "",
-        lastName: nameParts.slice(1).join(" ") || "",
-        username: user.username || "",
-        email: user.email || "",
-        avatar: user.avatar || "",
-      });
-    }
-    setPasswordData({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    });
-    clearMessages();
-    onClose();
+    dispatch(resetForm(user));
+    dispatch(closePopup());
   };
 
   if (!isOpen) return null;
@@ -445,7 +206,7 @@ const ProfilePopup = ({ isOpen, onClose, user }) => {
         <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gradient-to-r from-[#4d2d61] to-[#7b4397]">
           <h2 className="text-xl font-bold text-white">Profile</h2>
           <button
-            onClick={onClose}
+            onClick={() => dispatch(closePopup())}
             className="p-1.5 hover:bg-white/20 rounded-full transition-all duration-200"
           >
             <X size={18} className="text-white" />
@@ -464,17 +225,12 @@ const ProfilePopup = ({ isOpen, onClose, user }) => {
           )}
 
           {/* Error Messages */}
-          {Object.keys(errors).length > 0 && (
+          {error && (
             <div className="mb-4 p-2 bg-red-50 border border-red-200 rounded-md">
-              {Object.entries(errors).map(([key, message]) => (
-                <div
-                  key={key}
-                  className="flex items-center space-x-2 text-red-700 text-sm"
-                >
-                  <AlertCircle size={14} />
-                  <span>{message}</span>
-                </div>
-              ))}
+              <div className="flex items-center space-x-2 text-red-700 text-sm">
+                <AlertCircle size={14} />
+                <span>{error}</span>
+              </div>
             </div>
           )}
 
@@ -564,8 +320,8 @@ const ProfilePopup = ({ isOpen, onClose, user }) => {
                   onChange={(e) =>
                     handleInputChange("username", e.target.value)
                   }
-                  className={`w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#7b4397] focus:border-[#7b4397] transition-all duration-200 ${
-                    errors.username ? "border-red-300" : "border-gray-200"
+                  className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-[#7b4397] focus:border-[#7b4397] transition-all duration-200 ${
+                    error?.username ? "border-red-300" : "border-gray-200"
                   }`}
                 />
               </div>
@@ -620,14 +376,16 @@ const ProfilePopup = ({ isOpen, onClose, user }) => {
                       }
                       autoComplete="new-password"
                       className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-[#7b4397] focus:border-[#7b4397] pr-8 bg-white transition-all duration-200 ${
-                        errors.currentPassword
+                        error?.currentPassword
                           ? "border-red-300"
                           : "border-gray-200"
                       }`}
                     />
                     <button
                       type="button"
-                      onClick={() => togglePasswordVisibility("current")}
+                      onClick={() =>
+                        dispatch(togglePasswordVisibility("current"))
+                      }
                       className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-[#7b4397] transition-colors duration-200"
                       tabIndex={-1}
                     >
@@ -655,14 +413,16 @@ const ProfilePopup = ({ isOpen, onClose, user }) => {
                         }
                         autoComplete="new-password"
                         className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-[#7b4397] focus:border-[#7b4397] pr-8 bg-white transition-all duration-200 ${
-                          errors.newPassword
+                          error?.newPassword
                             ? "border-red-300"
                             : "border-gray-200"
                         }`}
                       />
                       <button
                         type="button"
-                        onClick={() => togglePasswordVisibility("new")}
+                        onClick={() =>
+                          dispatch(togglePasswordVisibility("new"))
+                        }
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-[#7b4397] transition-colors duration-200"
                         tabIndex={-1}
                       >
@@ -690,14 +450,16 @@ const ProfilePopup = ({ isOpen, onClose, user }) => {
                         }
                         autoComplete="new-password"
                         className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-[#7b4397] focus:border-[#7b4397] pr-8 bg-white transition-all duration-200 ${
-                          errors.confirmPassword
+                          error?.confirmPassword
                             ? "border-red-300"
                             : "border-gray-200"
                         }`}
                       />
                       <button
                         type="button"
-                        onClick={() => togglePasswordVisibility("confirm")}
+                        onClick={() =>
+                          dispatch(togglePasswordVisibility("confirm"))
+                        }
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-[#7b4397] transition-colors duration-200"
                         tabIndex={-1}
                       >
@@ -742,7 +504,7 @@ const ProfilePopup = ({ isOpen, onClose, user }) => {
                   data.
                 </p>
                 <button
-                  onClick={() => setShowDeleteConfirm(true)}
+                  onClick={() => dispatch(setShowDeleteConfirm(true))}
                   className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-all duration-200 font-semibold text-sm"
                 >
                   Delete Account
@@ -796,7 +558,7 @@ const ProfilePopup = ({ isOpen, onClose, user }) => {
 
             <div className="flex space-x-3">
               <button
-                onClick={() => setShowDeleteConfirm(false)}
+                onClick={() => dispatch(setShowDeleteConfirm(false))}
                 disabled={loading}
                 className="flex-1 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-all duration-200 font-semibold text-sm disabled:opacity-50"
               >

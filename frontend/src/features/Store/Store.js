@@ -11,6 +11,8 @@ import cardDetailsReducer from "../Slice/cardSlice/cardDetailsSlice";
 import meetingModalReducer from "../Slice/MeetingSlice/meetingModalSlice";
 import meetingsReducer from "../Slice/MeetingSlice/meetingsSlice";
 import dashboardReducer from "../Slice/dashboard/dashboardSlice";
+import profilePopupReducer from "../Slice/userSlice/profilePopupSlice";
+import notificationReducer from "../Slice/userSlice/notificationSlice";
 
 export const store = configureStore({
   reducer: {
@@ -26,6 +28,8 @@ export const store = configureStore({
     meetingModal: meetingModalReducer,
     meetings: meetingsReducer,
     dashboard: dashboardReducer,
+    profilePopup: profilePopupReducer,
+    notification: notificationReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

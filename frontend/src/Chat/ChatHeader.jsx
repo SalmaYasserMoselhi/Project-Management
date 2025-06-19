@@ -125,7 +125,7 @@ function ChatHeader({ user, onToggleInfo, onBackClick, isMobile }) {
             >
               {otherUser.avatar ? (
                 <ImageWithFallback
-                  src={otherUser.avatar || "/placeholder.svg"}
+                  src={otherUser.avatar || Avatar}
                   alt={otherUser.name}
                   className="w-full h-full rounded-full object-cover transition-transform group-hover:scale-110"
                 />

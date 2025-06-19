@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { SlBell } from "react-icons/sl";
 import { useEffect, useState, useRef } from "react";
 import Breadcrumb from "./Breadcrumb";
@@ -8,17 +8,31 @@ import ProfilePopup from "./profilePopup";
 import { useDispatch, useSelector } from "react-redux";
 import { toggleSidebar } from "../features/Slice/ComponentSlice/sidebarSlice";
 import NotificationPopup from "../Board/NotificationPopup";
+import { openPopup } from "../features/Slice/userSlice/profilePopupSlice";
+import {
+  togglePopup,
+  fetchNotifications,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+  deleteNotification,
+  selectNotifications,
+  selectNotificationLoading,
+  selectShowNotificationPopup,
+  selectUnreadCount,
+} from "../features/Slice/userSlice/notificationSlice";
 
 const Header = () => {
   const user = useSelector((state) => state.user.user);
-  const [isProfilePopupOpen, setIsProfilePopupOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [notificationLoading, setNotificationLoading] = useState(false);
-  const [showPopup, setShowPopup] = useState(false);
   const dispatch = useDispatch();
   const { isSidebarOpen } = useSelector((state) => state.sidebar);
   const [isMobile, setIsMobile] = useState(false);
   const popupRef = useRef(null);
+
+  // Notification state from Redux
+  const notifications = useSelector(selectNotifications);
+  const notificationLoading = useSelector(selectNotificationLoading);
+  const showPopup = useSelector(selectShowNotificationPopup);
+  const unreadCount = useSelector(selectUnreadCount);
 
   // Determine background color based on route
   const headerBgColor = location.pathname.match(
@@ -27,102 +41,18 @@ const Header = () => {
     ? "bg-[#f5f5f5]"
     : "bg-white";
 
-  // Fetch user data
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const response = await fetch("/api/v1/users/me", {
-          method: "GET",
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          if (response.status === 401) {
-            window.location.href = "/login";
-            return;
-          }
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Failed to fetch user data");
-        }
-
-        const data = await response.json();
-        if (data.data && data.data.user) {
-          setUser(data.data.user);
-        } else {
-          throw new Error("Invalid user data format");
-        }
-      } catch (error) {
-        console.error("Error in fetchUserData:", error);
-        if (
-          error.message.includes("logged in") ||
-          error.message.includes("Unauthorized") ||
-          error.message.includes("jwt")
-        ) {
-          window.location.href = "/login";
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserData();
-  }, []);
-
   // Fetch notifications when popup is opened
   useEffect(() => {
     if (showPopup) {
-      const fetchNotifications = async () => {
-        setNotificationLoading(true);
-        try {
-          const response = await fetch("/api/v1/notifications", {
-            method: "GET",
-            credentials: "include",
-            headers: {
-              Accept: "application/json",
-              "Content-Type": "application/json",
-            },
-          });
-
-          if (!response.ok) {
-            if (response.status === 401) {
-              window.location.href = "/login";
-              return;
-            }
-            const errorData = await response.json();
-            throw new Error(
-              errorData.message || "Failed to fetch notifications"
-            );
-          }
-
-          const data = await response.json();
-          setNotifications(data.data?.notifications || []);
-        } catch (error) {
-          console.error("Error fetching notifications:", error);
-          if (
-            error.message.includes("logged in") ||
-            error.message.includes("Unauthorized") ||
-            error.message.includes("jwt")
-          ) {
-            window.location.href = "/login";
-          }
-        } finally {
-          setNotificationLoading(false);
-        }
-      };
-
-      fetchNotifications();
+      dispatch(fetchNotifications());
     }
-  }, [showPopup]);
+  }, [showPopup, dispatch]);
 
   // Handle click outside to close popup
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (popupRef.current && !popupRef.current.contains(event.target)) {
-        setShowPopup(false);
+        dispatch(togglePopup());
       }
     };
 
@@ -130,7 +60,7 @@ const Header = () => {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [dispatch]);
 
   // Check for mobile view
   useEffect(() => {
@@ -146,129 +76,23 @@ const Header = () => {
 
   // Toggle notification popup
   const handleBellClick = () => {
-    setShowPopup((prev) => !prev);
+    dispatch(togglePopup());
   };
 
   // Mark all notifications as read
-  const handleMarkAllAsRead = async () => {
-    try {
-      const response = await fetch("/api/v1/notifications/mark-read", {
-        method: "PATCH",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ all: true }),
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          window.location.href = "/login";
-          return;
-        }
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Failed to mark notifications as read"
-        );
-      }
-
-      // Update notifications to mark them as read
-      setNotifications((prev) =>
-        prev.map((notif) => ({ ...notif, isRead: true }))
-      );
-    } catch (error) {
-      console.error("Error marking notifications as read:", error);
-      if (
-        error.message.includes("logged in") ||
-        error.message.includes("Unauthorized") ||
-        error.message.includes("jwt")
-      ) {
-        window.location.href = "/login";
-      }
-    }
+  const handleMarkAllAsRead = () => {
+    dispatch(markAllNotificationsAsRead());
   };
 
   // Mark a single notification as read
-  const handleMarkAsRead = async (notificationId) => {
-    try {
-      const response = await fetch(
-        `/api/v1/notifications/${notificationId}/mark-read`,
-        {
-          method: "PATCH",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          window.location.href = "/login";
-          return;
-        }
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Failed to mark notification as read"
-        );
-      }
-
-      // Update the notification to mark it as read
-      setNotifications((prev) =>
-        prev.map((notif) =>
-          notif._id === notificationId ? { ...notif, isRead: true } : notif
-        )
-      );
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
-      if (
-        error.message.includes("logged in") ||
-        error.message.includes("Unauthorized") ||
-        error.message.includes("jwt")
-      ) {
-        window.location.href = "/login";
-      }
-    }
+  const handleMarkAsRead = (notificationId) => {
+    dispatch(markNotificationAsRead(notificationId));
   };
 
   // Delete a notification
-  const handleDeleteNotification = async (notificationId) => {
-    try {
-      const response = await fetch(`/api/v1/notifications/${notificationId}`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          window.location.href = "/login";
-          return;
-        }
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to delete notification");
-      }
-
-      // Remove the deleted notification from state
-      setNotifications((prev) =>
-        prev.filter((notif) => notif._id !== notificationId)
-      );
-    } catch (error) {
-      console.error("Error deleting notification:", error);
-      if (
-        error.message.includes("logged in") ||
-        error.message.includes("Unauthorized") ||
-        error.message.includes("jwt")
-      ) {
-        window.location.href = "/login";
-      }
-    }
+  const handleDeleteNotification = (notificationId) => {
+    dispatch(deleteNotification(notificationId));
   };
-
-  // Calculate unread notifications count
-  const unreadCount = notifications.filter((notif) => !notif.isRead).length;
 
   return (
     <>
@@ -316,7 +140,7 @@ const Header = () => {
             {user ? (
               <div className="relative">
                 <button
-                  onClick={() => setIsProfilePopupOpen(true)}
+                  onClick={() => dispatch(openPopup())}
                   className="w-8 h-8 rounded-full border border-gray-300 hover:ring-2 hover:ring-blue-500 hover:ring-offset-1 transition-all"
                 >
                   <img
@@ -343,11 +167,7 @@ const Header = () => {
       </header>
 
       {/* Profile Popup */}
-      <ProfilePopup
-        isOpen={isProfilePopupOpen}
-        onClose={() => setIsProfilePopupOpen(false)}
-        user={user}
-      />
+      <ProfilePopup user={user} />
     </>
   );
 };
