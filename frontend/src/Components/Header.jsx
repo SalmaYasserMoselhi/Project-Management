@@ -1,24 +1,34 @@
+
+
+
+
 "use client";
 
 import { Bell, Menu } from "lucide-react";
 import { SlBell } from "react-icons/sl";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Breadcrumb from "./Breadcrumb";
 import { useDispatch, useSelector } from "react-redux";
 import { toggleSidebar } from "../features/Slice/ComponentSlice/sidebarSlice";
+import NotificationPopup from "../Board/NotificationPopup";
 
 const Header = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
   const dispatch = useDispatch();
   const { isSidebarOpen } = useSelector((state) => state.sidebar);
   const [isMobile, setIsMobile] = useState(false);
+  const popupRef = useRef(null);
 
-   // Determine background color based on route
+  // Determine background color based on route
   const headerBgColor = location.pathname.match(/^\/main\/workspaces\/[^/]+\/boards\/[^/]+/)
     ? "bg-[#f5f5f5]"
     : "bg-white";
 
+  // Fetch user data
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -48,7 +58,6 @@ const Header = () => {
         }
       } catch (error) {
         console.error("Error in fetchUserData:", error);
-
         if (
           error.message.includes("logged in") ||
           error.message.includes("Unauthorized") ||
@@ -64,6 +73,65 @@ const Header = () => {
     fetchUserData();
   }, []);
 
+  // Fetch notifications when popup is opened
+  useEffect(() => {
+    if (showPopup) {
+      const fetchNotifications = async () => {
+        setNotificationLoading(true);
+        try {
+          const response = await fetch("/api/v1/notifications", {
+            method: "GET",
+            credentials: "include",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (!response.ok) {
+            if (response.status === 401) {
+              window.location.href = "/login";
+              return;
+            }
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed to fetch notifications");
+          }
+
+          const data = await response.json();
+          setNotifications(data.data?.notifications || []);
+        } catch (error) {
+          console.error("Error fetching notifications:", error);
+          if (
+            error.message.includes("logged in") ||
+            error.message.includes("Unauthorized") ||
+            error.message.includes("jwt")
+          ) {
+            window.location.href = "/login";
+          }
+        } finally {
+          setNotificationLoading(false);
+        }
+      };
+
+      fetchNotifications();
+    }
+  }, [showPopup]);
+
+  // Handle click outside to close popup
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (popupRef.current && !popupRef.current.contains(event.target)) {
+        setShowPopup(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Check for mobile view
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -74,6 +142,125 @@ const Header = () => {
       window.removeEventListener("resize", checkMobile);
     };
   }, []);
+
+  // Toggle notification popup
+  const handleBellClick = () => {
+    setShowPopup((prev) => !prev);
+  };
+
+  // Mark all notifications as read
+  const handleMarkAllAsRead = async () => {
+    try {
+      const response = await fetch("/api/v1/notifications/mark-read", {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ all: true }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to mark notifications as read");
+      }
+
+      // Update notifications to mark them as read
+      setNotifications((prev) =>
+        prev.map((notif) => ({ ...notif, isRead: true }))
+      );
+    } catch (error) {
+      console.error("Error marking notifications as read:", error);
+      if (
+        error.message.includes("logged in") ||
+        error.message.includes("Unauthorized") ||
+        error.message.includes("jwt")
+      ) {
+        window.location.href = "/login";
+      }
+    }
+  };
+
+  // Mark a single notification as read
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      const response = await fetch(`/api/v1/notifications/${notificationId}/mark-read`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to mark notification as read");
+      }
+
+      // Update the notification to mark it as read
+      setNotifications((prev) =>
+        prev.map((notif) =>
+          notif._id === notificationId ? { ...notif, isRead: true } : notif
+        )
+      );
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      if (
+        error.message.includes("logged in") ||
+        error.message.includes("Unauthorized") ||
+        error.message.includes("jwt")
+      ) {
+        window.location.href = "/login";
+      }
+    }
+  };
+
+  // Delete a notification
+  const handleDeleteNotification = async (notificationId) => {
+    try {
+      const response = await fetch(`/api/v1/notifications/${notificationId}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete notification");
+      }
+
+      // Remove the deleted notification from state
+      setNotifications((prev) =>
+        prev.filter((notif) => notif._id !== notificationId)
+      );
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      if (
+        error.message.includes("logged in") ||
+        error.message.includes("Unauthorized") ||
+        error.message.includes("jwt")
+      ) {
+        window.location.href = "/login";
+      }
+    }
+  };
+
+  // Calculate unread notifications count
+  const unreadCount = notifications.filter((notif) => !notif.isRead).length;
 
   return (
     <header className={`w-full px-6 py-2 ${headerBgColor}`}>
@@ -94,10 +281,27 @@ const Header = () => {
 
         <div className="flex items-center space-x-4">
           {/* Notifications */}
-          <div className="relative cursor-pointer">
+          <div className="relative cursor-pointer" onClick={handleBellClick}>
             <SlBell size={20} className="text-gray-600 hover:text-gray-800" />
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-semibold rounded-full w-5 h-5 flex items-center justify-center">
+                {unreadCount}
+              </span>
+            )}
           </div>
+
+          {/* Notification Popup */}
+          {showPopup && (
+            <NotificationPopup
+              ref={popupRef}
+              notifications={notifications}
+              loading={notificationLoading}
+              unreadCount={unreadCount}
+              onMarkAllAsRead={handleMarkAllAsRead}
+              onDeleteNotification={handleDeleteNotification}
+              onMarkAsRead={handleMarkAsRead}
+            />
+          )}
 
           {/* User Avatar */}
           {loading ? (
