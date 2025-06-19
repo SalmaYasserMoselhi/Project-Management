@@ -9,7 +9,7 @@ import arSA from "date-fns/locale/ar-SA";
 import enUS from "date-fns/locale/en-US";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "./calendar.css";
-import { fetchUserMeetings } from "../features/Slice/ComponentSlice/meetingsSlice";
+import { fetchUserMeetings } from "../features/Slice/MeetingSlice/meetingsSlice";
 import {
   openMeetingModalForEdit,
   updateMeetingName,
@@ -19,7 +19,7 @@ import {
   updateLink,
   updateInvitees,
   updateColor,
-} from "../features/Slice/ComponentSlice/meetingModalSlice";
+} from "../features/Slice/MeetingSlice/meetingModalSlice";
 
 const locales = {
   "en-US": enUS,

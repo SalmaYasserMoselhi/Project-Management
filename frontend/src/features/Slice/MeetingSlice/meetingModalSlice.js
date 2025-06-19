@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 import { format, addHours } from "date-fns";
-import { addMeeting, updateMeeting, removeMeeting } from "./meetingsSlice";
+import { addMeeting, updateMeeting, removeMeeting } from "./meetingsSlice.js";
 
 // Async thunk to save meeting data
 export const saveMeetingData = createAsyncThunk(

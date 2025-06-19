@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
@@ -6,10 +6,10 @@ import toast from "react-hot-toast";
 import Column from "./Column";
 import AddListButton from "./AddListButton";
 import drop from "../assets/drop.png";
-import Calendar from "./Calendar";
-import AddMeetingModal from "./AddMeetingModal";
+import Calendar from "../Calendar/Calendar";
+import AddMeetingModal from "../Calendar/AddMeetingModal";
 import { useSelector, useDispatch } from "react-redux";
-import { openMeetingModal } from "../features/Slice/ComponentSlice/meetingModalSlice";
+import { openMeetingModal } from "../features/Slice/MeetingSlice/meetingModalSlice";
 import {
   Check,
   ChevronDown,
@@ -132,34 +132,42 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
   }, []);
 
   const handleListDrop = async (e, targetCol) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    const draggedType = e.dataTransfer.getData("type")
-    const draggedListId = e.dataTransfer.getData("listId")
-    if (draggedType !== "list" || !draggedListId) return
+    const draggedType = e.dataTransfer.getData("type");
+    const draggedListId = e.dataTransfer.getData("listId");
+    if (draggedType !== "list" || !draggedListId) return;
 
-    const targetListId = targetCol.id || targetCol._id
-    if (draggedListId === targetListId) return
+    const targetListId = targetCol.id || targetCol._id;
+    if (draggedListId === targetListId) return;
 
-    const draggedIndex = columns.findIndex((col) => (col.id || col._id) === draggedListId)
-    const targetIndex = columns.findIndex((col) => (col.id || col._id) === targetListId)
-    if (draggedIndex === -1 || targetIndex === -1) return
+    const draggedIndex = columns.findIndex(
+      (col) => (col.id || col._id) === draggedListId
+    );
+    const targetIndex = columns.findIndex(
+      (col) => (col.id || col._id) === targetListId
+    );
+    if (draggedIndex === -1 || targetIndex === -1) return;
 
-    const updatedColumns = [...columns]
-    const [moved] = updatedColumns.splice(draggedIndex, 1)
-    updatedColumns.splice(targetIndex, 0, moved)
-    setColumns(updatedColumns)
+    const updatedColumns = [...columns];
+    const [moved] = updatedColumns.splice(draggedIndex, 1);
+    updatedColumns.splice(targetIndex, 0, moved);
+    setColumns(updatedColumns);
 
     try {
-      await axios.patch(`${BASE_URL}/api/v1/lists/${draggedListId}/reorder`, {
-        position: targetIndex,
-      }, { withCredentials: true })
-      toast.success("List reordered")
+      await axios.patch(
+        `${BASE_URL}/api/v1/lists/${draggedListId}/reorder`,
+        {
+          position: targetIndex,
+        },
+        { withCredentials: true }
+      );
+      toast.success("List reordered");
     } catch (err) {
-      console.error("[Board.jsx] Error reordering list:", err)
-      toast.error("Failed to reorder list")
+      console.error("[Board.jsx] Error reordering list:", err);
+      toast.error("Failed to reorder list");
     }
-  }
+  };
 
   const updateColumnsWithCards = (cardsByList, sortBy = "position") => {
     console.log("[Board.jsx] Received cardsByList:", cardsByList);
@@ -176,9 +184,11 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
 
     updatedColumns.forEach((col) => {
       console.log(
-        `[Board.jsx] Dispatching refreshList for listId: ${col.id || col._id}, sortBy: ${sortBy}, cards:`,
+        `[Board.jsx] Dispatching refreshList for listId: ${
+          col.id || col._id
+        }, sortBy: ${sortBy}, cards:`,
         col_ode
-      )
+      );
       const event = new CustomEvent("refreshList", {
         detail: { listId: col.id || col._id, sortBy, cards: col.cards || [] },
       });
@@ -1017,9 +1027,9 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
                   key={col.id || col._id}
                   draggable
                   onDragStart={(e) => {
-                    e.dataTransfer.setData("listId", col.id || col._id)
-                    e.dataTransfer.setData("type", "list")
-                    e.dataTransfer.effectAllowed = "move"
+                    e.dataTransfer.setData("listId", col.id || col._id);
+                    e.dataTransfer.setData("type", "list");
+                    e.dataTransfer.effectAllowed = "move";
                   }}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => handleListDrop(e, col)}
@@ -1055,8 +1065,4 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
   );
 };
 
-export default Board
-
-
-
-
+export default Board;
