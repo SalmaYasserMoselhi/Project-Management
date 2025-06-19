@@ -1080,7 +1080,7 @@ exports.acceptInvitation = catchAsync(
     });
 
     // Redirect to board page on frontend
-    return res.redirect(`${frontendUrl}/board/${board._id}?joined=true`);
+    return res.redirect(`${frontendUrl}/main/workspaces/${board.workspace._id}/boards/${board._id}?joined=true&boardName=${encodeURIComponent(board.name)}&role=${invitation.role}`);
   },
   // Cleanup function
   async (req, err) => {
