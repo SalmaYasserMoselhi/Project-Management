@@ -42,80 +42,37 @@ export const ChatProvider = ({ children }) => {
 
   // Socket initialization with connection management
   useEffect(() => {
-    let mounted = true;
-    let socketInitAttempt = null;
-    let retryCount = 0;
-    const maxRetries = 5;
-    const retryDelay = 2000;
-    const connectionCheckInterval = 30000;
-    const pingInterval = 15000;
-
-    const initializeSocket = async () => {
-      if (!isAuthenticated || !user?._id || socketInitialized) {
+    // Only proceed if the user is authenticated and we have a user ID.
+    if (isAuthenticated && user?._id) {
+      // Avoid re-initializing if the socket is already set up.
+      if (socketInitialized) {
         return;
       }
 
-      try {
-        console.log("Attempting to initialize socket...");
-        const socket = await connectSocket();
-
-        if (!mounted) {
-          disconnectSocket();
-          return;
-        }
-
-        if (socket) {
-          console.log("Socket initialized successfully");
-          setSocketInitialized(true);
-          retryCount = 0;
-
-          const ping = setInterval(() => {
-            if (socket?.connected) {
-              socket.emit("ping");
-            }
-          }, pingInterval);
-
-          const checkConnection = setInterval(() => {
-            if (!socket?.connected) {
-              console.log("Socket disconnected, attempting to reconnect...");
-              disconnectSocket();
-              initializeSocket();
-            }
-          }, connectionCheckInterval);
-
-          return () => {
-            clearInterval(ping);
-            clearInterval(checkConnection);
-          };
-        }
-      } catch (error) {
-        console.error("Socket initialization failed:", error);
-        if (mounted && retryCount < maxRetries) {
-          retryCount++;
-          console.log(
-            `Retrying socket connection (${retryCount}/${maxRetries})...`
-          );
-          socketInitAttempt = setTimeout(initializeSocket, retryDelay);
-        } else if (retryCount >= maxRetries) {
-          console.error("Max retry attempts reached for socket connection");
-        }
-      }
-    };
-
-    const cleanup = initializeSocket();
-
-    return () => {
-      mounted = false;
-      if (socketInitAttempt) clearTimeout(socketInitAttempt);
+      console.log(`[ChatContext] Initializing socket for user: ${user._id}`);
+      connectSocket();
+      setSocketInitialized(true);
+      return () => {
+        console.log("[ChatContext] Disconnecting socket due to cleanup.");
+        disconnectSocket();
+        setSocketInitialized(false);
+      };
+    }
+    // If not authenticated, ensure we are disconnected.
+    else {
       disconnectSocket();
       setSocketInitialized(false);
-      if (typeof cleanup === "function") cleanup();
-    };
+    }
   }, [isAuthenticated, user?._id]);
 
   // Socket event listeners
   useEffect(() => {
-    if (!socketInitialized) return;
+    if (!socketInitialized) {
+      console.log(
+        "[ChatContext] Socket not initialized, skipping event listeners."
+      );
+      return;
+    }
 
     console.log("Setting up socket event listeners...");
     const cleanupFunctions = [];

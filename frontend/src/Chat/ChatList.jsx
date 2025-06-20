@@ -9,7 +9,6 @@ import {
   createGroupConversation,
   searchUsers,
   getAllUsers,
-  checkAuthStatus,
   cacheUserData,
   fetchMessages,
 } from "../features/Slice/ChatSlice/chatSlice";
@@ -34,7 +33,7 @@ const ChatList = ({ onChatSelect }) => {
   const [groupName, setGroupName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [authChecking, setAuthChecking] = useState(true);
+
   const [groupCreationLoading, setGroupCreationLoading] = useState(false);
   const [groupImage, setGroupImage] = useState(null);
   const [groupImagePreview, setGroupImagePreview] = useState(null);
@@ -48,30 +47,13 @@ const ChatList = ({ onChatSelect }) => {
     retryAfter,
   } = useSelector((state) => state.chat);
 
-  const auth = useSelector((state) => state.login);
-  const currentUser = auth?.user;
-
-  // بديل لـ useEffect الذي يتحقق من حالة المصادقة
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        setAuthChecking(true);
-        await dispatch(checkAuthStatus()).unwrap();
-      } catch (error) {
-        // تجاهل الأخطاء وعدم تسجيلها
-      } finally {
-        setAuthChecking(false);
-      }
-    };
-
-    checkAuth();
-  }, [dispatch]);
+  const { isAuthenticated, user: currentUser } = useSelector(
+    (state) => state.login
+  );
 
   useEffect(() => {
-    if (authChecking) return;
-
     const loadConversations = async () => {
-      if (!auth?.isAuthenticated || !currentUser?._id) {
+      if (!isAuthenticated || !currentUser?._id) {
         setError("Please login to view conversations");
         return;
       }
@@ -84,21 +66,16 @@ const ChatList = ({ onChatSelect }) => {
       }
     };
 
-    loadConversations();
+    if (isAuthenticated) {
+      loadConversations();
+    }
+  }, [isAuthenticated, currentUser?._id, dispatch]);
 
-    // No need for periodic refresh since we'll update in real-time through socket events
-  }, [auth?.isAuthenticated, currentUser?._id, authChecking, dispatch]);
-
-  // بديل لـ useEffect الذي يبحث عن المستخدمين
   useEffect(() => {
     let timeoutId = null;
 
     const searchUsersDebounced = async () => {
-      if (authChecking) {
-        return;
-      }
-
-      if (!auth?.isAuthenticated || !currentUser?._id) {
+      if (!isAuthenticated || !currentUser?._id) {
         setError("Please login to search users");
         return;
       }
@@ -146,14 +123,7 @@ const ChatList = ({ onChatSelect }) => {
         clearTimeout(timeoutId);
       }
     };
-  }, [
-    searchTerm,
-    showUserSearch,
-    dispatch,
-    currentUser,
-    auth?.isAuthenticated,
-    authChecking,
-  ]);
+  }, [searchTerm, showUserSearch, dispatch, currentUser, isAuthenticated]);
 
   const handleUserClick = async (user) => {
     if (!user?._id) {
@@ -210,11 +180,7 @@ const ChatList = ({ onChatSelect }) => {
   };
 
   const handleGroupIconClick = async () => {
-    if (authChecking) {
-      return;
-    }
-
-    if (!auth?.isAuthenticated || !currentUser?._id) {
+    if (!isAuthenticated || !currentUser?._id) {
       setError("Please login to create a group");
       return;
     }
@@ -582,17 +548,7 @@ const ChatList = ({ onChatSelect }) => {
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        {authChecking ? (
-          <div className="flex flex-col items-center justify-center h-[400px] space-y-4">
-            <div className="relative">
-              <div className="animate-spin rounded-full h-10 w-10 border-3 border-gradient-to-r from-[#4d2d61] to-[#7b4397]border-t-transparent"></div>
-              <div className="absolute inset-0 animate-pulse rounded-full h-10 w-10 bg-gradient-to-r from-[#4d2d61]/20 to-[#7b4397]/20"></div>
-            </div>
-            <p className="text-gray-500 font-medium animate-pulse">
-              Checking authentication...
-            </p>
-          </div>
-        ) : !auth?.isAuthenticated ? (
+        {!isAuthenticated ? (
           <div className="flex flex-col items-center justify-center h-[400px] text-center space-y-3">
             <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#4d2d61]/10 to-[#7b4397]/10 flex items-center justify-center">
               <UserPlus className="w-8 h-8 text-[#4d2d61]" />

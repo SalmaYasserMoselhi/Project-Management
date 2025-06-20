@@ -17,27 +17,16 @@ function App() {
   const { isWorkspaceOpen, selectedWorkspace, workspaceTransitionState } =
     useSelector((state) => state.sidebar);
 
+  const { authLoading } = useSelector((state) => state.login);
   const location = useLocation();
   const dispatch = useDispatch();
-
   const currentUser = useSelector((state) => state.auth?.user);
   const userWorkspaces = useSelector(
     (state) => state.userWorkspaces.workspaces
   );
 
   useEffect(() => {
-    const initializeUser = async () => {
-      try {
-        const authResult = await dispatch(checkAuthStatus()).unwrap();
-        if (authResult?.isAuthenticated) {
-          await dispatch(fetchUserData());
-          await dispatch(fetchUserPublicWorkspaces());
-        }
-      } catch (error) {
-        console.error("Failed to initialize user:", error);
-      }
-    };
-    initializeUser();
+    dispatch(checkAuthStatus());
   }, [dispatch]);
 
   // List of auth pages where we don't want Sidebar and WorkspacePopup
@@ -66,10 +55,6 @@ function App() {
       workspaceTransitionState === "closing");
 
   useEffect(() => {
-    dispatch(checkAuthStatus());
-  }, [dispatch]);
-
-  useEffect(() => {
     if (
       currentUser?._id &&
       (!Array.isArray(userWorkspaces) || userWorkspaces.length === 0)
@@ -77,8 +62,6 @@ function App() {
       dispatch(fetchUserPublicWorkspaces());
     }
   }, [currentUser?._id, userWorkspaces, dispatch]);
-
-  useEffect(() => {}, [currentUser]);
 
   useEffect(() => {
     // عند الدخول: set status online
@@ -102,6 +85,20 @@ function App() {
       window.removeEventListener("beforeunload", setOffline);
     };
   }, []);
+
+  if (authLoading) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center">
+        <div
+          className="w-12 h-12 rounded-full animate-spin"
+          style={{
+            border: "4px solid rgba(77, 45, 97, 0.2)",
+            borderTopColor: "#4D2D61",
+          }}
+        ></div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-screen overflow-hidden flex">
