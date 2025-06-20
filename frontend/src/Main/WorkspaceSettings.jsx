@@ -1273,7 +1273,10 @@ export default function WorkspaceSettings() {
         onClose={() => setShowMembersModal(false)}
         members={workspace.members}
         setMembers={(newMembers) =>
-          setWorkspace((prev) => ({ ...prev, members: [...newMembers] }))
+          setWorkspace((prev) => ({
+            ...prev,
+            members: Array.isArray(newMembers) ? [...newMembers] : prev.members,
+          }))
         }
         roleDropdownOpen={roleDropdownOpen}
         setRoleDropdownOpen={setRoleDropdownOpen}
