@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useMemo, useState } from "react";
 import ReactDOM from "react-dom";
 import { ChevronDown } from "lucide-react";
 import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 
 const MembersModal = ({
   open,
@@ -21,6 +22,7 @@ const MembersModal = ({
   setLoadingMembers,
   setErrorMembers,
 }) => {
+  const navigate = useNavigate();
   const observerRef = useRef(null);
   const [updatingRoleId, setUpdatingRoleId] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
@@ -33,19 +35,6 @@ const MembersModal = ({
     if (!members) return [];
     return Array.isArray(members) ? members : [];
   }, [members]);
-
-  // Get workspaceId from localStorage if not provided
-  const workspaceId = useMemo(() => {
-    if (entityId) return entityId;
-    try {
-      const selected = localStorage.getItem("selectedWorkspace");
-      if (!selected) return null;
-      const parsed = JSON.parse(selected);
-      return parsed?._id || parsed?.id || null;
-    } catch {
-      return null;
-    }
-  }, [entityId]);
 
   useEffect(() => {
     if (roleDropdownOpen !== null && membersScrollRef.current) {
@@ -83,7 +72,7 @@ const MembersModal = ({
       } else if (entityType === "board") {
         url = `/api/v1/boards/${entityId}/members`;
       }
-      fetch(url)
+      fetch(url, { credentials: "include" })
         .then((res) => {
           if (!res.ok) throw new Error("Failed to fetch members");
           return res.json();
@@ -116,7 +105,7 @@ const MembersModal = ({
     } else if (entityType === "board") {
       url = `/api/v1/boards/${entityId}/members`;
     }
-    fetch(url)
+    fetch(url, { credentials: "include" })
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch members");
         return res.json();
@@ -146,34 +135,40 @@ const MembersModal = ({
   }, [showErrorAlert, errorMembers]);
 
   // دالة حذف عضو
-  const handleRemoveMember = async (memberId, userId) => {
-    try {
-      setIsRefreshingMembers(true);
-      const url =
-        entityType === "workspace"
-          ? `/api/v1/workspaces/${entityId}/members/${userId}`
-          : `/api/v1/boards/${entityId}/members/${userId}`;
-      const res = await fetch(url, { method: "DELETE" });
-      if (!res.ok) {
-        let msg = "Failed to remove member";
-        try {
-          const data = await res.json();
-          if (data && data.message) msg = data.message;
-        } catch {}
-        throw new Error(msg);
-      }
-      // إذا كان اليوزر حذف نفسه (Leave) اعمل redirect
-      if (currentUser && userId === currentUser._id) {
-        window.location.href = "/main/dashboard";
-        return;
-      }
-      fetchMembers();
-    } catch (err) {
-      setErrorMembers(err.message || "Failed to remove member");
-      setShowErrorAlert(true);
-    } finally {
-      setIsRefreshingMembers(false);
-    }
+  const handleRemoveMember = (memberId, userId) => {
+    setIsRefreshingMembers(true);
+    const url =
+      entityType === "workspace"
+        ? `/api/v1/workspaces/${entityId}/members/${userId}`
+        : `/api/v1/boards/${entityId}/members/${userId}`;
+
+    fetch(url, {
+      method: "DELETE",
+      credentials: "include",
+    })
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().then((err) => {
+            throw new Error(err.message || "Failed to remove member");
+          });
+        }
+        return res.text();
+      })
+      .then(() => {
+        if (currentUser && userId === currentUser._id) {
+          onClose();
+          navigate("/main/dashboard");
+        } else {
+          fetchMembers();
+        }
+      })
+      .catch((err) => {
+        setErrorMembers(err.message || "Failed to remove member");
+        setShowErrorAlert(true);
+      })
+      .finally(() => {
+        setIsRefreshingMembers(false);
+      });
   };
 
   if (!open) return null;
@@ -379,12 +374,20 @@ const MembersModal = ({
                     )
                   );
 
-                  fetch(`/api/v1/workspaces/${workspaceId}`, {
+                  const updateUrl =
+                    entityType === "board"
+                      ? `/api/v1/boards/user-boards/${entityId}`
+                      : `/api/v1/workspaces/${entityId}`;
+
+                  const bodyPayload = {
+                    members: [{ user: userId, role: newRole }],
+                  };
+
+                  fetch(updateUrl, {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      members: [{ user: userId, role: newRole }],
-                    }),
+                    body: JSON.stringify(bodyPayload),
+                    credentials: "include",
                   })
                     .then(async (res) => {
                       if (!res.ok) {
@@ -397,22 +400,12 @@ const MembersModal = ({
                       }
                       return res.json();
                     })
-                    .then((data) => {
-                      const newMembers = data?.data?.workspace?.members;
-                      if (Array.isArray(newMembers)) {
-                        setMembers(
-                          newMembers.map((m) => ({
-                            ...m,
-                            id: m.id || m._id,
-                            name:
-                              m.user?.username || m.user?.email || "Unknown",
-                            avatar: m.user?.avatar,
-                            email: m.user?.email,
-                          }))
-                        );
-                      } else {
-                        fetchMembers();
-                      }
+                    .then(() => {
+                      fetchMembers();
+                      setSuccessMessage(
+                        `Role updated to ${newRole} successfully`
+                      );
+                      setTimeout(() => setSuccessMessage(null), 4000);
                     })
                     .catch((err) => {
                       setMembers((prev) =>

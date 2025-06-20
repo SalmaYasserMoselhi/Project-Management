@@ -3,12 +3,20 @@
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
-import vector from "../assets/Vector.png";
 import TaskCard from "./TaskCard";
 import icon from "../assets/icon.png";
 import CardDetails from "../Card/CardDetails";
 
-const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists, targetCardId }) => {
+const Column = ({
+  id,
+  title,
+  className,
+  onDelete,
+  onArchive,
+  boardId,
+  allLists,
+  targetCardId,
+}) => {
   const BASE_URL = "http://localhost:3000";
   const [cards, setCards] = useState([]);
   const [isAdding, setIsAdding] = useState(false);
@@ -30,9 +38,14 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists, 
       if (sort === "priority") {
         url += "?sortBy=priorityValue&sortOrder=desc";
       }
-      console.log(`[Column.jsx] Fetching cards for list ${id} with URL: ${url}`);
+      console.log(
+        `[Column.jsx] Fetching cards for list ${id} with URL: ${url}`
+      );
       const res = await axios.get(url);
-      console.log(`[Column.jsx] Fetched cards for list ${id} with sort ${sort}:`, res.data.data.cards);
+      console.log(
+        `[Column.jsx] Fetched cards for list ${id} with sort ${sort}:`,
+        res.data.data.cards
+      );
       setCards(res.data.data.cards || []);
     } catch (err) {
       console.error(`[Column.jsx] Error loading cards for list ${id}:`, err);
@@ -49,16 +62,28 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists, 
 
   useEffect(() => {
     const handleRefreshList = (event) => {
-      console.log("[Column.jsx] refreshList event received:", event.detail, "Column id:", id);
+      console.log(
+        "[Column.jsx] refreshList event received:",
+        event.detail,
+        "Column id:",
+        id
+      );
       if (event.detail && event.detail.listId === id) {
         const newSortBy = event.detail.sortBy || "position";
-        console.log(`[Column.jsx] Updating sortBy to ${newSortBy} for list ${id}`);
+        console.log(
+          `[Column.jsx] Updating sortBy to ${newSortBy} for list ${id}`
+        );
         setSortBy(newSortBy);
         if (event.detail.cards && newSortBy === "priority") {
-          console.log(`[Column.jsx] Using cards from refreshList for list ${id}:`, event.detail.cards);
+          console.log(
+            `[Column.jsx] Using cards from refreshList for list ${id}:`,
+            event.detail.cards
+          );
           setCards(event.detail.cards);
         } else {
-          console.log(`[Column.jsx] Fetching cards for list ${id} with sort ${newSortBy}`);
+          console.log(
+            `[Column.jsx] Fetching cards for list ${id} with sort ${newSortBy}`
+          );
           fetchCards(newSortBy);
         }
       }
@@ -111,7 +136,9 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists, 
       console.log(`[Column.jsx] Created card for list ${id}:`, createdCard);
       setCards((prevCards) =>
         prevCards.map((card) =>
-          card.id === tempId ? { ...createdCard, id: createdCard._id || createdCard.id } : card
+          card.id === tempId
+            ? { ...createdCard, id: createdCard._id || createdCard.id }
+            : card
         )
       );
 
@@ -152,7 +179,9 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists, 
   };
 
   const handleDelete = () => {
-    const confirmDelete = window.confirm("Are you sure you want to delete this list?");
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this list?"
+    );
     if (!confirmDelete) return;
 
     console.log(`[Column.jsx] Deleting list ${id}`);
@@ -161,14 +190,19 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists, 
   };
 
   const handleCardUpdate = async (originalListId, newListId) => {
-    console.log(`[Column.jsx] handleCardUpdate for list ${id}:`, { originalListId, newListId });
+    console.log(`[Column.jsx] handleCardUpdate for list ${id}:`, {
+      originalListId,
+      newListId,
+    });
     if (originalListId && newListId) {
       if (originalListId === id || newListId === id) {
         await fetchCards();
       }
       if (originalListId !== newListId) {
         const otherListId = originalListId === id ? newListId : originalListId;
-        console.log(`[Column.jsx] Dispatching refreshList for other list ${otherListId}`);
+        console.log(
+          `[Column.jsx] Dispatching refreshList for other list ${otherListId}`
+        );
         const event = new CustomEvent("refreshList", {
           detail: { listId: otherListId, sortBy },
         });
@@ -243,11 +277,20 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists, 
       const isSameList = sourceListId === id;
 
       if (isSameList) {
-        const cardIndex = cards.findIndex((card) => (card.id || card._id) === cardId);
-        if (cardIndex !== -1 && cardIndex !== targetPosition && cardIndex !== targetPosition - 1) {
+        const cardIndex = cards.findIndex(
+          (card) => (card.id || card._id) === cardId
+        );
+        if (
+          cardIndex !== -1 &&
+          cardIndex !== targetPosition &&
+          cardIndex !== targetPosition - 1
+        ) {
           const [movedCard] = updatedCards.splice(cardIndex, 1);
           updatedCards.splice(targetPosition, 0, movedCard);
-          console.log(`[Column.jsx] Reordered cards in list ${id}:`, updatedCards);
+          console.log(
+            `[Column.jsx] Reordered cards in list ${id}:`,
+            updatedCards
+          );
           setCards(updatedCards);
         }
       } else {
@@ -259,7 +302,10 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists, 
           commentCount: 0,
           labels: [],
         });
-        console.log(`[Column.jsx] Added card to list ${id} from ${sourceListId}:`, updatedCards);
+        console.log(
+          `[Column.jsx] Added card to list ${id} from ${sourceListId}:`,
+          updatedCards
+        );
         setCards(updatedCards);
       }
 
@@ -285,7 +331,7 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists, 
 
   return (
     <div
-      className={`p-2 rounded-lg mb-4 md:mb-0 flex flex-col min-w-[300px] h-full ${className} ${
+      className={`rounded-lg mb-4 md:mb-0 flex flex-col min-w-[300px] h-full ${className} ${
         isDraggingOver ? "bg-gray-100" : ""
       }`}
       ref={columnRef}
@@ -357,7 +403,6 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists, 
             maxHeight: cards.length > 3 ? `${148 * 3}px` : "none",
             scrollbarWidth: "thin",
             scrollbarColor: "#d1d5db transparent",
-            paddingRight: "6px",
           }}
         >
           <style>
@@ -374,7 +419,7 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists, 
               }
             `}
           </style>
-          <div style={{ paddingLeft: "4px" }}>
+          <div>
             {cards.map((card, index) => (
               <>
                 {dropPosition === index && isDraggingOver && (
@@ -403,11 +448,11 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists, 
           </div>
         </div>
 
-        <div className="mt-3">
+        <div>
           {!isAdding && (
             <button
               onClick={() => setIsAdding(true)}
-              className="bg-white py-3 w-full rounded-md border border-[#F2F4F7] shadow-sm transition-all hover:shadow-md"
+              className="bg-white py-3 w-full rounded-md border border-[#F2F4F7] shadow-lg transition-all hover:shadow-md"
               disabled={loading}
             >
               <img
@@ -434,4 +479,3 @@ const Column = ({ id, title, className, onDelete, onArchive, boardId, allLists, 
 };
 
 export default Column;
-

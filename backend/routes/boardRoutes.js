@@ -55,18 +55,8 @@ router
 
 // Member removal route
 router
-  .route('/:id/members/:userId')
-  .delete(
-    (req, res, next) => {
-      if (req.user._id.toString() === req.params.userId) {
-        // Allow self-leave without permission check
-        return next();
-      }
-      // Otherwise, require manage_members permission
-      return boardController.checkBoardPermission('manage_members')(req, res, next);
-    },
-    boardController.removeMember
-  );
+  .route('/:boardId/members/:memberId')
+  .delete(boardController.removeMemberFromBoard);
 
 // Board update/archive routes
 router
@@ -74,10 +64,7 @@ router
   .patch(
     boardController.checkBoardPermission('manage_board'),
     boardController.updateBoard
-  );
-
-router
-  .route('/user-boards/:id')
+  )
   .delete(
     boardController.checkBoardPermission('delete_board'),
     boardController.deleteBoard
@@ -99,7 +86,10 @@ router
 
 // Get archived boards
 router.get('/user-boards/archived', boardController.getArchivedBoards);
-router.get('/workspace/:workspaceId/archived', boardController.getWorkspaceArchivedBoards);
+router.get(
+  '/workspace/:workspaceId/archived',
+  boardController.getWorkspaceArchivedBoards
+);
 
 // Star/unstar routes
 router

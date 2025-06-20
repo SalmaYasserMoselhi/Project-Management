@@ -13,13 +13,11 @@ const invitationService = require('../utils/invitationService');
 const { createDefaultLists } = require('../controllers/listController');
 const notificationService = require('../utils/notificationService');
 
-  const signToken = (id) => {
+const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
 };
-
-
 
 // Helper function to format member data
 const formatMemberData = (member) => {
@@ -96,25 +94,33 @@ const formatBoardResponse = (board, userId) => ({
               createdAt: card.createdAt,
               updatedAt: card.updatedAt,
               archived: card.archived || false,
-              subtasks: card.subtasks ? card.subtasks.map(subtask => ({
-                id: subtask._id,
-                title: subtask.title,
-                completed: subtask.completed,
-                completedAt: subtask.completedAt,
-                completedBy: subtask.completedBy,
-                position: subtask.position,
-                assignedTo: subtask.assignedTo ? formatMemberData(subtask.assignedTo) : null,
-                dueDate: subtask.dueDate,
-                createdAt: subtask.createdAt,
-                updatedAt: subtask.updatedAt
-              })) : [],
-              subtaskStats: card.subtasks ? {
-                total: card.subtasks.length,
-                completed: card.subtasks.filter(st => st.completed).length,
-                inProgress: card.subtasks.filter(st => !st.completed).length
-              } : { total: 0, completed: 0, inProgress: 0 }
+              subtasks: card.subtasks
+                ? card.subtasks.map((subtask) => ({
+                    id: subtask._id,
+                    title: subtask.title,
+                    completed: subtask.completed,
+                    completedAt: subtask.completedAt,
+                    completedBy: subtask.completedBy,
+                    position: subtask.position,
+                    assignedTo: subtask.assignedTo
+                      ? formatMemberData(subtask.assignedTo)
+                      : null,
+                    dueDate: subtask.dueDate,
+                    createdAt: subtask.createdAt,
+                    updatedAt: subtask.updatedAt,
+                  }))
+                : [],
+              subtaskStats: card.subtasks
+                ? {
+                    total: card.subtasks.length,
+                    completed: card.subtasks.filter((st) => st.completed)
+                      .length,
+                    inProgress: card.subtasks.filter((st) => !st.completed)
+                      .length,
+                  }
+                : { total: 0, completed: 0, inProgress: 0 },
             }))
-          : []
+          : [],
       }))
     : [],
   settings: board.settings,
@@ -173,25 +179,25 @@ exports.getBoardById = catchAsync(async (req, res, next) => {
             populate: [
               {
                 path: 'members.user',
-                select: 'username email avatar firstName lastName'
+                select: 'username email avatar firstName lastName',
               },
               {
-                path: 'labels'
+                path: 'labels',
               },
               {
                 path: 'createdBy',
-                select: 'username email avatar firstName lastName'
+                select: 'username email avatar firstName lastName',
               },
               {
                 path: 'subtasks',
                 options: { sort: { position: 1 } },
                 populate: {
                   path: 'assignedTo.user',
-                  select: 'username email avatar firstName lastName'
-                }
-              }
-            ]
-          }
+                  select: 'username email avatar firstName lastName',
+                },
+              },
+            ],
+          },
         })
     : board;
 
@@ -291,11 +297,13 @@ exports.createBoard = catchAsync(
     }
     // Send notification to workspace members
     if (board.workspace) {
-      const workspace = await Workspace.findById(board.workspace)
-        .populate('members.user');
-      
-      const recipients = workspace.members
-        .filter(member => member.user._id.toString() !== req.user._id.toString());
+      const workspace = await Workspace.findById(board.workspace).populate(
+        'members.user'
+      );
+
+      const recipients = workspace.members.filter(
+        (member) => member.user._id.toString() !== req.user._id.toString()
+      );
 
       for (const recipient of recipients) {
         await notificationService.createNotification(
@@ -307,7 +315,7 @@ exports.createBoard = catchAsync(
           board._id,
           {
             boardName: board.name,
-            workspaceName: workspace.name
+            workspaceName: workspace.name,
           }
         );
       }
@@ -423,24 +431,26 @@ exports.updateBoard = catchAsync(async (req, res, next) => {
       );
 
       const boardMembers = board.members
-      .filter(member => member.user.toString() !== req.user._id.toString())
-      .map(member => member.user);
-    
-    for (const memberId of boardMembers) {
-      await notificationService.createNotification(
-        req.app.io,
-        memberId,
-        req.user._id,
-        'settings_updated',
-        'board',
-        board._id,
-        {
-          entityType: 'board',
-          entityName: board.name,
-          updatedSettings: settings.general ? Object.keys(settings.general) : [],
-        }
-      );
-    }
+        .filter((member) => member.user.toString() !== req.user._id.toString())
+        .map((member) => member.user);
+
+      for (const memberId of boardMembers) {
+        await notificationService.createNotification(
+          req.app.io,
+          memberId,
+          req.user._id,
+          'settings_updated',
+          'board',
+          board._id,
+          {
+            entityType: 'board',
+            entityName: board.name,
+            updatedSettings: settings.general
+              ? Object.keys(settings.general)
+              : [],
+          }
+        );
+      }
     }
 
     if (Object.keys(basicFields).length > 0) {
@@ -567,8 +577,9 @@ exports.updateBoard = catchAsync(async (req, res, next) => {
     .populate('lists');
 
   // Send notification to board members
-  const recipients = board.members
-    .filter(member => member.user._id.toString() !== req.user._id.toString());
+  const recipients = board.members.filter(
+    (member) => member.user._id.toString() !== req.user._id.toString()
+  );
 
   for (const recipient of recipients) {
     await notificationService.createNotification(
@@ -580,7 +591,7 @@ exports.updateBoard = catchAsync(async (req, res, next) => {
       board._id,
       {
         boardName: board.name,
-        updatedFields: Object.keys(req.body)
+        updatedFields: Object.keys(req.body),
       }
     );
   }
@@ -625,11 +636,12 @@ exports.deleteBoard = catchAsync(async (req, res, next) => {
       { $pull: { boards: board._id } }
     );
   }
-    // Send notification before deleting
-    const recipients = board.members
-    .filter(member => member.user._id.toString() !== req.user._id.toString());
+  // Send notification before deleting
+  const recipients = board.members.filter(
+    (member) => member.user._id.toString() !== req.user._id.toString()
+  );
 
-    for (const recipient of recipients) {
+  for (const recipient of recipients) {
     await notificationService.createNotification(
       req.app.io,
       recipient.user._id,
@@ -638,10 +650,10 @@ exports.deleteBoard = catchAsync(async (req, res, next) => {
       'board',
       board._id,
       {
-        boardName: board.name
+        boardName: board.name,
       }
     );
-    }
+  }
   // Delete the board itself
   await Board.deleteOne({ _id: board._id });
 
@@ -798,29 +810,31 @@ exports.getBoardMembers = catchAsync(async (req, res, next) => {
   const pageNum = parseInt(page, 10) || 1;
   const limitNum = parseInt(limit, 10) || 10;
   const skip = (pageNum - 1) * limitNum;
-  
-    // Populate user details to get firstName and lastName
+
+  // Populate user details to get firstName and lastName
   const populatedBoard = await Board.findById(board._id).populate({
     path: 'members.user',
-    select: '_id username email avatar firstName lastName'
+    select: '_id username email avatar firstName lastName',
   });
 
   // Filter out invalid members before mapping
   // const validMembers = board.members.filter(member => member && member.user);
-  
-    // Filter out invalid members before mapping
-  const validMembers = populatedBoard.members.filter(member => member && member.user);
-  
+
+  // Filter out invalid members before mapping
+  const validMembers = populatedBoard.members.filter(
+    (member) => member && member.user
+  );
+
   // Apply formatMemberData and include firstName and lastName
-  const members = validMembers.map(member => {
+  const members = validMembers.map((member) => {
     const formattedMember = formatMemberData(member);
-    
+
     // Add firstName and lastName to the formatted member data
     if (member.user) {
       formattedMember.user.firstName = member.user.firstName || '';
       formattedMember.user.lastName = member.user.lastName || '';
     }
-    
+
     return formattedMember;
   });
 
@@ -962,8 +976,6 @@ exports.acceptInvitation = catchAsync(
   async (req, res, next) => {
     const { token } = req.params;
 
-
-    
     // Get frontend URL from environment variables
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
@@ -1037,8 +1049,6 @@ exports.acceptInvitation = catchAsync(
       req.invitationInfo.workspaceId = collaborationWorkspace._id;
     }
 
-  
-
     // Use invitationService to accept the invitation
     await invitationService.acceptInvitation(board, invitation, user, {
       entityType: 'board',
@@ -1066,8 +1076,8 @@ exports.acceptInvitation = catchAsync(
         role: invitation.role,
       }
     );
-    
-     // Create authentication token and set cookie
+
+    // Create authentication token and set cookie
     const jwtToken = signToken(user._id);
     res.cookie('jwt', jwtToken, {
       expires: new Date(
@@ -1080,7 +1090,13 @@ exports.acceptInvitation = catchAsync(
     });
 
     // Redirect to board page on frontend
-    return res.redirect(`${frontendUrl}/main/workspaces/${board.workspace._id}/boards/${board._id}?joined=true&boardName=${encodeURIComponent(board.name)}&role=${invitation.role}`);
+    return res.redirect(
+      `${frontendUrl}/main/workspaces/${board.workspace._id}/boards/${
+        board._id
+      }?joined=true&boardName=${encodeURIComponent(board.name)}&role=${
+        invitation.role
+      }`
+    );
   },
   // Cleanup function
   async (req, err) => {
@@ -1183,84 +1199,56 @@ exports.cancelInvitation = catchAsync(async (req, res, next) => {
 });
 
 // Remove member from board
-exports.removeMember = catchAsync(async (req, res, next) => {
-  const board = req.board;
-  const targetUserId = req.params.userId;
+exports.removeMemberFromBoard = catchAsync(async (req, res, next) => {
+  const { boardId, memberId } = req.params;
 
-  // Get the target member's role
-  const targetMember = board.members.find(
-    (member) => member.user.toString() === targetUserId
+  const board = await Board.findById(boardId);
+  if (!board) {
+    return next(new AppError('Board not found', 404));
+  }
+
+  permissionService.verifyPermission(board, req.user._id, 'manage_members');
+
+  const memberToRemove = board.members.find(
+    (m) => m.user && m.user.toString() === memberId
   );
 
-  if (!targetMember) {
-    return next(new AppError('Member not found', 404));
-  }
-
-  // Prevent removing the board owner
-  if (targetMember.role === 'owner') {
-    return next(new AppError('Cannot remove board owner', 400));
-  }
-
-  // Admin can only remove regular members, not other admins
-  const currentUserRole = board.members.find(
-    (m) => m.user.toString() === req.user._id.toString()
-  )?.role;
-
-  if (
-    currentUserRole === 'admin' &&
-    targetMember.role === 'admin' &&
-    req.user._id.toString() !== targetUserId // استثناء لو بيحذف نفسه
-  ) {
-    return next(new AppError('Admins cannot remove other admins', 403));
-  }
-
-  // Check if this is the last member in a collaboration board
-  if (board.workspace && board.workspace.type === 'collaboration' && board.members.length === 1) {
-    await Board.deleteOne({ _id: board._id });
-
-    return res.status(204).json({
-      status: 'success',
-      message: 'Board deleted as last member was removed',
-    });
-  }
-
-  // Store member info for activity log
-  const memberInfo = {
-    user: targetUserId,
-    role: targetMember.role,
-  };
-
-  if (targetUserId !== req.user._id.toString()) {
-    // Send notification to the removed member
-    await notificationService.createNotification(
-      req.app.io,
-      targetUserId,
-      req.user._id,
-      'member_removed',
-      'board',
-      board._id,
-      {
-        entityType: 'board',
-        entityName: board.name,
-        role: targetMember.role,
-      }
-    );
-  }
-
-  // Remove member
-  board.members = board.members.filter(
-    (member) => member.user.toString() !== targetUserId
-  );
-
-  // Log activity
-  await activityService.logBoardActivity(
-    board,
-    req.user._id,
-    'member_removed',
-    {
-      member: memberInfo,
-      removedBy: req.user._id,
+  if (!memberToRemove) {
+    // If member not found, it might be because the user was deleted.
+    // We still need to clean up their references.
+    const userExists = await User.findById(memberId);
+    if (!userExists) {
+      board.members = board.members.filter(
+        (m) => m.user && m.user.toString() !== memberId
+      );
+    } else {
+      return next(new AppError('Member not found on this board', 404));
     }
+  } else {
+    if (memberToRemove.role === 'owner') {
+      return next(new AppError('Cannot remove the board owner', 400));
+    }
+    board.members.pull(memberToRemove._id);
+  }
+
+  await Card.updateMany(
+    { board: boardId, 'members.user': memberId },
+    { $pull: { members: { user: memberId } } }
+  );
+
+  await board.save();
+
+  res.status(204).send();
+});
+
+// Leave board
+exports.leaveBoard = catchAsync(async (req, res, next) => {
+  const board = req.board;
+  const userId = req.user._id;
+
+  // Remove user from board members
+  board.members = board.members.filter(
+    (member) => member.user.toString() !== userId.toString()
   );
 
   await board.save();
@@ -1569,9 +1557,6 @@ exports.getMyStarredBoards = catchAsync(async (req, res, next) => {
   });
 });
 
-
-
-
 // Get archived boards for a specific workspace
 exports.getWorkspaceArchivedBoards = catchAsync(async (req, res, next) => {
   const { workspaceId } = req.params;
@@ -1595,7 +1580,7 @@ exports.getWorkspaceArchivedBoards = catchAsync(async (req, res, next) => {
   // Find boards that belong to this workspace AND that the current user has archived
   const archivedBoards = await Board.find({
     workspace: workspaceId,
-    'archivedByUsers.user': userId
+    'archivedByUsers.user': userId,
   })
     .populate({
       path: 'workspace',
