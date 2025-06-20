@@ -39,13 +39,13 @@ const Main = () => {
 
       {/* Main  */}
       <div
-        className={`flex-1 transition-all duration-300 pb-0 ${
+        className={`flex-1  flex flex-col transition-all duration-300 ${
           !isMobile && isSidebarOpen ? "ml-60" : !isMobile ? "ml-20" : "ml-0"
         }`}
       >
         <Header />
 
-        <div className="h-full overflow-auto no-scrollbar">
+        <div className="flex-1 overflow-auto no-scrollbar">
           <Outlet />
         </div>
       </div>

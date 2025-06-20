@@ -98,7 +98,7 @@ function ChatHeader({ user, onToggleInfo, onBackClick, isMobile }) {
   }, [chatUser, currentUser?._id, userMap, isUserOnline]);
 
   return (
-    <div className="bg-white flex items-center justify-between px-4 py-3 border-b border-t border-gray-100 sticky top-0 z-10 shadow-sm">
+    <div className="bg-white flex items-center justify-between px-4 py-2.5 border-b border-t border-gray-100 sticky top-0 z-10 shadow-sm">
       <div className="flex items-center gap-4">
         {/* زر الرجوع للموبايل */}
         {isMobile && onBackClick && (

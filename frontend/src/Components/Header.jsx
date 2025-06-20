@@ -96,9 +96,9 @@ const Header = () => {
 
   return (
     <>
-      <header className={`w-full px-6 py-2 ${headerBgColor}`}>
+      <header className={`w-full px-6 py-1 ${headerBgColor}`}>
         {/* Top section with title and user info */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between ">
           <div className="flex items-center animate-slide-in-left">
             {isMobile && (
               <button
