@@ -619,14 +619,14 @@ export default function WorkspaceSettings() {
     <div className="min-h-screen w-full bg-white">
       {errorAlert}
       {/* Header */}
-      <div className="p-3 md:p-4 flex items-center">
+      {/* <div className="p-3 md:p-4 flex items-center">
         {isMobile && (
           <button className="mr-2 p-1 rounded-md">
             <Menu size={24} className="text-[#4d2d61]" />
           </button>
-        )}
-        <Breadcrumb customLabel="Workspace Settings" />
-      </div>
+        )} */}
+        {/* <Breadcrumb customLabel="Workspace Settings" /> */}
+      {/* </div> */}
 
       <div className="flex flex-col space-y-4 mx-auto px-3">
         {/* Success Message */}
