@@ -239,13 +239,14 @@ const ProfilePopup = ({ user }) => {
             <div className="flex items-center space-x-3">
               <div className="relative">
                 <img
-                  src={
-                    formData.avatar
-                      ? formData.avatar
-                      : user?.avatar && user.avatar !== "default.jpg"
-                      ? user.avatar
-                      : "/Project-Management-main/frontend/src/assets/defaultAvatar.png"
-                  }
+                  src={user?.avatar || ""}
+                  onError={(e) => {
+                    e.target.onerror = null; // Prevent infinite loops
+                    const name = user.username || user.email || "User";
+                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      name
+                    )}&background=4D2D61&color=fff&bold=true&size=128`;
+                  }}
                   alt="Profile"
                   className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-md"
                 />
