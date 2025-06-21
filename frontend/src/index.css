@@ -544,3 +544,9 @@ aside.EmojiPickerReact {
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom checkbox styling */
+input[type="checkbox"] {
+  accent-color: #4d2d61;
+  cursor: pointer;
+}

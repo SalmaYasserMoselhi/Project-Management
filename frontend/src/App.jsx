@@ -37,6 +37,7 @@ function App() {
         console.error("Failed to initialize user:", error);
       }
     };
+
     initializeUser();
   }, [dispatch]);
 
@@ -101,6 +102,20 @@ function App() {
       window.removeEventListener("beforeunload", setOffline);
     };
   }, []);
+
+  if (authLoading && location.pathname !== "/") {
+    return (
+      <div className="w-full h-screen flex items-center justify-center">
+        <div
+          className="w-12 h-12 rounded-full animate-spin"
+          style={{
+            border: "4px solid rgba(77, 45, 97, 0.2)",
+            borderTopColor: "#4D2D61",
+          }}
+        ></div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-screen overflow-hidden flex">

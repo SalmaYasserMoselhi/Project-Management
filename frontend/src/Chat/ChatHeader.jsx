@@ -123,16 +123,31 @@ function ChatHeader({ user, onToggleInfo, onBackClick, isMobile }) {
                 </div>
               }
             >
-              {otherUser.avatar ? (
-                <ImageWithFallback
-                  src={otherUser.avatar || Avatar}
+              {otherUser.isGroup ? (
+                otherUser.avatar ? (
+                  <ImageWithFallback
+                    src={otherUser.avatar || Avatar}
+                    alt={otherUser.name}
+                    className="w-full h-full rounded-full object-cover transition-transform group-hover:scale-110"
+                  />
+                ) : (
+                  <div className="w-full h-full rounded-full flex items-center justify-center text-white text-sm font-semibold bg-[#4d2d61]">
+                    {otherUser.name?.[0]?.toUpperCase() || "?"}
+                  </div>
+                )
+              ) : (
+                <img
+                  src={otherUser.avatar || ""}
+                  onError={(e) => {
+                    e.target.onerror = null; // Prevent infinite loops
+                    const name = otherUser.name || "User";
+                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      name
+                    )}&background=4D2D61&color=fff&bold=true&size=128`;
+                  }}
                   alt={otherUser.name}
                   className="w-full h-full rounded-full object-cover transition-transform group-hover:scale-110"
                 />
-              ) : (
-                <div className="w-full h-full rounded-full flex items-center justify-center text-white text-sm font-semibold bg-[#4d2d61]">
-                  {otherUser.name?.[0]?.toUpperCase() || "?"}
-                </div>
               )}
             </Suspense>
           </motion.div>

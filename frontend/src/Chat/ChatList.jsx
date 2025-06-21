@@ -613,17 +613,22 @@ const ChatList = ({ onChatSelect }) => {
                       >
                         <div className="relative">
                           <img
-                            src={
-                              isValidImageUrl(user?.avatar)
-                                ? getAvatarUrl(user.avatar)
-                                : Avatar
-                            }
+                            src={user?.avatar || ""}
+                            onError={(e) => {
+                              e.target.onerror = null; // Prevent infinite loops
+                              const name =
+                                `${user.firstName || ""} ${
+                                  user.lastName || ""
+                                }`.trim() ||
+                                user.username ||
+                                user.email ||
+                                "User";
+                              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                name
+                              )}&background=4D2D61&color=fff&bold=true&size=128`;
+                            }}
                             alt={`${user.firstName} ${user.lastName}`}
                             className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-md group-hover:border-[#4D2D61]/20 transition-all duration-300"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = Avatar;
-                            }}
                           />
                           <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white opacity-0 group-hover:opacity-100 transition-all duration-300"></div>
                         </div>
