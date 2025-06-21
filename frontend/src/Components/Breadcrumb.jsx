@@ -11,15 +11,13 @@ import {
 const Breadcrumb = ({ customLabel }) => {
   const location = useLocation();
   const dispatch = useDispatch();
-  const selectedWorkspace = useSelector(
-    (state) => state.sidebar.selectedWorkspace
-  );
   const userWorkspaces = useSelector(
     (state) => state.userWorkspaces.workspaces
   );
   const { isWorkspaceOpen, workspaceTransitionState, activeWorkspaceType } =
     useSelector((state) => state.sidebar);
   const [workspaceName, setWorkspaceName] = useState(null);
+  const [workspaceData, setWorkspaceData] = useState(null);
   const [boardName, setBoardName] = useState(null);
 
   if (customLabel) {
@@ -59,7 +57,7 @@ const Breadcrumb = ({ customLabel }) => {
     ? location.pathname.match(/\/boards\/([^\/]+)/)?.[1]
     : null;
 
-  // Handle opening workspace popup for boards - using same pattern as sidebar
+  // Handle opening workspace popup for boards - using the actual workspace data from URL
   const handleBoardsClick = async () => {
     try {
       // If clicking on the same workspace type that's already open, just close it
@@ -68,18 +66,8 @@ const Breadcrumb = ({ customLabel }) => {
         return;
       }
 
-      // If we have the workspace data already from the breadcrumb state
-      if (selectedWorkspace && workspaceName) {
-        const workspaceData = {
-          id: selectedWorkspace.id || selectedWorkspace._id,
-          name: workspaceName,
-          type: selectedWorkspace.type,
-          description: selectedWorkspace.description,
-          createdBy: selectedWorkspace.createdBy,
-          userRole: selectedWorkspace.userRole,
-          memberCount: selectedWorkspace.memberCount,
-        };
-
+      // Use the workspace data we have from URL, not from Redux selectedWorkspace
+      if (workspaceData) {
         // If a workspace is currently open, close it first
         if (isWorkspaceOpen) {
           // Close the current workspace
@@ -101,53 +89,45 @@ const Breadcrumb = ({ customLabel }) => {
         return;
       }
 
-      // Fallback: Fetch workspace data from API
-      const BASE_URL = "http://localhost:3000";
-      const response = await fetch(
-        `${BASE_URL}/api/v1/workspaces/user-workspaces`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        }
-      );
+      // If no workspace data yet, fetch it
+      if (workspaceIdFromUrl) {
+        try {
+          const response = await fetch(
+            `/api/v1/workspaces/${workspaceIdFromUrl}`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            const workspace = data.data?.workspace;
+            if (workspace) {
+              const wsData = {
+                id: workspace._id,
+                name: workspace.name,
+                type: workspace.type,
+                description: workspace.description,
+                createdBy: workspace.createdBy,
+                userRole: workspace.userRole,
+                memberCount: workspace.memberCount,
+              };
 
-      const data = await response.json();
-      const workspaces = data?.data?.ownedWorkspaces || data?.data?.workspaces;
-
-      if (data?.status === "success" && workspaces) {
-        const workspace = workspaces.find(
-          (w) => w._id === workspaceIdFromUrl || w.id === workspaceIdFromUrl
-        );
-
-        if (workspace) {
-          const workspaceData = {
-            id: workspace._id,
-            name: workspace.name,
-            type: workspace.type,
-            description: workspace.description,
-            createdBy: workspace.createdBy,
-            userRole: workspace.userRole,
-            memberCount: workspace.memberCount,
-          };
-
-          // If a workspace is currently open, close it first
-          if (isWorkspaceOpen) {
-            dispatch(closeWorkspaceStart());
-            sessionStorage.setItem(
-              "pendingWorkspace",
-              JSON.stringify({
-                type: "workspace",
-                data: workspaceData,
-              })
-            );
-          } else {
-            dispatch(setActiveWorkspaceType("workspace"));
-            dispatch(selectWorkspace(workspaceData));
-            dispatch(openWorkspaceStart());
+              // If a workspace is currently open, close it first
+              if (isWorkspaceOpen) {
+                dispatch(closeWorkspaceStart());
+                sessionStorage.setItem(
+                  "pendingWorkspace",
+                  JSON.stringify({
+                    type: "workspace",
+                    data: wsData,
+                  })
+                );
+              } else {
+                dispatch(setActiveWorkspaceType("workspace"));
+                dispatch(selectWorkspace(wsData));
+                dispatch(openWorkspaceStart());
+              }
+            }
           }
+        } catch (error) {
+          console.error("Error fetching workspace for popup:", error);
         }
       }
     } catch (error) {
@@ -155,25 +135,28 @@ const Breadcrumb = ({ customLabel }) => {
     }
   };
 
-  // Try to get workspace name from different sources
+  // Get workspace name and data from URL - independent of Redux selectedWorkspace
   useEffect(() => {
     if ((isWorkspaceSettings || isBoardPage) && workspaceIdFromUrl) {
-      // First try from selectedWorkspace
-      if (selectedWorkspace?.name) {
-        setWorkspaceName(selectedWorkspace.name);
-        return;
-      }
-
-      // Then try from userWorkspaces
+      // First try from userWorkspaces if available
       const workspace = userWorkspaces?.find(
         (ws) => ws._id === workspaceIdFromUrl || ws.id === workspaceIdFromUrl
       );
       if (workspace?.name) {
         setWorkspaceName(workspace.name);
+        setWorkspaceData({
+          id: workspace._id || workspace.id,
+          name: workspace.name,
+          type: workspace.type,
+          description: workspace.description,
+          createdBy: workspace.createdBy,
+          userRole: workspace.userRole,
+          memberCount: workspace.memberCount,
+        });
         return;
       }
 
-      // Try from localStorage
+      // Try from localStorage only if it matches the URL workspace ID
       try {
         const localWorkspace = localStorage.getItem("selectedPublicWorkspace");
         if (localWorkspace) {
@@ -184,6 +167,15 @@ const Breadcrumb = ({ customLabel }) => {
             parsed.name
           ) {
             setWorkspaceName(parsed.name);
+            setWorkspaceData({
+              id: parsed._id || parsed.id,
+              name: parsed.name,
+              type: parsed.type,
+              description: parsed.description,
+              createdBy: parsed.createdBy,
+              userRole: parsed.userRole,
+              memberCount: parsed.memberCount,
+            });
             return;
           }
         }
@@ -191,8 +183,8 @@ const Breadcrumb = ({ customLabel }) => {
         console.error("Error reading from localStorage:", e);
       }
 
-      // If none found, fetch from API
-      const fetchWorkspaceName = async () => {
+      // If none found, fetch from API using the workspace ID from URL
+      const fetchWorkspaceData = async () => {
         try {
           const response = await fetch(
             `/api/v1/workspaces/${workspaceIdFromUrl}`
@@ -200,7 +192,17 @@ const Breadcrumb = ({ customLabel }) => {
           if (response.ok) {
             const data = await response.json();
             if (data.data?.workspace?.name) {
-              setWorkspaceName(data.data.workspace.name);
+              const workspace = data.data.workspace;
+              setWorkspaceName(workspace.name);
+              setWorkspaceData({
+                id: workspace._id,
+                name: workspace.name,
+                type: workspace.type,
+                description: workspace.description,
+                createdBy: workspace.createdBy,
+                userRole: workspace.userRole,
+                memberCount: workspace.memberCount,
+              });
             }
           }
         } catch (error) {
@@ -208,15 +210,9 @@ const Breadcrumb = ({ customLabel }) => {
         }
       };
 
-      fetchWorkspaceName();
+      fetchWorkspaceData();
     }
-  }, [
-    isWorkspaceSettings,
-    isBoardPage,
-    workspaceIdFromUrl,
-    selectedWorkspace,
-    userWorkspaces,
-  ]);
+  }, [isWorkspaceSettings, isBoardPage, workspaceIdFromUrl, userWorkspaces]); // Removed selectedWorkspace dependency
 
   // Fetch board name if this is a board page
   useEffect(() => {
