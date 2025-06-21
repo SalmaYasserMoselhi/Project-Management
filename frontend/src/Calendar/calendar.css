@@ -38,13 +38,31 @@
 }
 
 .rbc-now .rbc-button-link {
-  color: #4d2d61;
-  text-decoration: underline;
+  background-color: #4d2d61;
+  background-image: linear-gradient(to bottom, #4d2d61, #7b4397);
+  color: white !important;
+  border-radius: 50%;
+  width: 2.2rem;
+  height: 2.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: all 0.2s ease-out;
+}
+
+.rbc-now .rbc-button-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(77, 45, 97, 0.2);
+}
+
+.rbc-now .rbc-button-link:active {
+  transform: translateY(0);
 }
 
 .rbc-show-more,
 .rbc-today {
-  color: #4d2d61;
+  color: #6a3b82;
 }
 
 .rbc-show-more:hover {

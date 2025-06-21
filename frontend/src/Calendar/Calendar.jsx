@@ -468,6 +468,22 @@ const Calendar = () => {
     setDate(newDate);
   };
 
+  const handleViewBasedNavigation = (direction) => {
+    let newDate = new Date(date);
+    if (view === "month") {
+      newDate = new Date(
+        date.getFullYear(),
+        date.getMonth() + (direction === "prev" ? -1 : 1),
+        1
+      );
+    } else if (view === "week") {
+      newDate.setDate(date.getDate() + (direction === "prev" ? -7 : 7));
+    } else if (view === "day") {
+      newDate.setDate(date.getDate() + (direction === "prev" ? -1 : 1));
+    }
+    setDate(newDate);
+  };
+
   // Handle event click to open meeting modal with meeting data
   const handleEventClick = (event) => {
     const meeting = event.meetingData;
@@ -556,11 +572,7 @@ const Calendar = () => {
             <div className="flex items-center gap-4 mb-4 md:mb-0">
               <button
                 className="rounded-full bg-gray-100 w-8 h-8 flex items-center justify-center button-hover"
-                onClick={() =>
-                  handleNavigate(
-                    new Date(date.getFullYear(), date.getMonth() - 1, 1)
-                  )
-                }
+                onClick={() => handleViewBasedNavigation("prev")}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -586,11 +598,7 @@ const Calendar = () => {
 
               <button
                 className="rounded-full bg-gray-100 w-8 h-8 flex items-center justify-center button-hover"
-                onClick={() =>
-                  handleNavigate(
-                    new Date(date.getFullYear(), date.getMonth() + 1, 1)
-                  )
-                }
+                onClick={() => handleViewBasedNavigation("next")}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
