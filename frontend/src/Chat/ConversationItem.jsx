@@ -92,10 +92,46 @@ const ConversationItem = React.memo(
               </div>
             }
           >
-            {isValidImageUrl(displayPicture) ? (
+            {chat.isGroup === true ? (
+              isValidImageUrl(displayPicture) ? (
+                <div className="relative">
+                  <img
+                    src={displayPicture || "/placeholder.svg"}
+                    alt={displayName}
+                    loading="lazy"
+                    className={`w-10 h-10 rounded-full object-cover border-2 transition-all duration-300 shadow-md ${
+                      isActive
+                        ? "border-[#4d2d61]/30 shadow-[#4d2d61]/20"
+                        : "border-white group-hover:border-[#4d2d61]/20 group-hover:shadow-[#4d2d61]/10"
+                    }`}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = Avatar;
+                    }}
+                  />
+                </div>
+              ) : (
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-md transition-all duration-300 ${
+                    isActive
+                      ? "bg-gradient-to-r from-[#4d2d61] to-[#7b4397] shadow-[#4d2d61]/20"
+                      : "bg-gradient-to-r from-gray-400 to-gray-500 group-hover:from-[#4d2d61] group-hover:to-[#7b4397]"
+                  }`}
+                >
+                  {displayName?.[0]?.toUpperCase() || "?"}
+                </div>
+              )
+            ) : (
               <div className="relative">
                 <img
-                  src={displayPicture || "/placeholder.svg"}
+                  src={displayPicture || ""}
+                  onError={(e) => {
+                    e.target.onerror = null; // Prevent infinite loops
+                    const name = displayName || "User";
+                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      name
+                    )}&background=4D2D61&color=fff&bold=true&size=128`;
+                  }}
                   alt={displayName}
                   loading="lazy"
                   className={`w-10 h-10 rounded-full object-cover border-2 transition-all duration-300 shadow-md ${
@@ -103,21 +139,7 @@ const ConversationItem = React.memo(
                       ? "border-[#4d2d61]/30 shadow-[#4d2d61]/20"
                       : "border-white group-hover:border-[#4d2d61]/20 group-hover:shadow-[#4d2d61]/10"
                   }`}
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = Avatar;
-                  }}
                 />
-              </div>
-            ) : (
-              <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-md transition-all duration-300 ${
-                  isActive
-                    ? "bg-gradient-to-r from-[#4d2d61] to-[#7b4397] shadow-[#4d2d61]/20"
-                    : "bg-gradient-to-r from-gray-400 to-gray-500 group-hover:from-[#4d2d61] group-hover:to-[#7b4397]"
-                }`}
-              >
-                {displayName?.[0]?.toUpperCase() || "?"}
               </div>
             )}
           </Suspense>

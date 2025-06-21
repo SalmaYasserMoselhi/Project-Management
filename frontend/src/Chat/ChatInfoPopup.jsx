@@ -9,14 +9,6 @@ import { isValidImageUrl } from "../utils/imageUtils";
 import ConfirmationDialog from "./ConfirmationDialog";
 import axios from "../utils/axiosConfig";
 
-/**
- * ChatInfoPopup Component
- *
- * Uses ONLY custom ConfirmationDialog component for all confirmations.
- * NO native Windows/browser dialogs (window.confirm, alert, etc.) are used.
- * All user confirmations are handled through the custom ConfirmationDialog.
- */
-
 const ChatInfoPopup = memo(
   ({
     showPopup,
@@ -389,11 +381,18 @@ const ChatInfoPopup = memo(
                                 </div>
                                 <div className="relative">
                                   <img
-                                    src={
-                                      isValidImageUrl(user.avatar)
-                                        ? user.avatar
-                                        : defaultAvatar
-                                    }
+                                    src={user.avatar || ""}
+                                    onError={(e) => {
+                                      e.target.onerror = null; // Prevent infinite loops
+                                      const name =
+                                        user.fullName ||
+                                        user.name ||
+                                        user.username ||
+                                        "User";
+                                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                        name
+                                      )}&background=4D2D61&color=fff&bold=true&size=128`;
+                                    }}
                                     className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"
                                     alt={user.name}
                                   />
@@ -476,11 +475,18 @@ const ChatInfoPopup = memo(
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className="relative">
                         <img
-                          src={
-                            isValidImageUrl(user.avatar)
-                              ? user.avatar
-                              : defaultAvatar
-                          }
+                          src={user.avatar || ""}
+                          onError={(e) => {
+                            e.target.onerror = null; // Prevent infinite loops
+                            const name =
+                              user.fullName ||
+                              user.name ||
+                              user.username ||
+                              "User";
+                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                              name
+                            )}&background=4D2D61&color=fff&bold=true&size=128`;
+                          }}
                           className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-lg"
                           alt="avatar"
                         />
