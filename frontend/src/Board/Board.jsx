@@ -1,3 +1,5 @@
+
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -54,7 +56,7 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
     dueDate: null,
   });
 
-  // Mock board members data - in a real app, this would come from your API
+  // Mock board members data
   const boardMembers = [
     {
       id: "1",
@@ -89,7 +91,6 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
       ) {
         setIsSortOpen(false);
         setIsFilterOpen(false);
-        // Reset temp states when closing without applying
         setTempSort(selectedSort);
         setTempSortDirection(sortDirection);
         setTempFilters(activeFilters);
@@ -124,7 +125,6 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
     if (boardId) fetchLists();
   }, [boardId]);
 
-  // Initialize temp states
   useEffect(() => {
     setTempSort(selectedSort);
     setTempSortDirection(sortDirection);
@@ -133,7 +133,6 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
 
   const handleListDrop = async (e, targetCol) => {
     e.preventDefault();
-
     const draggedType = e.dataTransfer.getData("type");
     const draggedListId = e.dataTransfer.getData("listId");
     if (draggedType !== "list" || !draggedListId) return;
@@ -157,9 +156,7 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
     try {
       await axios.patch(
         `${BASE_URL}/api/v1/lists/${draggedListId}/reorder`,
-        {
-          position: targetIndex,
-        },
+        { position: targetIndex },
         { withCredentials: true }
       );
       toast.success("List reordered");
@@ -168,6 +165,67 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
       toast.error("Failed to reorder list");
     }
   };
+
+  // New function to handle list archiving
+  // const handleArchiveList = async (listId) => {
+  //   try {
+  //     const res = await axios.patch(
+  //       `${BASE_URL}/api/v1/lists/${listId}/archive`,
+  //       { archived: true },
+  //       { withCredentials: true }
+  //     );
+  //     if (res.status === 200 || res.status === 204) {
+  //       setColumns((prevColumns) =>
+  //         prevColumns.filter((col) => (col.id || col._id) !== listId)
+  //       );
+  //       setLists((prevLists) =>
+  //         prevLists.filter((list) => list._id !== listId)
+  //       );
+  //       toast.success("List archived successfully");
+  //     } else {
+  //       console.warn("[Board.jsx] Unexpected response when archiving list:", res);
+  //       toast.error("Unexpected response when archiving list");
+  //     }
+  //   } catch (error) {
+  //     console.error("[Board.jsx] Error archiving list:", error);
+  //     toast.error("Failed to archive list");
+  //   }
+  // };
+
+  
+const handleArchiveList = async (listId) => {
+  try {
+    setLoading(true);
+
+    const res = await axios.patch(
+      `${BASE_URL}/api/v1/lists/${listId}/archive`,
+      { archived: true },
+      { withCredentials: true }
+    );
+
+    if (res.status === 200 || res.status === 204) {
+      console.log("[Board.jsx] List archived:", listId);
+
+      // Remove from both lists and columns
+      setLists((prevLists) =>
+        prevLists.filter((list) => (list._id || list.id) !== listId)
+      );
+      setColumns((prevColumns) =>
+        prevColumns.filter((col) => (col._id || col.id) !== listId)
+      );
+
+      toast.success("List archived successfully");
+    } else {
+      toast.error("Unexpected response when archiving list");
+    }
+  } catch (err) {
+    console.error("[Board.jsx] Error archiving list:", err);
+    toast.error("Failed to archive list");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const updateColumnsWithCards = (cardsByList, sortBy = "position") => {
     console.log("[Board.jsx] Received cardsByList:", cardsByList);
@@ -187,7 +245,7 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
         `[Board.jsx] Dispatching refreshList for listId: ${
           col.id || col._id
         }, sortBy: ${sortBy}, cards:`,
-        col_ode
+        col.cards
       );
       const event = new CustomEvent("refreshList", {
         detail: { listId: col.id || col._id, sortBy, cards: col.cards || [] },
@@ -373,11 +431,8 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
     }
   };
 
-  // This is a placeholder function - in a real app, you would implement the API call
   const handleFilterByAssignedMember = async (memberId) => {
     try {
-      // In a real app, you would call your API to filter by assigned member
-      // For now, we'll just simulate success
       console.log(`[Board.jsx] Filtering by assigned member: ${memberId}`);
       return true;
     } catch (error) {
@@ -392,7 +447,6 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
     let appliedCount = 0;
     const filterMessages = [];
 
-    // Apply priority filter if set
     if (tempFilters.priority) {
       const result = await handleFilterByPriority(tempFilters.priority);
       if (result) {
@@ -402,7 +456,6 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
       success = success && result;
     }
 
-    // Apply due date filter if set
     if (tempFilters.dueDate) {
       let result = true;
       if (tempFilters.dueDate === "all") {
@@ -412,14 +465,12 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
           filterMessages.push("Due Date: All");
         }
       } else {
-        // In a real app, you would implement specific due date filters
         appliedCount++;
         filterMessages.push(`Due Date: ${tempFilters.dueDate}`);
       }
       success = success && result;
     }
 
-    // Apply assigned member filter if set
     if (tempFilters.assignedMember) {
       const result = await handleFilterByAssignedMember(
         tempFilters.assignedMember
@@ -436,7 +487,6 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
       success = success && result;
     }
 
-    // If no filters are set, apply default date filter
     if (appliedCount === 0) {
       const result = await handleFilterByDate();
       success = success && result;
@@ -1041,6 +1091,7 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
                     boardId={boardId}
                     allLists={columns}
                     onDelete={handleDeleteList}
+                    onArchive={handleArchiveList} // Pass the archive handler
                     targetCardId={targetCardId}
                   />
                 </div>
@@ -1056,9 +1107,8 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
           </div>
         )}
 
-        {view == "calendar" && <Calendar />}
+        {view === "calendar" && <Calendar />}
 
-        {/* Add Meeting Modal - No longer passing props, using Redux instead */}
         <AddMeetingModal boardId={boardId} />
       </div>
     </div>
@@ -1066,3 +1116,8 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
 };
 
 export default Board;
+
+ 
+
+
+
