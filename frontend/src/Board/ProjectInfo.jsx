@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
@@ -48,7 +49,6 @@ const ProjectInfo = ({
     description: boardDescription || "",
   });
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState(false);
 
   // Handle list restoration callback
   const handleListRestored = (restoredList) => {
@@ -180,6 +180,17 @@ const ProjectInfo = ({
     setSaving(true);
     setShowErrorAlert(null);
 
+    // Check if there are any changes
+    if (
+      form.name === (boardName || "Project Name") &&
+      form.description === (boardDescription || "")
+    ) {
+      setEditingName(false);
+      setEditingDescription(false);
+      setSaving(false);
+      return; // No changes, exit early
+    }
+
     try {
       const response = await fetch(
         `${BASE_URL}/api/v1/boards/user-boards/${boardId}`,
@@ -214,8 +225,6 @@ const ProjectInfo = ({
         throw new Error(errorMsg);
       }
 
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
       setEditingName(false);
       setEditingDescription(false);
     } catch (err) {
@@ -259,11 +268,6 @@ const ProjectInfo = ({
           Board deleted successfully!
         </div>
       )}
-      {success && (
-        <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-md shadow-md z-50">
-          Board updated successfully!
-        </div>
-      )}
       {showErrorAlert && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-100 border border-red-300 text-red-700 px-6 py-3 rounded-lg shadow-lg text-center min-w-[280px] max-w-[90vw]">
           {showErrorAlert}
@@ -284,7 +288,7 @@ const ProjectInfo = ({
           membersScrollRef={membersScrollRef}
           entityId={boardId}
           entityType="board"
-          loadingMembers={loadingMembers}
+          loading SekMembers={loadingMembers}
           errorMembers={errorMembers}
           setLoadingMembers={setLoadingMembers}
           setErrorMembers={setErrorMembers}
