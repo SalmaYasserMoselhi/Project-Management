@@ -1,0 +1,1381 @@
+Chapter 4: Implementation
+4.1 Introduction
+This chapter details the concrete implementation of the Nexus Community platform, translating the architectural designs and methodological principles outlined in Chapter 3 into tangible code and system components. It provides an in-depth exploration of the technologies, frameworks, and programming constructs utilized across both the backend and frontend, demonstrating how the core features of project management, real-time communication, and scheduling were brought to life. Each significant module and functionality will be dissected, showcasing specific coding approaches, API integrations, and the interplay between different system parts. This section aims to provide a clear, technical exposition of the developed solution, serving as a practical guide to its construction and operational mechanics.
+
+4.2 Backend Implementation
+The backend of Nexus Community serves as the robust foundation for all platform functionalities, meticulously designed to handle data storage, business logic processing, and real-time communication. Built primarily with Node.js and Express.js, and leveraging MongoDB for data persistence, the backend adheres to an MVC-like structure augmented with a dedicated service layer and an event-driven architecture for real-time interactions.
+
+4.2.0 Backend Architecture Overview
+The backend architecture follows a modular design pattern with clear separation of concerns:
+
+**Technology Stack:**
+- **Runtime Environment**: Node.js v18+
+- **Web Framework**: Express.js with comprehensive middleware stack
+- **Database**: MongoDB with Mongoose ODM for schema modeling
+- **Real-time Communication**: Socket.IO for WebSocket connections
+- **Authentication**: JWT tokens with Passport.js for OAuth integration
+- **File Processing**: Multer for uploads, Sharp for image processing
+- **Email Service**: Nodemailer with SMTP configuration
+- **Task Scheduling**: Node-cron for automated processes
+- **Security**: Helmet, CORS, rate limiting, and data sanitization
+
+**Project Structure:**
+```
+backend/
+├── controllers/          # Route handlers and business logic
+├── models/              # Mongoose schemas and database models
+├── routes/              # API endpoint definitions
+├── middlewares/         # Custom middleware functions
+├── utils/               # Utility functions and services
+├── config/              # Configuration files
+├── uploads/             # File storage directories
+└── public/              # Static files and templates
+```
+
+[Code Snippet 4.0: Express.js Application Setup with Security Middleware]
+
+```javascript
+// From app.js - Main Application Configuration
+const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const mongoSanitize = require('express-mongo-sanitize');
+const xss = require('xss-clean');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
+
+const app = express();
+
+// Security Middleware Stack
+app.use(helmet({
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+      scriptSrc: ["'self'", "https:"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "ws:", "wss:"],
+      frameSrc: ["'self'", "https:"],
+    },
+  },
+}));
+
+// CORS Configuration
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with'],
+}));
+
+// Rate Limiting
+const limiter = rateLimit({
+  max: 1000,
+  windowMs: 60 * 60 * 1000, // 1 hour
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api', limiter);
+
+// Body parsing and sanitization
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(cookieParser());
+app.use(mongoSanitize());
+app.use(xss());
+
+// API Routes
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/workspaces', workspaceRoutes);
+app.use('/api/v1/boards', boardRoutes);
+app.use('/api/v1/cards', cardRoutes);
+app.use('/api/v1/conversations', conversationRoutes);
+app.use('/api/v1/meetings', meetingRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
+
+// Global Error Handler
+app.use(globalErrorHandler);
+
+module.exports = app;
+```
+
+4.2.1 User Management & Authentication
+User management forms the gateway to the Nexus Community, encompassing secure registration, login, and profile management processes. The implementation prioritizes security and seamless user experience through multi-provider authentication and robust session handling.
+
+User Registration Flow:
+When a new user initiates the registration process via the frontend, an HTTP POST request is sent to the /api/v1/users/signup endpoint. Upon reception by the UserController (or Auth related controller), the request body, containing the user's firstName, lastName, email, and password, undergoes rigorous input validation and sanitization to prevent common vulnerabilities. This validation is typically handled by middleware or a dedicated validation library (e.g., Yup or Joi on the backend). Subsequently, the plain-text password is securely hashed using bcrypt, a cryptographic hashing function specifically designed to be slow and resistant to brute-force attacks. This makes it computationally intensive to reverse, significantly enhancing security by never storing plain-text passwords.
+
+Following successful password hashing, a new user record is created in the MongoDB database via the Mongoose User model. Simultaneously, a unique email verification token is generated. This token is crucial for validating the user's email address, preventing the creation of accounts with fake email IDs and enhancing overall security. An activation email, containing a link embedded with this token, is then dispatched to the user's registered email address using Nodemailer, an email sending library. The user's account is initially set to an emailVerified: false state within the User model until the verification link is successfully clicked, confirming ownership of the email address.
+
+[Code Snippet 4.1: Simplified Backend Code for User Registration with Password Hashing and Email Verification Token Generation]
+
+```javascript
+// From authController.js - User Registration
+exports.signup = catchAsync(
+  async (req, res, next) => {
+    const { email, username, password, passwordConfirm, firstName, lastName } =
+      req.body;
+
+    // 1) Create user with hashed password
+    const newUser = await User.create({
+      firstName,
+      lastName,
+      username,
+      email,
+      password,
+      passwordConfirm,
+      emailVerified: false,
+    });
+
+    // Store user ID for potential cleanup
+    req.createdUserId = newUser._id;
+
+    // 2) Create default workspaces
+    await Workspace.createDefaultWorkspaces(newUser._id, newUser.username);
+
+    // 3) Generate verification token
+    const verificationToken = newUser.createEmailVerificationToken();
+    await newUser.save({ validateBeforeSave: false });
+
+    // 4) Send verification email
+    await sendVerificationEmail(newUser, verificationToken);
+
+    // 5) Return user with workspaces
+    const userWithWorkspaces = await User.findById(newUser._id).populate(
+      'workspaces'
+    );
+
+    res.status(201).json({
+      status: 'success',
+      message:
+        'Account created successfully. Please verify your email to continue.',
+      data: {
+        user: userWithWorkspaces,
+      },
+    });
+  }
+);
+
+// Password hashing middleware in userModel.js
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
+  // Hash the password with cost 12
+  this.password = await bcrypt.hash(this.password, 12);
+  this.passwordConfirm = undefined;
+  this.passwordChangedAt = this.passwordChangedAt;
+  next();
+});
+
+// Email verification token generation method
+userSchema.methods.createEmailVerificationToken = function () {
+  const verificationToken = crypto.randomBytes(32).toString('hex');
+
+  this.emailVerificationToken = crypto
+    .createHash('sha256')
+    .update(verificationToken)
+    .digest('hex');
+
+  this.emailVerificationExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+  return verificationToken;
+};
+```
+
+User Login Flow:
+The user authentication process begins with an HTTP POST request to the /api/v1/users/login endpoint. The AuthController (or relevant UserController) receives the user's email and password. Passport.js, a versatile authentication middleware for Node.js, is utilized to manage the authentication logic. It employs specific strategies (e.g., a local strategy configured for email and password) to handle the verification. The provided plain-text password is then securely compared against the stored bcrypt-hashed password using bcrypt.compare(), ensuring that the stored hash is never directly exposed or decrypted.
+
+Upon successful authentication, a JSON Web Token (JWT) is generated. This token is a compact, URL-safe means of representing claims (such as the user's ID and assigned roles) that are securely transferred between parties. The JWT is signed with a secret key (JWT_SECRET), ensuring its authenticity and integrity. This generated JWT is then sent back to the client, primarily stored within an HTTP-only cookie for enhanced security. This strategy significantly mitigates Cross-Site Scripting (XSS) attacks by preventing client-side JavaScript from accessing the token. The JWT serves as the primary session token, allowing the client to authenticate subsequent requests without needing to re-submit credentials. The token's validity period is controlled by a configurable JWT_EXPIRES_IN environment variable.
+
+[Code Snippet 4.2: Simplified Backend Code for User Login with Password Comparison and JWT Generation/Cookie Setting]
+
+```javascript
+// From authController.js - User Login
+exports.login = catchAsync(async (req, res, next) => {
+  const { email, password } = req.body;
+
+  // 1) Check if email and password exist
+  if (!email || !password) {
+    return next(new AppError('Please provide email and password!', 400));
+  }
+
+  // 2) Check if user exists && password is correct
+  const user = await User.findOne({ email }).select('+password');
+
+  if (!user || !(await user.correctPassword(password, user.password))) {
+    return next(new AppError('Incorrect email or password', 401));
+  }
+
+  // 3) Check if email is verified
+  if (!user.emailVerified) {
+    return next(new AppError('Please verify your email to continue', 401));
+  }
+
+  // 4) Set user status to online
+  await setUserOnline(user._id);
+
+  // 5) If everything ok, send token to client
+  createSendToken(user, 200, req, res);
+});
+
+// JWT token generation and cookie setting
+const signToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN,
+  });
+};
+
+const createSendToken = (user, statusCode, req, res) => {
+  const token = signToken(user._id);
+
+  res.cookie('jwt', token, {
+    expires: new Date(
+      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+    ),
+    httpOnly: true,
+    secure: false,
+    sameSite: 'lax',
+    path: '/',
+  });
+
+  user.password = undefined;
+  res.status(statusCode).json({
+    status: 'success',
+    token,
+    data: {
+      user,
+    },
+  });
+};
+
+// Password comparison method in userModel.js
+userSchema.methods.correctPassword = async function (
+  candidatePassword,
+  userPassword
+) {
+  return await bcrypt.compare(candidatePassword, userPassword);
+};
+```
+
+OAuth Authentication (Google & GitHub):
+For user convenience and streamlined onboarding, Nexus Community integrates OAuth 2.0 authentication with both Google and GitHub. When a user selects to sign in using one of these providers, the backend initiates the standard OAuth authorization code flow. This involves redirecting the user to the respective OAuth provider's authentication page for authorization. Upon successful user authentication and consent, the provider redirects the user back to a pre-configured callback URL on the Nexus Community backend. This callback includes an authorization code, which the backend then exchanges for an access token and the user's profile information (e.g., email, name).
+
+The backend logic subsequently checks if a user with the obtained email or provider-specific ID already exists in the database. If a match is found, the existing account is linked (e.g., by associating the Google ID or GitHub ID with the existing user record). If no existing account is found, a new user account is automatically created and populated with the data retrieved from the OAuth provider. This seamless process eliminates the need for users to manage additional passwords for their Nexus Community accounts when using these external providers.
+
+Email Verification & Password Management:
+The email verification process, initiated during user registration, is finalized when the user clicks the verification link embedded in the email. This action triggers an HTTP GET request to the /api/v1/users/verifyEmail/:token endpoint. The backend's verification middleware or controller function retrieves the token from the URL parameters. It then decodes and verifies the JWT token's signature and ensures it has not expired. If the token is valid, the emailVerified field of the corresponding User model in the database is updated to true, effectively activating the user's account and granting full access to the platform.
+
+For instances where users forget their password, the system provides a secure recovery mechanism. A POST request to /api/v1/users/forgotPassword initiates this flow. The backend generates a unique, time-limited password reset code (or token) and dispatches it to the user's registered email address using Nodemailer. The user then provides this code along with their new password via a POST request to /api/v1/users/verifyResetCode and subsequently PATCH /api/v1/users/resetPassword respectively. The new password undergoes the same bcrypt hashing process as during registration before being updated in the database, ensuring that even reset passwords adhere to strong security standards. Throughout these processes, comprehensive input validation and strong password requirements are enforced.
+
+Session Management (JWT Lifecycle):
+The implementation of session management within Nexus Community is entirely stateless, relying on the integrity and validity of JSON Web Tokens (JWTs). Once a user successfully logs in, the generated JWT is securely transmitted back to the client, embedded within an HTTP-only cookie. For all subsequent authenticated requests, the client automatically includes this JWT in the Authorization header as a Bearer token (e.g., Authorization: Bearer <token>).
+
+Backend middleware, positioned early in the request processing pipeline, intercepts these incoming requests. This middleware is responsible for decoding the JWT, verifying its signature using the JWT_SECRET, and checking its expiration time. If the token is valid and unexpired, the user's identity (typically their user ID) and their assigned roles are extracted from the token's claims and attached to the request object (req.user). This allows subsequent route handlers and service functions to efficiently identify the user and apply fine-grained authorization logic without requiring database lookups for every request. Upon a user initiating a logout action (GET /api/v1/users/logout), the HTTP-only cookie containing the JWT is explicitly cleared from the client's browser, effectively invalidating the session and requiring re-authentication for future access.
+
+[Figure 4.1: JWT Authentication Flow on Backend]
+Description: This diagram should visually illustrate the complete JWT authentication and session management flow on the backend. It starts with user login, JWT generation, token transmission to the client (via HTTP-only cookie), subsequent requests carrying the JWT, backend middleware verifying the token, and finally token invalidation upon logout or expiration.
+
+4.2.2 Workspace Management
+Workspaces are the primary organizational units in Nexus Community, designed to house projects and facilitate collaboration among specific teams. The backend provides robust functionalities for their creation, configuration, and comprehensive member management, underpinned by a sophisticated Role-Based Access Control (RBAC) system.
+
+**Workspace Schema and Data Model:**
+The Workspace model incorporates comprehensive fields for managing collaborative environments, including member management, invitation systems, activity tracking, and granular settings control.
+
+Workspace Creation:
+The creation of a new workspace is handled by an HTTP POST request directed to the /api/v1/workspaces/ endpoint. This request is processed by the WorkspaceController. The request body includes essential details such as the name, description, and type of the workspace, which can be private, public, or collaboration. During this process, the authenticated user who initiates the creation automatically assumes the Owner role within that new workspace, granting them the highest level of administrative control and full permissions over its configuration and members. Default settings for features like inviteRestriction (controlling who can invite members), boardCreation permissions (determining who can create boards within the workspace), and notificationsEnabled (initial notification preferences) are automatically applied based on the workspace type or system defaults. To maintain an audit trail and provide transparency, every significant action within the workspace, including its creation, is logged in the activities array embedded within the Workspace model.
+
+Member Management and Role-Based Access Control (RBAC):
+The implementation of member management is closely tied to the robust Role-Based Access Control (RBAC) system. Each Workspace document in MongoDB contains a members array. Every entry in this array is an embedded document that explicitly defines a user (which is a reference to the User model), their assigned role (which can be Owner, Admin, or Member within that specific workspace), and a dynamic permissions array listing granular capabilities (e.g., manage_members, create_boards, invite_members).
+
+This granular permission system is strictly enforced through backend middleware and dedicated service layer logic. For instance, an HTTP DELETE request to /api/v1/workspaces/:workspaceId/members/:userId (to remove a member) will only be authorized if the requesting user possesses the manage_members permission for that specific workspace. The middleware intercepts the request, retrieves the authenticated user's roles and permissions for the target workspace, and, if insufficient, rejects the request with an unauthorized status. This ensures that only users with appropriate authority can perform sensitive actions, maintaining data integrity and security within the collaborative environment.
+
+Invitation System:
+The backend provides a systematic approach for inviting new individuals to a workspace via email. This process is initiated by an HTTP POST request to the /api/v1/workspaces/:workspaceId/invite endpoint. Upon receiving this request, the backend performs several critical steps:
+
+Permission Verification: Middleware first confirms that the inviting user has the necessary invite_members permission within the specified workspace.
+Token Generation: A unique, cryptographically secure invitation token is generated using JWT. This token encapsulates details such as the workspaceId, the email of the prospective member, their intended role (e.g., 'member', 'admin'), and the invitedBy user's ID. The token is set with a predefined expiration time (e.g., 7 days) to ensure security.
+Invitation Storage: A record of this invitation, including the generated token and its status (pending), is stored within the invitations array of the Workspace model in MongoDB. This allows the system to track outstanding invitations.
+Email Dispatch: An invitation email is composed using Nodemailer. This email contains a direct link embedded with the invitation token, prompting the prospective member to join. Upon clicking this link, the frontend captures the token, and sends it back to a dedicated backend endpoint for verification. If the token is valid and unexpired, the invited user is added to the members array of the workspace with their designated role, and the invitation status is updated to accepted.
+[Code Snippet 4.3a: Workspace Schema Definition with RBAC and Settings]
+
+```javascript
+// From workspaceModel.js - Complete Workspace Schema
+const workspaceSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: [true, 'Workspace name is required'],
+    trim: true,
+    minlength: [3, 'Name must be at least 3 characters'],
+    maxlength: [50, 'Name cannot exceed 50 characters'],
+  },
+  description: {
+    type: String,
+    trim: true,
+    maxlength: [200, 'Description cannot exceed 200 characters'],
+  },
+  type: {
+    type: String,
+    enum: ['private', 'public', 'collaboration'],
+    default: 'private',
+  },
+  members: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    role: {
+      type: String,
+      enum: ['owner', 'admin', 'member'],
+      default: 'member',
+    },
+    joinedAt: { type: Date, default: Date.now },
+    invitedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    permissions: {
+      type: [String],
+      default: function() {
+        return this.role === 'owner' ? [
+          'manage_workspace', 'delete_workspace', 'manage_members',
+          'create_boards', 'manage_settings', 'view_analytics'
+        ] : this.role === 'admin' ? [
+          'manage_members', 'create_boards', 'manage_settings'
+        ] : ['view_workspace', 'create_boards'];
+      }
+    }
+  }],
+  settings: {
+    general: {
+      inviteRestriction: {
+        type: String,
+        enum: ['members', 'admins', 'owner'],
+        default: 'admins',
+      },
+      boardCreation: {
+        type: String,
+        enum: ['all_members', 'admins_only', 'owner_only'],
+        default: 'all_members',
+      },
+      visibility: {
+        type: String,
+        enum: ['private', 'workspace_members', 'public'],
+        default: 'workspace_members',
+      }
+    },
+    notifications: {
+      emailNotifications: { type: Boolean, default: true },
+      boardUpdates: { type: Boolean, default: true },
+      memberActivity: { type: Boolean, default: false }
+    }
+  },
+  invitations: [{
+    email: { type: String, required: true },
+    role: { type: String, enum: ['admin', 'member'], default: 'member' },
+    token: String,
+    tokenExpiresAt: Date,
+    invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    status: { type: String, enum: ['pending', 'accepted', 'declined'], default: 'pending' },
+    createdAt: { type: Date, default: Date.now }
+  }],
+  activities: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    action: { type: String, required: true },
+    data: mongoose.Schema.Types.Mixed,
+    createdAt: { type: Date, default: Date.now }
+  }]
+}, { timestamps: true });
+```
+
+[Code Snippet 4.3b: Workspace Permission Middleware and RBAC]
+
+```javascript
+// From permissionService.js - Role-Based Access Control
+const permissionService = {
+  // Check if user has specific permission in workspace
+  hasWorkspacePermission(workspace, userId, permission) {
+    const member = workspace.members.find(
+      m => m.user.toString() === userId.toString()
+    );
+    
+    if (!member) return false;
+    return member.permissions.includes(permission);
+  },
+
+  // Middleware to check workspace permissions
+  requireWorkspacePermission(permission) {
+    return catchAsync(async (req, res, next) => {
+      const { workspaceId } = req.params;
+      const workspace = await Workspace.findById(workspaceId);
+      
+      if (!workspace) {
+        return next(new AppError('Workspace not found', 404));
+      }
+
+      if (!this.hasWorkspacePermission(workspace, req.user._id, permission)) {
+        return next(new AppError('Insufficient permissions', 403));
+      }
+
+      req.workspace = workspace;
+      next();
+    });
+  },
+
+  // Update member permissions
+  async updateMemberPermissions(workspaceId, userId, newPermissions, updatedBy) {
+    const workspace = await Workspace.findById(workspaceId);
+    const member = workspace.members.find(m => m.user.toString() === userId);
+    
+    if (member) {
+      member.permissions = newPermissions;
+      await workspace.save();
+      
+      // Log permission change activity
+      await activityService.logWorkspaceActivity(
+        workspace,
+        updatedBy,
+        'permissions_updated',
+        { targetUser: userId, newPermissions }
+      );
+    }
+  }
+};
+```
+
+[Code Snippet 4.3c: Workspace Member Invitation Logic with Email Integration]
+
+```javascript
+// From workspaceController.js - Complete Invitation System
+exports.inviteMembers = catchAsync(async (req, res, next) => {
+  const { invites } = req.body; // Array of { email, role }
+  const workspace = req.workspace;
+  const invitedBy = req.user._id;
+
+  const results = [];
+  
+  for (const invite of invites) {
+    const { email, role } = invite;
+    
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      // Check if already a member
+      const isMember = workspace.members.some(
+        m => m.user.toString() === existingUser._id.toString()
+      );
+      
+      if (isMember) {
+        results.push({ email, status: 'already_member' });
+        continue;
+      }
+    }
+
+    // Check for existing pending invitation
+    const existingInvitation = workspace.invitations.find(
+      inv => inv.email === email && inv.status === 'pending'
+    );
+    
+    if (existingInvitation) {
+      results.push({ email, status: 'already_invited' });
+      continue;
+    }
+
+    // Create invitation token
+    const inviteToken = await invitationService.createInvitationToken(
+      workspace, email, role, invitedBy
+    );
+
+    // Send invitation email
+    const inviteUrl = `${process.env.FRONTEND_URL}/accept-invitation?token=${inviteToken}&type=workspace`;
+    
+    try {
+      await invitationService.sendInvitationEmail(
+        email, inviteUrl, workspace.name, role, 'workspace'
+      );
+      
+      results.push({ email, status: 'sent', token: inviteToken });
+      
+      // Create notification for existing users
+      if (existingUser) {
+        await notificationService.createNotification(
+          req.app.io,
+          existingUser._id,
+          invitedBy,
+          'workspace_invitation',
+          'workspace',
+          workspace._id,
+          {
+            workspaceName: workspace.name,
+            role: role,
+            inviteToken: inviteToken
+          }
+        );
+      }
+    } catch (error) {
+      results.push({ email, status: 'failed', error: error.message });
+    }
+  }
+
+  await workspace.save();
+
+  // Log bulk invitation activity
+  await activityService.logWorkspaceActivity(
+    workspace,
+    req.user._id,
+    'bulk_invitation_sent',
+    {
+      totalInvites: invites.length,
+      successfulInvites: results.filter(r => r.status === 'sent').length,
+      invitedEmails: results.filter(r => r.status === 'sent').map(r => r.email)
+    }
+  );
+
+  res.status(200).json({
+    status: 'success',
+    results: results.length,
+    data: { results }
+  });
+});
+
+// Accept invitation endpoint
+exports.acceptInvitation = catchAsync(async (req, res, next) => {
+  const { token } = req.body;
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  const workspace = await Workspace.findOne({
+    'invitations.token': hashedToken,
+    'invitations.tokenExpiresAt': { $gt: Date.now() },
+    'invitations.status': 'pending'
+  });
+
+  if (!workspace) {
+    return next(new AppError('Invalid or expired invitation token', 400));
+  }
+
+  const invitation = workspace.invitations.find(inv => inv.token === hashedToken);
+  
+  // Add user to workspace members
+  workspace.members.push({
+    user: req.user._id,
+    role: invitation.role,
+    invitedBy: invitation.invitedBy,
+    joinedAt: new Date()
+  });
+
+  // Update invitation status
+  invitation.status = 'accepted';
+
+  await workspace.save();
+
+  // Log join activity
+  await activityService.logWorkspaceActivity(
+    workspace,
+    req.user._id,
+    'member_joined',
+    { email: invitation.email, role: invitation.role }
+  );
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Successfully joined workspace',
+    data: { workspace }
+  });
+});
+```
+
+4.2.3 Board and List Management
+Boards and lists are central to Nexus Community's Kanban-style project management. The backend ensures robust control over these entities, supporting their creation, modification, and organization within workspaces.
+
+Board Operations:
+The creation of new Kanban boards is facilitated by an HTTP POST request to the /api/v1/boards/ endpoint. The BoardController handles this request, ensuring that the creating user possesses the create_boards permission within the parent workspace's settings. Each newly created Board document is linked to its workspace via a reference. Retrieval of board details is handled by GET /api/v1/boards/:id, while updates to board properties (e.g., name, description, settings) are managed by PATCH /api/v1/user-boards/:id. The Board model includes fields for name, description, and references to its workspace and createdBy user. Crucially, like workspaces, boards maintain their own members array with user, role, and permissions, allowing for fine-grained access control that can override or inherit from workspace-level permissions. This enables specific members to have elevated roles or restricted access on a per-board basis.
+
+List Operations:
+Lists, representing columns (e.g., "To Do," "In Progress," "Done") within a Kanban board, are managed through dedicated API endpoints. Creation involves a POST request to /api/v1/lists/, handled by the ListController. Each List model contains essential fields: name, a position field (an integer or float for ordering on the board), and a direct reference to its parent board. The position field is dynamically updated as lists are reordered by users via drag-and-drop actions on the frontend, ensuring the visual sequence is maintained consistently in the database. Retrieving specific list details is done via GET /api/v1/lists/:id, while updates are managed through PATCH /api/v1/lists/:id.
+
+Archiving and Restoration:
+Both boards and lists support archiving and restoration functionalities to manage project clutter and retain historical data. For boards, an HTTP PATCH request to /api/v1/user-boards/:id/archive updates the archived boolean field to true and records the archivedAt timestamp and the archivedBy user's ID in the Board model. This effectively soft-deletes the board, removing it from active views but preserving its data. A corresponding PATCH /api/v1/user-boards/:id/restore endpoint reverses this process. Similarly, lists have archived, archivedAt, and archivedBy fields that are toggled via PATCH /api/v1/lists/:id/archive and PATCH /api/v1/lists/:id/restore. This consistent archiving pattern across different entities ensures data recoverability and decluttering of the active workspace.
+
+[Code Snippet 4.4: Mongoose Schema Definition for Board Model]
+
+```javascript
+// From boardModel.js - Board Schema Definition
+const mongoose = require('mongoose');
+
+const boardSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, 'Board name is required'],
+      trim: true,
+      minlength: [3, 'Name must be at least 3 characters'],
+      maxlength: [50, 'Name cannot exceed 50 characters'],
+    },
+    description: {
+      type: String,
+      trim: true,
+      maxlength: [500, 'Description cannot exceed 500 characters'],
+    },
+    workspace: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Workspace',
+      required: [true, 'Board must belong to a workspace'],
+    },
+    members: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        invitedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        role: {
+          type: String,
+          enum: ['admin', 'member', 'owner'],
+          default: 'member',
+        },
+        joinedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        permissions: {
+          type: [String],
+          default: function () {
+            switch (this.role) {
+              case 'owner':
+                return [
+                  'manage_board', 'delete_board', 'manage_members', 'manage_roles',
+                  'create_lists', 'edit_lists', 'create_cards', 'edit_cards',
+                  'move_cards', 'delete_cards', 'assign_members', 'create_labels',
+                  'comment', 'view_board',
+                ];
+              case 'admin':
+                return [
+                  'manage_board', 'manage_members', 'create_lists', 'edit_lists',
+                  'create_cards', 'edit_cards', 'move_cards', 'delete_cards',
+                  'assign_members', 'create_labels', 'comment', 'view_board',
+                ];
+              default: // member
+                return [
+                  'view_board', 'create_cards', 'edit_own_cards', 'delete_own_cards',
+                  'move_own_cards', 'assign_members_for_own_cards', 'comment',
+                ];
+            }
+          },
+        },
+      },
+    ],
+    settings: {
+      general: {
+        memberListCreation: {
+          type: String,
+          enum: ['enabled', 'disabled'],
+          default: 'disabled',
+        },
+        memberInvitation: {
+          type: String,
+          enum: ['enabled', 'disabled'],
+          default: 'disabled',
+        },
+        cardEditing: {
+          type: String,
+          enum: ['all_members', 'card_creator_only', 'admins_only'],
+          default: 'card_creator_only',
+        },
+        cardMoving: {
+          type: String,
+          enum: ['all_members', 'card_creator_only', 'admins_only'],
+          default: 'card_creator_only',
+        },
+      },
+      notifications: {
+        emailNotifications: {
+          type: Boolean,
+          default: true,
+        },
+        appNotifications: {
+          type: Boolean,
+          default: true,
+        },
+      },
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    archivedByUsers: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        archivedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    starredByUsers: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        starredAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    activities: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        action: {
+          type: String,
+          enum: [
+            'board_created', 'board_updated', 'board_deleted',
+            'list_created', 'list_updated', 'list_deleted',
+            'card_created', 'card_updated', 'card_deleted', 'card_moved',
+            'member_added', 'member_removed', 'invitation_sent',
+            'comment_added', 'attachment_added', 'meeting_created'
+          ],
+        },
+        data: mongoose.Schema.Types.Mixed,
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+  },
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
+);
+
+// Virtual populate for lists
+boardSchema.virtual('lists', {
+  ref: 'List',
+  foreignField: 'board',
+  localField: '_id',
+});
+
+module.exports = mongoose.model('Board', boardSchema);
+```
+
+4.2.4 Card Management
+Task cards are the atomic units of work within Nexus Community, embodying a rich set of features designed to capture detailed task information and facilitate granular management of workflows. The backend implementation supports the full spectrum of CRUD (Create, Read, Update, Delete) operations, along with complex nested functionalities like subtasks, member assignments, and state tracking.
+
+Core Card Operations:
+The fundamental operations for task cards are exposed through a dedicated set of API endpoints. New cards are created via an HTTP POST request to /api/v1/cards/. This request, processed by the CardController, includes details such as title, description, and the id of the list to which the card belongs. The Card model in MongoDB stores these attributes, along with a position field. This position field is dynamically managed to allow for precise ordering of cards within a list and is crucial for enabling the seamless drag-and-drop functionality on the frontend. Individual card details are retrieved via GET /api/v1/cards/:id, while updates to any card property are handled by PATCH /api/v1/cards/:id.
+
+Rich Card Features Implementation:
+The Card model is designed with a comprehensive set of fields to support diverse task management needs.
+
+Priority Levels: The priority field within the Card model supports discrete enumerated values such as none, low, medium, and high. This allows users to quickly categorize and visually assess the urgency of tasks, and enables backend queries to filter or sort tasks based on their importance.
+Due Dates and Reminders: The dueDate field is implemented as a nested object, containing startDate, endDate, a reminder flag, and notifiedDueSoon status. This structure facilitates precise deadline management. The backend leverages Node-cron, a job scheduler for Node.js, to periodically execute tasks that query the database for cards with approaching dueDates and enabled reminder flags. When a reminder condition is met, Nodemailer is utilized to dispatch automated email notifications to assigned members, ensuring they are alerted well in advance of deadlines.
+Member Assignments: The Card model includes a members array, which is an array of embedded documents. Each entry in this array contains a reference to a User model, along with assignedBy (the user who assigned the task) and assignedAt (timestamp of assignment) details. Backend API endpoints POST /api/v1/cards/:id/members and DELETE /api/v1/cards/:id/members/:userId are implemented to handle the assignment and removal of members to a specific card, updating this array accordingly.
+Labels: Cards can be categorized using labels, which are stored as an array of objects within the Card model, each with a name and color. This allows for flexible visual tagging and filtering of tasks.
+Subtasks: For breaking down complex tasks, the Card model includes a subtasks array, containing embedded documents for each subtask. Each subtask has its own title, isCompleted boolean status, position (for ordering within the card), assignedTo (a reference to a User), and an optional dueDate. This nested structure allows for granular tracking of progress within a single card.
+Comments and Attachments: While not explicitly detailed as separate models in the provided Readme.md for Card, these functionalities are typically implemented either as embedded arrays within the Card model (for comments) or as separate Attachment models linked by reference (for files). File attachments specifically leverage the dedicated file management module (Section 4.2.7) for storage and serving.
+State Tracking: The state object within the Card model tracks its lifecycle, including current status (active, completed, overdue), completedAt (timestamp), and completedBy (user who completed the task). Automated backend processes can regularly update overdueAt based on the dueDate if a task remains incomplete.
+Moving and Archiving Cards:
+The PATCH /api/v1/cards/:id/move endpoint is critical for the Kanban board's interactivity, allowing users to seamlessly move cards between different lists within the same board or even to lists on different boards. This operation involves updating the list reference of the Card model and adjusting its position field within the new list to maintain order. Similarly, archiving a card (PATCH /api/v1/cards/:id/archive) involves setting an archived boolean flag to true and recording archivedAt and archivedBy information directly within the Card model. This approach ensures that archived cards are removed from active views but their data remains preserved for historical context or future restoration.
+
+[Code Snippet 4.5: Backend Code for Updating a Card (e.g., changing priority, adding member)]
+
+```javascript
+// From cardController.js - Card Update Handler
+exports.updateCard = catchAsync(async (req, res, next) => {
+  const { cardId } = req.params;
+  const updates = req.body;
+
+  // Get card with context for permission checking
+  const { card, list, board } = await getCardWithContext(cardId, req.user._id);
+
+  // Check if user can edit this card
+  if (!permissionService.canEditCard(board, card, req.user._id)) {
+    return next(
+      new AppError('You do not have permission to edit this card', 403)
+    );
+  }
+
+  // Handle priority update
+  if (updates.priority) {
+    const validPriorityLevels = ['none', 'low', 'medium', 'high'];
+    if (!validPriorityLevels.includes(updates.priority)) {
+      return next(
+        new AppError(
+          `Invalid priority level. Must be one of: ${validPriorityLevels.join(', ')}`,
+          400
+        )
+      );
+    }
+    card.priority = updates.priority;
+  }
+
+  // Handle due date update
+  if (updates.dueDate) {
+    card.dueDate = {
+      ...card.dueDate,
+      ...updates.dueDate,
+    };
+    // Reset notification flag when due date changes
+    if (updates.dueDate.endDate) {
+      card.dueDate.notifiedDueSoon = false;
+    }
+  }
+
+  // Handle state changes
+  if (updates.state && updates.state.current) {
+    const previousState = card.state.current;
+    card.state.current = updates.state.current;
+    card.state.lastStateChange = new Date();
+
+    if (updates.state.current === 'completed') {
+      card.state.completedAt = new Date();
+      card.state.completedBy = req.user._id;
+    }
+
+    // Log state change activity
+    await activityService.logCardActivity(
+      board,
+      req.user._id,
+      'card_status_changed',
+      card._id,
+      {
+        previousState,
+        newState: updates.state.current,
+        title: card.title,
+      }
+    );
+  }
+
+  // Handle basic field updates
+  const allowedUpdates = ['title', 'description', 'cover'];
+  allowedUpdates.forEach(field => {
+    if (updates[field] !== undefined) {
+      card[field] = updates[field];
+    }
+  });
+
+  // Handle member assignment
+  if (updates.addMember) {
+    const memberExists = card.members.some(
+      member => member.user.toString() === updates.addMember.toString()
+    );
+    
+    if (!memberExists) {
+      card.members.push({
+        user: updates.addMember,
+        assignedBy: req.user._id,
+        assignedAt: new Date(),
+      });
+
+      // Send notification to assigned user
+      await notificationService.createNotification(
+        req.app.io,
+        updates.addMember,
+        req.user._id,
+        'card_assignment',
+        'card',
+        card._id,
+        {
+          cardTitle: card.title,
+          boardId: board._id,
+          boardName: board.name,
+          listName: list.name,
+        }
+      );
+    }
+  }
+
+  // Handle member removal
+  if (updates.removeMember) {
+    card.members = card.members.filter(
+      member => member.user.toString() !== updates.removeMember.toString()
+    );
+  }
+
+  // Save the updated card
+  await card.save();
+
+  // Log general update activity
+  await activityService.logCardActivity(
+    board,
+    req.user._id,
+    'card_updated',
+    card._id,
+    {
+      title: card.title,
+      updatedFields: Object.keys(updates),
+    }
+  );
+
+  // Return updated card with populated fields
+  const updatedCard = await Card.findById(card._id)
+    .populate('members.user', 'firstName lastName username avatar')
+    .populate('createdBy', 'firstName lastName username avatar')
+    .populate('state.completedBy', 'firstName lastName username avatar');
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      card: updatedCard,
+    },
+  });
+});
+
+// Helper function for priority update endpoint
+exports.updatePriority = catchAsync(async (req, res, next) => {
+  const { cardId } = req.params;
+  const { priority } = req.body;
+
+  const updatedCard = await Card.findByIdAndUpdate(
+    cardId,
+    { priority },
+    { new: true, runValidators: true }
+  );
+
+  if (!updatedCard) {
+    return next(new AppError('Card not found', 404));
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: { card: updatedCard },
+  });
+});
+```
+
+4.2.5 Real-time Communication (Socket.IO Backend)
+The real-time capabilities of Nexus Community are a cornerstone of its collaborative nature, powered by Socket.IO on the backend. This enables instant bidirectional communication for critical features such as live chat, real-time board updates, and dynamic notifications, significantly enhancing the interactive user experience.
+
+Socket.IO Server Setup and Connection Management:
+The Socket.IO server is initialized and integrated seamlessly with the main Express.js HTTP server. It listens for incoming WebSocket connections from clients. Each successful connection establishes a unique socket ID. A crucial step during connection involves associating the authenticated User's ID with their respective socket connection. This allows the backend to direct messages and updates to specific users or groups of users.
+The backend continuously tracks user online/offline status by listening to Socket.IO's built-in connect and disconnect events. Upon a connect event, the user's status is immediately updated to "online" in a fast, persistent store (e.g., MongoDB, or a dedicated in-memory cache like Redis for high-performance status tracking). Conversely, a disconnect event triggers a change to "offline" status, often after a brief delay to account for transient network issues. This status information is then broadcast to relevant groups of users (e.g., their chat contacts or members of shared workspaces), enabling real-time presence indicators on the frontend.
+
+Real-time Chat Implementation:
+The chat system is a primary beneficiary of Socket.IO's real-time capabilities.
+
+Message Sending: When a client sends a message from the frontend (e.g., by emitting a sendMessage event with data like { conversationId, content, senderId }), the Socket.IO server on the backend receives this event. It performs necessary validations (e.g., sender is a participant, message content adheres to rules) and then saves the message to the Message model in the MongoDB database. After successful persistence, the server broadcasts a newMessage event to all clients subscribed to that specific conversationId's Socket.IO room, ensuring all participants see the message instantly.
+Typing Indicators: To enhance the conversational experience, clients emit typing events when a user starts typing and stopTyping events when they cease. The backend receives these events and relays them (e.g., userTyping, userStopTyping) to other participants within the respective conversation room. The frontend then interprets these events to display dynamic "User X is typing..." indicators.
+Conversation Management: Any creation, update, or deletion of chat Conversation entities on the backend triggers corresponding Socket.IO events (e.g., conversationUpdated, newConversation). These events are emitted to relevant users, prompting their frontends to refresh or update their conversation lists in real-time.
+Board Updates in Real-time:
+Central to collaborative project management, any modification to a board, list, or card is instantly reflected across all relevant user interfaces. When an action occurs on the backend (e.g., a card is moved, a due date is updated, a subtask is marked complete), the responsible backend service/controller saves the change to the database and then emits a specific Socket.IO event (e.g., cardUpdated, listMoved, boardSettingsChanged). This event is broadcast to the board-specific room that the modified entity belongs to. All clients currently subscribed to that room (i.e., users actively viewing that particular board) receive the update immediately, allowing their UIs to render the changes without manual refreshing.
+
+Room Management for Efficient Broadcasting:
+Socket.IO's sophisticated "rooms" feature is instrumental for efficient and targeted real-time broadcasting, preventing unnecessary data transfer to irrelevant clients.
+
+Board Rooms: When a user navigates to a specific Kanban board on the frontend, their client-side Socket.IO instance automatically joins a corresponding board-specific room (e.g., socket.join('board-<boardId>')). All events pertaining to changes within that board are then emitted to this specific room, ensuring that only active viewers of that board receive the updates.
+Workspace Rooms: For broader notifications or activities relevant to an entire workspace (e.g., a new member joining the workspace, general announcements), users may join workspace-specific rooms (e.g., socket.join('workspace-<workspaceId>')). This allows for efficient broadcasting of events that affect all members of a collaborative space.
+User Rooms: Each user typically has a user-specific room (e.g., socket.join('user-<userId>')). This enables the backend to send direct, individual notifications or updates to a specific user, regardless of which page they are on or which board they are viewing, and potentially across multiple devices where they are logged in.
+[Figure 4.2: Socket.IO Room Management for Real-time Updates]
+Description: This diagram should visually represent a central Socket.IO server connected to multiple client instances. Clearly show different types of "rooms" (e.g., "Board A Room," "Workspace X Room," "User Y Room") and illustrate how the server broadcasts specific events (e.g., "cardUpdated," "newMember," "personalNotification") to these targeted rooms, and how clients join these rooms to receive only relevant real-time updates.
+
+Video Calls (WebRTC Signaling):
+For its WebRTC-based video calling functionality, the Nexus Community backend primarily acts as a signaling server using Socket.IO. When users initiate or join a call, Socket.IO is leveraged to exchange critical WebRTC signaling information. This includes Session Description Protocol (SDP) offers and answers (which describe the media capabilities and configurations of each peer) and ICE (Interactive Connectivity Establishment) candidates (which provide network address candidates for peer-to-peer connection establishment). The backend relays this signaling information between the participating peers without directly handling the actual media streams (audio, video), which flow peer-to-peer once the connection is established. This design minimizes backend load and optimizes real-time media performance.
+
+[Code Snippet 4.6: Simplified Socket.IO Backend Event Handlers for Chat Messages and Board Updates]
+
+```javascript
+// From socketServer.js - Socket.IO Event Handlers
+const socketIo = require('socket.io');
+const socketAuthenticate = require('./Middlewares/socketAuthenticate');
+
+function initializeSocket(server) {
+  const io = socketIo(server, {
+    cors: {
+      origin: process.env.FRONTEND_URL || "http://localhost:5173",
+      methods: ["GET", "POST"],
+      credentials: true
+    },
+  });
+
+  // Socket authentication middleware
+  io.use(socketAuthenticate);
+
+  io.on('connection', (socket) => {
+    console.log(`User ${socket.user.firstName} connected: ${socket.id}`);
+
+    // Join user to their personal room
+    socket.join(`user-${socket.user._id}`);
+
+    // Handle conversation joining
+    socket.on('joinConversation', async (conversationId) => {
+      try {
+        // Verify user is participant in conversation
+        const conversation = await Conversation.findById(conversationId);
+        if (conversation && conversation.participants.includes(socket.user._id)) {
+          socket.join(`conversation-${conversationId}`);
+          console.log(`User ${socket.user.firstName} joined conversation ${conversationId}`);
+        }
+      } catch (error) {
+        socket.emit('error', { message: 'Failed to join conversation' });
+      }
+    });
+
+    // Handle board joining
+    socket.on('joinBoard', async (boardId) => {
+      try {
+        // Verify user is member of board
+        const board = await Board.findById(boardId);
+        if (board && board.members.some(member => member.user.toString() === socket.user._id.toString())) {
+          socket.join(`board-${boardId}`);
+          console.log(`User ${socket.user.firstName} joined board ${boardId}`);
+        }
+      } catch (error) {
+        socket.emit('error', { message: 'Failed to join board' });
+      }
+    });
+
+    // Handle real-time chat messages
+    socket.on('sendMessage', async (data) => {
+      try {
+        const { conversationId, content, type = 'text' } = data;
+
+        // Create and save message
+        const message = await Message.create({
+          conversation: conversationId,
+          sender: socket.user._id,
+          content,
+          type,
+        });
+
+        // Populate sender details
+        await message.populate('sender', 'firstName lastName username avatar');
+
+        // Emit to all participants in the conversation
+        io.to(`conversation-${conversationId}`).emit('newMessage', {
+          message,
+          conversationId,
+        });
+
+        // Update conversation's last message
+        await Conversation.findByIdAndUpdate(conversationId, {
+          lastMessage: message._id,
+          lastActivity: new Date(),
+        });
+
+      } catch (error) {
+        socket.emit('error', { message: 'Failed to send message' });
+      }
+    });
+
+    // Handle typing indicators
+    socket.on('typing', (data) => {
+      const { conversationId, isTyping } = data;
+      socket.to(`conversation-${conversationId}`).emit('userTyping', {
+        userId: socket.user._id,
+        userName: socket.user.firstName,
+        isTyping,
+      });
+    });
+
+    // Handle board updates (card movements, updates, etc.)
+    socket.on('cardUpdated', async (data) => {
+      try {
+        const { boardId, cardId, updates } = data;
+        
+        // Verify permissions and update card
+        const board = await Board.findById(boardId);
+        if (board && board.members.some(member => member.user.toString() === socket.user._id.toString())) {
+          // Broadcast update to all board viewers
+          socket.to(`board-${boardId}`).emit('cardUpdated', {
+            cardId,
+            updates,
+            updatedBy: {
+              _id: socket.user._id,
+              firstName: socket.user.firstName,
+              lastName: socket.user.lastName,
+            },
+          });
+        }
+      } catch (error) {
+        socket.emit('error', { message: 'Failed to update card' });
+      }
+    });
+
+    // Handle list updates
+    socket.on('listUpdated', async (data) => {
+      try {
+        const { boardId, listId, updates } = data;
+        
+        const board = await Board.findById(boardId);
+        if (board && board.members.some(member => member.user.toString() === socket.user._id.toString())) {
+          socket.to(`board-${boardId}`).emit('listUpdated', {
+            listId,
+            updates,
+            updatedBy: {
+              _id: socket.user._id,
+              firstName: socket.user.firstName,
+              lastName: socket.user.lastName,
+            },
+          });
+        }
+      } catch (error) {
+        socket.emit('error', { message: 'Failed to update list' });
+      }
+    });
+
+    // Handle WebRTC signaling for video calls
+    socket.on('offer', (data) => {
+      socket.to(data.target).emit('offer', {
+        offer: data.offer,
+        caller: socket.id,
+      });
+    });
+
+    socket.on('answer', (data) => {
+      socket.to(data.target).emit('answer', {
+        answer: data.answer,
+        answerer: socket.id,
+      });
+    });
+
+    socket.on('ice-candidate', (data) => {
+      socket.to(data.target).emit('ice-candidate', {
+        candidate: data.candidate,
+        from: socket.id,
+      });
+    });
+
+    // Handle disconnection
+    socket.on('disconnect', () => {
+      console.log(`User ${socket.user.firstName} disconnected: ${socket.id}`);
+      // Update user status to offline after a delay
+      setTimeout(async () => {
+        await User.findByIdAndUpdate(socket.user._id, {
+          'status.isOnline': false,
+          'status.lastSeen': new Date(),
+        });
+      }, 5000); // 5 second delay to handle reconnections
+    });
+  });
+
+  return io;
+}
+
+module.exports = initializeSocket;
+```
+
+4.2.6 Meeting Management
+The backend of Nexus Community provides comprehensive functionality for scheduling, managing, and notifying participants about meetings, alongside an optional integration with external calendar services.
+
+Meeting Scheduling and CRUD Operations:
+The process of creating a new meeting is initiated by an HTTP POST request to the /api/v1/meetings/ endpoint. The MeetingController receives a payload containing detailed meeting information, including title, description, precise date/time (start and end), a list of attendees (represented as references to User IDs), and location. This information is then persisted in the Meeting model in the MongoDB database. Subsequent operations such as retrieving a user's meetings (GET /api/v1/meetings/), fetching specific meeting details (GET /api/v1/meetings/:id), updating meeting information (PATCH /api/v1/meetings/:id), and deleting meetings (DELETE /api/v1/meetings/:id) are handled by corresponding API endpoints. Access control is strictly enforced to ensure that only meeting organizers or authorized attendees can modify or delete meeting entries.
+
+Calendar Integration (Google Calendar):
+For enhanced convenience, Nexus Community offers an optional integration with Google Calendar. When a user schedules a meeting within Nexus Community and opts for Google Calendar synchronization, the backend interacts with the Google Calendar API. This interaction typically involves the backend, acting on behalf of the user (via OAuth 2.0 consent obtained during initial authentication), sending an API request to create or update an event in their personal Google Calendar. This ensures that all meetings scheduled within Nexus Community are seamlessly reflected in the user's external calendar, providing a unified view of their commitments.
+
+Automated Notifications:
+Meeting notifications, particularly reminders for upcoming events, are a critical component of effective meeting management. The backend implements an automated system for these alerts. This is achieved by leveraging Node-cron, a Node.js library for scheduling recurring tasks. A cron job is configured to periodically query the Meeting model in the database for meetings that are approaching their start time and for which reminders are enabled. When such meetings are identified, Nodemailer is utilized to dispatch personalized email notifications to all registered attendees of that meeting. This proactive notification system ensures participants are well-informed and minimizes missed appointments.
+
+4.2.7 File Management
+Nexus Community incorporates a robust file management system that allows users to upload various file types, primarily as attachments to cards, and for managing user avatars and group-specific images. This module is designed for efficiency and security, integrating specialized libraries for handling file uploads and image processing.
+
+File Upload Handling (Multer):
+All file uploads within the application are handled by Multer, a popular Node.js middleware specifically designed for parsing multipart/form-data. Multer is configured to direct uploaded files to specific disk storage locations: Uploads/attachments/ for card attachments, Uploads/users/ for user avatars, and Uploads/group/ for workspace or group-related images. During the upload process, Multer also enforces file filtering rules. These rules are defined to allow only whitelisted fileTypes (e.g., JPEG, PNG, GIF for images; PDF, DOC, DOCX for documents, etc.) and to respect configurable sizeLimits (e.g., 10MB per file). Upon successful upload, Multer provides the file metadata (including filename, mimetype, size, and path), which is then stored in the relevant MongoDB document (e.g., the attachments array within the Card model or the avatar field within the User model).
+
+[Code Snippet 4.7: Simplified Multer Configuration for File Uploads (Storage and Filter)]
+
+```javascript
+// From fileUploadMiddleware.js - Multer Configuration
+const multer = require('multer');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const AppError = require('../utils/appError');
+
+// Configure storage based on file type
+const createStorage = (destination, filePrefix = '') => {
+  return multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, destination);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = `${uuidv4()}-${Date.now()}`;
+      const ext = path.extname(file.originalname);
+      const filename = `${filePrefix}${uniqueSuffix}${ext}`;
+      cb(null, filename);
+    },
+  });
+};
+
+// File type filtering
+const createFileFilter = (allowedTypes, maxSize) => {
+  return (req, file, cb) => {
+    // Check file type
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+    const mimeType = file.mimetype.toLowerCase();
+
+    let isValidType = false;
+
+    // Check against allowed extensions and MIME types
+    if (allowedTypes.extensions.includes(fileExtension) || 
+        allowedTypes.mimeTypes.some(type => mimeType.startsWith(type))) {
+      isValidType = true;
+    }
+
+    if (!isValidType) {
+      return cb(new AppError(
+        `Invalid file type. Allowed types: ${allowedTypes.extensions.join(', ')}`, 
+        400
+      ), false);
+    }
+
+    cb(null, true);
+  };
+};
+
+// Define allowed file types for different upload scenarios
+const ALLOWED_TYPES = {
+  images: {
+    extensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
+    mimeTypes: ['image/'],
+  },
+  documents: {
+    extensions: ['.pdf', '.doc', '.docx', '.txt', '.xls', '.xlsx', '.ppt', '.pptx'],
+    mimeTypes: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats', 'text/'],
+  },
+  all: {
+    extensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.doc', '.docx', 
+                '.txt', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'],
+    mimeTypes: ['image/', 'application/', 'text/'],
+  },
+};
+
+// File size limits (in bytes)
+const FILE_SIZE_LIMITS = {
+  avatar: 5 * 1024 * 1024,      // 5MB for avatars
+  attachment: 50 * 1024 * 1024,  // 50MB for attachments
+  group: 10 * 1024 * 1024,      // 10MB for group images
+};
+
+// Create upload middleware for different purposes
+const createUploadMiddleware = (uploadType, allowedTypes, maxFiles = 1) => {
+  let storage, destination, filePrefix;
+
+  switch (uploadType) {
+    case 'avatar':
+      destination = 'Uploads/users/';
+      filePrefix = 'user-';
+      break;
+    case 'attachment':
+      destination = 'Uploads/attachments/';
+      filePrefix = 'attach-';
+      break;
+    case 'group':
+      destination = 'Uploads/group/';
+      filePrefix = 'group-';
+      break;
+    default:
+      destination = 'Uploads/misc/';
+      filePrefix = 'file-';
+  }
+
+  storage = createStorage(destination, filePrefix);
+
+  const upload = multer({
+    storage,
+    fileFilter: createFileFilter(allowedTypes, FILE_SIZE_LIMITS[uploadType]),
+    limits: {
+      fileSize: FILE_SIZE_LIMITS[uploadType] || FILE_SIZE_LIMITS.attachment,
+      files: maxFiles,
+    },
+  });
+
+  // Handle different upload scenarios
+  if (maxFiles === 1) {
+    return upload.single('file');
+  } else {
+    return upload.array('files', maxFiles);
+  }
+};
+
+// Export specific upload middleware
+module.exports = {
+  // Single file uploads
+  uploadAvatar: createUploadMiddleware('avatar', ALLOWED_TYPES.images, 1),
+  uploadGroupImage: createUploadMiddleware('group', ALLOWED_TYPES.images, 1),
+  uploadAttachment: createUploadMiddleware('attachment', ALLOWED_TYPES.all, 1),
+  
+  // Multiple file uploads
+  uploadMultipleAttachments: createUploadMiddleware('attachment', ALLOWED_TYPES.all, 10),
+
+  // Error handling middleware
+  handleMulterError: (error, req, res, next) => {
+    if (error instanceof multer.MulterError) {
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        return next(new AppError('File too large. Please check size limits.', 400));
+      }
+      if (error.code === 'LIMIT_FILE_COUNT') {
+        return next(new AppError('Too many files. Please reduce the number of files.', 400));
+      }
+      if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+        return next(new AppError('Unexpected field name for file upload.', 400));
+      }
+    }
+    next(error);
+  },
+
+  // File validation utilities
+  validateFileExists: (req, res, next) => {
+    if (!req.file && !req.files) {
+      return next(new AppError('No file uploaded', 400));
+    }
+    next();
+  },
+
+  // Clean up uploaded files on error
+  cleanupUploadedFiles: (req, res, next) => {
+    if (req.file) {
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.error('Error deleting file:', err);
+      });
+    }
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        fs.unlink(file.path, (err) => {
+          if (err) console.error('Error deleting file:', err);
+        });
+      });
+    }
+    next();
+  },
+};
+```
+
+Image Processing (Sharp):
+For all image uploads (e.g., user avatars, card cover images), Sharp, a high-performance Node.js image processing library, is integrated immediately after Multer successfully processes the file. Sharp is utilized to automatically resize, crop, and optimize uploaded images into various web-friendly formats and dimensions. For example, a user's uploaded avatar might be automatically converted into multiple sizes (e.g., 50x50 pixels for chat icons, 200x200 pixels for profile displays) and optimized for web delivery to ensure faster loading times and reduced storage consumption. This processing ensures a consistent visual experience across different devices and network conditions.
+
+Security for Files:
+Beyond the client-side and Multer-enforced validations, the backend implements robust access control mechanisms for file serving. Files are not directly exposed via public URLs. Instead, they are served through authenticated API routes (e.g., GET /api/v1/attachments/:id). This ensures that only authorized users (e.g., members of the specific workspace or board where the file is attached) can access and download sensitive documents or images. This approach prevents unauthorized access and maintains data confidentiality. While not explicitly detailed in the provided Readme.md, in a production-grade application, server-side virus scanning of uploaded files would also be a critical layer of defense against malicious content.
+
+4.2.8 Dashboard & Notification Backend Logic
+The backend plays a crucial role in aggregating and processing data to populate the user dashboard and in managing the sophisticated real-time and email-based notification system.
+
+Dashboard Data Aggregation:
+The backend provides dedicated API endpoints for fetching various dashboard components. For instance, GET /api/v1/dashboard/high-priority-tasks queries the Card model, filtering for tasks marked with high priority and assigned to the authenticated user, ensuring they are not yet completed. Similarly, GET /api/v1/dashboard/statistics leverages MongoDB's powerful aggregation pipelines. These pipelines process data across multiple collections (e.g., Card, User, Workspace) to calculate productivity metrics such as task completion rates, average task duration, or active task counts. The results can be further filtered by specified time ranges (e.g., by day, week, month, or year), providing customizable insights into team and individual performance.
+
+Notification System Logic:
+The notification system operates on a highly responsive event-driven model. When significant actions occur anywhere in the application (e.g., a new card is assigned, a comment is added, a due date is modified, a new meeting is scheduled, or a user is mentioned in a chat), the relevant backend service or controller emits an internal system event. A dedicated notification service (or a set of listeners) is configured to listen for these events.
+
+Permission Check: Before a notification is generated and dispatched to a recipient, the notification service performs a rigorous permission check. It verifies that the intended recipient has the necessary view_board, manage_workspace, or other relevant permissions to receive the notification context. This prevents sensitive information from being leaked to unauthorized users.
+Notification Creation: A notification record is then created and persisted in a Notification model (if implemented as a separate collection) or an embedded array in the User model. This record contains essential metadata, including the type of notification (e.g., 'task_assignment', 'due_date_alert'), the user (recipient) ID, the source entity (e.g., board, card, conversation ID), a clear content message, and a read status.
+Delivery Mechanisms:
+Real-time Notifications: For immediate alerts, the notification service leverages Socket.IO to emit a newNotification event to the recipient's user-specific Socket.IO room. This ensures that users receive instant pop-up notifications, badge updates on application icons, or in-app alerts, regardless of their current location within the application.
+Email Notifications: For critical events or as a fallback, Nodemailer is utilized to dispatch email alerts to the user's registered email address. This email dispatch respects the user's configurable notification preferences, allowing them to customize which types of email notifications they wish to receive.
+Tracking: Each notification's read status is tracked in the database. This enables the dashboard to display the number of unread notifications and allows users to mark notifications as read.
