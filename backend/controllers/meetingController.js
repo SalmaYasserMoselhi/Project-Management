@@ -49,6 +49,7 @@ exports.createMeeting = catchAsync(async (req, res, next) => {
     ],
     board: boardId,
     createdBy: req.user._id,
+    reminderSent: false
   });
 
   // Log activity
@@ -203,6 +204,8 @@ exports.updateMeeting = catchAsync(async (req, res, next) => {
     );
   }
 
+  const timeChanged = date || time;
+
   // Update basic fields if provided
   if (name) meeting.name = name;
   if (date) meeting.date = date;
@@ -210,6 +213,11 @@ exports.updateMeeting = catchAsync(async (req, res, next) => {
   if (onlineLink !== undefined) meeting.onlineLink = onlineLink;
   if (color) meeting.color = color;
 
+   // Reset reminder flag if time changed
+  if (timeChanged) {
+    meeting.reminderSent = false;
+  }
+  
   meeting.updatedBy = req.user._id;
   await meeting.save();
 

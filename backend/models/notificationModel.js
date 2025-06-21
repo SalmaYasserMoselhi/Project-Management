@@ -61,7 +61,8 @@ const notificationSchema = new mongoose.Schema(
         'meeting_deleted',
         'meeting_updated',
         'meeting_attendees_added',
-        'meeting_attendee_removed'
+        'meeting_attendee_removed',
+        'meeting_reminder'
       ],
       required: true
     },
@@ -209,6 +210,8 @@ notificationSchema.statics.generateMessage = function (type, data, sender) {
       return `${senderName} added you to the meeting "${safeString(data.meetingTitle, 'a meeting')}"`;
     case 'meeting_attendee_removed':
       return `${senderName} removed you from the meeting "${safeString(data.meetingTitle, 'a meeting')}"`;
+    case 'meeting_reminder':
+      return `Reminder: Meeting "${safeString(data.meetingTitle, 'a meeting')}" starts in 1 hour`;
     default:
       return `You have a new notification from ${senderName}`;
   }

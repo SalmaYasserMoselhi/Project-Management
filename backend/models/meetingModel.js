@@ -36,6 +36,10 @@ const meetingSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  reminderSent: {
+  type: Boolean,
+  default: false
+},
   attendees: [
     {
       user: {
