@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { Calendar as BigCalendar, dateFnsLocalizer } from "react-big-calendar";
@@ -20,6 +22,335 @@ import {
   updateInvitees,
   updateColor,
 } from "../features/Slice/MeetingSlice/meetingModalSlice";
+
+const styles = `
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Entrance animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translate3d(0,0,0);
+  }
+  40%, 43% {
+    transform: translate3d(0, -8px, 0);
+  }
+  70% {
+    transform: translate3d(0, -4px, 0);
+  }
+  90% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(77, 45, 97, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(77, 45, 97, 0.6);
+  }
+}
+
+/* Animation classes */
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.5s ease-out forwards;
+}
+
+.animate-pulse-soft {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-bounce-gentle {
+  animation: bounce 0.6s ease-out;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Hover and interaction effects */
+.card-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  box-shadow: 0 4px 16px rgba(77, 45, 97, 0.10);
+  background-color: #faf9fc;
+  border-color: #bda4e6;
+  transform: scale(1.025);
+  z-index: 10;
+}
+
+.button-hover {
+  transition: all 0.2s ease-out;
+}
+
+.button-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(77, 45, 97, 0.2);
+}
+
+.button-hover:active {
+  transform: translateY(0);
+}
+
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* Staggered animation delays */
+.stagger-1 { animation-delay: 0.1s; opacity: 0; }
+.stagger-2 { animation-delay: 0.2s; opacity: 0; }
+.stagger-3 { animation-delay: 0.3s; opacity: 0; }
+.stagger-4 { animation-delay: 0.4s; opacity: 0; }
+.stagger-5 { animation-delay: 0.5s; opacity: 0; }
+.stagger-6 { animation-delay: 0.6s; opacity: 0; }
+.stagger-7 { animation-delay: 0.7s; opacity: 0; }
+`;
+
+// Skeleton components for calendar loading
+const CalendarHeaderSkeleton = () => (
+  <div className="flex flex-col md:flex-row justify-between items-center mb-6">
+    <div className="flex items-center">
+      <div className="flex items-center gap-4 mb-4 md:mb-0">
+        <div className="loading-skeleton w-8 h-8 rounded-full"></div>
+        <div className="loading-skeleton h-6 w-40"></div>
+        <div className="loading-skeleton w-8 h-8 rounded-full"></div>
+      </div>
+      <div className="ml-4 loading-skeleton h-8 w-16 rounded-lg"></div>
+      <div className="ml-2 loading-skeleton h-8 w-8 rounded-lg"></div>
+    </div>
+    <div className="flex items-center overflow-hidden border border-gray-200 rounded-lg divide-x divide-gray-200">
+      <div className="loading-skeleton h-8 w-12"></div>
+      <div className="loading-skeleton h-8 w-16"></div>
+      <div className="loading-skeleton h-8 w-16"></div>
+    </div>
+  </div>
+);
+
+const CalendarGridSkeleton = () => (
+  <div className="w-full">
+    {/* Calendar header days */}
+    <div className="grid grid-cols-7 border-b border-gray-200">
+      {Array.from({ length: 7 }).map((_, index) => (
+        <div
+          key={index}
+          className="p-4 text-center border-r border-gray-200 last:border-r-0"
+        >
+          <div className="loading-skeleton h-4 w-8 mx-auto"></div>
+        </div>
+      ))}
+    </div>
+
+    {/* Calendar grid */}
+    <div className="grid grid-cols-7 min-h-[600px]">
+      {Array.from({ length: 35 }).map((_, index) => (
+        <div
+          key={index}
+          className="border-r border-b border-gray-200 last:border-r-0 p-2 min-h-[100px]"
+        >
+          <div className="loading-skeleton h-4 w-6 mb-2"></div>
+          {/* Random events skeleton */}
+          {Math.random() > 0.7 && (
+            <div className="space-y-1">
+              <div className="loading-skeleton h-6 w-full rounded"></div>
+              {Math.random() > 0.5 && (
+                <div className="loading-skeleton h-6 w-3/4 rounded"></div>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const WeekViewSkeleton = () => (
+  <div className="w-full">
+    {/* Time header */}
+    <div className="flex border-b border-gray-200">
+      <div className="w-16 p-2">
+        <div className="loading-skeleton h-4 w-8"></div>
+      </div>
+      <div className="flex-1 grid grid-cols-7">
+        {Array.from({ length: 7 }).map((_, index) => (
+          <div
+            key={index}
+            className="p-2 text-center border-r border-gray-200 last:border-r-0"
+          >
+            <div className="loading-skeleton h-4 w-8 mx-auto mb-1"></div>
+            <div className="loading-skeleton h-6 w-6 mx-auto rounded-full"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Time slots */}
+    <div className="flex">
+      <div className="w-16">
+        {Array.from({ length: 24 }).map((_, index) => (
+          <div key={index} className="h-16 p-1 border-b border-gray-200">
+            <div className="loading-skeleton h-3 w-8"></div>
+          </div>
+        ))}
+      </div>
+      <div className="flex-1 grid grid-cols-7">
+        {Array.from({ length: 7 }).map((_, dayIndex) => (
+          <div
+            key={dayIndex}
+            className="border-r border-gray-200 last:border-r-0"
+          >
+            {Array.from({ length: 24 }).map((_, hourIndex) => (
+              <div
+                key={hourIndex}
+                className="h-16 border-b border-gray-200 p-1"
+              >
+                {/* Random events */}
+                {Math.random() > 0.85 && (
+                  <div className="loading-skeleton h-12 w-full rounded"></div>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+const DayViewSkeleton = () => (
+  <div className="w-full">
+    {/* Day header */}
+    <div className="flex border-b border-gray-200 mb-4">
+      <div className="w-16 p-2">
+        <div className="loading-skeleton h-4 w-8"></div>
+      </div>
+      <div className="flex-1 p-4 text-center">
+        <div className="loading-skeleton h-6 w-32 mx-auto mb-2"></div>
+        <div className="loading-skeleton h-8 w-8 mx-auto rounded-full"></div>
+      </div>
+    </div>
+
+    {/* Time slots */}
+    <div className="flex">
+      <div className="w-16">
+        {Array.from({ length: 24 }).map((_, index) => (
+          <div key={index} className="h-16 p-1 border-b border-gray-200">
+            <div className="loading-skeleton h-3 w-8"></div>
+          </div>
+        ))}
+      </div>
+      <div className="flex-1 border-r border-gray-200">
+        {Array.from({ length: 24 }).map((_, index) => (
+          <div key={index} className="h-16 border-b border-gray-200 p-1">
+            {/* Random events */}
+            {Math.random() > 0.9 && (
+              <div className="loading-skeleton h-12 w-full rounded"></div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+const CalendarLoadingSkeleton = ({ view = "month" }) => (
+  <div className="min-h-screen flex flex-col items-center w-full overflow-y-auto bg-white rounded-xl">
+    <style>{styles}</style>
+
+    <div className="p-2 w-full h-full flex flex-col">
+      {/* Loading indicator */}
+      <div className="flex justify-center items-center p-4 mb-4 animate-fade-in-up stagger-1">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4d2d61] animate-pulse-soft"></div>
+      </div>
+
+      {/* Header skeleton with staggered animation */}
+      <div className="animate-fade-in-up stagger-2">
+        <CalendarHeaderSkeleton />
+      </div>
+
+      {/* Calendar content skeleton based on view */}
+      <div className="animate-fade-in-up stagger-3">
+        {view === "month" && <CalendarGridSkeleton />}
+        {view === "week" && <WeekViewSkeleton />}
+        {view === "day" && <DayViewSkeleton />}
+      </div>
+    </div>
+  </div>
+);
 
 const locales = {
   "en-US": enUS,
@@ -91,9 +422,9 @@ const eventStyleGetter = (event) => {
   // Determine text color based on background brightness
   const getTextColor = (hexColor) => {
     // Convert hex to RGB
-    const r = parseInt(hexColor.slice(1, 3), 16);
-    const g = parseInt(hexColor.slice(3, 5), 16);
-    const b = parseInt(hexColor.slice(5, 7), 16);
+    const r = Number.parseInt(hexColor.slice(1, 3), 16);
+    const g = Number.parseInt(hexColor.slice(3, 5), 16);
+    const b = Number.parseInt(hexColor.slice(5, 7), 16);
 
     // Calculate brightness using luminance formula
     const brightness = (r * 299 + g * 587 + b * 114) / 1000;
@@ -114,6 +445,7 @@ const eventStyleGetter = (event) => {
 
   return {
     style,
+    className: "button-hover",
   };
 };
 
@@ -174,30 +506,24 @@ const Calendar = () => {
     dispatch(fetchUserMeetings());
   };
 
-  // Loading state
+  // Enhanced loading state with sophisticated animations
   if (status === "loading") {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center w-full overflow-y-auto bg-white rounded-xl">
-        <div className="flex items-center gap-2 text-gray-600">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#4D2D61]"></div>
-          <span>Loading meetings...</span>
-        </div>
-      </div>
-    );
+    return <CalendarLoadingSkeleton view={view} />;
   }
 
   // Error state
   if (status === "failed") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center w-full overflow-y-auto bg-white rounded-xl">
-        <div className="text-center">
+        <style>{styles}</style>
+        <div className="text-center animate-fade-in-up">
           <div className="text-red-500 mb-2">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-12 w-12 mx-auto"
               fill="none"
               viewBox="0 0 24 24"
-              stroke="currentColor"
+              stroke="#4D2D61"
             >
               <path
                 strokeLinecap="round"
@@ -211,7 +537,7 @@ const Calendar = () => {
           <p className="text-sm text-gray-500">{error}</p>
           <button
             onClick={() => dispatch(fetchUserMeetings())}
-            className="mt-4 px-4 py-2 bg-[#4D2D61] text-white rounded-lg hover:bg-[#3a1f48]"
+            className="mt-4 px-4 py-2 bg-[#4D2D61] text-white rounded-lg hover:bg-[#3a1f48] button-hover"
           >
             Try Again
           </button>
@@ -222,13 +548,14 @@ const Calendar = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center w-full overflow-y-auto bg-white rounded-xl">
+      <style>{styles}</style>
       <div className="p-2 w-full h-full flex flex-col">
         {/* Header Section with Month and Navigation */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6">
           <div className="flex items-center">
             <div className="flex items-center gap-4 mb-4 md:mb-0">
               <button
-                className="rounded-full bg-gray-100 w-8 h-8 flex items-center justify-center"
+                className="rounded-full bg-gray-100 w-8 h-8 flex items-center justify-center button-hover"
                 onClick={() =>
                   handleNavigate(
                     new Date(date.getFullYear(), date.getMonth() - 1, 1)
@@ -240,7 +567,7 @@ const Calendar = () => {
                   className="h-4 w-4"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke="currentColor"
+                  stroke="#4D2D61"
                 >
                   <path
                     strokeLinecap="round"
@@ -258,7 +585,7 @@ const Calendar = () => {
               </h2>
 
               <button
-                className="rounded-full bg-gray-100 w-8 h-8 flex items-center justify-center"
+                className="rounded-full bg-gray-100 w-8 h-8 flex items-center justify-center button-hover"
                 onClick={() =>
                   handleNavigate(
                     new Date(date.getFullYear(), date.getMonth() + 1, 1)
@@ -270,7 +597,7 @@ const Calendar = () => {
                   className="h-4 w-4"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke="currentColor"
+                  stroke="#4D2D61"
                 >
                   <path
                     strokeLinecap="round"
@@ -283,14 +610,14 @@ const Calendar = () => {
             </div>
 
             <button
-              className="ml-4 text-sm px-3 py-1 rounded-lg text-[#4D2D61] bg-gray-100"
+              className="ml-4 text-sm px-3 py-1 rounded-lg text-[#4D2D61] bg-gray-100 button-hover"
               onClick={() => handleNavigate(new Date())}
             >
               Today
             </button>
 
             <button
-              className="ml-2 text-sm px-3 py-1 rounded-lg text-[#4D2D61] bg-gray-100 hover:bg-gray-200"
+              className="ml-2 text-sm px-3 py-1 rounded-lg text-[#4D2D61] bg-gray-100 hover:bg-gray-200 button-hover"
               onClick={handleRefresh}
               disabled={status === "loading"}
             >
@@ -301,7 +628,7 @@ const Calendar = () => {
                 }`}
                 fill="none"
                 viewBox="0 0 24 24"
-                stroke="currentColor"
+                stroke="#4D2D61"
               >
                 <path
                   strokeLinecap="round"
@@ -313,36 +640,36 @@ const Calendar = () => {
             </button>
           </div>
 
-          <div className="flex items-center overflow-hidden border border-gray-200 rounded-lg divide-x divide-gray-200">
+          <div className="flex items-center gap-2">
             <button
-              className={`px-3 py-1 text-sm transition-colors ${
-                view === "day"
-                  ? "bg-[#4D2D61] text-white"
-                  : "text-gray-600 hover:bg-gray-100"
+              className={`px-3 py-1 text-sm rounded-md transition-colors button-hover ${
+                view === "month"
+                  ? "bg-gradient-to-r from-[#4d2d61] to-[#7b4397] text-white"
+                  : "bg-gray-100 text-[#4D2D61] hover:bg-gray-200"
               }`}
-              onClick={() => setView("day")}
+              onClick={() => setView("month")}
             >
-              Day
+              Month
             </button>
             <button
-              className={`px-3 py-1 text-sm transition-colors ${
+              className={`px-3 py-1 text-sm rounded-md transition-colors button-hover ${
                 view === "week"
-                  ? "bg-[#4D2D61] text-white"
-                  : "text-gray-600 hover:bg-gray-100"
+                  ? "bg-gradient-to-r from-[#4d2d61] to-[#7b4397] text-white"
+                  : "bg-gray-100 text-[#4D2D61] hover:bg-gray-200"
               }`}
               onClick={() => setView("week")}
             >
               Week
             </button>
             <button
-              className={`px-3 py-1 text-sm transition-colors ${
-                view === "month"
-                  ? "bg-[#4D2D61] text-white"
-                  : "text-gray-600 hover:bg-gray-100"
+              className={`px-3 py-1 text-sm rounded-md transition-colors button-hover ${
+                view === "day"
+                  ? "bg-gradient-to-r from-[#4d2d61] to-[#7b4397] text-white"
+                  : "bg-gray-100 text-[#4D2D61] hover:bg-gray-200"
               }`}
-              onClick={() => setView("month")}
+              onClick={() => setView("day")}
             >
-              Month
+              Day
             </button>
           </div>
         </div>
