@@ -1434,10 +1434,3 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
 
 export default Board;
 
-
-
-
-
-
-
-
