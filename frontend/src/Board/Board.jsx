@@ -1,5 +1,6 @@
 
 
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -509,6 +510,47 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
       });
       window.dispatchEvent(event);
     });
+  };
+
+  const onCardRestored = (restoredCard) => {
+    console.log("[Board.jsx] Card restored:", restoredCard);
+    const listId = restoredCard.list?._id || restoredCard.listId;
+    if (!listId) {
+      console.error("[Board.jsx] Restored card has no listId:", restoredCard);
+      return;
+    }
+    setColumns((prevColumns) => {
+      const updatedColumns = prevColumns.map((col) => {
+        if ((col.id || col._id) === listId) {
+          const updatedCards = [...(col.cards || []), restoredCard];
+          return { ...col, cards: updatedCards };
+        }
+        return col;
+      });
+      console.log("[Board.jsx] Updated columns after card restoration:", updatedColumns);
+      return updatedColumns;
+    });
+
+    const event = new CustomEvent("refreshList", {
+      detail: { listId, sortBy: selectedSort, cards: [restoredCard] },
+    });
+    window.dispatchEvent(event);
+    toast.success("Card restored successfully");
+  };
+
+  const onListRestored = (restoredList) => {
+    console.log("[Board.jsx] List restored:", restoredList);
+    setLists((prevLists) => {
+      const updatedLists = [...prevLists, restoredList];
+      console.log("[Board.jsx] Updated lists after restoration:", updatedLists);
+      return updatedLists;
+    });
+    setColumns((prevColumns) => {
+      const updatedColumns = [...prevColumns, { ...restoredList, cards: restoredList.cards || [] }];
+      console.log("[Board.jsx] Updated columns after restoration:", updatedColumns);
+      return updatedColumns;
+    });
+    toast.success("List restored successfully");
   };
 
   const fetchSortedByPriority = async () => {

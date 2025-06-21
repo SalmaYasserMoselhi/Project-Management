@@ -78,7 +78,14 @@ const Column = ({
             `[Column.jsx] Using cards from refreshList for list ${id}:`,
             event.detail.cards
           );
-          setCards(event.detail.cards);
+          setCards((prevCards) => {
+            // Avoid duplicating cards
+            const existingCardIds = new Set(prevCards.map(card => card.id || card._id));
+            const newCards = event.detail.cards.filter(
+              card => !existingCardIds.has(card.id || card._id)
+            );
+            return [...prevCards, ...newCards];
+          });
         } else {
           console.log(
             `[Column.jsx] Fetching cards for list ${id} with sort ${newSortBy}`
