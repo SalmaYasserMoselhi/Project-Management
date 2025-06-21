@@ -11,9 +11,12 @@ import {
   closePopup,
   setFormData,
   setPasswordData,
+  setValidationErrors,
+  clearValidationErrors,
   togglePasswordVisibility,
   setShowDeleteConfirm,
   clearMessages,
+  setSuccessMessage,
   resetForm,
   updateProfile,
   updatePassword,
@@ -40,6 +43,7 @@ const ProfilePopup = ({ user }) => {
     loading,
     error,
     successMessage,
+    validationErrors,
     formData,
     passwordData,
     showPasswords,
@@ -91,6 +95,40 @@ const ProfilePopup = ({ user }) => {
   const handlePasswordChange = (field, value) => {
     dispatch(clearMessages());
     dispatch(setPasswordData({ [field]: value }));
+
+    // Real-time validation for current password (basic validation only)
+    if (field === "currentPassword") {
+      if (value.length > 0 && value.length < 8) {
+        dispatch(
+          setValidationErrors({
+            currentPassword: "Password must be at least 8 characters",
+          })
+        );
+      } else {
+        // Clear error for current password (real validation will happen on save)
+        dispatch(setValidationErrors({ currentPassword: null }));
+      }
+    }
+
+    // Real-time validation for confirm password
+    if (field === "confirmPassword" || field === "newPassword") {
+      const currentNewPassword =
+        field === "newPassword" ? value : passwordData.newPassword;
+      const currentConfirmPassword =
+        field === "confirmPassword" ? value : passwordData.confirmPassword;
+
+      if (
+        currentNewPassword &&
+        currentConfirmPassword &&
+        currentNewPassword !== currentConfirmPassword
+      ) {
+        dispatch(
+          setValidationErrors({ confirmPassword: "Passwords do not match" })
+        );
+      } else {
+        dispatch(setValidationErrors({ confirmPassword: null }));
+      }
+    }
   };
 
   const handleChangeProfile = () => {
@@ -138,11 +176,42 @@ const ProfilePopup = ({ user }) => {
 
   const handleSave = async () => {
     dispatch(clearMessages());
+    dispatch(clearValidationErrors());
+
+    // Check if passwords match before validation
+    if (
+      passwordData.newPassword &&
+      passwordData.confirmPassword &&
+      passwordData.newPassword !== passwordData.confirmPassword
+    ) {
+      dispatch(
+        setValidationErrors({ confirmPassword: "Passwords do not match" })
+      );
+      return;
+    }
 
     // Username validation
     const usernameError = validateUsername(formData.username);
     if (usernameError) {
       return;
+    }
+
+    // Password validation
+    const passwordErrors = validatePasswordChange();
+    if (Object.keys(passwordErrors).length > 0) {
+      dispatch(setValidationErrors(passwordErrors));
+      return;
+    }
+
+    let isPasswordBeingUpdated = false;
+
+    // Check if password is being updated
+    if (
+      passwordData.currentPassword &&
+      passwordData.newPassword &&
+      passwordData.confirmPassword
+    ) {
+      isPasswordBeingUpdated = true;
     }
 
     // Update profile
@@ -152,22 +221,54 @@ const ProfilePopup = ({ user }) => {
     if (formData.email) updateData.email = formData.email;
     if (formData.username) updateData.username = formData.username;
 
+    let profileUpdateSuccessful = false;
+
+    // Update profile first
     if (Object.keys(updateData).length > 0) {
       const profileResult = await dispatch(updateProfile(updateData));
       if (profileResult.type === updateProfile.fulfilled.type) {
         await dispatch(fetchUserData());
+        profileUpdateSuccessful = true;
+      } else {
+        // Profile update failed, don't proceed
+        return;
       }
     }
 
     // Update password if needed
-    const passwordErrors = validatePasswordChange();
-    if (
-      Object.keys(passwordErrors).length === 0 &&
-      (passwordData.currentPassword ||
-        passwordData.newPassword ||
-        passwordData.confirmPassword)
-    ) {
-      await dispatch(updatePassword(passwordData));
+    if (isPasswordBeingUpdated) {
+      const passwordResult = await dispatch(updatePassword(passwordData));
+      if (passwordResult.type === updatePassword.fulfilled.type) {
+        // Password update successful - show success message then redirect
+        setTimeout(() => {
+          // Close popup first
+          dispatch(closePopup());
+          localStorage.removeItem("token");
+          localStorage.removeItem("selectedPublicWorkspace");
+          dispatch(logoutUser());
+          navigate("/login", { replace: true });
+        }, 2000);
+      } else if (passwordResult.type === updatePassword.rejected.type) {
+        // Handle password update errors - likely incorrect current password
+        const errorMessage = passwordResult.payload;
+        if (
+          errorMessage &&
+          errorMessage.toLowerCase().includes("current password")
+        ) {
+          dispatch(
+            setValidationErrors({
+              currentPassword: "Incorrect current password",
+            })
+          );
+        }
+        return; // Don't show profile success if password failed
+      }
+    } else if (profileUpdateSuccessful) {
+      // Only profile was updated (no password), show profile success and close popup
+      dispatch(setSuccessMessage("Profile updated successfully!"));
+      setTimeout(() => {
+        dispatch(closePopup());
+      }, 1500);
     }
   };
 
@@ -377,7 +478,7 @@ const ProfilePopup = ({ user }) => {
                       }
                       autoComplete="new-password"
                       className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-[#7b4397] focus:border-[#7b4397] pr-8 bg-white transition-all duration-200 ${
-                        error?.currentPassword
+                        validationErrors?.currentPassword
                           ? "border-red-300"
                           : "border-gray-200"
                       }`}
@@ -397,6 +498,11 @@ const ProfilePopup = ({ user }) => {
                       )}
                     </button>
                   </div>
+                  {validationErrors?.currentPassword && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {validationErrors.currentPassword}
+                    </p>
+                  )}
                 </div>
 
                 {/* New Password & Confirm Password */}
@@ -414,7 +520,7 @@ const ProfilePopup = ({ user }) => {
                         }
                         autoComplete="new-password"
                         className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-[#7b4397] focus:border-[#7b4397] pr-8 bg-white transition-all duration-200 ${
-                          error?.newPassword
+                          validationErrors?.newPassword
                             ? "border-red-300"
                             : "border-gray-200"
                         }`}
@@ -434,6 +540,11 @@ const ProfilePopup = ({ user }) => {
                         )}
                       </button>
                     </div>
+                    {validationErrors?.newPassword && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {validationErrors.newPassword}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -451,7 +562,7 @@ const ProfilePopup = ({ user }) => {
                         }
                         autoComplete="new-password"
                         className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-[#7b4397] focus:border-[#7b4397] pr-8 bg-white transition-all duration-200 ${
-                          error?.confirmPassword
+                          validationErrors?.confirmPassword
                             ? "border-red-300"
                             : "border-gray-200"
                         }`}
@@ -471,6 +582,11 @@ const ProfilePopup = ({ user }) => {
                         )}
                       </button>
                     </div>
+                    {validationErrors?.confirmPassword && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {validationErrors.confirmPassword}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -525,7 +641,12 @@ const ProfilePopup = ({ user }) => {
             </button>
             <button
               onClick={handleSave}
-              disabled={loading}
+              disabled={
+                loading ||
+                (passwordData.newPassword &&
+                  passwordData.confirmPassword &&
+                  passwordData.newPassword !== passwordData.confirmPassword)
+              }
               className="flex-1 px-4 py-2 bg-gradient-to-r from-[#4d2d61] to-[#7b4397] text-white rounded-md hover:from-[#4d2d61]/90 hover:to-[#7b4397]/90 transition-all duration-200 font-semibold shadow-md text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Saving..." : "Save Changes"}

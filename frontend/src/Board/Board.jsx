@@ -1,3 +1,6 @@
+
+
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -19,6 +22,260 @@ import {
   User,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
+
+const styles = `
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Entrance animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translate3d(0,0,0);
+  }
+  40%, 43% {
+    transform: translate3d(0, -8px, 0);
+  }
+  70% {
+    transform: translate3d(0, -4px, 0);
+  }
+  90% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(77, 45, 97, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(77, 45, 97, 0.6);
+  }
+}
+
+/* Animation classes */
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.5s ease-out forwards;
+}
+
+.animate-pulse-soft {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-bounce-gentle {
+  animation: bounce 0.6s ease-out;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Hover and interaction effects */
+.card-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  box-shadow: 0 4px 16px rgba(77, 45, 97, 0.10);
+  background-color: #faf9fc;
+  border-color: #bda4e6;
+  transform: scale(1.025);
+  z-index: 10;
+}
+
+.button-hover {
+  transition: all 0.2s ease-out;
+}
+
+.button-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(77, 45, 97, 0.2);
+}
+
+.button-hover:active {
+  transform: translateY(0);
+}
+
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* Staggered animation delays */
+.stagger-1 { animation-delay: 0.1s; opacity: 0; }
+.stagger-2 { animation-delay: 0.2s; opacity: 0; }
+.stagger-3 { animation-delay: 0.3s; opacity: 0; }
+.stagger-4 { animation-delay: 0.4s; opacity: 0; }
+.stagger-5 { animation-delay: 0.5s; opacity: 0; }
+.stagger-6 { animation-delay: 0.6s; opacity: 0; }
+`;
+
+// Skeleton components for board loading
+const BoardHeaderSkeleton = () => (
+  <div className="flex flex-col md:flex-row justify-between items-center mb-6">
+    <div className="flex items-center gap-6 mb-4 md:mb-0">
+      <div className="loading-skeleton h-8 w-16"></div>
+      <div className="loading-skeleton h-8 w-20"></div>
+    </div>
+    <div className="flex gap-4">
+      <div className="loading-skeleton h-8 w-24 rounded-md"></div>
+      <div className="loading-skeleton h-8 w-24 rounded-md"></div>
+    </div>
+  </div>
+);
+
+const ColumnSkeleton = () => (
+  <div className="min-w-[300px] h-full">
+    <div className="bg-[#F8F9FA] rounded-lg p-4 h-full">
+      {/* Column header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="loading-skeleton h-6 w-32"></div>
+        <div className="loading-skeleton h-6 w-6 rounded"></div>
+      </div>
+
+      {/* Cards skeleton */}
+      <div className="space-y-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="bg-white rounded-lg p-3 shadow-sm">
+            <div className="loading-skeleton h-4 w-3/4 mb-2"></div>
+            <div className="loading-skeleton h-3 w-1/2 mb-3"></div>
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                <div className="loading-skeleton h-5 w-12 rounded-full"></div>
+                <div className="loading-skeleton h-5 w-16 rounded-full"></div>
+              </div>
+              <div className="flex -space-x-1">
+                <div className="loading-skeleton w-6 h-6 rounded-full"></div>
+                <div className="loading-skeleton w-6 h-6 rounded-full"></div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Add card button skeleton */}
+      <div className="mt-4">
+        <div className="loading-skeleton h-10 w-full rounded-lg"></div>
+      </div>
+    </div>
+  </div>
+);
+
+const BoardLoadingSkeleton = () => (
+  <div className="pb-6 min-h-screen flex flex-col item-center overflow-y-auto">
+    <style>{styles}</style>
+    <div className="border-2 border-[#C7C7C7] p-4 rounded-xl h-full flex flex-col">
+      {/* Header skeleton with staggered animation */}
+      <div className="animate-fade-in-up stagger-1">
+        <BoardHeaderSkeleton />
+      </div>
+
+      {/* Loading indicator */}
+      <div className="flex justify-center items-center p-4 mb-4 animate-fade-in-up stagger-2">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4d2d61] animate-pulse-soft"></div>
+      </div>
+
+      {/* Board columns skeleton */}
+      <div className="flex-1 overflow-y-auto pb-4">
+        <div className="flex gap-4 min-w-0 h-full overflow-x-auto max-w-full">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              key={index}
+              className={`animate-fade-in-up stagger-${index + 3}`}
+            >
+              <ColumnSkeleton />
+            </div>
+          ))}
+
+          {/* Add list button skeleton */}
+          <div className="animate-fade-in-up stagger-6">
+            <div className="min-w-[300px]">
+              <div className="loading-skeleton h-12 w-full rounded-lg"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 const Board = ({ workspaceId, boardId, restoredLists }) => {
   const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
@@ -53,7 +310,7 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
     dueDate: null,
   });
 
-  // Mock board members data - in a real app, this would come from your API
+  // Mock board members data
   const boardMembers = [
     {
       id: "1",
@@ -88,7 +345,6 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
       ) {
         setIsSortOpen(false);
         setIsFilterOpen(false);
-        // Reset temp states when closing without applying
         setTempSort(selectedSort);
         setTempSortDirection(sortDirection);
         setTempFilters(activeFilters);
@@ -107,11 +363,19 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
   useEffect(() => {
     const fetchLists = async () => {
       try {
+        console.log(`[Board.jsx] Fetching lists for board ${boardId}`);
         const res = await axios.get(
           `${BASE_URL}/api/v1/lists/board/${boardId}/lists`
         );
-        console.log("[Board.jsx] Fetched lists:", res.data.data.lists);
-        setColumns(res.data.data.lists);
+        console.log("[Board.jsx] Fetched lists response:", res.data);
+
+        // Filter out archived lists
+        const activeLists = res.data.data.lists.filter(
+          (list) => !list.archived
+        );
+        console.log("[Board.jsx] Filtered active lists:", activeLists);
+
+        setColumns(activeLists);
       } catch (error) {
         console.error("[Board.jsx] Error fetching lists:", error);
         toast.error("Failed to load board lists");
@@ -123,7 +387,6 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
     if (boardId) fetchLists();
   }, [boardId]);
 
-  // Initialize temp states
   useEffect(() => {
     setTempSort(selectedSort);
     setTempSortDirection(sortDirection);
@@ -132,7 +395,6 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
 
   const handleListDrop = async (e, targetCol) => {
     e.preventDefault();
-
     const draggedType = e.dataTransfer.getData("type");
     const draggedListId = e.dataTransfer.getData("listId");
     if (draggedType !== "list" || !draggedListId) return;
@@ -156,15 +418,70 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
     try {
       await axios.patch(
         `${BASE_URL}/api/v1/lists/${draggedListId}/reorder`,
-        {
-          position: targetIndex,
-        },
+        { position: targetIndex },
         { withCredentials: true }
       );
       toast.success("List reordered");
     } catch (err) {
       console.error("[Board.jsx] Error reordering list:", err);
       toast.error("Failed to reorder list");
+    }
+  };
+
+  const handleArchiveList = async (listId) => {
+    try {
+      setLoading(true);
+      console.log(`[Board.jsx] Attempting to archive list ${listId}`);
+      const res = await axios.patch(
+        `${BASE_URL}/api/v1/lists/${listId}/archive`,
+        { archived: true },
+        { withCredentials: true }
+      );
+
+      console.log(`[Board.jsx] Archive response for list ${listId}:`, res);
+
+      if (res.status === 200 || res.status === 204) {
+        console.log(`[Board.jsx] List ${listId} archived successfully`);
+        // Remove the archived list from state
+        setLists((prevLists) => {
+          const updatedLists = prevLists.filter(
+            (list) => (list._id || list.id) !== listId
+          );
+          console.log(`[Board.jsx] Updated lists after archiving:`, updatedLists);
+          return updatedLists;
+        });
+        setColumns((prevColumns) => {
+          const updatedColumns = prevColumns.filter(
+            (col) => (col._id || col.id) !== listId
+          );
+          console.log(`[Board.jsx] Updated columns after archiving:`, updatedColumns);
+          return updatedColumns;
+        });
+        toast.success("List archived successfully");
+      } else {
+        console.warn(
+          `[Board.jsx] Unexpected response status ${res.status} for list ${listId}`,
+          res.data
+        );
+        toast.error(`Unexpected response (status ${res.status}) when archiving list`);
+      }
+    } catch (err) {
+      console.error(`[Board.jsx] Error archiving list ${listId}:`, err.response || err);
+      // Handle "already archived" case
+      if (err.response?.data?.message?.includes("already archived")) {
+        console.log(`[Board.jsx] List ${listId} is already archived, removing from UI`);
+        setLists((prevLists) =>
+          prevLists.filter((list) => (list._id || list.id) !== listId)
+        );
+        setColumns((prevColumns) =>
+          prevColumns.filter((col) => (col._id || col.id) !== listId)
+        );
+        toast.warning("List is already archived");
+      } else {
+        toast.error(`Failed to archive list: ${err.response?.data?.message || err.message}`);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -186,13 +503,54 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
         `[Board.jsx] Dispatching refreshList for listId: ${
           col.id || col._id
         }, sortBy: ${sortBy}, cards:`,
-        col_ode
+        col.cards
       );
       const event = new CustomEvent("refreshList", {
         detail: { listId: col.id || col._id, sortBy, cards: col.cards || [] },
       });
       window.dispatchEvent(event);
     });
+  };
+
+  const onCardRestored = (restoredCard) => {
+    console.log("[Board.jsx] Card restored:", restoredCard);
+    const listId = restoredCard.list?._id || restoredCard.listId;
+    if (!listId) {
+      console.error("[Board.jsx] Restored card has no listId:", restoredCard);
+      return;
+    }
+    setColumns((prevColumns) => {
+      const updatedColumns = prevColumns.map((col) => {
+        if ((col.id || col._id) === listId) {
+          const updatedCards = [...(col.cards || []), restoredCard];
+          return { ...col, cards: updatedCards };
+        }
+        return col;
+      });
+      console.log("[Board.jsx] Updated columns after card restoration:", updatedColumns);
+      return updatedColumns;
+    });
+
+    const event = new CustomEvent("refreshList", {
+      detail: { listId, sortBy: selectedSort, cards: [restoredCard] },
+    });
+    window.dispatchEvent(event);
+    toast.success("Card restored successfully");
+  };
+
+  const onListRestored = (restoredList) => {
+    console.log("[Board.jsx] List restored:", restoredList);
+    setLists((prevLists) => {
+      const updatedLists = [...prevLists, restoredList];
+      console.log("[Board.jsx] Updated lists after restoration:", updatedLists);
+      return updatedLists;
+    });
+    setColumns((prevColumns) => {
+      const updatedColumns = [...prevColumns, { ...restoredList, cards: restoredList.cards || [] }];
+      console.log("[Board.jsx] Updated columns after restoration:", updatedColumns);
+      return updatedColumns;
+    });
+    toast.success("List restored successfully");
   };
 
   const fetchSortedByPriority = async () => {
@@ -372,11 +730,8 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
     }
   };
 
-  // This is a placeholder function - in a real app, you would implement the API call
   const handleFilterByAssignedMember = async (memberId) => {
     try {
-      // In a real app, you would call your API to filter by assigned member
-      // For now, we'll just simulate success
       console.log(`[Board.jsx] Filtering by assigned member: ${memberId}`);
       return true;
     } catch (error) {
@@ -391,7 +746,6 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
     let appliedCount = 0;
     const filterMessages = [];
 
-    // Apply priority filter if set
     if (tempFilters.priority) {
       const result = await handleFilterByPriority(tempFilters.priority);
       if (result) {
@@ -401,7 +755,6 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
       success = success && result;
     }
 
-    // Apply due date filter if set
     if (tempFilters.dueDate) {
       let result = true;
       if (tempFilters.dueDate === "all") {
@@ -411,14 +764,12 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
           filterMessages.push("Due Date: All");
         }
       } else {
-        // In a real app, you would implement specific due date filters
         appliedCount++;
         filterMessages.push(`Due Date: ${tempFilters.dueDate}`);
       }
       success = success && result;
     }
 
-    // Apply assigned member filter if set
     if (tempFilters.assignedMember) {
       const result = await handleFilterByAssignedMember(
         tempFilters.assignedMember
@@ -435,7 +786,6 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
       success = success && result;
     }
 
-    // If no filters are set, apply default date filter
     if (appliedCount === 0) {
       const result = await handleFilterByDate();
       success = success && result;
@@ -532,10 +882,30 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
 
   const filterCount = Object.values(activeFilters).filter(Boolean).length;
 
-  if (loading) return <div className="p-4">Loading board...</div>;
+  // Updated onListAdded to update both lists and columns states
+  const onListAdded = (newList) => {
+    console.log(`[Board.jsx] New list added:`, newList);
+    setLists((prevLists) => {
+      const updatedLists = [...prevLists, newList];
+      console.log(`[Board.jsx] Updated lists after adding:`, updatedLists);
+      return updatedLists;
+    });
+    setColumns((prevColumns) => {
+      const updatedColumns = [...prevColumns, { ...newList, cards: newList.cards || [] }];
+      console.log(`[Board.jsx] Updated columns after adding:`, updatedColumns);
+      return updatedColumns;
+    });
+    toast.success("List added successfully");
+  };
+
+  // Show enhanced loading skeleton
+  if (loading) {
+    return <BoardLoadingSkeleton />;
+  }
 
   return (
     <div className="pb-6 min-h-screen flex flex-col item-center overflow-y-auto">
+      <style>{styles}</style>
       <div className="border-2 border-[#C7C7C7] p-4 rounded-xl h-full flex flex-col">
         <div className="flex flex-col md:flex-row justify-between items-center mb-6">
           <div className="flex items-center gap-6 mb-4 md:mb-0">
@@ -560,7 +930,7 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
                 {/* Sort Popup */}
                 <div className="relative" ref={sortRef}>
                   <button
-                    className="text-sm px-3 py-1.5 rounded-md text-gray-700 font-semibold border border-gray-300 bg-white shadow hover:bg-gray-50 flex items-center gap-1"
+                    className="text-sm px-3 py-1.5 rounded-md text-gray-700 font-semibold border border-gray-300 bg-white shadow-sm hover:bg-gray-50 flex items-center gap-1"
                     onClick={() => {
                       setIsSortOpen(!isSortOpen);
                       setIsFilterOpen(false);
@@ -656,7 +1026,7 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
                 {/* Filter Popup */}
                 <div className="relative" ref={filterRef}>
                   <button
-                    className="text-sm px-3 py-1.5 rounded-md text-gray-700 font-semibold border border-gray-300 bg-white shadow hover:bg-gray-50 flex items-center gap-1"
+                    className="text-sm px-3 py-1.5 rounded-md text-gray-700 font-semibold border border-gray-300 bg-white shadow-sm hover:bg-gray-50 flex items-center gap-1"
                     onClick={() => {
                       setIsFilterOpen(!isFilterOpen);
                       setIsSortOpen(false);
@@ -1005,7 +1375,7 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
               </>
             ) : (
               <button
-                className="bg-[#4D2D61] text-white text-sm px-4 py-2 rounded-md font-semibold"
+                className="bg-gradient-to-r from-[#4d2d61] to-[#7b4397] text-white text-sm px-4 py-2 rounded-md font-semibold button-hover"
                 onClick={() => dispatch(openMeetingModal())}
               >
                 Add Meeting
@@ -1040,6 +1410,7 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
                     boardId={boardId}
                     allLists={columns}
                     onDelete={handleDeleteList}
+                    onArchive={handleArchiveList}
                     targetCardId={targetCardId}
                   />
                 </div>
@@ -1047,17 +1418,14 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
 
               <AddListButton
                 boardId={boardId}
-                onListAdded={(newList) => {
-                  setLists((prev) => [...prev, newList]);
-                }}
+                onListAdded={onListAdded}
               />
             </div>
           </div>
         )}
 
-        {view == "calendar" && <Calendar />}
+        {view === "calendar" && <Calendar />}
 
-        {/* Add Meeting Modal - No longer passing props, using Redux instead */}
         <AddMeetingModal boardId={boardId} />
       </div>
     </div>
@@ -1065,3 +1433,7 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
 };
 
 export default Board;
+
+
+
+
