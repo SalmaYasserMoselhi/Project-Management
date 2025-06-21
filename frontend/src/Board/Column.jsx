@@ -1,11 +1,10 @@
-
-
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import TaskCard from "./TaskCard";
 import icon from "../assets/icon.png";
 import CardDetails from "../Card/CardDetails";
+import React from "react";
 
 const Column = ({
   id,
@@ -361,9 +360,7 @@ const Column = ({
       }`}
       ref={columnRef}
     >
-      <div
-        className="flex justify-between items-center mb-4 bg-white p-3 rounded-lg shadow-sm"
-      >
+      <div className="flex justify-between items-center mb-4 bg-white p-3 rounded-lg shadow-sm">
         <div className="flex items-center w-[190px]">
           <h3 className="text-black font-semibold me-2">
             {title}
@@ -448,12 +445,11 @@ const Column = ({
           </style>
           <div>
             {cards.map((card, index) => (
-              <>
+              <React.Fragment key={card.id || card._id}>
                 {dropPosition === index && isDraggingOver && (
                   <div className="h-3 bg-gray-300 rounded my-1"></div>
                 )}
                 <TaskCard
-                  key={card.id || card._id}
                   id={card.id || card._id}
                   title={card.title}
                   priority={card.priority || "Medium"}
@@ -467,7 +463,7 @@ const Column = ({
                   containerRef={cardsContainerRef}
                   scrollToMe={targetCardId === (card.id || card._id)}
                 />
-              </>
+              </React.Fragment>
             ))}
             {dropPosition === cards.length && isDraggingOver && (
               <div className="h-2 bg-gray-300 rounded my-1"></div>
@@ -479,7 +475,7 @@ const Column = ({
           {!isAdding && (
             <button
               onClick={() => setIsAdding(true)}
-              className="bg-white py-3 w-full rounded-md border border-[#F2F4F7] shadow-lg transition-all hover:shadow-md"
+              className="bg-white py-3 w-full rounded-md border border-[#F2F4F7] shadow-sm transition-all button-hover"
               disabled={loading}
             >
               <img
@@ -506,4 +502,3 @@ const Column = ({
 };
 
 export default Column;
-
