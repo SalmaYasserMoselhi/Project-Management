@@ -74,6 +74,8 @@ const initialState = {
   loading: false,
   error: null,
   successMessage: "",
+  validationErrors: {},
+
   formData: {
     firstName: "",
     lastName: "",
@@ -105,13 +107,29 @@ const profilePopupSlice = createSlice({
       state.isOpen = false;
       state.error = null;
       state.successMessage = "";
+      state.validationErrors = {};
     },
     setFormData: (state, action) => {
       state.formData = { ...state.formData, ...action.payload };
     },
     setPasswordData: (state, action) => {
       state.passwordData = { ...state.passwordData, ...action.payload };
+      // Clear validation errors when password data changes
+      if (
+        action.payload.newPassword !== undefined ||
+        action.payload.confirmPassword !== undefined
+      ) {
+        state.validationErrors = { ...state.validationErrors };
+        delete state.validationErrors.confirmPassword;
+      }
     },
+    setValidationErrors: (state, action) => {
+      state.validationErrors = { ...state.validationErrors, ...action.payload };
+    },
+    clearValidationErrors: (state) => {
+      state.validationErrors = {};
+    },
+
     togglePasswordVisibility: (state, action) => {
       state.showPasswords[action.payload] =
         !state.showPasswords[action.payload];
@@ -122,6 +140,10 @@ const profilePopupSlice = createSlice({
     clearMessages: (state) => {
       state.error = null;
       state.successMessage = "";
+      state.validationErrors = {};
+    },
+    setSuccessMessage: (state, action) => {
+      state.successMessage = action.payload;
     },
     resetForm: (state, action) => {
       const user = action.payload;
@@ -143,6 +165,7 @@ const profilePopupSlice = createSlice({
       };
       state.error = null;
       state.successMessage = "";
+      state.validationErrors = {};
     },
   },
   extraReducers: (builder) => {
@@ -154,8 +177,6 @@ const profilePopupSlice = createSlice({
       })
       .addCase(updateProfile.fulfilled, (state, action) => {
         state.loading = false;
-        state.successMessage = "Profile updated successfully!";
-        state.isOpen = false;
       })
       .addCase(updateProfile.rejected, (state, action) => {
         state.loading = false;
@@ -170,7 +191,8 @@ const profilePopupSlice = createSlice({
       })
       .addCase(updatePassword.fulfilled, (state) => {
         state.loading = false;
-        state.successMessage = "Password updated successfully!";
+        state.successMessage =
+          "Password updated successfully! Redirecting to login...";
         state.passwordData = {
           currentPassword: "",
           newPassword: "",
@@ -224,9 +246,12 @@ export const {
   closePopup,
   setFormData,
   setPasswordData,
+  setValidationErrors,
+  clearValidationErrors,
   togglePasswordVisibility,
   setShowDeleteConfirm,
   clearMessages,
+  setSuccessMessage,
   resetForm,
 } = profilePopupSlice.actions;
 
