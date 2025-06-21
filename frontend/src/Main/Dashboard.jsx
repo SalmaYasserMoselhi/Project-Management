@@ -843,7 +843,7 @@ function Dashboard() {
         </div>
 
         {/* Activity Log with staggered row animations */}
-        <div className="bg-gray-50 rounded-xl shadow-sm p-3 md:p-4 border border-purple-200 overflow-x-auto card-hover animate-fade-in-up stagger-4 mb-6">
+        <div className="bg-gray-50 rounded-xl shadow-sm p-3 md:p-4 border border-purple-200 overflow-x-auto card-hover animate-fade-in-up stagger-4 mb-4">
           <h2 className="text-lg font-semibold text-[#4d2d61] mb-3">
             Activity Log
           </h2>

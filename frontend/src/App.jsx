@@ -17,9 +17,9 @@ function App() {
   const { isWorkspaceOpen, selectedWorkspace, workspaceTransitionState } =
     useSelector((state) => state.sidebar);
 
+  const { authLoading } = useSelector((state) => state.login);
   const location = useLocation();
   const dispatch = useDispatch();
-
   const currentUser = useSelector((state) => state.auth?.user);
   const userWorkspaces = useSelector(
     (state) => state.userWorkspaces.workspaces
@@ -39,6 +39,11 @@ function App() {
     };
     initializeUser();
   }, [dispatch]);
+
+  useEffect(() => {
+    dispatch(checkAuthStatus());
+  }, [dispatch]);
+  useEffect(() => {}, [currentUser]);
 
   // List of auth pages where we don't want Sidebar and WorkspacePopup
   const authPages = [
@@ -66,10 +71,6 @@ function App() {
       workspaceTransitionState === "closing");
 
   useEffect(() => {
-    dispatch(checkAuthStatus());
-  }, [dispatch]);
-
-  useEffect(() => {
     if (
       currentUser?._id &&
       (!Array.isArray(userWorkspaces) || userWorkspaces.length === 0)
@@ -77,8 +78,6 @@ function App() {
       dispatch(fetchUserPublicWorkspaces());
     }
   }, [currentUser?._id, userWorkspaces, dispatch]);
-
-  useEffect(() => {}, [currentUser]);
 
   useEffect(() => {
     // عند الدخول: set status online

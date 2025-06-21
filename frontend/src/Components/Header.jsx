@@ -96,9 +96,9 @@ const Header = () => {
 
   return (
     <>
-      <header className={`w-full px-6 py-2 ${headerBgColor}`}>
+      <header className={`w-full px-6 py-1 ${headerBgColor}`}>
         {/* Top section with title and user info */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between ">
           <div className="flex items-center animate-slide-in-left">
             {isMobile && (
               <button
@@ -141,14 +141,17 @@ const Header = () => {
               <div className="relative">
                 <button
                   onClick={() => dispatch(openPopup())}
-                  className="w-8 h-8 rounded-full border border-gray-300 hover:ring-2 hover:ring-blue-500 hover:ring-offset-1 transition-all"
+                  className="w-8 h-8 rounded-full border border-gray-300 hover:ring-2 hover:ring-blue-500 hover:ring-offset-1 transition-all overflow-hidden"
                 >
                   <img
-                    src={
-                      user.avatar && user.avatar !== "default.jpg"
-                        ? user.avatar
-                        : "/Project-Management-main/frontend/src/assets/defaultAvatar.png"
-                    }
+                    src={user.avatar || ""}
+                    onError={(e) => {
+                      e.target.onerror = null; // Prevent infinite loops
+                      const name = user.username || user.email || "User";
+                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                        name
+                      )}&background=4D2D61&color=fff&bold=true&size=128`;
+                    }}
                     alt="User Avatar"
                     className="w-full h-full rounded-full object-cover"
                   />

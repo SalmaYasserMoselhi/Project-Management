@@ -4,6 +4,8 @@ const { Server } = require('socket.io');
 const http = require('http');
 const socketServer = require('./socketServer.js');
 const scheduledTasks = require('./utils/scheduledTasks');
+const scheduledmeeting = require('./utils/scheduledmeeting');
+
 
 // process.on("uncaughtException", (err) => {
 //   console.log("UNCAUGHT EXCEPTION! 💥 Shutting down...");
@@ -22,7 +24,11 @@ const DB = process.env.DATABASE.replace(
 
 mongoose
   .connect(DB)
-  .then(() => console.log('DB connection successful!'));
+  .then(() =>{ console.log('DB connection successful!')
+
+    // Initialize scheduled tasks
+    scheduledmeeting();
+  });
 // mongoose
 //   .connect(DB, {
 //     useNewUrlParser: true,

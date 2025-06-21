@@ -238,7 +238,7 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
                     </motion.button>
                   </div>
 
-                  <div className="max-h-32 overflow-y-auto mb-3 custom-scrollbar">
+                  <div className="max-h-32 overflow-y-auto mb-2 custom-scrollbar">
                     <div className="space-y-1.5">
                       {allUsers?.filter(Boolean).map((user, index) => {
                         const alreadyInGroup = participants.some(

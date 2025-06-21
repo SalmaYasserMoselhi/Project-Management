@@ -11,7 +11,7 @@ const activityService = require('../utils/activityService');
 const invitationService = require('../utils/invitationService');
 const notificationService = require('../utils/notificationService');
 
-  const signToken = (id) => {
+const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
@@ -22,7 +22,7 @@ const formatMemberData = (member) => {
   if (!member || !member.user) {
     return null;
   }
-  
+
   return {
     _id: member._id,
     user: {
@@ -422,7 +422,10 @@ exports.updateWorkspace = catchAsync(async (req, res, next) => {
   }
 
   // ALWAYS get the latest workspace data after any updates
-  const UpdatedWorkspace = await Workspace.findById(workspace._id);
+  const UpdatedWorkspace = await Workspace.findById(workspace._id).populate(
+    'members.user',
+    'username email avatar'
+  );
 
   res.status(200).json({
     status: 'success',
@@ -489,6 +492,7 @@ exports.removeMember = catchAsync(async (req, res, next) => {
       removedBy: req.user._id,
     }
   );
+  res.status(204).send();
 });
 
 // Get members of a public workspace only
@@ -530,7 +534,9 @@ exports.getWorkspaceMembers = catchAsync(async (req, res, next) => {
   const paginatedMembers = members.slice(startIndex, endIndex);
 
   // Format data after pagination
-  const formattedMembers = paginatedMembers.map(formatMemberData).filter(member => member !== null);
+  const formattedMembers = paginatedMembers
+    .map(formatMemberData)
+    .filter((member) => member !== null);
 
   // Stats calculation (from original full list)
   const memberStats = {
@@ -645,8 +651,10 @@ exports.inviteMembers = catchAsync(
       const invitedUser = await User.findOne({ email: invitation.email });
       if (invitedUser && global.io) {
         // Get inviter details
-        const inviter = await User.findById(req.user._id).select('firstName lastName username avatar');
-        
+        const inviter = await User.findById(req.user._id).select(
+          'firstName lastName username avatar'
+        );
+
         // Send notification via socket
         await notificationService.createNotification(
           global.io,
@@ -658,20 +666,21 @@ exports.inviteMembers = catchAsync(
           {
             workspaceName: workspace.name,
             role: invitation.role,
-            inviterName: inviter ? 
-              (inviter.firstName && inviter.lastName) ? 
-                `${inviter.firstName} ${inviter.lastName}` : 
-                inviter.username : 
-              'A user',
-            inviteToken: invitation.token  // Include the token for direct access
+            inviterName: inviter
+              ? inviter.firstName && inviter.lastName
+                ? `${inviter.firstName} ${inviter.lastName}`
+                : inviter.username
+              : 'A user',
+            inviteToken: invitation.token, // Include the token for direct access
           }
         );
-        
-        console.log(`Notification sent to user ${invitedUser._id} about workspace invitation`);
+
+        console.log(
+          `Notification sent to user ${invitedUser._id} about workspace invitation`
+        );
       }
     }
 
-    
     // Save the workspace with the new invitations
     await workspace.save();
 
@@ -707,7 +716,6 @@ exports.acceptInvitation = catchAsync(
     // Hash token
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-
     // Get frontend URL from environment variables
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
@@ -739,7 +747,6 @@ exports.acceptInvitation = catchAsync(
     if (!invitation) {
       return next(new AppError('Invalid or expired invitation', 400));
     }
-
 
     // if (!invitation) {
     //   // Redirect to frontend with error message
@@ -778,67 +785,70 @@ exports.acceptInvitation = catchAsync(
       }
     );
 
-   // Create authentication token and set cookie
-   const jwtToken = signToken(user._id);
-   res.cookie('jwt', jwtToken, {
-     expires: new Date(
-       Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
-     ),
-     httpOnly: true,
-     secure: false,
-     sameSite: 'lax',
-     path: '/',
-   });
+    // Create authentication token and set cookie
+    const jwtToken = signToken(user._id);
+    res.cookie('jwt', jwtToken, {
+      expires: new Date(
+        Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+      ),
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      path: '/',
+    });
 
-   // Notify existing workspace members about new member
-   if (global.io) {
-    // Get all workspace members except the inviter and new member
-    const existingMembers = workspace.members.filter(member => 
-      member.user.toString() !== user._id.toString() && 
-      member.user.toString() !== invitation.invitedBy.toString()
-    );
+    // Notify existing workspace members about new member
+    if (global.io) {
+      // Get all workspace members except the inviter and new member
+      const existingMembers = workspace.members.filter(
+        (member) =>
+          member.user.toString() !== user._id.toString() &&
+          member.user.toString() !== invitation.invitedBy.toString()
+      );
 
-    // Send notification to each existing member
-    for (const member of existingMembers) {
+      // Send notification to each existing member
+      for (const member of existingMembers) {
+        await notificationService.createNotification(
+          global.io,
+          member.user,
+          invitation.invitedBy,
+          'member_added',
+          'workspace',
+          workspace._id,
+          {
+            workspaceName: workspace.name,
+            newMemberName: user.firstName
+              ? `${user.firstName} ${user.lastName || ''}`.trim()
+              : user.username,
+            role: invitation.role,
+          }
+        );
+      }
+      const inviter = await User.findById(user._id).select(
+        'firstName lastName username avatar'
+      );
+      // Send a welcome notification to the new member
       await notificationService.createNotification(
         global.io,
-        member.user,
+        user._id,
         invitation.invitedBy,
-        'member_added',
+        'workspace_welcome',
         'workspace',
         workspace._id,
         {
           workspaceName: workspace.name,
-          newMemberName: user.firstName ? 
-            `${user.firstName} ${user.lastName || ''}`.trim() : 
-            user.username,
-          role: invitation.role
+          inviterName: inviter
+            ? inviter.firstName && inviter.lastName
+              ? `${inviter.firstName} ${inviter.lastName}`
+              : inviter.username
+            : 'A user',
+          role: invitation.role,
         }
       );
     }
-    const inviter = await User.findById(user._id).select('firstName lastName username avatar');
-    // Send a welcome notification to the new member
-    await notificationService.createNotification(
-      global.io,
-      user._id,
-      invitation.invitedBy,
-      'workspace_welcome',
-      'workspace',
-      workspace._id,
-      {
-        workspaceName: workspace.name,
-        inviterName: inviter ? 
-          (inviter.firstName && inviter.lastName) ? 
-            `${inviter.firstName} ${inviter.lastName}` : 
-            inviter.username : 
-          'A user',
-        role: invitation.role
-      }
-    );
-  }
 
-   // Redirect to workspace page on frontend
-   return res.redirect(`${frontendUrl}/main/dashboard?joined=true`);
+    // Redirect to workspace page on frontend
+    return res.redirect(`${frontendUrl}/main/dashboard?joined=true`);
   },
   // Cleanup function
   async (req, err) => {

@@ -35,10 +35,10 @@ function ChatLayout() {
   }, [isMobile]);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex h-full w-full overflow-hidden">
       {!isMobile ? (
         <>
-          <div className="flex-none w-100 border-r border-gray-200">
+          <div className="flex-none w-96 border-r border-gray-200">
             <ChatList onChatSelect={handleChatSelect} />
           </div>
 

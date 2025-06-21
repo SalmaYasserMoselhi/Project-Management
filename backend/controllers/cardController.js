@@ -1025,12 +1025,14 @@ exports.getCardMembers = catchAsync(async (req, res, next) => {
     .populate('members.assignedBy', 'email firstName lastName')
     .select('members');
 
-  const members = populatedCard.members.map((member) => ({
-    id: member.user._id,
-    user: member.user,
-    assignedBy: member.assignedBy,
-    assignedAt: member.assignedAt,
-  }));
+  const members = populatedCard.members
+    .filter((member) => member.user)
+    .map((member) => ({
+      id: member.user._id,
+      user: member.user,
+      assignedBy: member.assignedBy,
+      assignedAt: member.assignedAt,
+    }));
 
   res.status(200).json({
     status: 'success',
@@ -1410,10 +1412,10 @@ exports.getListCards = catchAsync(async (req, res, next) => {
   // Find the list and board (existing code remains the same)
   const list = await List.findById(listId);
   if (!list) return next(new AppError('List not found', 404));
-  
+
   const board = await Board.findById(list.board);
   if (!board) return next(new AppError('Board not found', 404));
-  
+
   permissionService.verifyPermission(board, req.user._id, 'view_board');
 
   // Build query (existing filter code remains the same)
@@ -1432,7 +1434,7 @@ exports.getListCards = catchAsync(async (req, res, next) => {
       query['members.user'] = req.user._id;
     } else {
       const isBoardMember = board.members.some(
-        member => member.user.toString() === assignedTo
+        (member) => member.user.toString() === assignedTo
       );
       if (!isBoardMember) {
         return next(new AppError('Specified user is not a board member', 400));
@@ -1448,11 +1450,23 @@ exports.getListCards = catchAsync(async (req, res, next) => {
     weekEnd.setDate(weekEnd.getDate() + 7);
 
     switch (dueDateFilter) {
-      case 'overdue': query['dueDate.endDate'] = { $lt: new Date() }; break;
-      case 'dueSoon': query['dueDate.endDate'] = { $gte: new Date(), $lt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) }; break;
-      case 'dueThisWeek': query['dueDate.endDate'] = { $gte: today, $lte: weekEnd }; break;
-      case 'noDueDate': query['dueDate.endDate'] = { $exists: false }; break;
-      default: return next(new AppError('Invalid due date filter', 400));
+      case 'overdue':
+        query['dueDate.endDate'] = { $lt: new Date() };
+        break;
+      case 'dueSoon':
+        query['dueDate.endDate'] = {
+          $gte: new Date(),
+          $lt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        };
+        break;
+      case 'dueThisWeek':
+        query['dueDate.endDate'] = { $gte: today, $lte: weekEnd };
+        break;
+      case 'noDueDate':
+        query['dueDate.endDate'] = { $exists: false };
+        break;
+      default:
+        return next(new AppError('Invalid due date filter', 400));
     }
   }
 
@@ -1479,21 +1493,25 @@ exports.getListCards = catchAsync(async (req, res, next) => {
 
   // Apply custom priority sorting if needed
   if (sortBy === 'priority') {
-    const priorityOrder = { 'high': 1, 'medium': 2, 'low': 3, 'none': 4 };
+    const priorityOrder = { high: 1, medium: 2, low: 3, none: 4 };
     cards.sort((a, b) => {
       const aPriority = priorityOrder[a.priority] || 4;
       const bPriority = priorityOrder[b.priority] || 4;
-      return sortOrder === 'asc' ? aPriority - bPriority : bPriority - aPriority;
+      return sortOrder === 'asc'
+        ? aPriority - bPriority
+        : bPriority - aPriority;
     });
   }
 
   res.status(200).json({
     status: 'success',
     results: cards.length,
-    data: { cards, filters: { priority, assignedTo, dueDateFilter, sortBy, sortOrder } },
+    data: {
+      cards,
+      filters: { priority, assignedTo, dueDateFilter, sortBy, sortOrder },
+    },
   });
 });
-
 
 // Archive card
 exports.archiveCard = catchAsync(async (req, res, next) => {

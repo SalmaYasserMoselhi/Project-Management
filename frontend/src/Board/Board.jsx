@@ -7,7 +7,6 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import Column from "./Column";
 import AddListButton from "./AddListButton";
-import drop from "../assets/drop.png";
 import Calendar from "../Calendar/Calendar";
 import AddMeetingModal from "../Calendar/AddMeetingModal";
 import { useSelector, useDispatch } from "react-redux";
@@ -22,6 +21,260 @@ import {
   User,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
+
+const styles = `
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Entrance animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translate3d(0,0,0);
+  }
+  40%, 43% {
+    transform: translate3d(0, -8px, 0);
+  }
+  70% {
+    transform: translate3d(0, -4px, 0);
+  }
+  90% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(77, 45, 97, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(77, 45, 97, 0.6);
+  }
+}
+
+/* Animation classes */
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.5s ease-out forwards;
+}
+
+.animate-pulse-soft {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-bounce-gentle {
+  animation: bounce 0.6s ease-out;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Hover and interaction effects */
+.card-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  box-shadow: 0 4px 16px rgba(77, 45, 97, 0.10);
+  background-color: #faf9fc;
+  border-color: #bda4e6;
+  transform: scale(1.025);
+  z-index: 10;
+}
+
+.button-hover {
+  transition: all 0.2s ease-out;
+}
+
+.button-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(77, 45, 97, 0.2);
+}
+
+.button-hover:active {
+  transform: translateY(0);
+}
+
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* Staggered animation delays */
+.stagger-1 { animation-delay: 0.1s; opacity: 0; }
+.stagger-2 { animation-delay: 0.2s; opacity: 0; }
+.stagger-3 { animation-delay: 0.3s; opacity: 0; }
+.stagger-4 { animation-delay: 0.4s; opacity: 0; }
+.stagger-5 { animation-delay: 0.5s; opacity: 0; }
+.stagger-6 { animation-delay: 0.6s; opacity: 0; }
+`;
+
+// Skeleton components for board loading
+const BoardHeaderSkeleton = () => (
+  <div className="flex flex-col md:flex-row justify-between items-center mb-6">
+    <div className="flex items-center gap-6 mb-4 md:mb-0">
+      <div className="loading-skeleton h-8 w-16"></div>
+      <div className="loading-skeleton h-8 w-20"></div>
+    </div>
+    <div className="flex gap-4">
+      <div className="loading-skeleton h-8 w-24 rounded-md"></div>
+      <div className="loading-skeleton h-8 w-24 rounded-md"></div>
+    </div>
+  </div>
+);
+
+const ColumnSkeleton = () => (
+  <div className="min-w-[300px] h-full">
+    <div className="bg-[#F8F9FA] rounded-lg p-4 h-full">
+      {/* Column header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="loading-skeleton h-6 w-32"></div>
+        <div className="loading-skeleton h-6 w-6 rounded"></div>
+      </div>
+
+      {/* Cards skeleton */}
+      <div className="space-y-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="bg-white rounded-lg p-3 shadow-sm">
+            <div className="loading-skeleton h-4 w-3/4 mb-2"></div>
+            <div className="loading-skeleton h-3 w-1/2 mb-3"></div>
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                <div className="loading-skeleton h-5 w-12 rounded-full"></div>
+                <div className="loading-skeleton h-5 w-16 rounded-full"></div>
+              </div>
+              <div className="flex -space-x-1">
+                <div className="loading-skeleton w-6 h-6 rounded-full"></div>
+                <div className="loading-skeleton w-6 h-6 rounded-full"></div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Add card button skeleton */}
+      <div className="mt-4">
+        <div className="loading-skeleton h-10 w-full rounded-lg"></div>
+      </div>
+    </div>
+  </div>
+);
+
+const BoardLoadingSkeleton = () => (
+  <div className="pb-6 min-h-screen flex flex-col item-center overflow-y-auto">
+    <style>{styles}</style>
+    <div className="border-2 border-[#C7C7C7] p-4 rounded-xl h-full flex flex-col">
+      {/* Header skeleton with staggered animation */}
+      <div className="animate-fade-in-up stagger-1">
+        <BoardHeaderSkeleton />
+      </div>
+
+      {/* Loading indicator */}
+      <div className="flex justify-center items-center p-4 mb-4 animate-fade-in-up stagger-2">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4d2d61] animate-pulse-soft"></div>
+      </div>
+
+      {/* Board columns skeleton */}
+      <div className="flex-1 overflow-y-auto pb-4">
+        <div className="flex gap-4 min-w-0 h-full overflow-x-auto max-w-full">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              key={index}
+              className={`animate-fade-in-up stagger-${index + 3}`}
+            >
+              <ColumnSkeleton />
+            </div>
+          ))}
+
+          {/* Add list button skeleton */}
+          <div className="animate-fade-in-up stagger-6">
+            <div className="min-w-[300px]">
+              <div className="loading-skeleton h-12 w-full rounded-lg"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 const Board = ({ workspaceId, boardId, restoredLists }) => {
   const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
@@ -583,10 +836,14 @@ const handleArchiveList = async (listId) => {
 
   const filterCount = Object.values(activeFilters).filter(Boolean).length;
 
-  if (loading) return <div className="p-4">Loading board...</div>;
+  // Show enhanced loading skeleton
+  if (loading) {
+    return <BoardLoadingSkeleton />;
+  }
 
   return (
-    <div className="p-6 min-h-screen mt-2 flex flex-col item-center overflow-y-auto -ml-4">
+    <div className="pb-6 min-h-screen flex flex-col item-center overflow-y-auto">
+      <style>{styles}</style>
       <div className="border-2 border-[#C7C7C7] p-4 rounded-xl h-full flex flex-col">
         <div className="flex flex-col md:flex-row justify-between items-center mb-6">
           <div className="flex items-center gap-6 mb-4 md:mb-0">
@@ -1056,7 +1313,7 @@ const handleArchiveList = async (listId) => {
               </>
             ) : (
               <button
-                className="bg-[#4D2D61] text-white text-sm px-4 py-2 rounded-md font-semibold"
+                className="bg-gradient-to-r from-[#4d2d61] to-[#7b4397] text-white text-sm px-4 py-2 rounded-md font-semibold button-hover"
                 onClick={() => dispatch(openMeetingModal())}
               >
                 Add Meeting
@@ -1068,7 +1325,7 @@ const handleArchiveList = async (listId) => {
         {view === "board" && (
           <div className="flex-1 overflow-y-auto pb-4">
             <div
-              className={`flex gap-0 min-w-0 h-full -ml-10${
+              className={`flex gap-4 min-w-0 h-full -ml-10${
                 isSidebarOpen ? "pl-[300px]" : "pl-0"
               } overflow-x-auto max-w-full`}
             >

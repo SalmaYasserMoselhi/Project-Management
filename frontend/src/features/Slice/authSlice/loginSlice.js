@@ -14,6 +14,7 @@ const initialState = {
   emailError: "",
   passwordError: "",
   loading: false,
+  authLoading: true,
   isAuthenticated: false,
   oauthLoading: {
     loading: false,
@@ -23,21 +24,62 @@ const initialState = {
 };
 
 // Check auth status
+// export const checkAuthStatus = createAsyncThunk(
+//   "auth/checkStatus",
+//   async (_, { dispatch }) => {
+//     try {
+//       const userData = await dispatch(fetchUserData()).unwrap();
+//       return {
+//         isAuthenticated: true,
+//         user: userData,
+//       };
+//     } catch (error) {
+//       console.error("Auth check failed:", error);
+//       return {
+//         isAuthenticated: false,
+//         user: null,
+//       };
+//     }
+//   }
+// );
 export const checkAuthStatus = createAsyncThunk(
   "auth/checkStatus",
-  async (_, { dispatch }) => {
+  async (_, { rejectWithValue }) => {
+    console.log("[Auth] 1. Starting authentication check...");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     try {
-      const userData = await dispatch(fetchUserData()).unwrap();
-      return {
-        isAuthenticated: true,
-        user: userData,
-      };
+      const response = await fetch("/api/v1/users/me", {
+        method: "GET",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.error("[Auth] 2a. Response not OK. Rejecting.");
+        return rejectWithValue("User not authenticated");
+      }
+
+      const data = await response.json();
+
+      if (!data || data.status !== "success" || !data.data?.user) {
+        console.error("[Auth] 3a. Invalid data format. Rejecting.");
+        return rejectWithValue("Invalid user data format");
+      }
+
+      console.log("[Auth] 4. Authentication successful. Fulfilling promise.");
+      return { user: data.data.user };
     } catch (error) {
-      console.error("Auth check failed:", error);
-      return {
-        isAuthenticated: false,
-        user: null,
-      };
+      clearTimeout(timeoutId);
+      console.error("[Auth] X. Caught error during auth check:", error);
+      if (error.name === "AbortError") {
+        return rejectWithValue("Request timed out");
+      }
+      return rejectWithValue(error.message || "Network or server error");
     }
   }
 );
@@ -63,11 +105,9 @@ export const loginUser = createAsyncThunk(
       }
 
       const data = await response.json();
-      console.log("Login successful, fetching user data...");
 
       // Fetch user data after successful login
       const userDataResponse = await dispatch(fetchUserData()).unwrap();
-      console.log("User data fetched, now fetching workspaces...");
 
       // Fetch user workspaces after successful login
       await dispatch(fetchUserPublicWorkspaces());
@@ -146,7 +186,22 @@ const loginSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Login cases
+      // checkAuthStatus cases
+      .addCase(checkAuthStatus.pending, (state) => {
+        state.authLoading = true;
+      })
+      .addCase(checkAuthStatus.fulfilled, (state, action) => {
+        state.isAuthenticated = true;
+        state.user = action.payload.user;
+        state.authLoading = false;
+      })
+      .addCase(checkAuthStatus.rejected, (state, action) => {
+        state.isAuthenticated = false;
+        state.user = null;
+        state.authLoading = false;
+      })
+
+      // loginUser cases
       .addCase(loginUser.pending, (state) => {
         state.loading = true;
         state.errorMessage = "";
@@ -166,29 +221,22 @@ const loginSlice = createSlice({
         state.errorMessage =
           action.payload ?? "Login failed. Please try again.";
       })
-      // Logout cases
+
+      // logoutUser cases
       .addCase(logoutUser.fulfilled, (state) => {
-        return {
-          ...initialState,
+        Object.assign(state, initialState, {
+          authLoading: false,
           isAuthenticated: false,
-          user: null,
-        };
+        });
       })
       .addCase(logoutUser.rejected, (state, action) => {
         state.errorMessage = action.payload;
         state.isAuthenticated = false;
         state.user = null;
+        state.authLoading = false; // Also ensure loading is false on failure
       })
-      // Check auth status cases
-      .addCase(checkAuthStatus.fulfilled, (state, action) => {
-        state.isAuthenticated = action.payload.isAuthenticated;
-        state.user = action.payload.user;
-      })
-      .addCase(checkAuthStatus.rejected, (state) => {
-        state.isAuthenticated = false;
-        state.user = null;
-      })
-      // Update user data when fetched
+
+      // fetchUserData cases (from another slice)
       .addCase(fetchUserData.fulfilled, (state, action) => {
         state.user = action.payload;
         state.isAuthenticated = true;
