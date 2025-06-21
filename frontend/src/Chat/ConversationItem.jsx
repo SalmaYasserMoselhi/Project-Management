@@ -151,9 +151,13 @@ const ConversationItem = React.memo(
                 : "text-gray-500 group-hover:text-gray-600"
             }`}
           >
-            {chat?.lastMessage?.content ||
-              chat?.lastMessage?.message ||
-              "No messages yet"}
+            {chat?.lastMessage?.files && chat?.lastMessage?.files.length > 0
+              ? chat?.lastMessage?.sender?._id === currentUser?._id
+                ? "File sent"
+                : "File received"
+              : chat?.lastMessage?.content ||
+                chat?.lastMessage?.message ||
+                "No messages yet"}
           </p>
         </div>
       </motion.div>

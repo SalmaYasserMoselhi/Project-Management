@@ -1,3 +1,5 @@
+// frontend/src/Chat/ChatInput.jsx
+
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -5,24 +7,25 @@ import { useDispatch, useSelector } from "react-redux";
 import { Paperclip, Send, Smile } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import {
-  sendMessage,
-  addMessage,
-  updateConversationLastMessage,
-  updateConversationInList,
+  addMessage, // Used for immediate sender display of temp message
+  sendFileMessage, // Still uses direct API for files, consider updating for socket if needed
+  updateConversationInList, // Used for updating last message when file is sent via API
   toggleEmojiPicker,
   closeEmojiPicker,
-  sendFileMessage,
+  replaceFileMessage, // New action to replace temp file message
 } from "../features/Slice/ChatSlice/chatSlice";
 import { emitTyping, emitStopTyping } from "../utils/socket";
-import { useChat } from "../context/chat-context";
-import { toast } from "react-hot-toast";
-import { motion, AnimatePresence } from "framer-motion";
+import { useChat } from "../context/chat-context"; // Import useChat to get sendMessage from context
+import { toast } from "react-hot-toast"; // For displaying notifications
+import { motion, AnimatePresence } from "framer-motion"; // For animations
 
 const ChatInput = ({ chatId }) => {
   const dispatch = useDispatch();
-  const { currentUser } = useChat();
+  // --- FIX: Destructure sendMessage from useChat context ---
+  const { currentUser, sendMessage } = useChat();
+  // --- END FIX ---
   const [message, setMessage] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
+  const [isTyping, setIsTyping] = useState(false); // Local typing state, separate from global Redux state
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -30,12 +33,13 @@ const ChatInput = ({ chatId }) => {
   const emojiPickerRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  // conversationFromStore is used mainly for `updateConversationInList` after sending files directly via API
   const conversationFromStore = useSelector((state) =>
     state.chat.conversations.find((c) => c._id === chatId)
   );
   const showEmojiPicker = useSelector((state) => state.chat.showEmojiPicker);
 
-  // Handle emoji picker visibility
+  // Handle emoji picker visibility (click outside to close)
   const handleClickOutside = useCallback(
     (event) => {
       if (
@@ -48,161 +52,194 @@ const ChatInput = ({ chatId }) => {
     [dispatch]
   );
 
-  // Handle typing status
+  // Handle local typing state and emit socket events
   const handleTyping = useCallback(() => {
     if (!isTyping) {
+      // Only emit 'typing' if we weren't already typing
       setIsTyping(true);
-      emitTyping(chatId);
+      emitTyping(chatId); // Emit 'typing' event via socket
     }
 
+    // Clear any existing timeout and set a new one
+    // This ensures 'stop typing' is sent if typing stops for 3 seconds
     clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-      emitStopTyping(chatId);
+      setIsTyping(false); // Update local state
+      emitStopTyping(chatId); // Emit 'stop typing' event via socket
     }, 3000);
-  }, [chatId, isTyping]);
+  }, [chatId, isTyping]); // Dependencies for useCallback
 
-  // Handle emoji selection
+  // Handle emoji selection from the picker
   const handleEmojiClick = useCallback(
     (emojiData) => {
-      setMessage((prev) => prev + emojiData.emoji);
-      dispatch(closeEmojiPicker());
-      textareaRef.current?.focus();
+      setMessage((prev) => prev + emojiData.emoji); // Add emoji to message input
+      dispatch(closeEmojiPicker()); // Close emoji picker
+      textareaRef.current?.focus(); // Focus back on textarea
     },
     [dispatch]
   );
 
-  // Handle file selection
+  // Handle file selection and sending (currently via direct API, not socket)
   const handleFileSelect = async (event) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
+    // Optional: Add a temporary file message to UI for immediate feedback
+    const tempFileMessage = {
+      _id: `temp-file-${Date.now()}`,
+      content: `Sending file: ${files[0].name}...`, // Placeholder text
+      sender: { _id: currentUser._id }, // Current user as sender
+      conversationId: chatId, // Current conversation ID
+      createdAt: new Date().toISOString(),
+      status: "sending",
+      // You might add specific file details like file.name, file.size, type etc.
+      type: "file_placeholder", // Custom type to indicate it's a temporary file message
+    };
+    dispatch(addMessage(tempFileMessage)); // Optimistically add to sender's UI
+
     try {
+      // Dispatch the thunk to send file via API
       const result = await dispatch(
         sendFileMessage({
           conversationId: chatId,
           files: files,
         })
-      ).unwrap();
+      ).unwrap(); // `unwrap` to get the actual API response data
 
-      // Update conversation with the new message
+      // Find and replace the temporary file message with the actual file message
+      dispatch(
+        replaceFileMessage({
+          tempMessageId: tempFileMessage._id,
+          serverMessage: result,
+        })
+      );
+
+      // Update the conversation list with the new file message's info
       if (conversationFromStore) {
         dispatch(
           updateConversationInList({
             ...conversationFromStore,
-            lastMessage: result,
+            lastMessage: result, // result is the final message data from API
           })
         );
       }
+      toast.success("File sent successfully!"); // Show success toast
     } catch (error) {
-      console.error("Failed to send file:", error);
-      toast.error(error || "Failed to send file");
-    }
-
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      console.error("ChatInput: Failed to send file:", error);
+      toast.error(error.message || "Failed to send file"); // Show error toast
+      // You might want to update the status of `tempFileMessage` to 'failed' here in Redux
+    } finally {
+      // Reset file input regardless of success/failure
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
-  // Handle message submission
+  // Handle text/emoji message submission
   const handleSubmit = useCallback(
     async (e) => {
       e.preventDefault();
 
       const trimmedMessage = message.trim();
-      if (!trimmedMessage) return;
+      if (!trimmedMessage) {
+        console.log("ChatInput: Message is empty, not sending.");
+        return;
+      }
 
+      console.log(
+        "ChatInput: handleSubmit triggered. Preparing message for socket."
+      );
       const tempMessage = {
-        _id: `temp-${Date.now()}`,
+        _id: `temp-${Date.now()}`, // Temporary ID for immediate display
         content: trimmedMessage,
-        sender: { _id: currentUser._id },
-        conversationId: chatId,
+        sender: { _id: currentUser._id }, // Sender ID from current user
+        conversationId: chatId, // Current conversation ID
         createdAt: new Date().toISOString(),
-        status: "sending",
+        status: "sending", // Temporary status
       };
 
+      // Add temporary message to sender's UI immediately for good UX
       dispatch(addMessage(tempMessage));
-      setMessage("");
+      setMessage(""); // Clear input field immediately
 
       try {
-        const result = await dispatch(
-          sendMessage({
-            conversationId: chatId,
-            content: trimmedMessage,
-            isEmoji: /^[\uD800-\uDBFF][\uDC00-\uDFFF]$/.test(trimmedMessage),
-          })
-        ).unwrap();
-
-        // Batch updates for better performance
-        requestAnimationFrame(() => {
-          dispatch(
-            updateConversationLastMessage({
-              conversationId: chatId,
-              message: result,
-            })
-          );
-
-          if (conversationFromStore) {
-            dispatch(
-              updateConversationInList({
-                ...conversationFromStore,
-                lastMessage: result,
-              })
-            );
-          }
+        // Dispatch the `sendMessage` function obtained from `useChat` context.
+        // This `sendMessage` now correctly calls `emitSocketMessage` from `utils/socket.js`.
+        // We `await` it to ensure the socket emission process *initiates* and gets an acknowledgment.
+        const sendSuccess = await sendMessage({
+          conversationId: chatId,
+          content: trimmedMessage,
+          isEmoji: /^[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]$/.test(trimmedMessage),
+          // Optionally pass tempMessage._id for the backend to use/return for matching
         });
+
+        if (!sendSuccess) {
+          console.error(
+            "ChatInput: sendMessage context call indicated failure."
+          );
+          toast.error("Message failed to send. Check connection."); // User-friendly error
+        } else {
+          console.log("ChatInput: Message successfully initiated via socket.");
+          // The actual message addition/update in Redux (with final server ID/timestamp)
+          // will happen when the 'receive message' event comes back from the server,
+          // which is handled by the `onMessage` listener in `ChatContext`.
+        }
       } catch (error) {
-        console.error("❌ Failed to send message:", error);
+        // This catch block would only be hit if the `sendMessage` function itself throws an unexpected error,
+        // or if `emitWithAck` rejects its promise due to a severe connection issue.
+        console.error(
+          "ChatInput: Unexpected error calling sendMessage (context):",
+          error
+        );
+        toast.error(`Error initiating message send: ${error.message}`);
       }
     },
-    [message, currentUser._id, chatId, dispatch, conversationFromStore]
+    // Dependencies: message, currentUser's ID, chatId, dispatch, and the sendMessage function itself
+    [message, currentUser?._id, chatId, dispatch, sendMessage]
   );
 
-  // Handle keyboard shortcuts
+  // Handle keyboard shortcuts (e.g., Enter to send)
   const handleKeyDown = useCallback(
     (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
+        // Send on Enter, allow Shift+Enter for new line
         e.preventDefault();
         handleSubmit(e);
       }
     },
-    [handleSubmit]
+    [handleSubmit] // Dependency: handleSubmit must be stable
   );
 
-  // Setup textarea auto-resize
+  // Setup textarea auto-resize based on content
   useEffect(() => {
     if (!textareaRef.current) return;
-
     const textarea = textareaRef.current;
     const resize = () => {
-      textarea.style.height = "auto";
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 80)}px`;
+      textarea.style.height = "auto"; // Reset height
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 80)}px`; // Set to scroll height, max 80px
     };
-
-    resize();
-
-    observerRef.current = new ResizeObserver(resize);
+    resize(); // Initial resize
+    observerRef.current = new ResizeObserver(resize); // Observe for content changes
     observerRef.current.observe(textarea);
-
     return () => {
-      observerRef.current?.disconnect();
+      observerRef.current?.disconnect(); // Cleanup observer
     };
-  }, [message]);
+  }, [message]); // Dependency: re-run if message content changes
 
-  // Setup click outside listener
+  // Setup click outside listener for emoji picker
   useEffect(() => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [handleClickOutside]);
+  }, [handleClickOutside]); // Dependency: handleClickOutside must be stable
 
-  // Cleanup typing timeout
+  // Cleanup typing timeout when component unmounts or chat changes
   useEffect(() => {
     return () => {
-      clearTimeout(typingTimeoutRef.current);
-      emitStopTyping(chatId);
+      clearTimeout(typingTimeoutRef.current); // Clear pending timeout
+      emitStopTyping(chatId); // Ensure 'stop typing' is sent
     };
-  }, [chatId]);
+  }, [chatId]); // Dependency: re-run if chat changes
 
   return (
     <div className="relative">
@@ -230,7 +267,7 @@ const ChatInput = ({ chatId }) => {
           >
             {/* Left Actions */}
             <div className="flex items-center gap-1 relative">
-              {/* Emoji Picker */}
+              {/* Emoji Picker Button */}
               <div className="relative" ref={emojiPickerRef}>
                 <motion.button
                   type="button"
@@ -272,7 +309,7 @@ const ChatInput = ({ chatId }) => {
                 </AnimatePresence>
               </div>
 
-              {/* File Attachment */}
+              {/* File Attachment Button */}
               <motion.button
                 type="button"
                 whileHover={{ scale: 1.1 }}
@@ -287,7 +324,7 @@ const ChatInput = ({ chatId }) => {
                   e.target.style.backgroundColor = "transparent";
                 }}
                 title="Attach File"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => fileInputRef.current?.click()} // Trigger hidden file input
               >
                 <Paperclip className="w-5 h-5" />
               </motion.button>
@@ -299,17 +336,17 @@ const ChatInput = ({ chatId }) => {
               />
             </div>
 
-            {/* Message Input */}
+            {/* Message Input Textarea */}
             <div className="flex-1 relative">
               <textarea
                 ref={textareaRef}
                 value={message}
                 onChange={(e) => {
                   setMessage(e.target.value);
-                  handleTyping();
+                  handleTyping(); // Call typing handler on change
                 }}
-                onKeyDown={handleKeyDown}
-                onFocus={() => setIsFocused(true)}
+                onKeyDown={handleKeyDown} // Handle Enter key
+                onFocus={() => setIsFocused(true)} // UI state for focus animation
                 onBlur={() => setIsFocused(false)}
                 placeholder="Type a message..."
                 className="w-full bg-transparent rounded-2xl px-3 py-1 outline-none resize-none max-h-[80px] text-gray-800 placeholder-gray-400 text-sm leading-relaxed min-h-[32px]"
@@ -320,7 +357,7 @@ const ChatInput = ({ chatId }) => {
             {/* Send Button */}
             <motion.button
               type="submit"
-              disabled={message.trim().length === 0}
+              disabled={message.trim().length === 0} // Disable if message is empty
               whileHover={{ scale: message.trim().length > 0 ? 1.05 : 1 }}
               whileTap={{ scale: message.trim().length > 0 ? 0.95 : 1 }}
               className={`relative p-2 rounded-2xl transition-all duration-300 ${
@@ -351,7 +388,7 @@ const ChatInput = ({ chatId }) => {
             >
               <motion.div
                 animate={{
-                  rotate: message.trim().length > 0 ? 0 : -45,
+                  rotate: message.trim().length > 0 ? 0 : -45, // Rotate icon on message presence
                   scale: message.trim().length > 0 ? 1 : 0.9,
                 }}
                 transition={{ duration: 0.2 }}
