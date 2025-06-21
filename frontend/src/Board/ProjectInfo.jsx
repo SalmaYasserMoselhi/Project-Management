@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
@@ -48,7 +49,14 @@ const ProjectInfo = ({
     description: boardDescription || "",
   });
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState(false);
+
+  // Dynamic date formatting
+  const formatDate = () => {
+    const date = new Date();
+    const day = date.getDate();
+    const month = date.toLocaleString("default", { month: "long" });
+    return `${day} ${month}`;
+  };
 
   // Handle list restoration callback
   const handleListRestored = (restoredList) => {
@@ -180,6 +188,17 @@ const ProjectInfo = ({
     setSaving(true);
     setShowErrorAlert(null);
 
+    // Check if there are any changes
+    if (
+      form.name === (boardName || "Project Name") &&
+      form.description === (boardDescription || "")
+    ) {
+      setEditingName(false);
+      setEditingDescription(false);
+      setSaving(false);
+      return; // No changes, exit early
+    }
+
     try {
       const response = await fetch(
         `${BASE_URL}/api/v1/boards/user-boards/${boardId}`,
@@ -214,8 +233,6 @@ const ProjectInfo = ({
         throw new Error(errorMsg);
       }
 
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
       setEditingName(false);
       setEditingDescription(false);
     } catch (err) {
@@ -257,11 +274,6 @@ const ProjectInfo = ({
       {showToast && (
         <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-md shadow-md z-50">
           Board deleted successfully!
-        </div>
-      )}
-      {success && (
-        <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-md shadow-md z-50">
-          Board updated successfully!
         </div>
       )}
       {showErrorAlert && (
@@ -324,7 +336,7 @@ const ProjectInfo = ({
                 alt="Calendar"
                 className="w-4 h-4"
               />{" "}
-              20 July
+              {formatDate()}
             </p>
           </div>
 
@@ -491,3 +503,4 @@ const ProjectInfo = ({
 };
 
 export default ProjectInfo;
+

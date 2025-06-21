@@ -1,4 +1,3 @@
-//Column
 
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
@@ -79,7 +78,14 @@ const Column = ({
             `[Column.jsx] Using cards from refreshList for list ${id}:`,
             event.detail.cards
           );
-          setCards(event.detail.cards);
+          setCards((prevCards) => {
+            // Avoid duplicating cards
+            const existingCardIds = new Set(prevCards.map(card => card.id || card._id));
+            const newCards = event.detail.cards.filter(
+              card => !existingCardIds.has(card.id || card._id)
+            );
+            return [...prevCards, ...newCards];
+          });
         } else {
           console.log(
             `[Column.jsx] Fetching cards for list ${id} with sort ${newSortBy}`
@@ -160,15 +166,19 @@ const Column = ({
       setLoading(true);
       const res = await axios.patch(
         `${BASE_URL}/api/v1/lists/${id}/archive`,
-        {},
+        { archived: true },
         { withCredentials: true }
       );
 
-      if (res.status === 200) {
+      if (res.status === 200 || res.status === 204) {
         console.log(`[Column.jsx] List ${id} archived successfully`);
-        if (onArchive) onArchive(id);
-        setDropdownVisible(false);
-        toast.success("List archived successfully");
+        setDropdownVisible(false); // Close dropdown on success
+        if (onArchive) {
+          onArchive(id); // Call the parent handler to update Board state
+        }
+      } else {
+        console.warn(`[Column.jsx] Unexpected response status: ${res.status}`);
+        toast.error("Unexpected response when archiving list");
       }
     } catch (err) {
       console.error(`[Column.jsx] Error archiving list ${id}:`, err);
@@ -479,3 +489,4 @@ const Column = ({
 };
 
 export default Column;
+
