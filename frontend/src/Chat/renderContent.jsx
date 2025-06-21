@@ -277,17 +277,25 @@ const FilePreview = ({ file, isSender = false }) => {
 };
 
 const renderContent = (message, isSender = false) => {
-  const text = message.content || message.message || "";
-  const hasFiles = message.files && message.files.length > 0;
+  // Add detailed debug logging to see the actual message structure
+  console.log(
+    "renderContent: Message object received:",
+    JSON.stringify(message, null, 2)
+  );
 
-  if (!text && !hasFiles) {
-    return (
-      <div className="flex items-center gap-2 text-gray-400 italic bg-gray-50 p-3 rounded-lg border border-dashed border-gray-200">
-        <FiFile className="w-5 h-5" />
-        <span className="text-base">File sent</span>
-      </div>
-    );
-  }
+  // Check for message content in all possible properties
+  // Prioritize 'message' property since that's what the server uses
+  const text =
+    message?.message ||
+    message?.content ||
+    message?.text ||
+    (message?.body ? message.body : "") ||
+    "";
+
+  console.log("renderContent: Extracted text:", text);
+  console.log("renderContent: Message keys:", Object.keys(message || {}));
+
+  const hasFiles = message?.files && message.files.length > 0;
 
   return (
     <div className="space-y-3">
