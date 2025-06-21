@@ -4,7 +4,10 @@ const AppError = require('../utils/appError');
 const Conversation = require('../models/conversationModel');
 const mongoose = require('mongoose');
 const Attachment = require('../models/attachmentModel');
-const { uploadMultipleFiles, sanitizeFilename } = require('../Middlewares/fileUploadMiddleware');
+const {
+  uploadMultipleFiles,
+  sanitizeFilename,
+} = require('../Middlewares/fileUploadMiddleware');
 // Add the middleware for file uploads
 exports.uploadMessageFiles = uploadMultipleFiles().array('files', 5);
 
@@ -49,15 +52,14 @@ const updateLastMessage = async (convoId, msg) => {
   return updatedConvo;
 };
 
-
 // Helper function to format file size
 const formatFileSize = (bytes) => {
   if (bytes === 0) return '0 B';
-  
+
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
+
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
@@ -77,7 +79,8 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   let fileAttachments = [];
   if (req.files && req.files.length > 0) {
     for (const file of req.files) {
-      const originalName = file.decodedOriginalName || sanitizeFilename(file.originalname);
+      const originalName =
+        file.decodedOriginalName || sanitizeFilename(file.originalname);
       // Fix: Ensure size is properly stored as a number
       const fileSize = parseInt(file.size) || 0;
 
@@ -113,6 +116,36 @@ exports.sendMessage = catchAsync(async (req, res, next) => {
   let newMessage = await createMessage(msgData);
   let populatedMessage = await populateMessage(newMessage._id);
   await updateLastMessage(convoId, newMessage);
+
+  // Broadcast the file message to all users in the conversation via socket.io
+  try {
+    // Get the conversation to find all participants
+    const conversation = await Conversation.findById(convoId);
+    if (conversation) {
+      const userIds = conversation.users || conversation.participants || [];
+
+      // Get the global io instance
+      const io = global.io;
+      if (io) {
+        console.log(
+          `Broadcasting file message ${populatedMessage._id} to conversation ${convoId} users`
+        );
+
+        // Emit to each user in the conversation
+        userIds.forEach((userId) => {
+          io.to(String(userId)).emit('receive message', populatedMessage);
+        });
+      } else {
+        console.warn(
+          'Socket.io instance not available for file message broadcast'
+        );
+      }
+    }
+  } catch (err) {
+    console.error('Error broadcasting file message via socket:', err);
+    // Don't throw error here, as the message is already saved to DB
+  }
+
   res.status(200).json({
     status: 'success',
     data: {
