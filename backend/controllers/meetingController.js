@@ -256,6 +256,7 @@ exports.updateMeeting = catchAsync(async (req, res, next) => {
         boardId: board._id,
         boardName: board.name,
         updatedFields: Object.keys(req.body),
+        timeChanged
       }
     );
   }

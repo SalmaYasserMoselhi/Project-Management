@@ -91,7 +91,7 @@ async function checkUpcomingMeetings() {
 
 module.exports = function initScheduledTasks() {
   // Check every 15 minutes (adjust as needed)
-  const intervalMinutes = 15;
+  const intervalMinutes = 1;
   setInterval(checkUpcomingMeetings, intervalMinutes * 60 * 1000);
   console.log(`Meeting reminder service started. Checking every ${intervalMinutes} minutes.`);
   
