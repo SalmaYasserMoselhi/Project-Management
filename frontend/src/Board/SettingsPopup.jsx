@@ -7,31 +7,33 @@ const SettingsPopup = ({ onClose, boardId }) => {
   const BASE_URL = "http://localhost:3000";
 
   const [settings, setSettings] = useState({
-    inviteRestriction: "owner",
-    cardEditing: "owner",
-    cardMoving: "owner",
+    canInviteMembers: false,
+    canCreateList: false,
+    cardEditing: "cardCreatorOnly",
+    cardMoving: "cardCreatorOnly",
   });
 
   const [isLoading, setIsLoading] = useState(false);
-  const [inviteDropdownOpen, setInviteDropdownOpen] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const [editDropdownOpen, setEditDropdownOpen] = useState(false);
   const [moveDropdownOpen, setMoveDropdownOpen] = useState(false);
 
-  const inviteDropdownRef = useRef(null);
   const editDropdownRef = useRef(null);
   const moveDropdownRef = useRef(null);
 
   const permissionOptions = [
-    { value: "owner", label: "Owner" },
+    { value: "cardCreatorOnly", label: "Card Creator Only" },
     { value: "admin", label: "Admin" },
     { value: "allMembers", label: "All members" },
   ];
 
   useEffect(() => {
     const fetchSettings = async () => {
+      setIsFetching(true);
       if (!boardId) {
         console.warn("[SettingsPopup] boardId is missing:", boardId);
         toast.error("Board ID is missing.");
+        setIsFetching(false);
         return;
       }
 
@@ -48,24 +50,20 @@ const SettingsPopup = ({ onClose, boardId }) => {
         console.log("[SettingsPopup] Fetched settings:", boardSettings);
 
         setSettings({
-          inviteRestriction:
-            boardSettings.memberInvitation === "enabled"
-              ? "allMembers"
-              : boardSettings.memberInvitation === "admin"
-              ? "admin"
-              : "owner",
+          canInviteMembers: boardSettings.memberInvitation === "enabled",
+          canCreateList: boardSettings.memberListCreation === "enabled",
           cardEditing:
             boardSettings.cardEditing === "all_members"
               ? "allMembers"
               : boardSettings.cardEditing === "admins_only"
               ? "admin"
-              : "owner",
+              : "cardCreatorOnly",
           cardMoving:
             boardSettings.cardMoving === "all_members"
               ? "allMembers"
               : boardSettings.cardMoving === "admins_only"
               ? "admin"
-              : "owner",
+              : "cardCreatorOnly",
         });
       } catch (error) {
         console.error(
@@ -75,6 +73,8 @@ const SettingsPopup = ({ onClose, boardId }) => {
         toast.error(
           `Failed to load settings: ${error.response?.status || error.message}`
         );
+      } finally {
+        setIsFetching(false);
       }
     };
 
@@ -93,12 +93,7 @@ const SettingsPopup = ({ onClose, boardId }) => {
     const payload = {
       settings: {
         general: {
-          memberInvitation:
-            settings.inviteRestriction === "allMembers"
-              ? "enabled"
-              : settings.inviteRestriction === "admin"
-              ? "admin"
-              : "disabled",
+          memberInvitation: settings.canInviteMembers ? "enabled" : "disabled",
           cardEditing:
             settings.cardEditing === "allMembers"
               ? "all_members"
@@ -110,8 +105,8 @@ const SettingsPopup = ({ onClose, boardId }) => {
               ? "all_members"
               : settings.cardMoving === "admin"
               ? "admins_only"
-              : "owner_only",
-          memberListCreation: "disabled",
+              : "card_creator_only",
+          memberListCreation: settings.canCreateList ? "enabled" : "disabled",
         },
       },
     };
@@ -160,12 +155,6 @@ const SettingsPopup = ({ onClose, boardId }) => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
-        inviteDropdownRef.current &&
-        !inviteDropdownRef.current.contains(event.target)
-      ) {
-        setInviteDropdownOpen(false);
-      }
-      if (
         editDropdownRef.current &&
         !editDropdownRef.current.contains(event.target)
       ) {
@@ -205,178 +194,183 @@ const SettingsPopup = ({ onClose, boardId }) => {
           <h2 className="text-xl font-semibold mb-5">Settings</h2>
 
           <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
-            <div className="p-4 md:p-6">
-              <h2 className="text-lg font-semibold text-[#6a3b82] flex items-center gap-2 mb-1">
-                <Shield size={20} />
-                Permissions
-              </h2>
-              <p className="text-sm text-gray-500 mb-4">
-                Control who can perform actions in this board
-              </p>
-              <div className="space-y-3">
-                <div className="flex items-center gap-4 mb-2">
-                  <div className="text-md font-medium text-gray-700 min-w-[140px]">
-                    Member Invitation
+            {isFetching ? (
+              <div
+                className="flex items-center justify-center p-6"
+                style={{ minHeight: "200px" }}
+              >
+                <div className="animate-spin h-8 w-8 border-t-2 border-[#6a3b82] rounded-full"></div>
+              </div>
+            ) : (
+              <div className="p-4 md:p-6">
+                <h2 className="text-lg font-semibold text-[#6a3b82] flex items-center gap-2 mb-1">
+                  <Shield size={20} />
+                  Permissions
+                </h2>
+                <p className="text-sm text-gray-500 mb-4">
+                  Control who can perform actions in this board
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="text-md font-medium text-gray-700 min-w-[140px] mb-2">
+                      Member can
+                    </h3>
+                    <div className="flex items-center gap-6 ml-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300"
+                          checked={settings.canInviteMembers}
+                          onChange={(e) =>
+                            setSettings((prev) => ({
+                              ...prev,
+                              canInviteMembers: e.target.checked,
+                            }))
+                          }
+                          disabled={isLoading}
+                        />
+                        <span className="text-sm text-gray-600">
+                          Invite members
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300"
+                          checked={settings.canCreateList}
+                          onChange={(e) =>
+                            setSettings((prev) => ({
+                              ...prev,
+                              canCreateList: e.target.checked,
+                            }))
+                          }
+                          disabled={isLoading}
+                        />
+                        <span className="text-sm text-gray-600">
+                          Create list
+                        </span>
+                      </label>
+                    </div>
                   </div>
-                  <div className="relative" ref={inviteDropdownRef}>
-                    <button
-                      type="button"
-                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${
-                        inviteDropdownOpen
-                          ? openBorder
-                          : "border-[#BFA8D9] hover:border-[#6a3b82]"
-                      } ${!inviteDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
-                      onClick={() => setInviteDropdownOpen((v) => !v)}
-                      disabled={isLoading}
-                    >
-                      <span className="truncate text-gray-900">
-                        {permissionOptions.find(
-                          (opt) => opt.value === settings.inviteRestriction
-                        )?.label || "Select"}
-                      </span>
-                      <ChevronDown
-                        className={`ml-2 transition-transform ${
-                          inviteDropdownOpen ? "rotate-180" : ""
-                        } text-gray-400`}
-                        size={18}
-                      />
-                    </button>
-                    {inviteDropdownOpen && (
-                      <div className="absolute left-0 mt-2 w-full bg-white rounded-lg shadow-lg border border-[#E5D6F3] z-20 animate-fade-in">
-                        {permissionOptions.map((opt) => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${
-                              settings.inviteRestriction === opt.value
-                                ? "bg-[#F3EFFF] font-semibold text-[#6a3b82]"
-                                : ""
-                            }`}
-                            onClick={() => {
-                              setSettings((prev) => ({
-                                ...prev,
-                                inviteRestriction: opt.value,
-                              }));
-                              setInviteDropdownOpen(false);
-                            }}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
+                  <div>
+                    <h3 className="text-md font-medium text-gray-700 min-w-[140px] mb-2">
+                      Who can
+                    </h3>
+                    <div className="flex items-center gap-4 mb-2 ml-2">
+                      <div className="text-md font-medium text-gray-600 min-w-[140px]">
+                        Card Editing
                       </div>
-                    )}
-                  </div>
-                </div>
+                      <div className="relative" ref={editDropdownRef}>
+                        <button
+                          type="button"
+                          className={`flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${
+                            editDropdownOpen
+                              ? openBorder
+                              : "border-[#BFA8D9] hover:border-[#6a3b82]"
+                          } ${
+                            !editDropdownOpen ? "focus:border-[#BFA8D9]" : ""
+                          }`}
+                          onClick={() => setEditDropdownOpen((v) => !v)}
+                          disabled={isLoading}
+                        >
+                          <span className="text-gray-900">
+                            {permissionOptions.find(
+                              (opt) => opt.value === settings.cardEditing
+                            )?.label || "Select"}
+                          </span>
+                          <ChevronDown
+                            className={`ml-2 transition-transform ${
+                              editDropdownOpen ? "rotate-180" : ""
+                            } text-gray-400`}
+                            size={18}
+                          />
+                        </button>
+                        {editDropdownOpen && (
+                          <div className="absolute left-0 mt-2 bg-white rounded-lg shadow-lg border border-[#E5D6F3] z-20 animate-fade-in">
+                            {permissionOptions.map((opt) => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                className={`w-full text-left px-4 py-2 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${
+                                  settings.cardEditing === opt.value
+                                    ? "bg-[#F3EFFF] font-semibold text-[#6a3b82]"
+                                    : ""
+                                }`}
+                                onClick={() => {
+                                  setSettings((prev) => ({
+                                    ...prev,
+                                    cardEditing: opt.value,
+                                  }));
+                                  setEditDropdownOpen(false);
+                                }}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
-                <div className="flex items-center gap-4 mb-2">
-                  <div className="text-md font-medium text-gray-700 min-w-[140px]">
-                    Card Editing
-                  </div>
-                  <div className="relative" ref={editDropdownRef}>
-                    <button
-                      type="button"
-                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${
-                        editDropdownOpen
-                          ? openBorder
-                          : "border-[#BFA8D9] hover:border-[#6a3b82]"
-                      } ${!editDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
-                      onClick={() => setEditDropdownOpen((v) => !v)}
-                      disabled={isLoading}
-                    >
-                      <span className="truncate text-gray-900">
-                        {permissionOptions.find(
-                          (opt) => opt.value === settings.cardEditing
-                        )?.label || "Select"}
-                      </span>
-                      <ChevronDown
-                        className={`ml-2 transition-transform ${
-                          editDropdownOpen ? "rotate-180" : ""
-                        } text-gray-400`}
-                        size={18}
-                      />
-                    </button>
-                    {editDropdownOpen && (
-                      <div className="absolute left-0 mt-2 w-36 bg-white rounded-lg shadow-lg border border-[#E5D6F3] z-20 animate-fade-in">
-                        {permissionOptions.map((opt) => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${
-                              settings.cardEditing === opt.value
-                                ? "bg-[#F3EFFF] font-semibold text-[#6a3b82]"
-                                : ""
-                            }`}
-                            onClick={() => {
-                              setSettings((prev) => ({
-                                ...prev,
-                                cardEditing: opt.value,
-                              }));
-                              setEditDropdownOpen(false);
-                            }}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
+                    <div className="flex items-center gap-4 mb-2 ml-2">
+                      <div className="text-md font-medium text-gray-600 min-w-[140px]">
+                        Card Moving
                       </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4 mb-2">
-                  <div className="text-md font-medium text-gray-700 min-w-[140px]">
-                    Card Moving
-                  </div>
-                  <div className="relative" ref={moveDropdownRef}>
-                    <button
-                      type="button"
-                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${
-                        moveDropdownOpen
-                          ? openBorder
-                          : "border-[#BFA8D9] hover:border-[#6a3b82]"
-                      } ${!moveDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
-                      onClick={() => setMoveDropdownOpen((v) => !v)}
-                      disabled={isLoading}
-                    >
-                      <span className="truncate text-gray-900">
-                        {permissionOptions.find(
-                          (opt) => opt.value === settings.cardMoving
-                        )?.label || "Select"}
-                      </span>
-                      <ChevronDown
-                        className={`ml-2 transition-transform ${
-                          moveDropdownOpen ? "rotate-180" : ""
-                        } text-gray-400`}
-                        size={18}
-                      />
-                    </button>
-                    {moveDropdownOpen && (
-                      <div className="absolute left-0 mt-2 w-36 bg-white rounded-lg shadow-lg border border-[#E5D6F3] z-20 animate-fade-in">
-                        {permissionOptions.map((opt) => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${
-                              settings.cardMoving === opt.value
-                                ? "bg-[#F3EFFF] font-semibold text-[#6a3b82]"
-                                : ""
-                            }`}
-                            onClick={() => {
-                              setSettings((prev) => ({
-                                ...prev,
-                                cardMoving: opt.value,
-                              }));
-                              setMoveDropdownOpen(false);
-                            }}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
+                      <div className="relative" ref={moveDropdownRef}>
+                        <button
+                          type="button"
+                          className={`flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${
+                            moveDropdownOpen
+                              ? openBorder
+                              : "border-[#BFA8D9] hover:border-[#6a3b82]"
+                          } ${
+                            !moveDropdownOpen ? "focus:border-[#BFA8D9]" : ""
+                          }`}
+                          onClick={() => setMoveDropdownOpen((v) => !v)}
+                          disabled={isLoading}
+                        >
+                          <span className="text-gray-900">
+                            {permissionOptions.find(
+                              (opt) => opt.value === settings.cardMoving
+                            )?.label || "Select"}
+                          </span>
+                          <ChevronDown
+                            className={`ml-2 transition-transform ${
+                              moveDropdownOpen ? "rotate-180" : ""
+                            } text-gray-400`}
+                            size={18}
+                          />
+                        </button>
+                        {moveDropdownOpen && (
+                          <div className="absolute left-0 mt-2 bg-white rounded-lg shadow-lg border border-[#E5D6F3] z-20 animate-fade-in">
+                            {permissionOptions.map((opt) => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                className={`w-full text-left px-4 py-2 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${
+                                  settings.cardMoving === opt.value
+                                    ? "bg-[#F3EFFF] font-semibold text-[#6a3b82]"
+                                    : ""
+                                }`}
+                                onClick={() => {
+                                  setSettings((prev) => ({
+                                    ...prev,
+                                    cardMoving: opt.value,
+                                  }));
+                                  setMoveDropdownOpen(false);
+                                }}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
