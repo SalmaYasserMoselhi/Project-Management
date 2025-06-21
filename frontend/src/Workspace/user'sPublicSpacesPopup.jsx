@@ -1,18 +1,20 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import {
   setActiveWorkspaceType,
   selectWorkspace,
   closeWorkspaceStart,
 } from "../features/Slice/ComponentSlice/sidebarSlice";
-import { Settings, Users } from "lucide-react";
+import { Settings, Users, LogOut } from "lucide-react";
 import {
   fetchUserPublicWorkspaces,
   selectUserWorkspace,
   setSearchTerm,
   setSortOption,
   selectShouldFetchWorkspaces,
+  leaveWorkspace,
 } from "../features/Slice/WorkspaceSlice/userWorkspacesSlice";
 import InviteMembersPopup from "../Components/InviteMembersPopup";
 
@@ -248,6 +250,26 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     setIsInvitePopupOpen(false);
   }, [popupSelectedWorkspace]);
 
+  const handleLeave = async () => {
+    if (!selectedOrLocalWorkspace) return;
+    const workspaceToLeave = selectedOrLocalWorkspace;
+
+    try {
+      await dispatch(
+        leaveWorkspace({
+          workspaceId: workspaceToLeave.id || workspaceToLeave._id,
+          userId: user?._id || user?.id,
+        })
+      ).unwrap(); // .unwrap() will throw an error if the thunk is rejected
+
+      toast.success(`Successfully left "${workspaceToLeave.name}"`);
+      onClose();
+    } catch (error) {
+      // Error toast is handled by the slice, but you can add more logic here if needed
+      console.error("Failed to leave workspace:", error);
+    }
+  };
+
   if (!isOpen && !isAnimating) return null;
 
   return (
@@ -285,7 +307,7 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
 
         {/* Action buttons */}
         <div className="grid grid-cols-2 gap-2 mt-3 max-w-[280px]">
-          {canEditSettings && (
+          {canEditSettings ? (
             <button
               className="flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-200 rounded-md bg-gray-100 transition-colors w-full h-7 cursor-pointer"
               onClick={() => {
@@ -302,6 +324,14 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
             >
               <Settings className="w-3.5 h-3.5" />
               <span>Settings</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleLeave}
+              className="flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs text-red-700 hover:bg-red-100 rounded-md bg-red-50 transition-colors w-full h-7 cursor-pointer whitespace-nowrap"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Leave workspace</span>
             </button>
           )}
           <button

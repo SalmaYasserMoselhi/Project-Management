@@ -294,7 +294,7 @@ const TaskCard = ({
     <>
       <div
         id={`card-${id}`}
-        className="flex rounded-lg overflow-hidden shadow-lg mb-3 w-full cursor-pointer task-card"
+        className="flex rounded-lg overflow-hidden shadow-sm mb-3 w-full cursor-pointer task-card button-hover"
         onClick={handleCardClick}
         draggable
         onDragStart={handleDragStart}
@@ -424,11 +424,6 @@ const TaskCard = ({
                   )}
                 </>
               ) : null}
-              <img
-                src={addButton}
-                alt="Add member"
-                className="w-8 h-8 ms-4 rounded-full cursor-pointer"
-              />
             </div>
 
             <div className="flex gap-2 ml-4 items-center">
