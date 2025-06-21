@@ -1,4 +1,5 @@
 
+
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -79,10 +80,11 @@ const Column = ({
             event.detail.cards
           );
           setCards((prevCards) => {
-            // Avoid duplicating cards
-            const existingCardIds = new Set(prevCards.map(card => card.id || card._id));
+            const existingCardIds = new Set(
+              prevCards.map((card) => card.id || card._id)
+            );
             const newCards = event.detail.cards.filter(
-              card => !existingCardIds.has(card.id || card._id)
+              (card) => !existingCardIds.has(card.id || card._id)
             );
             return [...prevCards, ...newCards];
           });
@@ -172,9 +174,9 @@ const Column = ({
 
       if (res.status === 200 || res.status === 204) {
         console.log(`[Column.jsx] List ${id} archived successfully`);
-        setDropdownVisible(false); // Close dropdown on success
+        setDropdownVisible(false);
         if (onArchive) {
-          onArchive(id); // Call the parent handler to update Board state
+          onArchive(id);
         }
       } else {
         console.warn(`[Column.jsx] Unexpected response status: ${res.status}`);
@@ -225,6 +227,10 @@ const Column = ({
 
   const handleDragOver = (e) => {
     e.preventDefault();
+    if (e.dataTransfer.getData("type") === "list") {
+      e.stopPropagation();
+      return;
+    }
     setIsDraggingOver(true);
 
     const cardsContainer = columnRef.current.querySelector(".cards-container");
@@ -258,6 +264,10 @@ const Column = ({
 
   const handleDragEnter = (e) => {
     e.preventDefault();
+    if (e.dataTransfer.getData("type") === "list") {
+      e.stopPropagation();
+      return;
+    }
     setIsDraggingOver(true);
   };
 
@@ -273,6 +283,11 @@ const Column = ({
     e.preventDefault();
     setIsDraggingOver(false);
     setDropPosition(null);
+
+    if (e.dataTransfer.getData("type") === "list") {
+      e.stopPropagation();
+      return;
+    }
 
     const cardId = e.dataTransfer.getData("cardId");
     const sourceListId = e.dataTransfer.getData("sourceListId");
@@ -345,12 +360,10 @@ const Column = ({
         isDraggingOver ? "bg-gray-100" : ""
       }`}
       ref={columnRef}
-      onDragOver={handleDragOver}
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
     >
-      <div className="flex justify-between items-center mb-4 bg-white p-3 rounded-lg shadow-sm">
+      <div
+        className="flex justify-between items-center mb-4 bg-white p-3 rounded-lg shadow-sm"
+      >
         <div className="flex items-center w-[190px]">
           <h3 className="text-black font-semibold me-2">
             {title}
@@ -414,6 +427,10 @@ const Column = ({
             scrollbarWidth: "thin",
             scrollbarColor: "#d1d5db transparent",
           }}
+          onDragOver={handleDragOver}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
         >
           <style>
             {`

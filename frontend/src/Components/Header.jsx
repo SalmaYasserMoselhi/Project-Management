@@ -1,5 +1,6 @@
 
 
+
 "use client";
 
 import { Menu } from "lucide-react";
@@ -92,8 +93,7 @@ const Header = () => {
 
   return (
     <>
-      <header className={`w-full px-6 py-1 ${headerBgColor}`}>
-        {/* Top section with title and user info */}
+      <header className={`w-full px-6 py-1 ${headerBgColor} relative`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center animate-slide-in-left">
             {isMobile && (
@@ -108,29 +108,19 @@ const Header = () => {
             <Breadcrumb />
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-5">
             {/* Notifications */}
-            <div className="relative cursor-pointer" onClick={handleBellClick}>
+            <div
+              className="relative cursor-pointer w-8 h-8 flex items-center justify-center"
+              onClick={handleBellClick}
+            >
               <SlBell size={20} className="text-gray-600 hover:text-gray-800" />
               {unreadCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-semibold rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute -top-1 -right-2 bg-red-500 text-white text-xs font-semibold rounded-full w-5 h-5 flex items-center justify-center">
                   {unreadCount}
                 </span>
               )}
             </div>
-
-            {/* Notification Popup */}
-            {showPopup && (
-              <div ref={popupRef}>
-                <NotificationPopup
-                  notifications={notifications}
-                  loading={notificationLoading}
-                  unreadCount={unreadCount}
-                  onMarkAllAsRead={handleMarkAllAsRead}
-                  onDeleteNotification={handleDeleteNotification}
-                />
-              </div>
-            )}
 
             {/* User Avatar */}
             {user ? (
@@ -142,7 +132,7 @@ const Header = () => {
                   <img
                     src={user.avatar || ""}
                     onError={(e) => {
-                      e.target.onerror = null; // Prevent infinite loops
+                      e.target.onerror = null;
                       const name = user.username || user.email || "User";
                       e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
                         name
@@ -164,6 +154,19 @@ const Header = () => {
           </div>
         </div>
       </header>
+
+      {/* Notification Popup */}
+      {showPopup && (
+        <div ref={popupRef}>
+          <NotificationPopup
+            notifications={notifications}
+            loading={notificationLoading}
+            unreadCount={unreadCount}
+            onMarkAllAsRead={handleMarkAllAsRead}
+            onDeleteNotification={handleDeleteNotification}
+          />
+        </div>
+      )}
 
       {/* Profile Popup */}
       <ProfilePopup user={user} />
