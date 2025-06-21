@@ -6,7 +6,11 @@ const BASE_URL = "http://localhost:3000";
 // Selector to check if we need to refetch workspaces
 export const selectShouldFetchWorkspaces = (state) => {
   const { workspaces, lastFetched } = state.userWorkspaces;
-  return workspaces.length === 0 || !lastFetched || (Date.now() - lastFetched > 5 * 60 * 1000);
+  return (
+    workspaces.length === 0 ||
+    !lastFetched ||
+    Date.now() - lastFetched > 5 * 60 * 1000
+  );
 };
 
 // Async thunk for fetching user's public workspaces
@@ -68,6 +72,36 @@ export const selectUserWorkspace = createAsyncThunk(
   }
 );
 
+// Async thunk for leaving a workspace
+export const leaveWorkspace = createAsyncThunk(
+  "userWorkspaces/leaveWorkspace",
+  async ({ workspaceId, userId }, { rejectWithValue }) => {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/api/v1/workspaces/${workspaceId}/members/${userId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+
+      if (response.ok) {
+        // Handle 204 No Content specifically
+        if (response.status === 204) {
+          return { workspaceId };
+        }
+        const data = await response.json();
+        return { workspaceId };
+      } else {
+        const data = await response.json();
+        return rejectWithValue(data.message || "Failed to leave workspace");
+      }
+    } catch (error) {
+      return rejectWithValue(error.message || "Failed to leave workspace");
+    }
+  }
+);
+
 const userWorkspacesSlice = createSlice({
   name: "userWorkspaces",
   initialState: {
@@ -107,10 +141,13 @@ const userWorkspacesSlice = createSlice({
     },
     updateWorkspaceInList: (state, action) => {
       const { id, name, description } = action.payload;
-      const idx = state.workspaces.findIndex(ws => ws._id === id || ws.id === id);
+      const idx = state.workspaces.findIndex(
+        (ws) => ws._id === id || ws.id === id
+      );
       if (idx !== -1) {
         if (name) state.workspaces[idx].name = name;
-        if (description !== undefined) state.workspaces[idx].description = description;
+        if (description !== undefined)
+          state.workspaces[idx].description = description;
       }
     },
   },
@@ -153,6 +190,24 @@ const userWorkspacesSlice = createSlice({
             border: "1px solid #DC2626",
           },
         });
+      })
+      .addCase(leaveWorkspace.fulfilled, (state, action) => {
+        const { workspaceId } = action.payload;
+        state.workspaces = state.workspaces.filter(
+          (ws) => ws._id !== workspaceId
+        );
+        if (state.selectedWorkspace?.id === workspaceId) {
+          state.selectedWorkspace = null;
+        }
+        state.loading = false;
+      })
+      .addCase(leaveWorkspace.rejected, (state, action) => {
+        state.error = action.payload;
+        toast.error(action.payload || "Failed to leave workspace");
+        state.loading = false;
+      })
+      .addCase(leaveWorkspace.pending, (state) => {
+        state.loading = true;
       });
   },
 });
