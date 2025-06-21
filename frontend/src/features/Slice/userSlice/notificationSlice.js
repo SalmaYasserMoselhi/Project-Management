@@ -1,3 +1,5 @@
+
+
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
 // Async thunk for fetching notifications
@@ -42,7 +44,11 @@ export const fetchNotifications = createAsyncThunk(
 // Async thunk for marking all notifications as read
 export const markAllNotificationsAsRead = createAsyncThunk(
   "notification/markAllAsRead",
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, dispatch }) => {
+    dispatch({
+      type: "notification/markAllAsRead/pending",
+      payload: { optimistic: true },
+    });
     try {
       const response = await fetch("/api/v1/notifications/mark-read", {
         method: "PATCH",
@@ -67,48 +73,6 @@ export const markAllNotificationsAsRead = createAsyncThunk(
       return true;
     } catch (error) {
       console.error("Error marking notifications as read:", error);
-      if (
-        error.message.includes("logged in") ||
-        error.message.includes("Unauthorized") ||
-        error.message.includes("jwt")
-      ) {
-        window.location.href = "/login";
-      }
-      return rejectWithValue(error.message);
-    }
-  }
-);
-
-// Async thunk for marking a single notification as read
-export const markNotificationAsRead = createAsyncThunk(
-  "notification/markAsRead",
-  async (notificationId, { rejectWithValue }) => {
-    try {
-      const response = await fetch(
-        `/api/v1/notifications/${notificationId}/mark-read`,
-        {
-          method: "PATCH",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          window.location.href = "/login";
-          return rejectWithValue("Unauthorized");
-        }
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Failed to mark notification as read"
-        );
-      }
-
-      return notificationId;
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
       if (
         error.message.includes("logged in") ||
         error.message.includes("Unauthorized") ||
@@ -163,6 +127,7 @@ const initialState = {
   loading: false,
   error: null,
   showPopup: false,
+  unreadCount: 0,
 };
 
 const notificationSlice = createSlice({
@@ -189,45 +154,52 @@ const notificationSlice = createSlice({
       .addCase(fetchNotifications.fulfilled, (state, action) => {
         state.loading = false;
         state.notifications = action.payload;
+        state.unreadCount = action.payload.filter((notif) => !notif.isRead).length;
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+      // Mark All As Read
+      .addCase("notification/markAllAsRead/pending", (state, action) => {
+        if (action.payload?.optimistic) {
+          state.notifications = state.notifications.map((notif) => ({
+            ...notif,
+            isRead: true,
+          }));
+          state.unreadCount = 0;
+        }
+      })
+      .addCase(markAllNotificationsAsRead.fulfilled, (state) => {
+        state.notifications = state.notifications.map((notif) => ({
+          ...notif,
+          isRead: true,
+        }));
+        state.unreadCount = 0;
+      })
+      .addCase(markAllNotificationsAsRead.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+      // Delete Notification
+      .addCase(deleteNotification.fulfilled, (state, action) => {
+        state.notifications = state.notifications.filter(
+          (notif) => notif._id !== action.payload
+        );
+        state.unreadCount = state.notifications.filter((notif) => !notif.isRead).length;
+      })
+      .addCase(deleteNotification.rejected, (state, action) => {
+        state.error = action.payload;
       });
-
-    // Mark All As Read
-    builder.addCase(markAllNotificationsAsRead.fulfilled, (state) => {
-      state.notifications = state.notifications.map((notif) => ({
-        ...notif,
-        isRead: true,
-      }));
-    });
-
-    // Mark Single As Read
-    builder.addCase(markNotificationAsRead.fulfilled, (state, action) => {
-      state.notifications = state.notifications.map((notif) =>
-        notif._id === action.payload ? { ...notif, isRead: true } : notif
-      );
-    });
-
-    // Delete Notification
-    builder.addCase(deleteNotification.fulfilled, (state, action) => {
-      state.notifications = state.notifications.filter(
-        (notif) => notif._id !== action.payload
-      );
-    });
   },
 });
 
-export const { togglePopup, closePopup, clearError } =
-  notificationSlice.actions;
+export const { togglePopup, closePopup, clearError } = notificationSlice.actions;
 
 // Selectors
 export const selectNotifications = (state) => state.notification.notifications;
 export const selectNotificationLoading = (state) => state.notification.loading;
 export const selectNotificationError = (state) => state.notification.error;
-export const selectShowNotificationPopup = (state) =>
-  state.notification.showPopup;
+export const selectShowNotificationPopup = (state) => state.notification.showPopup;
 export const selectUnreadCount = (state) =>
   state.notification.notifications.filter((notif) => !notif.isRead).length;
 

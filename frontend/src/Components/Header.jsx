@@ -1,3 +1,5 @@
+
+
 "use client";
 
 import { Menu } from "lucide-react";
@@ -13,7 +15,6 @@ import {
   togglePopup,
   fetchNotifications,
   markAllNotificationsAsRead,
-  markNotificationAsRead,
   deleteNotification,
   selectNotifications,
   selectNotificationLoading,
@@ -41,12 +42,12 @@ const Header = () => {
     ? "bg-[#f5f5f5]"
     : "bg-white";
 
-  // Fetch notifications when popup is opened
+  // Fetch notifications on mount or when popup is opened, only if no notifications are loaded
   useEffect(() => {
-    if (showPopup) {
+    if (notifications.length === 0) {
       dispatch(fetchNotifications());
     }
-  }, [showPopup, dispatch]);
+  }, [dispatch, notifications.length]);
 
   // Handle click outside to close popup
   useEffect(() => {
@@ -84,11 +85,6 @@ const Header = () => {
     dispatch(markAllNotificationsAsRead());
   };
 
-  // Mark a single notification as read
-  const handleMarkAsRead = (notificationId) => {
-    dispatch(markNotificationAsRead(notificationId));
-  };
-
   // Delete a notification
   const handleDeleteNotification = (notificationId) => {
     dispatch(deleteNotification(notificationId));
@@ -98,7 +94,7 @@ const Header = () => {
     <>
       <header className={`w-full px-6 py-1 ${headerBgColor}`}>
         {/* Top section with title and user info */}
-        <div className="flex items-center justify-between ">
+        <div className="flex items-center justify-between">
           <div className="flex items-center animate-slide-in-left">
             {isMobile && (
               <button
@@ -125,15 +121,15 @@ const Header = () => {
 
             {/* Notification Popup */}
             {showPopup && (
-              <NotificationPopup
-                ref={popupRef}
-                notifications={notifications}
-                loading={notificationLoading}
-                unreadCount={unreadCount}
-                onMarkAllAsRead={handleMarkAllAsRead}
-                onDeleteNotification={handleDeleteNotification}
-                onMarkAsRead={handleMarkAsRead}
-              />
+              <div ref={popupRef}>
+                <NotificationPopup
+                  notifications={notifications}
+                  loading={notificationLoading}
+                  unreadCount={unreadCount}
+                  onMarkAllAsRead={handleMarkAllAsRead}
+                  onDeleteNotification={handleDeleteNotification}
+                />
+              </div>
             )}
 
             {/* User Avatar */}
