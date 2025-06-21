@@ -1,12 +1,23 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 import { checkAuthStatus as checkAuth } from "../authSlice/loginSlice";
-import Cookies from "js-cookie";
+// Assuming 'store' is located at ../../Store/Store or similar, adjust if different
+// import { store } from "../../Store/Store"; // !!! IMPORTANT: ADJUST THIS PATH if your Redux store file is elsewhere !!!
+// Removed direct import of store
 
-// Re-export checkAuthStatus
+// Import specific socket utility functions for use in thunks
+// These functions are correctly exported from src/utils/socket.js in the previous full update.
+import {
+  emitMessage,
+  emitDeleteMessage,
+  emitTyping,
+  emitStopTyping,
+} from "../../../utils/socket";
+
+// Re-export checkAuthStatus from loginSlice if it's part of chat logic flow
 export const checkAuthStatus = checkAuth;
 
-const API_BASE_URL = "http://localhost:3000/api/v1";
+const API_BASE_URL = "http://localhost:3000/api/v1"; // Ensure this matches your backend API URL
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -14,16 +25,20 @@ const api = axios.create({
     "Content-Type": "application/json",
   },
   withCredentials: true,
-  credentials: "include",
+  credentials: "include", // This is crucial for sending/receiving cookies (like JWT)
 });
 
-// Error handling interceptor
+// Axios Interceptor for handling 401 Unauthorized responses
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Check if we're not already on the login page to avoid redirect loops
-      if (!window.location.pathname.includes("/login")) {
+      // Redirect to login page if unauthorized, but only if not already there
+      // Ensure this runs only in a browser environment
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.includes("/login")
+      ) {
         window.location.href = "/login";
       }
     }
@@ -31,15 +46,19 @@ api.interceptors.response.use(
   }
 );
 
+// Axios Interceptor to add JWT token from cookies to requests
 api.interceptors.request.use(
   (config) => {
-    const jwt = document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("jwt="))
-      ?.split("=")[1];
+    // Check if running in a browser environment where 'document' is available
+    if (typeof document !== "undefined") {
+      const jwt = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("jwt="))
+        ?.split("=")[1];
 
-    if (jwt) {
-      config.headers.Authorization = `Bearer ${jwt}`;
+      if (jwt) {
+        config.headers.Authorization = `Bearer ${jwt}`;
+      }
     }
     return config;
   },
@@ -48,108 +67,26 @@ api.interceptors.request.use(
   }
 );
 
+// Initial state for the chat slice
 const initialState = {
   conversations: [],
-  users: [],
-  searchResults: [],
-  status: "idle",
+  users: [], // List of all users, e.g., for group creation
+  searchResults: [], // Results from user search
+  status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed' | 'sending_message'
   error: null,
-  retryAfter: null,
-  activeConversation: null,
-  currentCall: null,
-  messages: [],
-  onlineUsers: [],
-  userCache: {},
-  loading: false,
-  groupCreationLoading: false,
-  showEmojiPicker: false, // Add new state for emoji picker visibility
+  retryAfter: null, // For rate limiting or server-suggested retries
+  activeConversation: null, // The currently viewed conversation
+  currentCall: null, // State for active calls
+  messages: [], // Messages for the active conversation
+  onlineUsers: [], // List of currently online user IDs
+  userCache: {}, // Cache for user profile data fetched by ID
+  loading: false, // General loading state for UI (e.g., initial fetch)
+  groupCreationLoading: false, // Specific loading state for group creation
+  showEmojiPicker: false, // UI state for emoji picker visibility
+  isTyping: false, // Global typing indicator for the active chat (can be refined to per-user)
 };
 
-// export const fetchConversations = createAsyncThunk(
-//   "chat/fetchConversations",
-//   async (_, { rejectWithValue, getState }) => {
-//     try {
-//       const { auth } = getState();
-//       const currentUserId = auth?.user?._id;
-
-//       const response = await api.get("/conversations");
-//       let conversationsData = [];
-
-//       if (response.data) {
-//         if (response.data.status === "success" && response.data.data) {
-//           conversationsData = response.data.data.conversations || [];
-//         } else if (response.data.data) {
-//           conversationsData = response.data.data;
-//         } else if (Array.isArray(response.data)) {
-//           conversationsData = response.data;
-//         }
-//       }
-
-//       if (!Array.isArray(conversationsData)) {
-//         console.error("Invalid conversations data format:", conversationsData);
-//         return rejectWithValue("Invalid response format from server");
-//       }
-
-//       const processedConversations = conversationsData
-//         .filter((conversation) => conversation && conversation._id)
-//         .map((conversation) => {
-//           const isGroup = conversation.isGroup === true;
-//           const users = conversation.users || [];
-
-//           let displayName = "Chat";
-//           let displayPicture = "default.jpg";
-//           let displayEmail = "";
-
-//           if (isGroup) {
-//             displayName = conversation.name || "Group Chat";
-//             displayPicture =
-//               conversation.picture ||
-//               "https://image.pngaaa.com/78/6179078-middle.png";
-//           } else {
-//             // استبعاد المستخدم الحالي من المحادثة واختيار الآخر
-//             const otherUser = users.find(
-//               (u) =>
-//                 u?._id &&
-//                 u._id !== currentUserId &&
-//                 u._id !== getState()?.auth?.user?._id
-//             );
-
-//             if (otherUser) {
-//               displayName =
-//                 otherUser.name ||
-//                 `${otherUser.firstName || ""} ${
-//                   otherUser.lastName || ""
-//                 }`.trim() ||
-//                 otherUser.username ||
-//                 "Unknown";
-
-//               displayPicture = otherUser.avatar || "default.jpg";
-//               displayEmail = otherUser.email || "";
-//             } else {
-//               console.warn(
-//                 "⚠️ Could not find other user in conversation:",
-//                 conversation
-//               );
-//             }
-//           }
-
-//           return {
-//             ...conversation,
-//             isGroup,
-//             name: displayName,
-//             picture: displayPicture,
-//             email: displayEmail,
-//           };
-//         });
-
-//       return processedConversations;
-//     } catch (error) {
-//       console.error("ERROR fetching conversations:", error);
-//       return rejectWithValue(error.message || "Failed to fetch conversations");
-//     }
-//   }
-// );
-
+// Async Thunk: Fetch all conversations for the authenticated user
 export const fetchConversations = createAsyncThunk(
   "chat/fetchConversations",
   async (_, { rejectWithValue, getState }) => {
@@ -157,7 +94,7 @@ export const fetchConversations = createAsyncThunk(
       const response = await api.get("/conversations");
 
       let conversationsData = [];
-
+      // Handle various backend response formats
       if (response.data) {
         if (response.data.status === "success" && response.data.data) {
           conversationsData = response.data.data.conversations || [];
@@ -169,92 +106,108 @@ export const fetchConversations = createAsyncThunk(
       }
 
       if (!Array.isArray(conversationsData)) {
-        console.error("Invalid conversations data format:", conversationsData);
-        return rejectWithValue("Invalid response format from server");
+        console.error(
+          "fetchConversations: Invalid data format received:",
+          conversationsData
+        );
+        return rejectWithValue(
+          "Invalid response format from server when fetching conversations."
+        );
       }
 
       const currentUserId = getState().login?.user?._id;
 
-      // Process conversations to ensure they have consistent format
+      // Process raw conversation data into a consistent format for the frontend
       const processedConversations = conversationsData.map((conversation) => {
-        // Determine if it's a group conversation
         const isGroup =
           conversation.isGroup === true ||
-          conversation.isGroupChat === true ||
-          conversation.type === "group";
+          conversation.isGroupChat === true || // Handle possible alternate backend flags
+          conversation.type === "group"; // Handle type field for group detection
 
-        // For group chats, ensure admin data is complete
-        if (isGroup && conversation.admin) {
-          // If admin is just an ID, try to find the full user data
-          if (
-            typeof conversation.admin === "string" ||
-            (conversation.admin &&
-              !conversation.admin.username &&
-              !conversation.admin.email)
-          ) {
-            // Look for admin in the users/participants array
-            const adminUser = conversation.users?.find(
-              (user) =>
-                user._id === conversation.admin ||
-                (conversation.admin && user._id === conversation.admin._id)
-            );
-
-            if (adminUser) {
-              conversation.admin = adminUser;
-            }
+        // For group chats, ensure admin object is populated if only ID is provided
+        if (
+          isGroup &&
+          conversation.admin &&
+          typeof conversation.admin === "string"
+        ) {
+          const adminUser = (conversation.users || []).find(
+            (user) => user._id === conversation.admin
+          );
+          if (adminUser) {
+            conversation.admin = adminUser;
           }
         }
 
         const participants =
           conversation.users || conversation.participants || [];
 
+        // Determine the 'otherUser' object for private chats for display purposes
         const otherUser = !isGroup
-          ? participants.find((u) => u._id !== currentUserId)
+          ? participants.find((u) => (u._id === currentUserId ? null : u)) // Find the user that is not the current user
           : null;
 
+        // Determine the display name for the conversation list item
         const name =
-          conversation.name ||
+          conversation.name || // Use provided conversation name (for groups)
           (isGroup
-            ? "Group Chat"
-            : otherUser?.fullName ||
+            ? "Group Chat" // Default for unnamed groups
+            : otherUser?.fullName || // For private chats, use other user's full name
               `${otherUser?.firstName || ""} ${
                 otherUser?.lastName || ""
               }`.trim() ||
               otherUser?.username ||
               otherUser?.email ||
-              "Chat");
+              "Chat"); // Fallback
 
+        // Determine the display picture for the conversation list item
         const picture =
-          conversation.picture ||
+          conversation.picture || // Use provided conversation picture (for groups)
           (isGroup
-            ? "https://image.pngaaa.com/78/6179078-middle.png"
-            : otherUser?.avatar || null); // ← استخدم null بدل "default.jpg"
+            ? "https://image.pngaaa.com/78/6179078-middle.png" // Default group chat icon
+            : otherUser?.avatar || null); // For private chats, use other user's avatar
 
         return {
           ...conversation,
-          isGroup,
+          isGroup, // Ensure this property is always set correctly
           name,
           picture,
-          otherUser: otherUser || null,
+          otherUser: otherUser || null, // Store the other user object for direct access in context
         };
       });
 
+      console.log(
+        "fetchConversations: Fulfilled. Processed conversations:",
+        processedConversations.length
+      );
       return processedConversations;
     } catch (error) {
-      console.error("ERROR fetching conversations:", error);
-      return rejectWithValue(error.message || "Failed to fetch conversations");
+      console.error("fetchConversations: ERROR fetching conversations:", error);
+      return rejectWithValue(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to fetch conversations"
+      );
     }
   }
 );
 
+// Async Thunk: Fetch messages for a specific conversation
 export const fetchMessages = createAsyncThunk(
   "chat/fetchMessages",
   async ({ conversationId }, { rejectWithValue }) => {
     try {
+      console.log(
+        "fetchMessages: Attempting to fetch messages for convoId:",
+        conversationId
+      );
       const response = await api.get(`/message/${conversationId}`);
-      console.log("Fetched messages:", response);
-      return response.data.data.messages;
+      console.log(
+        "fetchMessages: Fetched messages response data:",
+        response.data
+      );
+      return response.data.data.messages; // Assuming messages are nested under response.data.data.messages
     } catch (error) {
+      console.error("fetchMessages: Error fetching messages:", error);
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch messages"
       );
@@ -262,63 +215,112 @@ export const fetchMessages = createAsyncThunk(
   }
 );
 
+// Async Thunk: Send a chat message via Socket.IO
+// This thunk now ONLY handles the client-side initiation of sending a message
+// by emitting a Socket.IO event. The actual saving to DB and broadcasting happens on the backend.
 export const sendMessage = createAsyncThunk(
   "chat/sendMessage",
-  async ({ conversationId, content, isEmoji }, { rejectWithValue }) => {
+  async (
+    { conversationId, content, isEmoji },
+    { rejectWithValue, getState }
+  ) => {
     try {
-      const response = await api.post(`/message`, {
-        message: content,
-        convoId: conversationId,
-        files: [],
-        isEmoji: isEmoji || false, // Add isEmoji flag to indicate if this is an emoji message
-      });
-      console.log("Message sent:", response);
-      return response.data.data.populatedMessage;
+      const currentUser = getState().login.user; // Get current user from Redux store for sender info
+      if (!currentUser?._id) {
+        throw new Error(
+          "User not logged in or ID missing for sending message. Cannot emit."
+        );
+      }
+
+      // Construct the payload for the socket event
+      const messagePayloadForSocket = {
+        conversationId: conversationId,
+        content: content,
+        isEmoji: isEmoji || false,
+        sender: { _id: currentUser._id }, // Only send sender ID to backend for consistency
+      };
+
+      console.log(
+        "chatSlice: sendMessage Thunk: Dispatching emitMessage (socket utility) with payload:",
+        messagePayloadForSocket
+      );
+      // Call the socket utility function to emit the message.
+      // `emitMessage` in `utils/socket.js` handles the actual `socket.emit` and acknowledgement.
+      const success = await emitMessage(messagePayloadForSocket);
+
+      if (!success) {
+        throw new Error(
+          "Failed to send message via WebSocket (no server acknowledgment)."
+        );
+      }
+
+      console.log(
+        "chatSlice: sendMessage Thunk finished. Message emission initiated via socket."
+      );
+      // Return a minimal payload; the actual message object (with server-generated ID, timestamp)
+      // will be added to the state via the `addMessage` reducer when the 'receive message' socket event fires.
+      return {
+        status: "initiated",
+        tempMessage: {
+          /* original temp data if needed */
+        },
+      };
     } catch (error) {
+      console.error("chatSlice: Error in sendMessage thunk:", error);
       return rejectWithValue(
-        error.response?.data?.message || "Failed to send message"
+        error.message || "Failed to initiate message send"
       );
     }
   }
 );
 
+// Async Thunk: Send a file message via direct HTTP POST request (needs refactoring for full real-time via sockets)
 export const sendFileMessage = createAsyncThunk(
   "chat/sendFileMessage",
   async ({ conversationId, files }, { rejectWithValue }) => {
     try {
       const formData = new FormData();
-      // Ensure files are appended correctly (array or FileList)
+      // Append all files to FormData
       if (Array.isArray(files) || files instanceof FileList) {
         Array.from(files).forEach((file) => {
           formData.append("files", file);
         });
       } else {
-        formData.append("files", files);
+        formData.append("files", files); // Handle single file case
       }
-      formData.append("convoId", conversationId);
+      formData.append("convoId", conversationId); // Ensure backend expects 'convoId' for files
+
+      console.log("sendFileMessage: Sending file via API POST request.");
       const response = await api.post(`/message`, formData, {
         headers: {
-          "Content-Type": "multipart/form-data",
+          "Content-Type": "multipart/form-data", // Required for FormData
         },
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round(
             (progressEvent.loaded * 100) / progressEvent.total
           );
-          console.log(`Upload Progress: ${percentCompleted}%`);
+          console.log(`File Upload Progress: ${percentCompleted}%`);
         },
       });
-      if (!response.data.data.populatedMessage) {
-        throw new Error("Failed to send file");
+
+      if (!response.data?.data?.populatedMessage) {
+        throw new Error(
+          "Server response missing populated message data after file upload."
+        );
       }
-      return response.data.data.populatedMessage;
+      console.log(
+        "sendFileMessage: File message sent via API. Populated message:",
+        response.data.data.populatedMessage
+      );
+      return response.data.data.populatedMessage; // Return the saved message object
     } catch (error) {
-      console.error("Error sending file:", error);
+      console.error("sendFileMessage: Error sending file:", error);
       let errorMessage = "Failed to send file";
       if (error.response) {
         if (error.response.status === 413) {
-          errorMessage = "File size too large";
+          errorMessage = "File size too large.";
         } else if (error.response.status === 415) {
-          errorMessage = "Unsupported file type";
+          errorMessage = "Unsupported file type.";
         } else if (error.response.data?.message) {
           errorMessage = error.response.data.message;
         }
@@ -328,124 +330,97 @@ export const sendFileMessage = createAsyncThunk(
   }
 );
 
+// Async Thunk: Create a new private (one-on-one) conversation
 export const createConversation = createAsyncThunk(
   "chat/createConversation",
   async (userId, { rejectWithValue, getState, dispatch }) => {
     try {
       if (!userId) {
-        throw new Error(
-          "Please provide the user id you want to start a conversation with"
-        );
+        throw new Error("Target user ID is required to create a conversation.");
       }
-
-      // Get the user data from the state if available
-      const { login, chat } = getState();
-      const currentUser = login?.user;
+      const currentUser = getState().login?.user;
       if (currentUser?._id === userId) {
         return rejectWithValue(
           "You cannot create a conversation with yourself."
         );
       }
-      // Find the user object from our search results or users list
-      let userObject =
-        chat.searchResults.find((u) => u._id === userId) ||
-        chat.users.find((u) => u._id === userId) ||
-        chat.userCache[userId];
 
-      // جلب بيانات المستخدم بشكل محدد للتأكد من وجود البيانات الكاملة
-      let userData = null;
-      try {
+      // Try to get user data from Redux cache first, then API if not found
+      let userData = getState().chat.userCache[userId];
+      if (!userData) {
+        console.log(
+          `createConversation: User ${userId} not in cache, fetching from API.`
+        );
         const userResponse = await api.get(`/users/${userId}`);
-
-        if (
-          userResponse.data &&
-          userResponse.data.data &&
-          userResponse.data.data.user
-        ) {
-          userData = userResponse.data.data.user;
-        } else if (userResponse.data && userResponse.data.data) {
-          userData = userResponse.data.data;
-        } else if (userResponse.data && userResponse.data._id) {
-          userData = userResponse.data;
-        }
-
+        userData =
+          userResponse.data?.data?.user ||
+          userResponse.data?.data ||
+          userResponse.data;
         if (userData && userData._id) {
-          dispatch(cacheUserData(userData));
+          dispatch(cacheUserData(userData)); // Cache the newly fetched user data
         }
-      } catch (error) {
-        // استخدام البيانات المخزنة سابقًا إذا فشل الجلب
-        userData = userObject;
       }
 
-      // التأكد من وجود بيانات للمستخدم
-      if (!userData && !userObject) {
-        throw new Error("Could not get user data for this conversation");
+      if (!userData) {
+        throw new Error(
+          "Could not retrieve user data for conversation creation."
+        );
       }
 
-      // استخدام أفضل البيانات المتاحة
-      const finalUserData = userData || userObject;
-
-      // تحضير اسم المستخدم
+      // Determine display name and picture for the new active conversation based on target user
       const userName =
-        finalUserData.fullName ||
-        `${finalUserData.firstName || ""} ${
-          finalUserData.lastName || ""
-        }`.trim() ||
-        finalUserData.username ||
-        finalUserData.email ||
-        "User";
+        userData.fullName ||
+        `${userData.firstName || ""} ${userData.lastName || ""}`.trim() ||
+        userData.username ||
+        userData.email ||
+        "Unknown User";
+      const userPicture = userData.avatar || null;
 
-      // تحضير صورة المستخدم
-      const userPicture = finalUserData.avatar || null;
-
-      // إرسال جميع البيانات المتوفرة مع طلب إنشاء المحادثة
+      // Payload for the API call to create conversation
       const payload = {
         receiverId: userId,
-        name: userName,
-        conversationName: userName,
+        name: userName, // Use user's name as conversation name for direct chat
         picture: userPicture,
-        avatar: userPicture,
         type: "private",
         isGroup: false,
       };
 
-      // إرسال طلب إنشاء المحادثة
+      console.log(
+        "createConversation: Sending API request to create private conversation."
+      );
       const response = await api.post("/conversations", payload);
 
-      // استخراج بيانات المحادثة من الاستجابة
-      let conversationData = response.data;
+      // Extract conversation data from various possible response structures
+      let conversationData =
+        response.data?.data?.newConvo || response.data?.data || response.data;
 
-      // التعامل مع تنسيقات الاستجابة المختلفة
-      if (!conversationData._id && conversationData.data) {
-        if (conversationData.data.newConvo) {
-          conversationData = conversationData.data.newConvo;
-        } else if (conversationData.data._id) {
-          conversationData = conversationData.data;
-        } else if (typeof conversationData.data === "object") {
-          conversationData = conversationData.data;
-        }
-      }
-
-      // التأكد من وجود معرف للمحادثة
       if (!conversationData || !conversationData._id) {
-        throw new Error("Invalid response format from server");
+        throw new Error(
+          "Invalid conversation data received from server after creation."
+        );
       }
 
-      // إضافة بيانات المستخدم الآخر للمحادثة لاستخدامها في واجهة المستخدم
+      // Enhance conversation data for frontend display with `otherUser` object
       const enhancedConversation = {
         ...conversationData,
         name: userName,
         picture: userPicture,
-        otherUser: finalUserData,
+        otherUser: userData, // Store the other user's full object in `otherUser` for context
+        isGroup: false, // Ensure type is correctly set
       };
 
-      // تحديث قائمة المحادثات بعد فترة قصيرة
+      console.log(
+        "createConversation: Private conversation created/found. Enhanced data:",
+        enhancedConversation
+      );
+      // Dispatch fetchConversations to refresh the list after a short delay for backend processing
       setTimeout(() => {
         dispatch(fetchConversations());
-      }, 1000);
+      }, 500);
 
       return enhancedConversation;
     } catch (error) {
+      console.error("createConversation: Error creating conversation:", error);
       return rejectWithValue(
         error.response?.data?.message ||
           error.message ||
@@ -455,141 +430,91 @@ export const createConversation = createAsyncThunk(
   }
 );
 
+// Async Thunk: Create a new group conversation
 export const createGroupConversation = createAsyncThunk(
   "chat/createGroupConversation",
   async (groupData, { getState, rejectWithValue, dispatch }) => {
     try {
-      console.log("createGroupConversation called with:", groupData);
+      console.log("createGroupConversation: Called with:", groupData);
 
-      // Extract data from the groupData object
       const { groupName, participantIds, groupPicture } = groupData;
 
-      // Validate inputs
       if (!groupName || groupName.trim() === "") {
-        console.error("Group name is required");
-        return rejectWithValue("Group name is required");
+        return rejectWithValue("Group name is required.");
       }
-
       if (
         !participantIds ||
         !Array.isArray(participantIds) ||
         participantIds.length < 2
       ) {
-        console.error("At least two participant is required");
-        return rejectWithValue("At least one participant is required");
+        return rejectWithValue("Please select at least 2 users for the group.");
       }
 
-      // Get current user from state
-      const state = getState();
-      const currentUser = state.login?.user;
-
+      const currentUser = getState().login?.user;
       if (!currentUser || !currentUser._id) {
-        return rejectWithValue("User must be logged in to create a group");
+        return rejectWithValue("User must be logged in to create a group.");
       }
 
-      console.log("Current user from state:", currentUser);
-      console.log("Participant IDs:", participantIds);
-
-      // IMPORTANT: Make sure backend knows current user is admin and included
-      // Make a copy of all participants including the current user
       let allParticipants = [...participantIds];
-
-      // Make sure current user is included in the participants
+      // Ensure the current user is included in the participants list for the backend
       if (!allParticipants.includes(currentUser._id)) {
         allParticipants.push(currentUser._id);
       }
 
-      console.log("All participants with current user:", allParticipants);
-
-      // Prepare the API request data according to backend requirements
+      // Construct the request data for the backend API
       const requestData = {
         name: groupName,
-        users: allParticipants, // Send all participants INCLUDING current user
-        admin: currentUser._id, // Explicitly set current user as admin
-        picture: groupPicture || undefined,
+        users: allParticipants, // Array of user IDs
+        admin: currentUser._id, // Set current user as admin
+        picture: groupPicture || undefined, // Base64 encoded image or undefined
       };
 
-      console.log("Request data for creating group:", requestData);
-
-      // Make the API request to create group
+      console.log(
+        "createGroupConversation: Sending API request to create group:",
+        requestData
+      );
       const response = await api.post("/conversations/group", requestData);
 
-      console.log("API response for group creation:", response.data);
+      // Extract conversation data from various possible response structures
+      let conversation =
+        response.data?.data?.populatedConvo ||
+        response.data?.data?.conversation ||
+        response.data?.data ||
+        response.data;
 
-      // Extract conversation data
-      let conversation = null;
-
-      if (response.data.status === "success" && response.data.data) {
-        if (response.data.data.populatedConvo) {
-          conversation = response.data.data.populatedConvo;
-        } else if (response.data.data.conversation) {
-          conversation = response.data.data.conversation;
-        } else {
-          conversation = response.data.data;
-        }
-      } else {
-        conversation = response.data;
-      }
-
-      // Verify we got valid conversation data
       if (!conversation || !conversation._id) {
-        console.error("Invalid conversation data returned:", conversation);
-        return rejectWithValue("Invalid response from server");
+        throw new Error(
+          "Invalid conversation data returned by server after group creation."
+        );
       }
 
-      console.log("Final extracted conversation:", conversation);
-
-      // Get users from the conversation
-      let users = conversation.users || [];
-
-      // Make sure current user is included in the users list
-      let currentUserIncluded = false;
-
-      if (Array.isArray(users)) {
-        // Check if current user ID is already in the users list
-        currentUserIncluded = users.some((user) => {
-          const userId = typeof user === "string" ? user : user?._id;
-          return userId === currentUser._id;
-        });
-      } else {
-        users = [];
-      }
-
-      // If current user is not included, add them
-      if (!currentUserIncluded) {
-        console.log("Adding current user to group members");
-        users.push(currentUser._id);
-      }
-
-      // Create enhanced conversation with all required fields
+      // Enhance the returned conversation object for frontend use
       const enhancedConversation = {
         ...conversation,
-        _id: conversation._id,
+        _id: conversation._id, // Ensure consistent ID
         name: conversation.name || groupName,
         picture:
           conversation.picture ||
           "https://image.pngaaa.com/78/6179078-middle.png",
-        isGroup: true,
-        isGroupChat: true,
-        admin: conversation.admin || currentUser._id,
-        users: users, // Use the updated users list with current user
-        participants: users, // Set participants as well
+        isGroup: true, // Explicitly set as group
+        isGroupChat: true, // Also set this for redundancy/compatibility
+        admin: conversation.admin || currentUser._id, // Ensure admin is populated
+        users: conversation.users || [], // Participants list from backend
+        participants: conversation.users || conversation.participants || [], // Ensure consistency
       };
 
       console.log(
-        "Enhanced conversation with current user:",
+        "createGroupConversation: Enhanced group conversation data:",
         enhancedConversation
       );
-
-      // Immediately fetch conversations to update the list
+      // Immediately trigger a fetch of all conversations to update the sidebar, with slight delay
       setTimeout(() => {
         dispatch(fetchConversations());
       }, 500);
 
       return enhancedConversation;
     } catch (error) {
-      console.error("Error in createGroupConversation:", error);
-      console.error("Error response:", error.response?.data);
+      console.error("createGroupConversation: Error in thunk:", error);
       return rejectWithValue(
         error.response?.data?.message ||
           error.message ||
@@ -599,29 +524,31 @@ export const createGroupConversation = createAsyncThunk(
   }
 );
 
+// Async Thunk: Add a user to an existing group conversation
 export const addUserToGroup = createAsyncThunk(
   "chat/addUserToGroup",
   async ({ conversationId, userId }, { rejectWithValue }) => {
     try {
+      console.log(
+        `addUserToGroup: Adding user ${userId} to conversation ${conversationId}`
+      );
       const response = await api.patch("/conversations/group/add-user", {
         conversationId,
         userId,
       });
 
-      // Handle different response formats
-      let updatedConversation = null;
-      if (response.data && response.data.data) {
-        updatedConversation = response.data.data;
-      } else if (response.data && response.data._id) {
-        updatedConversation = response.data;
-      }
+      let updatedConversation = response.data?.data || response.data;
 
-      if (!updatedConversation) {
-        throw new Error("Invalid response format");
+      if (!updatedConversation || !updatedConversation._id) {
+        throw new Error("Invalid response format after adding user to group.");
       }
-
+      console.log(
+        "addUserToGroup: User added. Updated conversation:",
+        updatedConversation
+      );
       return updatedConversation;
     } catch (error) {
+      console.error("addUserToGroup: Error adding user:", error);
       return rejectWithValue(
         error.response?.data?.message || "Failed to add user to group"
       );
@@ -629,29 +556,33 @@ export const addUserToGroup = createAsyncThunk(
   }
 );
 
+// Async Thunk: Remove a user from an existing group conversation
 export const removeUserFromGroup = createAsyncThunk(
   "chat/removeUserFromGroup",
   async ({ conversationId, userId }, { rejectWithValue }) => {
     try {
+      console.log(
+        `removeUserFromGroup: Removing user ${userId} from conversation ${conversationId}`
+      );
       const response = await api.patch("/conversations/group/remove-user", {
         conversationId,
         userId,
       });
 
-      // Handle different response formats
-      let updatedConversation = null;
-      if (response.data && response.data.data) {
-        updatedConversation = response.data.data;
-      } else if (response.data && response.data._id) {
-        updatedConversation = response.data;
-      }
+      let updatedConversation = response.data?.data || response.data;
 
-      if (!updatedConversation) {
-        throw new Error("Invalid response format");
+      if (!updatedConversation || !updatedConversation._id) {
+        throw new Error(
+          "Invalid response format after removing user from group."
+        );
       }
-
+      console.log(
+        "removeUserFromGroup: User removed. Updated conversation:",
+        updatedConversation
+      );
       return updatedConversation;
     } catch (error) {
+      console.error("removeUserFromGroup: Error removing user:", error);
       return rejectWithValue(
         error.response?.data?.message || "Failed to remove user from group"
       );
@@ -659,32 +590,37 @@ export const removeUserFromGroup = createAsyncThunk(
   }
 );
 
+// Async Thunk: Allows current user to leave a group conversation
 export const leaveGroup = createAsyncThunk(
   "chat/leaveGroup",
   async (conversationId, { rejectWithValue, getState }) => {
     try {
-      const { login } = getState();
-      const userId = login.user._id;
+      const currentUser = getState().login.user;
+      if (!currentUser?._id) {
+        throw new Error("User ID not available to leave group.");
+      }
+      const userId = currentUser._id;
+      console.log(
+        `leaveGroup: User ${userId} leaving conversation ${conversationId}`
+      );
 
       const response = await api.patch("/conversations/group/leave", {
         conversationId,
         userId,
       });
 
-      // Handle different response formats
-      let conversationData = null;
-      if (response.data && response.data.data) {
-        conversationData = response.data.data;
-      } else if (response.data && response.data._id) {
-        conversationData = response.data;
-      }
+      let conversationData = response.data?.data || response.data;
 
       if (!conversationData) {
-        throw new Error("Invalid response format");
+        throw new Error("Invalid response format after leaving group.");
       }
-
+      console.log(
+        "leaveGroup: User left group. Conversation data:",
+        conversationData
+      );
       return conversationData;
     } catch (error) {
+      console.error("leaveGroup: Error leaving group:", error);
       return rejectWithValue(
         error.response?.data?.message || "Failed to leave group"
       );
@@ -692,103 +628,73 @@ export const leaveGroup = createAsyncThunk(
   }
 );
 
+// Async Thunk: Search for users by a search term
 export const searchUsers = createAsyncThunk(
   "chat/searchUsers",
   async (searchTerm, { rejectWithValue, getState }) => {
     try {
-      // Check auth state in Redux
       const { login } = getState();
-
       if (!login || !login.isAuthenticated || !login.user?._id) {
-        throw new Error("Please login to search users");
+        throw new Error("User must be logged in to search.");
       }
 
-      // Don't perform API call for empty search term
       if (!searchTerm || searchTerm.trim().length === 0) {
-        return [];
+        return []; // Return empty array for empty search term, no API call
       }
 
       const currentUserId = login.user._id;
-
-      // Encode the search term properly for URL
       const encodedSearchTerm = encodeURIComponent(searchTerm.trim());
 
+      console.log(`searchUsers: Searching for '${searchTerm}'`);
       const response = await api.get(
-        `/users/workspace-users?search=${encodedSearchTerm}&limit=20`
+        `/users/workspace-users?search=${encodedSearchTerm}&limit=20` // Limit results
       );
 
-      console.log(response);
-
-      if (!response.data) {
-        throw new Error("No data received from server");
+      let users =
+        response.data?.data?.users || response.data?.users || response.data;
+      if (!Array.isArray(users)) {
+        throw new Error("Invalid user search response format.");
       }
 
-      let users = [];
-      if (response.data.data && Array.isArray(response.data.data.users)) {
-        users = response.data.data.users;
-      } else if (Array.isArray(response.data.users)) {
-        users = response.data.users;
-      } else if (Array.isArray(response.data)) {
-        users = response.data;
-      } else {
-        throw new Error("Invalid response format");
-      }
-
-      const term = searchTerm.toLowerCase().trim();
-      const filteredUsers = users.filter((user) => {
-        const firstName = (user.firstName || "").toLowerCase();
-        const lastName = (user.lastName || "").toLowerCase();
-        const username = (user.username || "").toLowerCase();
-        const email = (user.email || "").toLowerCase();
-
-        return (
-          (firstName.includes(term) ||
-            lastName.includes(term) ||
-            username.includes(term) ||
-            email.includes(term)) &&
-          user._id !== currentUserId // ما ترجعش اليوزر الحالي
-        );
-      });
-
+      // Filter out the current user from search results
+      const filteredUsers = users.filter((user) => user._id !== currentUserId);
+      console.log(`searchUsers: Found ${filteredUsers.length} users.`);
       return filteredUsers;
     } catch (error) {
+      console.error("searchUsers: Error searching users:", error);
       return rejectWithValue(error.message || "Failed to search users");
     }
   }
 );
+
+// Async Thunk: Fetch all available users (e.g., for group creation member selection)
 export const getAllUsers = createAsyncThunk(
   "chat/getAllUsers",
   async (_, { rejectWithValue, getState }) => {
     try {
-      // Check auth state in Redux
       const { login } = getState();
-
       if (!login || !login.isAuthenticated || !login.user?._id) {
-        throw new Error("Please login to get users");
+        throw new Error("User must be logged in to get users.");
+      }
+
+      console.log("getAllUsers: Fetching all workspace users.");
+      const response = await api.get(`/users/workspace-users`);
+
+      let users =
+        response.data?.data?.users || response.data?.users || response.data;
+      if (!Array.isArray(users)) {
+        throw new Error("Invalid all users response format.");
       }
 
       const currentUserId = login.user._id;
-
-      // const response = await api.get("/users?role=user");
-      const response = await api.get(`/users/workspace-users`);
-
-      if (!response.data) {
-        throw new Error("No data received from server");
-      }
-
-      let users = [];
-      if (response.data.data && Array.isArray(response.data.data.users)) {
-        users = response.data.data.users;
-      } else if (Array.isArray(response.data.users)) {
-        users = response.data.users;
-      } else {
-        throw new Error("Invalid response format");
-      }
-
-      // Filter out the current user
-      return users.filter((user) => user._id !== currentUserId);
+      // Filter out the current user from the list
+      const filteredUsers = users.filter((user) => user._id !== currentUserId);
+      console.log(`getAllUsers: Found ${filteredUsers.length} users.`);
+      return filteredUsers;
     } catch (error) {
+      console.error("getAllUsers: Error fetching all users:", error);
       if (error.response?.status === 429) {
+        // Handle rate limiting
         return rejectWithValue(
           "Too many requests. Please wait a moment and try again."
         );
@@ -798,51 +704,36 @@ export const getAllUsers = createAsyncThunk(
   }
 );
 
-// Add function to get data for a specific user
+// Async Thunk: Fetch a single user's data by ID (used for caching)
 export const fetchUserById = createAsyncThunk(
   "chat/fetchUserById",
   async (userId, { rejectWithValue, getState, dispatch }) => {
     try {
-      // Check for user ID
       if (!userId) {
-        throw new Error("User ID is required");
+        throw new Error("User ID is required for fetchUserById.");
       }
 
-      // Check for cached user data first
+      // Check cache first to avoid unnecessary API calls
       const { chat } = getState();
       if (chat.userCache && chat.userCache[userId]) {
         return chat.userCache[userId];
       }
 
+      console.log(`fetchUserById: Fetching user ${userId} from API.`);
       const response = await api.get(`/users/${userId}`);
 
-      // Handle different data formats
-      let userData = null;
-
-      if (response.data) {
-        // Case 1: {data: {user: {...}}}
-        if (response.data.data && response.data.data.user) {
-          userData = response.data.data.user;
-        }
-        // Case 2: {user: {...}}
-        else if (response.data.user) {
-          userData = response.data.user;
-        }
-        // Case 3: Direct object
-        else if (response.data._id) {
-          userData = response.data;
-        }
-      }
+      let userData =
+        response.data?.data?.user || response.data?.user || response.data;
 
       if (!userData || !userData._id) {
-        throw new Error("Invalid user data received");
+        throw new Error("Invalid user data received for fetchUserById.");
       }
 
-      // Cache user data in the cache
-      dispatch(cacheUserData(userData));
-
+      dispatch(cacheUserData(userData)); // Cache the fetched user data
+      console.log(`fetchUserById: Fetched and cached user ${userId}.`);
       return userData;
     } catch (error) {
+      console.error(`fetchUserById: Error fetching user ${userId}:`, error);
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch user data"
       );
@@ -850,98 +741,132 @@ export const fetchUserById = createAsyncThunk(
   }
 );
 
-// Add function to update conversation details (name and picture)
+// Async Thunk: Update conversation details (e.g., group name, picture)
 export const updateConversationDetails = createAsyncThunk(
   "chat/updateConversationDetails",
   async ({ conversationId, name, picture }, { rejectWithValue }) => {
     try {
       if (!conversationId) {
-        throw new Error("Conversation ID is required");
+        throw new Error(
+          "Conversation ID is required for updateConversationDetails."
+        );
       }
 
-      // Send update request to server
+      console.log(
+        `updateConversationDetails: Updating convo ${conversationId}.`
+      );
       const response = await api.patch(`/conversations/${conversationId}`, {
         name,
         picture,
       });
 
-      // Handle different response formats
-      let conversationData = response.data;
-      if (!conversationData || !conversationData._id) {
-        if (response.data.data && response.data.data._id) {
-          conversationData = response.data.data;
-        } else if (
-          response.data.conversation &&
-          response.data.conversation._id
-        ) {
-          conversationData = response.data.conversation;
-        }
-      }
+      let conversationData =
+        response.data?.data || response.data?.conversation || response.data;
 
+      if (!conversationData || !conversationData._id) {
+        throw new Error(
+          "Invalid response format after updating conversation details."
+        );
+      }
+      console.log(
+        "updateConversationDetails: Conversation details updated:",
+        conversationData
+      );
       return conversationData;
     } catch (error) {
+      console.error(
+        "updateConversationDetails: Error updating conversation details:",
+        error
+      );
       return rejectWithValue(
-        error.response?.data?.message || "Failed to update conversation"
+        error.response?.data?.message || "Failed to update conversation details"
       );
     }
   }
 );
 
-// Add feature to refresh conversation after creation
+// Async Thunk: Refresh a single conversation's data (e.g., after an update event)
 export const refreshConversation = createAsyncThunk(
   "chat/refreshConversation",
   async (conversationId, { getState, dispatch, rejectWithValue }) => {
     try {
       const { chat } = getState();
+      // Check if conversation already exists in current state before refetching to avoid unnecessary calls
       const existingConversation = chat.conversations.find(
         (conv) => conv._id === conversationId
       );
 
       if (!existingConversation) {
-        await dispatch(fetchConversations()).unwrap();
-        return;
+        console.log(
+          `refreshConversation: Convo ${conversationId} not found in current list, refetching all conversations.`
+        );
+        await dispatch(fetchConversations()).unwrap(); // Fetch all conversations if this one isn't in state
+        return; // Exit as fetchConversations will handle the state update
       }
 
-      // Update specific conversation details
+      // Fetch specific conversation details from the API to get the freshest data
+      console.log(
+        `refreshConversation: Fetching updated details for convo ${conversationId}.`
+      );
       const response = await api.get(`/conversations/${conversationId}`);
 
-      let conversationData = null;
-      if (response.data && response.data.data) {
-        conversationData = response.data.data;
-      } else if (response.data && response.data._id) {
-        conversationData = response.data;
-      }
+      let conversationData = response.data?.data || response.data;
 
-      if (!conversationData) {
-        throw new Error("Invalid conversation data received");
+      if (!conversationData || !conversationData._id) {
+        throw new Error("Invalid conversation data received for refresh.");
       }
-
+      console.log(
+        "refreshConversation: Fetched updated conversation details:",
+        conversationData
+      );
       return conversationData;
     } catch (error) {
+      console.error(
+        `refreshConversation: Error refreshing conversation ${conversationId}:`,
+        error
+      );
       return rejectWithValue("Failed to refresh conversation");
     }
   }
 );
 
+// Async Thunk: Delete a message via API, then emit socket event for real-time sync
 export const deleteMessage = createAsyncThunk(
   "chat/deleteMessage",
   async (messageId, { rejectWithValue, getState }) => {
     try {
-      const response = await api.delete(`/message/${messageId}`);
-      const { chat } = getState();
-      const message = chat.messages.find((msg) => msg._id === messageId);
+      console.log(
+        `deleteMessage: Sending API request to delete message ${messageId}.`
+      );
+      const response = await api.delete(`/message/${messageId}`); // API call to delete from DB
 
-      // Emit socket event for message deletion
-      if (window.socket && message) {
-        window.socket.emit("delete message", {
-          messageId,
-          conversationId: message.conversation,
-          deletedBy: getState().login?.user?._id,
+      const { chat, login } = getState();
+      const messageToDelete = chat.messages.find(
+        (msg) => msg._id === messageId
+      );
+
+      // Emit socket event for real-time deletion sync across all connected clients
+      // Ensure window and window.socket exist before emitting client-side
+      if (typeof window !== "undefined" && window.socket && messageToDelete) {
+        console.log(
+          `deleteMessage: Emitting 'delete message' socket event for ${messageId}.`
+        );
+        await emitDeleteMessage({
+          // Use the emitDeleteMessage utility for acknowledgment
+          messageId: messageId,
+          conversationId:
+            messageToDelete.conversation?._id || messageToDelete.conversation, // Ensure conversation ID is correct
+          deletedBy: login?.user?._id, // Pass who deleted it (optional)
         });
       }
 
-      return { messageId, response: response.data, message };
+      console.log(`deleteMessage: Message ${messageId} deleted via API.`);
+      return { messageId, response: response.data }; // Return minimal data, reducer handles removal
     } catch (error) {
+      console.error(
+        `deleteMessage: Error deleting message ${messageId}:`,
+        error
+      );
       return rejectWithValue(
         error.response?.data?.message || "Failed to delete message"
       );
@@ -949,67 +874,243 @@ export const deleteMessage = createAsyncThunk(
   }
 );
 
+// --- Chat Slice Definition ---
 const chatSlice = createSlice({
   name: "chat",
   initialState,
   reducers: {
+    // Clears all messages from the current view
     clearMessages: (state) => {
       state.messages = [];
+      console.log("chatSlice: Messages array cleared.");
     },
+    // Sets the global typing indicator status
     setIsTyping: (state, action) => {
-      state.isTyping = action.payload;
+      state.isTyping = action.payload; // Expects boolean
+      console.log("chatSlice: Typing indicator set to:", action.payload);
     },
+    // Sets the currently active conversation
     setActiveConversation: (state, action) => {
       state.activeConversation = action.payload;
-
-      // If this is a group conversation, ensure admin data is complete
+      console.log(
+        "chatSlice: Active conversation set to:",
+        action.payload?.name || action.payload?.id || "None"
+      );
+      // If setting a group conversation, ensure its admin object is fully populated for UI access
       if (action.payload && action.payload.isGroup && action.payload.id) {
-        // Find the full conversation in the conversations array
         const fullConversation = state.conversations.find(
           (conv) => conv._id === action.payload.id
         );
-
         if (fullConversation && fullConversation.admin) {
-          // Update the admin data in activeConversation
           state.activeConversation.admin = fullConversation.admin;
         }
       }
     },
+    // Sets the current call state (for voice/video calls)
     setCurrentCall: (state, action) => {
       state.currentCall = action.payload;
+      console.log("chatSlice: Current call state set:", action.payload);
     },
+    // Adds a new message to the messages array and updates the corresponding conversation's last message
     addMessage: (state, action) => {
       const newMessage = action.payload;
-      const isSameConversation =
-        newMessage.conversationId === state.activeConversation?._id;
-
-      const alreadyExists = state.messages.some(
-        (msg) => msg._id === newMessage._id
+      console.log(
+        "chatSlice: addMessage reducer processing new message:",
+        newMessage
       );
 
-      if (isSameConversation && !alreadyExists) {
-        state.messages.push(newMessage);
+      // Determine the conversation ID from the new message object
+      // This now correctly handles both server messages (with a 'conversation' object)
+      // and temporary client-side messages (with a 'conversationId' string).
+      const conversationId =
+        newMessage.conversation?._id || newMessage.conversationId;
+
+      if (!conversationId) {
+        console.warn(
+          "chatSlice: New message has no valid conversation identifier. Skipping.",
+          newMessage
+        );
+        return;
+      }
+
+      // Check if this message is for the currently active conversation
+      const isForActiveConversation =
+        conversationId === state.activeConversation?.id;
+
+      // Check if this is a server-returned message (has an _id that doesn't start with 'temp-')
+      const isServerMessage =
+        newMessage._id && !newMessage._id.startsWith("temp-");
+
+      if (isForActiveConversation) {
+        // Check if this is a server message that replaces a temporary message
+        if (isServerMessage) {
+          // Look for a temporary message in the same conversation
+          // First check for temporary text messages
+          let tempMessageIndex = state.messages.findIndex(
+            (msg) =>
+              msg.conversationId === conversationId &&
+              msg._id.startsWith("temp-") &&
+              !msg._id.startsWith("temp-file-") &&
+              // Match by timestamp (within 2 seconds) if content is the same
+              Math.abs(
+                new Date(msg.createdAt) - new Date(newMessage.createdAt)
+              ) < 2000 &&
+              (msg.content === newMessage.message ||
+                msg.content === newMessage.content)
+          );
+
+          // If no temporary text message found, check for temporary file messages
+          if (
+            tempMessageIndex === -1 &&
+            newMessage.files &&
+            newMessage.files.length > 0
+          ) {
+            tempMessageIndex = state.messages.findIndex(
+              (msg) =>
+                msg.conversationId === conversationId &&
+                msg._id.startsWith("temp-file-") &&
+                msg.type === "file_placeholder" &&
+                // Match by timestamp (within 5 seconds)
+                Math.abs(
+                  new Date(msg.createdAt) - new Date(newMessage.createdAt)
+                ) < 5000
+            );
+          }
+
+          if (tempMessageIndex !== -1) {
+            // Replace the temporary message with the server message
+            console.log(
+              `chatSlice: Replacing temporary message at index ${tempMessageIndex} with server message ${newMessage._id}`
+            );
+            state.messages[tempMessageIndex] = newMessage;
+          } else {
+            // No matching temporary message found, just add the new message
+            const alreadyExists = state.messages.some(
+              (msg) => msg._id === newMessage._id
+            );
+
+            if (!alreadyExists) {
+              state.messages.push(newMessage);
+              console.log(
+                "chatSlice: Added new server message to active conversation's messages array."
+              );
+            } else {
+              console.log(
+                `chatSlice: Message ${newMessage._id} already exists in messages array. Skipping addition.`
+              );
+            }
+          }
+        } else {
+          // This is a temporary message, add it if it doesn't exist already
+          const alreadyExists = state.messages.some(
+            (msg) => msg._id === newMessage._id
+          );
+
+          if (!alreadyExists) {
+            state.messages.push(newMessage);
+            console.log(
+              "chatSlice: Added new temporary message to active conversation's messages array."
+            );
+          }
+        }
+      } else {
+        console.log(
+          `chatSlice: Received message for non-active conversation (${conversationId}).`
+        );
+      }
+
+      // Always update the `lastMessage` field in the main `conversations` list
+      // and optionally move the conversation to the top
+      const convoIndex = state.conversations.findIndex(
+        (c) => c._id === conversationId
+      );
+      if (convoIndex !== -1) {
+        state.conversations[convoIndex].lastMessage = newMessage;
+        // Move the conversation to the top of the list to show it's recently active
+        const [movedConvo] = state.conversations.splice(convoIndex, 1);
+        state.conversations.unshift(movedConvo);
+        console.log(
+          `chatSlice: Updated last message for conversation ${conversationId} and reordered list.`
+        );
+      } else {
+        console.warn(
+          `chatSlice: Conversation ${conversationId} not found in list for updating last message.`
+        );
       }
     },
+    // Explicitly replaces a temporary file message with the server-returned message
+    replaceFileMessage: (state, action) => {
+      const { tempMessageId, serverMessage } = action.payload;
+
+      console.log(
+        `chatSlice: replaceFileMessage called to replace ${tempMessageId} with server message ${serverMessage._id}`
+      );
+
+      // Find the index of the temporary file message
+      const tempMessageIndex = state.messages.findIndex(
+        (msg) => msg._id === tempMessageId
+      );
+
+      if (tempMessageIndex !== -1) {
+        // Replace the temporary message with the server message
+        state.messages[tempMessageIndex] = serverMessage;
+        console.log(
+          `chatSlice: Successfully replaced temporary file message at index ${tempMessageIndex}`
+        );
+      } else {
+        // If temporary message not found, just add the server message
+        const alreadyExists = state.messages.some(
+          (msg) => msg._id === serverMessage._id
+        );
+
+        if (!alreadyExists) {
+          state.messages.push(serverMessage);
+          console.log(
+            "chatSlice: Added server file message (temp message not found)"
+          );
+        } else {
+          console.log(
+            `chatSlice: Server message ${serverMessage._id} already exists. Skipping addition.`
+          );
+        }
+      }
+    },
+    // Updates the list of currently online users
     setOnlineUsers: (state, action) => {
       state.onlineUsers = action.payload;
+      console.log(
+        "chatSlice: Online users list updated. Total:",
+        action.payload.length
+      );
     },
+    // Updates the status of a specific message (e.g., 'sent', 'delivered', 'read')
     updateMessageStatus: (state, action) => {
       const { messageId, status } = action.payload;
       const message = state.messages.find((msg) => msg._id === messageId);
       if (message) {
         message.status = status;
+        console.log(
+          `chatSlice: Message ${messageId} status updated to ${status}.`
+        );
       }
     },
+    // Caches user profile data for quick lookup
     cacheUserData: (state, action) => {
       const user = action.payload;
       if (user && user._id) {
         state.userCache[user._id] = { ...user };
+        console.log("chatSlice: User data cached for ID:", user._id);
       }
     },
+    // Directly sets the entire conversations array (used after full refetches)
     setConversations: (state, action) => {
       state.conversations = action.payload;
+      console.log(
+        "chatSlice: Conversations list explicitly set. Total:",
+        action.payload.length
+      );
     },
+    // Updates the `lastMessage` property of a specific conversation in the list
     updateConversationLastMessage: (state, action) => {
       const { conversationId, message } = action.payload;
       const convoIndex = state.conversations.findIndex(
@@ -1017,561 +1118,528 @@ const chatSlice = createSlice({
       );
       if (convoIndex !== -1) {
         state.conversations[convoIndex].lastMessage = message;
+        console.log(
+          `chatSlice: updateConversationLastMessage for ${conversationId}.`
+        );
       }
     },
+    // Updates an entire conversation object in the list, or adds it if new
     updateConversationInList: (state, action) => {
       const updated = action.payload;
-
-      // تأكد إن البيانات كافية، مش بس _id
-      if (!updated || !updated._id || !updated.name) {
+      if (!updated || !updated._id) {
         console.warn(
-          "Skipped updateConversationInList: Incomplete data",
+          "chatSlice: Skipping updateConversationInList: Invalid payload (missing _id).",
           updated
         );
         return;
       }
 
       const index = state.conversations.findIndex((c) => c._id === updated._id);
-
       if (index !== -1) {
-        // تحديث داخلي للمرجع الحالي
-        Object.assign(state.conversations[index], updated);
+        // Update existing conversation by merging properties
+        Object.assign(state.conversations[index], updated); // Update in place
       } else {
-        // إدخال بدون تكرار
-        state.conversations = [
-          updated,
-          ...state.conversations.filter((c) => c._id !== updated._id),
-        ];
-      }
-    },
-
-    updateTypingStatus: (state, action) => {
-      const { conversationId, user, isTyping } = action.payload;
-
-      if (!state.typingUsers) {
-        state.typingUsers = {};
-      }
-
-      if (!state.typingUsers[conversationId]) {
-        state.typingUsers[conversationId] = [];
-      }
-
-      if (isTyping) {
-        // إضافة المستخدم إلى قائمة الكتابة إذا لم يكن موجودًا بالفعل
-        const userExists = state.typingUsers[conversationId].some(
-          (u) => u._id === user._id
+        // Add new conversation to the beginning if it doesn't exist
+        state.conversations.unshift(updated);
+        console.log(
+          "chatSlice: Added new conversation to list (not found previously):",
+          updated._id
         );
-        if (!userExists) {
-          state.typingUsers[conversationId].push(user);
-        }
-      } else {
-        // إزالة المستخدم من قائمة الكتابة
-        state.typingUsers[conversationId] = state.typingUsers[
-          conversationId
-        ].filter((u) => u._id !== user._id);
       }
     },
-    toggleEmojiPicker: (state) => {
-      state.showEmojiPicker = !state.showEmojiPicker;
-    },
-    closeEmojiPicker: (state) => {
-      state.showEmojiPicker = false;
-    },
+    // Handles a message deleted event, removes it from display and updates last message
     handleMessageDeleted: (state, action) => {
       const { messageId } = action.payload;
-      // Remove the deleted message from messages array
-      state.messages = state.messages.filter((msg) => msg._id !== messageId);
+      console.log("chatSlice: handleMessageDeleted reducer for ID:", messageId);
 
-      // Update last message in conversations if needed
+      // Remove the deleted message from the active messages array
+      state.messages = state.messages.filter((msg) => msg._id !== messageId);
+      console.log(
+        `chatSlice: Message ${messageId} removed from messages array.`
+      );
+
+      // Update last message in conversations if the deleted message was the last one
       state.conversations = state.conversations.map((convo) => {
         if (convo.lastMessage && convo.lastMessage._id === messageId) {
-          // Find the most recent message that isn't the deleted one
-          const lastMessage = state.messages
-            .filter((msg) => msg.conversation === convo._id)
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+          // Find the new most recent message for this conversation that is still present
+          const newLastMessage = state.messages
+            .filter(
+              (msg) => (msg.conversation?._id || msg.conversation) === convo._id
+            )
+            .sort(
+              (a, b) =>
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime()
+            )[0];
 
+          console.log(
+            `chatSlice: Updating last message for conversation ${convo._id} after deletion.`
+          );
           return {
             ...convo,
-            lastMessage: lastMessage || null,
+            lastMessage: newLastMessage || null, // Set to new last message or null
           };
         }
         return convo;
       });
     },
+    // Toggles the visibility of the emoji picker UI
+    toggleEmojiPicker: (state) => {
+      state.showEmojiPicker = !state.showEmojiPicker;
+      console.log("chatSlice: Emoji picker toggled to:", state.showEmojiPicker);
+    },
+    // Closes the emoji picker UI
+    closeEmojiPicker: (state) => {
+      state.showEmojiPicker = false;
+      console.log("chatSlice: Emoji picker closed.");
+    },
   },
+  // Extra reducers handle actions dispatched by `createAsyncThunk` functions
   extraReducers: (builder) => {
     builder
-      // Fetch conversations
+      // --- fetchConversations ---
       .addCase(fetchConversations.pending, (state) => {
         state.status = "loading";
+        state.error = null;
+        console.log("chatSlice: fetchConversations pending.");
       })
       .addCase(fetchConversations.fulfilled, (state, action) => {
         state.status = "succeeded";
-
-        // Force all groups to have the isGroup property set to true
-        const updatedConversations = action.payload.map((conversation) => {
-          if (
-            conversation.isGroup === true ||
-            conversation.isGroupChat === true ||
-            conversation.type === "group"
-          ) {
-            return {
-              ...conversation,
-              isGroup: true,
-              isGroupChat: true,
-            };
-          }
-          return conversation;
-        });
-
-        console.log("Final conversations count:", updatedConversations.length);
-        console.log(
-          "Final groups count:",
-          updatedConversations.filter((c) => c.isGroup === true).length
-        );
-
+        const updatedConversations = action.payload; // Already processed by thunk for consistent format
         state.conversations = updatedConversations;
         state.error = null;
+        console.log(
+          "chatSlice: fetchConversations fulfilled. Total conversations:",
+          updatedConversations.length
+        );
 
-        // If there's an active conversation, update it with the latest data
+        // Update active conversation with latest data if it exists in the fetched list
         if (state.activeConversation && state.activeConversation.id) {
-          const updatedConversation = updatedConversations.find(
+          const matchedConvo = updatedConversations.find(
             (conv) => conv._id === state.activeConversation.id
           );
-
-          if (updatedConversation) {
+          if (matchedConvo) {
+            // Merge new data while preserving existing UI-specific props if necessary
             state.activeConversation = {
-              id: updatedConversation._id,
-              name: updatedConversation.name,
-              picture: updatedConversation.picture,
-              isGroup: updatedConversation.isGroup || false,
-              otherUser: updatedConversation.otherUser,
-              admin: updatedConversation.admin, // Ensure admin is included
+              ...state.activeConversation,
+              ...matchedConvo, // Overlay with fresh data from DB
+              id: matchedConvo._id, // Ensure consistent ID after merge
               participants:
-                updatedConversation.users ||
-                updatedConversation.participants ||
-                [],
-              lastSeen: updatedConversation.isGroup
-                ? "Group chat"
-                : "Recently active",
+                matchedConvo.users || matchedConvo.participants || [], // Ensure participants are updated
             };
+            console.log(
+              "chatSlice: Active conversation updated with fresh data."
+            );
+          } else {
+            // If the previously active conversation is no longer in the list (e.g., user left it)
+            state.activeConversation = null;
+            console.log(
+              "chatSlice: Active conversation no longer found in fetched list, setting to null."
+            );
           }
         }
       })
       .addCase(fetchConversations.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
+        console.error(
+          "chatSlice: fetchConversations rejected:",
+          action.payload
+        );
       })
-      // Fetch messages
+
+      // --- fetchMessages ---
       .addCase(fetchMessages.pending, (state) => {
         state.status = "loading";
+        state.error = null;
+        console.log("chatSlice: fetchMessages pending.");
       })
       .addCase(fetchMessages.fulfilled, (state, action) => {
         state.status = "succeeded";
-        state.messages = action.payload;
+        state.messages = action.payload; // Replace messages for the new active chat
         state.error = null;
+        console.log(
+          "chatSlice: fetchMessages fulfilled. Messages loaded:",
+          action.payload.length
+        );
       })
       .addCase(fetchMessages.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
+        state.messages = []; // Clear messages on fetch failure to prevent stale data
+        console.error("chatSlice: fetchMessages rejected:", action.payload);
       })
-      // Send message
+
+      // --- sendMessage (handles client-side initiation of socket emit) ---
+      // Note: The actual message adding to `state.messages` and `lastMessage` update
+      // is primarily handled by the `addMessage` reducer when the 'receive message'
+      // socket event comes from the backend.
       .addCase(sendMessage.pending, (state) => {
-        state.status = "loading";
+        state.status = "sending_message"; // A specific status for message sending initiation
+        state.error = null;
+        console.log(
+          "chatSlice: sendMessage pending (client initiating socket event)."
+        );
       })
       .addCase(sendMessage.fulfilled, (state, action) => {
-        state.status = "succeeded";
-        state.messages = [...state.messages, action.payload];
+        state.status = "succeeded"; // Or 'message_sent_initiated' to differentiate from 'delivered'
         state.error = null;
+        console.log(
+          "chatSlice: sendMessage fulfilled (socket event acknowledged by server)."
+        );
+        // No direct message addition here as it will be added by `addMessage` reducer upon socket reception.
       })
       .addCase(sendMessage.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
+        console.error(
+          "chatSlice: sendMessage rejected (client-side error emitting socket):",
+          action.payload
+        );
+        // Implement logic to visually mark the temporary message as failed in the UI if needed
       })
-      // Send file message
+
+      // --- sendFileMessage (still uses API directly) ---
       .addCase(sendFileMessage.pending, (state) => {
-        state.status = "loading";
+        state.status = "loading"; // Indicate loading specifically for file uploads
+        state.error = null;
+        console.log("chatSlice: sendFileMessage pending.");
       })
       .addCase(sendFileMessage.fulfilled, (state, action) => {
         state.status = "succeeded";
-        state.messages = [...state.messages, action.payload];
+        // The message should be added to the messages list and conversation updated.
+        // If your API already returns a populated message, the `addMessage` reducer could handle it.
         state.error = null;
+        console.log("chatSlice: sendFileMessage fulfilled.");
       })
       .addCase(sendFileMessage.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
+        console.error("chatSlice: sendFileMessage rejected:", action.payload);
       })
-      // Create conversation
+
+      // --- createConversation ---
       .addCase(createConversation.pending, (state) => {
         state.status = "loading";
+        state.error = null;
+        console.log("chatSlice: createConversation pending.");
       })
       .addCase(createConversation.fulfilled, (state, action) => {
         state.status = "succeeded";
-
-        // Save new conversation with confirmation of complete data
-        const newConversation = action.payload;
-
-        // Ensure new conversation doesn't already exist
-        const existingIndex = state.conversations.findIndex(
-          (c) => c._id === newConversation._id
-        );
-
-        if (existingIndex !== -1) {
-          // If conversation exists, update it
-          state.conversations[existingIndex] = {
-            ...state.conversations[existingIndex],
-            ...newConversation,
-          };
+        const newConvo = action.payload;
+        // Check if conversation already exists to prevent duplicates (in case of race conditions)
+        const exists = state.conversations.some((c) => c._id === newConvo._id);
+        if (!exists) {
+          state.conversations.unshift(newConvo); // Add to the top if it's genuinely new
         } else {
-          // Add new conversation
-          state.conversations = Array.isArray(state.conversations)
-            ? [...state.conversations, newConversation]
-            : [newConversation];
+          // If it exists, ensure it's at the top (most recent) by reordering
+          state.conversations = [
+            newConvo,
+            ...state.conversations.filter((c) => c._id !== newConvo._id),
+          ];
         }
-
-        // Set active conversation
         state.activeConversation = {
-          id: newConversation._id,
-          name: newConversation.name,
-          picture: newConversation.picture,
-          isGroup: newConversation.isGroup || false,
-          otherUser: newConversation.otherUser,
+          id: newConvo._id,
+          name: newConvo.name,
+          picture: newConvo.picture,
+          isGroup: newConvo.isGroup || false,
+          otherUser: newConvo.otherUser,
+          // admin and participants should be handled by the thunk's payload already
         };
-
-        // Cache other user data in the cache
-        if (newConversation.otherUser && newConversation.otherUser._id) {
-          state.userCache[newConversation.otherUser._id] = {
-            ...newConversation.otherUser,
-          };
-        }
-
         state.error = null;
+        console.log(
+          "chatSlice: createConversation fulfilled. New conversation:",
+          newConvo.name
+        );
       })
       .addCase(createConversation.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
+        console.error(
+          "chatSlice: createConversation rejected:",
+          action.payload
+        );
       })
-      // Create group conversation
+
+      // --- createGroupConversation ---
       .addCase(createGroupConversation.pending, (state) => {
         state.status = "loading";
         state.groupCreationLoading = true;
         state.error = null;
-        console.log("Creating group conversation - pending");
+        console.log("chatSlice: createGroupConversation pending.");
       })
       .addCase(createGroupConversation.fulfilled, (state, action) => {
         state.status = "succeeded";
         state.groupCreationLoading = false;
-
-        console.log("Group conversation created successfully:", action.payload);
-
-        // Ensure conversation has isGroup and admin
-        const enhancedPayload = {
-          ...action.payload,
-          isGroup: true,
-          isGroupChat: true,
-        };
-
-        // Check if conversation already exists in state
-        const conversationExists = state.conversations.some(
-          (conv) => conv._id === enhancedPayload._id
-        );
-
-        if (!conversationExists) {
-          // Add new conversation to the beginning of the array
-          state.conversations = [enhancedPayload, ...state.conversations];
-          console.log("Added new group conversation to state");
+        const newGroup = action.payload;
+        const exists = state.conversations.some((c) => c._id === newGroup._id);
+        if (!exists) {
+          state.conversations.unshift(newGroup); // Add new group to top
         } else {
-          // Update existing conversation
-          state.conversations = state.conversations.map((conv) =>
-            conv._id === enhancedPayload._id ? enhancedPayload : conv
-          );
-          console.log("Updated existing group conversation in state");
+          // If it exists, update it and move to top
+          state.conversations = [
+            newGroup,
+            ...state.conversations.filter((c) => c._id !== newGroup._id),
+          ];
         }
-
-        // If this is the active conversation, update it with admin data
-        if (
-          state.activeConversation &&
-          state.activeConversation.id === enhancedPayload._id
-        ) {
-          state.activeConversation = {
-            ...state.activeConversation,
-            admin: enhancedPayload.admin,
-          };
-        }
+        state.activeConversation = {
+          id: newGroup._id,
+          name: newGroup.name,
+          picture: newGroup.picture,
+          isGroup: true,
+          admin: newGroup.admin, // Ensure admin is passed through
+          participants: newGroup.participants,
+        };
+        state.error = null;
+        console.log(
+          "chatSlice: createGroupConversation fulfilled. New group:",
+          newGroup.name
+        );
       })
       .addCase(createGroupConversation.rejected, (state, action) => {
         state.status = "failed";
         state.groupCreationLoading = false;
-        state.error = action.payload || "Failed to create group conversation";
-        console.error("Group conversation creation failed:", action.payload);
+        state.error = action.payload;
+        console.error(
+          "chatSlice: createGroupConversation rejected:",
+          action.payload
+        );
       })
-      // Search users
+
+      // --- searchUsers ---
       .addCase(searchUsers.pending, (state) => {
         state.status = "loading";
+        state.error = null;
+        console.log("chatSlice: searchUsers pending.");
       })
       .addCase(searchUsers.fulfilled, (state, action) => {
         state.status = "succeeded";
         state.searchResults = action.payload;
-
-        // Cache user data from search results in the cache
-        if (Array.isArray(action.payload)) {
-          action.payload.forEach((user) => {
-            if (user && user._id) {
-              state.userCache[user._id] = { ...user };
-            }
-          });
-        }
-
+        // Cache fetched user data from search results
+        action.payload.forEach((user) => {
+          if (user && user._id) state.userCache[user._id] = { ...user };
+        });
         state.error = null;
+        console.log(
+          "chatSlice: searchUsers fulfilled. Results:",
+          action.payload.length
+        );
       })
       .addCase(searchUsers.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
-        state.searchResults = [];
+        state.searchResults = []; // Clear results on failure
+        console.error("chatSlice: searchUsers rejected:", action.payload);
       })
-      // Get all users
+
+      // --- getAllUsers ---
       .addCase(getAllUsers.pending, (state) => {
         state.status = "loading";
+        state.error = null;
+        console.log("chatSlice: getAllUsers pending.");
       })
       .addCase(getAllUsers.fulfilled, (state, action) => {
         state.status = "succeeded";
         state.users = action.payload;
-
-        // Cache all user data in the cache
-        if (Array.isArray(action.payload)) {
-          action.payload.forEach((user) => {
-            if (user && user._id) {
-              state.userCache[user._id] = { ...user };
-            }
-          });
-        }
-
+        // Cache all fetched users
+        action.payload.forEach((user) => {
+          if (user && user._id) state.userCache[user._id] = { ...user };
+        });
         state.error = null;
+        console.log(
+          "chatSlice: getAllUsers fulfilled. Total users:",
+          action.payload.length
+        );
       })
       .addCase(getAllUsers.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
+        console.error("chatSlice: getAllUsers rejected:", action.payload);
       })
-      // Fetch user by ID
-      .addCase(fetchUserById.pending, (state) => {
-        // No need to set loading state for individual user fetch
-      })
+
+      // --- fetchUserById ---
       .addCase(fetchUserById.fulfilled, (state, action) => {
-        const userData = action.payload;
-        if (userData && userData._id) {
-          state.userCache[userData._id] = { ...userData };
-        }
+        // User data is already cached by the thunk itself, no explicit state update here
+        console.log(
+          "chatSlice: fetchUserById fulfilled for:",
+          action.payload._id
+        );
       })
-      .addCase(fetchUserById.rejected, (state, action) => {
-        // No global error state for individual user fetch failures
-      })
-      // Update conversation details
+      // No rejected/pending cases needed as this is a background fetch for caching
+
+      // --- updateConversationDetails ---
       .addCase(updateConversationDetails.fulfilled, (state, action) => {
-        const updatedConversation = action.payload;
-        if (updatedConversation && updatedConversation._id) {
-          // Update conversation in conversations list
-          const index = state.conversations.findIndex(
-            (conv) => conv._id === updatedConversation._id
-          );
-
-          if (index !== -1) {
-            state.conversations[index] = {
-              ...state.conversations[index],
-              ...updatedConversation,
-            };
-          }
-
-          // Update active conversation if it's the same
-          if (
-            state.activeConversation &&
-            state.activeConversation.id === updatedConversation._id
-          ) {
-            state.activeConversation = {
-              ...state.activeConversation,
-              name: updatedConversation.name,
-              picture: updatedConversation.picture,
-            };
-          }
+        const updatedConvo = action.payload;
+        const index = state.conversations.findIndex(
+          (c) => c._id === updatedConvo._id
+        );
+        if (index !== -1) {
+          Object.assign(state.conversations[index], updatedConvo); // Update in place
         }
+        // Also update the active conversation if it's the one being modified
+        if (state.activeConversation?.id === updatedConvo._id) {
+          state.activeConversation = {
+            ...state.activeConversation,
+            ...updatedConvo,
+          };
+        }
+        console.log(
+          "chatSlice: updateConversationDetails fulfilled for:",
+          updatedConvo._id
+        );
       })
+
+      // --- addUserToGroup ---
       .addCase(addUserToGroup.pending, (state) => {
         state.status = "loading";
+        console.log("chatSlice: addUserToGroup pending.");
       })
       .addCase(addUserToGroup.fulfilled, (state, action) => {
         state.status = "succeeded";
-        const updatedConversation = action.payload;
-
-        // Update conversation in the list
+        const updatedConvo = action.payload;
         const index = state.conversations.findIndex(
-          (c) => c._id === updatedConversation._id
+          (c) => c._id === updatedConvo._id
         );
-
         if (index !== -1) {
-          state.conversations[index] = {
-            ...state.conversations[index],
-            ...updatedConversation,
-          };
+          Object.assign(state.conversations[index], updatedConvo);
         }
-
-        // Update active conversation if it's the same
-        if (
-          state.activeConversation &&
-          state.activeConversation.id === updatedConversation._id
-        ) {
+        if (state.activeConversation?.id === updatedConvo._id) {
           state.activeConversation = {
             ...state.activeConversation,
-            name: updatedConversation.name,
-            picture: updatedConversation.picture,
-            users: updatedConversation.users || [],
+            ...updatedConvo,
           };
         }
-
-        state.error = null;
+        console.log(
+          "chatSlice: addUserToGroup fulfilled for:",
+          updatedConvo._id
+        );
       })
       .addCase(addUserToGroup.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
+        console.error("chatSlice: addUserToGroup rejected:", action.payload);
       })
-      // Add cases for removeUserFromGroup
+
+      // --- removeUserFromGroup ---
       .addCase(removeUserFromGroup.pending, (state) => {
         state.status = "loading";
+        console.log("chatSlice: removeUserFromGroup pending.");
       })
       .addCase(removeUserFromGroup.fulfilled, (state, action) => {
         state.status = "succeeded";
-        const updatedConversation = action.payload;
-
-        // Update conversation in the list
+        const updatedConvo = action.payload;
         const index = state.conversations.findIndex(
-          (c) => c._id === updatedConversation._id
+          (c) => c._id === updatedConvo._id
         );
-
         if (index !== -1) {
-          state.conversations[index] = {
-            ...state.conversations[index],
-            ...updatedConversation,
-          };
+          Object.assign(state.conversations[index], updatedConvo);
         }
-
-        // Update active conversation if it's the same
-        if (
-          state.activeConversation &&
-          state.activeConversation.id === updatedConversation._id
-        ) {
+        if (state.activeConversation?.id === updatedConvo._id) {
           state.activeConversation = {
             ...state.activeConversation,
-            name: updatedConversation.name,
-            picture: updatedConversation.picture,
-            users: updatedConversation.users || [],
+            ...updatedConvo,
           };
         }
-
-        state.error = null;
+        console.log(
+          "chatSlice: removeUserFromGroup fulfilled for:",
+          updatedConvo._id
+        );
       })
       .addCase(removeUserFromGroup.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
+        console.error(
+          "chatSlice: removeUserFromGroup rejected:",
+          action.payload
+        );
       })
-      // Add cases for leaveGroup
+
+      // --- leaveGroup ---
       .addCase(leaveGroup.pending, (state) => {
         state.status = "loading";
+        console.log("chatSlice: leaveGroup pending.");
       })
       .addCase(leaveGroup.fulfilled, (state, action) => {
         state.status = "succeeded";
-        const conversationData = action.payload;
-
-        // Remove conversation from the list
+        const leftConvo = action.payload;
+        // Filter out the left conversation from the list
         state.conversations = state.conversations.filter(
-          (c) => c._id !== conversationData._id
+          (c) => c._id !== leftConvo._id
         );
-
-        // Update active conversation if it's the same
-        if (
-          state.activeConversation &&
-          state.activeConversation.id === conversationData._id
-        ) {
+        // If the left conversation was the active one, clear it
+        if (state.activeConversation?.id === leftConvo._id) {
           state.activeConversation = null;
         }
-
-        state.error = null;
+        console.log("chatSlice: leaveGroup fulfilled for:", leftConvo._id);
       })
       .addCase(leaveGroup.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
+        console.error("chatSlice: leaveGroup rejected:", action.payload);
       })
-      // Add refreshConversation cases
+
+      // --- refreshConversation ---
       .addCase(refreshConversation.fulfilled, (state, action) => {
         if (action.payload && action.payload._id) {
-          // Update conversation in the list
+          const refreshedConvo = action.payload;
           const index = state.conversations.findIndex(
-            (c) => c._id === action.payload._id
+            (c) => c._id === refreshedConvo._id
           );
-
           if (index !== -1) {
-            state.conversations[index] = {
-              ...state.conversations[index],
-              ...action.payload,
-            };
+            Object.assign(state.conversations[index], refreshedConvo); // Update in place
           }
-
-          // Update active conversation if it's the same
-          if (state.activeConversation?.id === action.payload._id) {
+          if (state.activeConversation?.id === refreshedConvo._id) {
             state.activeConversation = {
               ...state.activeConversation,
-              name: action.payload.name,
-              picture: action.payload.picture,
-              admin: action.payload.admin, // Include admin data
+              ...refreshedConvo,
             };
           }
+          console.log(
+            "chatSlice: refreshConversation fulfilled for:",
+            refreshedConvo._id
+          );
         }
       })
 
+      // --- deleteMessage (client-side API call) ---
+      // Note: The message removal from `state.messages` and `lastMessage` update
+      // is primarily handled by the `handleMessageDeleted` reducer, which listens
+      // to the 'message deleted' socket event from the backend.
       .addCase(deleteMessage.pending, (state) => {
-        state.status = "loading";
+        state.status = "loading"; // Or 'deleting_message'
+        state.error = null;
+        console.log(
+          "chatSlice: deleteMessage pending (client initiating API call)."
+        );
       })
       .addCase(deleteMessage.fulfilled, (state, action) => {
         state.status = "succeeded";
-        // Remove the deleted message from the messages array
-        state.messages = state.messages.filter(
-          (msg) => msg._id !== action.payload.messageId
+        state.error = null;
+        console.log(
+          "chatSlice: deleteMessage fulfilled (API confirmed deletion)."
         );
-
-        // Update last message in conversations if needed
-        state.conversations = state.conversations.map((convo) => {
-          if (
-            convo.lastMessage &&
-            convo.lastMessage._id === action.payload.messageId
-          ) {
-            // Find the most recent message that isn't the deleted one
-            const lastMessage = state.messages
-              .filter((msg) => msg.conversation === convo._id)
-              .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-
-            return {
-              ...convo,
-              lastMessage: lastMessage || null,
-            };
-          }
-          return convo;
-        });
+        // Actual removal handled by `handleMessageDeleted` reducer on socket event.
       })
       .addCase(deleteMessage.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
+        console.error("chatSlice: deleteMessage rejected:", action.payload);
       });
   },
 });
 
+// Export actions generated by createSlice
 export const {
   clearMessages,
   setIsTyping,
   setActiveConversation,
   setCurrentCall,
   addMessage,
+  replaceFileMessage,
   setOnlineUsers,
   updateMessageStatus,
   cacheUserData,
   setConversations,
-  addTestGroup,
   updateConversationLastMessage,
   updateConversationInList,
   toggleEmojiPicker,
@@ -1579,4 +1647,5 @@ export const {
   handleMessageDeleted,
 } = chatSlice.actions;
 
+// Export the reducer
 export default chatSlice.reducer;
