@@ -362,11 +362,19 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
   useEffect(() => {
     const fetchLists = async () => {
       try {
+        console.log(`[Board.jsx] Fetching lists for board ${boardId}`);
         const res = await axios.get(
           `${BASE_URL}/api/v1/lists/board/${boardId}/lists`
         );
-        console.log("[Board.jsx] Fetched lists:", res.data.data.lists);
-        setColumns(res.data.data.lists);
+        console.log("[Board.jsx] Fetched lists response:", res.data);
+
+        // Filter out archived lists
+        const activeLists = res.data.data.lists.filter(
+          (list) => !list.archived
+        );
+        console.log("[Board.jsx] Filtered active lists:", activeLists);
+
+        setColumns(activeLists);
       } catch (error) {
         console.error("[Board.jsx] Error fetching lists:", error);
         toast.error("Failed to load board lists");
@@ -419,66 +427,62 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
     }
   };
 
-  // New function to handle list archiving
-  // const handleArchiveList = async (listId) => {
-  //   try {
-  //     const res = await axios.patch(
-  //       `${BASE_URL}/api/v1/lists/${listId}/archive`,
-  //       { archived: true },
-  //       { withCredentials: true }
-  //     );
-  //     if (res.status === 200 || res.status === 204) {
-  //       setColumns((prevColumns) =>
-  //         prevColumns.filter((col) => (col.id || col._id) !== listId)
-  //       );
-  //       setLists((prevLists) =>
-  //         prevLists.filter((list) => list._id !== listId)
-  //       );
-  //       toast.success("List archived successfully");
-  //     } else {
-  //       console.warn("[Board.jsx] Unexpected response when archiving list:", res);
-  //       toast.error("Unexpected response when archiving list");
-  //     }
-  //   } catch (error) {
-  //     console.error("[Board.jsx] Error archiving list:", error);
-  //     toast.error("Failed to archive list");
-  //   }
-  // };
-
-  
-const handleArchiveList = async (listId) => {
-  try {
-    setLoading(true);
-
-    const res = await axios.patch(
-      `${BASE_URL}/api/v1/lists/${listId}/archive`,
-      { archived: true },
-      { withCredentials: true }
-    );
-
-    if (res.status === 200 || res.status === 204) {
-      console.log("[Board.jsx] List archived:", listId);
-
-      // Remove from both lists and columns
-      setLists((prevLists) =>
-        prevLists.filter((list) => (list._id || list.id) !== listId)
-      );
-      setColumns((prevColumns) =>
-        prevColumns.filter((col) => (col._id || col.id) !== listId)
+  const handleArchiveList = async (listId) => {
+    try {
+      setLoading(true);
+      console.log(`[Board.jsx] Attempting to archive list ${listId}`);
+      const res = await axios.patch(
+        `${BASE_URL}/api/v1/lists/${listId}/archive`,
+        { archived: true },
+        { withCredentials: true }
       );
 
-      toast.success("List archived successfully");
-    } else {
-      toast.error("Unexpected response when archiving list");
+      console.log(`[Board.jsx] Archive response for list ${listId}:`, res);
+
+      if (res.status === 200 || res.status === 204) {
+        console.log(`[Board.jsx] List ${listId} archived successfully`);
+        // Remove the archived list from state
+        setLists((prevLists) => {
+          const updatedLists = prevLists.filter(
+            (list) => (list._id || list.id) !== listId
+          );
+          console.log(`[Board.jsx] Updated lists after archiving:`, updatedLists);
+          return updatedLists;
+        });
+        setColumns((prevColumns) => {
+          const updatedColumns = prevColumns.filter(
+            (col) => (col._id || col.id) !== listId
+          );
+          console.log(`[Board.jsx] Updated columns after archiving:`, updatedColumns);
+          return updatedColumns;
+        });
+        toast.success("List archived successfully");
+      } else {
+        console.warn(
+          `[Board.jsx] Unexpected response status ${res.status} for list ${listId}`,
+          res.data
+        );
+        toast.error(`Unexpected response (status ${res.status}) when archiving list`);
+      }
+    } catch (err) {
+      console.error(`[Board.jsx] Error archiving list ${listId}:`, err.response || err);
+      // Handle "already archived" case
+      if (err.response?.data?.message?.includes("already archived")) {
+        console.log(`[Board.jsx] List ${listId} is already archived, removing from UI`);
+        setLists((prevLists) =>
+          prevLists.filter((list) => (list._id || list.id) !== listId)
+        );
+        setColumns((prevColumns) =>
+          prevColumns.filter((col) => (col._id || col.id) !== listId)
+        );
+        toast.warning("List is already archived");
+      } else {
+        toast.error(`Failed to archive list: ${err.response?.data?.message || err.message}`);
+      }
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error("[Board.jsx] Error archiving list:", err);
-    toast.error("Failed to archive list");
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   const updateColumnsWithCards = (cardsByList, sortBy = "position") => {
     console.log("[Board.jsx] Received cardsByList:", cardsByList);
@@ -836,6 +840,22 @@ const handleArchiveList = async (listId) => {
 
   const filterCount = Object.values(activeFilters).filter(Boolean).length;
 
+  // Updated onListAdded to update both lists and columns states
+  const onListAdded = (newList) => {
+    console.log(`[Board.jsx] New list added:`, newList);
+    setLists((prevLists) => {
+      const updatedLists = [...prevLists, newList];
+      console.log(`[Board.jsx] Updated lists after adding:`, updatedLists);
+      return updatedLists;
+    });
+    setColumns((prevColumns) => {
+      const updatedColumns = [...prevColumns, { ...newList, cards: newList.cards || [] }];
+      console.log(`[Board.jsx] Updated columns after adding:`, updatedColumns);
+      return updatedColumns;
+    });
+    toast.success("List added successfully");
+  };
+
   // Show enhanced loading skeleton
   if (loading) {
     return <BoardLoadingSkeleton />;
@@ -868,7 +888,7 @@ const handleArchiveList = async (listId) => {
                 {/* Sort Popup */}
                 <div className="relative" ref={sortRef}>
                   <button
-                    className="text-sm px-3 py-1.5 rounded-md text-gray-700 font-semibold border border-gray-300 bg-white shadow hover:bg-gray-50 flex items-center gap-1"
+                    className="text-sm px-3 py-1.5 rounded-md text-gray-700 font-semibold border border-gray-300 bg-white shadow-sm hover:bg-gray-50 flex items-center gap-1"
                     onClick={() => {
                       setIsSortOpen(!isSortOpen);
                       setIsFilterOpen(false);
@@ -964,7 +984,7 @@ const handleArchiveList = async (listId) => {
                 {/* Filter Popup */}
                 <div className="relative" ref={filterRef}>
                   <button
-                    className="text-sm px-3 py-1.5 rounded-md text-gray-700 font-semibold border border-gray-300 bg-white shadow hover:bg-gray-50 flex items-center gap-1"
+                    className="text-sm px-3 py-1.5 rounded-md text-gray-700 font-semibold border border-gray-300 bg-white shadow-sm hover:bg-gray-50 flex items-center gap-1"
                     onClick={() => {
                       setIsFilterOpen(!isFilterOpen);
                       setIsSortOpen(false);
@@ -1348,7 +1368,7 @@ const handleArchiveList = async (listId) => {
                     boardId={boardId}
                     allLists={columns}
                     onDelete={handleDeleteList}
-                    onArchive={handleArchiveList} // Pass the archive handler
+                    onArchive={handleArchiveList}
                     targetCardId={targetCardId}
                   />
                 </div>
@@ -1356,9 +1376,7 @@ const handleArchiveList = async (listId) => {
 
               <AddListButton
                 boardId={boardId}
-                onListAdded={(newList) => {
-                  setLists((prev) => [...prev, newList]);
-                }}
+                onListAdded={onListAdded}
               />
             </div>
           </div>
@@ -1374,7 +1392,6 @@ const handleArchiveList = async (listId) => {
 
 export default Board;
 
- 
 
 
 
