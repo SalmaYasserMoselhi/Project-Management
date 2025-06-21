@@ -50,6 +50,14 @@ const ProjectInfo = ({
   });
   const [saving, setSaving] = useState(false);
 
+  // Dynamic date formatting
+  const formatDate = () => {
+    const date = new Date();
+    const day = date.getDate();
+    const month = date.toLocaleString("default", { month: "long" });
+    return `${day} ${month}`;
+  };
+
   // Handle list restoration callback
   const handleListRestored = (restoredList) => {
     onListRestored(restoredList);
@@ -288,7 +296,7 @@ const ProjectInfo = ({
           membersScrollRef={membersScrollRef}
           entityId={boardId}
           entityType="board"
-          loading SekMembers={loadingMembers}
+          loadingMembers={loadingMembers}
           errorMembers={errorMembers}
           setLoadingMembers={setLoadingMembers}
           setErrorMembers={setErrorMembers}
@@ -328,7 +336,7 @@ const ProjectInfo = ({
                 alt="Calendar"
                 className="w-4 h-4"
               />{" "}
-              20 July
+              {formatDate()}
             </p>
           </div>
 
@@ -495,3 +503,4 @@ const ProjectInfo = ({
 };
 
 export default ProjectInfo;
+
