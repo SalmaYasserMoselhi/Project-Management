@@ -7,6 +7,7 @@ import {
   Menu,
   Clock,
   Users,
+  Bell,
   Shield,
   Save,
 } from "lucide-react";
@@ -20,257 +21,6 @@ import {
 } from "../features/Slice/WorkspaceSlice/userWorkspacesSlice";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-
-const styles = `
-.no-scrollbar::-webkit-scrollbar {
-    display: none;
-}
-.no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
-
-/* Respect user's motion preferences */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-/* Entrance animations */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slideInLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -200px 0;
-  }
-  100% {
-    background-position: calc(200px + 100%) 0;
-  }
-}
-
-@keyframes bounce {
-  0%, 20%, 53%, 80%, 100% {
-    transform: translate3d(0,0,0);
-  }
-  40%, 43% {
-    transform: translate3d(0, -8px, 0);
-  }
-  70% {
-    transform: translate3d(0, -4px, 0);
-  }
-  90% {
-    transform: translate3d(0, -2px, 0);
-  }
-}
-
-@keyframes glow {
-  0%, 100% {
-    box-shadow: 0 0 5px rgba(77, 45, 97, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(77, 45, 97, 0.6);
-  }
-}
-
-/* Animation classes */
-.animate-fade-in-up {
-  animation: fadeInUp 0.6s ease-out forwards;
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.4s ease-out forwards;
-}
-
-.animate-slide-in-left {
-  animation: slideInLeft 0.5s ease-out forwards;
-}
-
-.animate-pulse-soft {
-  animation: pulse 2s ease-in-out infinite;
-}
-
-.animate-shimmer {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200px 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-.animate-bounce-gentle {
-  animation: bounce 0.6s ease-out;
-}
-
-.animate-glow {
-  animation: glow 2s ease-in-out infinite;
-}
-
-/* Hover and interaction effects */
-.card-hover {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.card-hover:hover {
-  box-shadow: 0 4px 16px rgba(77, 45, 97, 0.10);
-  background-color: #faf9fc;
-  border-color: #bda4e6;
-  transform: scale(1.025);
-  z-index: 10;
-}
-
-.button-hover {
-  transition: all 0.2s ease-out;
-}
-
-.button-hover:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(77, 45, 97, 0.2);
-}
-
-.button-hover:active {
-  transform: translateY(0);
-}
-
-.loading-skeleton {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200px 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 8px;
-}
-
-/* Staggered animation delays */
-.stagger-1 { animation-delay: 0.1s; opacity: 0; }
-.stagger-2 { animation-delay: 0.2s; opacity: 0; }
-.stagger-3 { animation-delay: 0.3s; opacity: 0; }
-.stagger-4 { animation-delay: 0.4s; opacity: 0; }
-`;
-
-// Skeleton components
-const WorkspaceOverviewSkeleton = () => (
-  <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
-    <div className="p-4 md:p-6">
-      <div className="flex items-center gap-4">
-        <div className="loading-skeleton w-16 h-16 rounded-xl"></div>
-        <div className="flex-1">
-          <div className="loading-skeleton h-6 w-48 mb-2"></div>
-          <div className="flex items-center gap-2 mt-1">
-            <div className="loading-skeleton h-5 w-16 rounded-full"></div>
-            <div className="loading-skeleton h-4 w-20"></div>
-          </div>
-        </div>
-      </div>
-      <div className="mt-4 space-y-3">
-        <div>
-          <div className="loading-skeleton h-4 w-20 mb-2"></div>
-          <div className="loading-skeleton h-20 w-full rounded-lg"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-const MembersSkeleton = () => (
-  <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
-    <div className="p-4 md:p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <div className="loading-skeleton h-6 w-40 mb-2"></div>
-          <div className="loading-skeleton h-4 w-56"></div>
-        </div>
-        <div className="loading-skeleton h-8 w-20 rounded-lg"></div>
-      </div>
-      <div className="flex items-center -space-x-2 min-h-[40px]">
-        {Array.from({ length: 5 }).map((_, index) => (
-          <div
-            key={index}
-            className="loading-skeleton w-10 h-10 rounded-full border-2 border-white"
-          ></div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-const PermissionsSkeleton = () => (
-  <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
-    <div className="p-4 md:p-6">
-      <div className="loading-skeleton h-6 w-32 mb-1"></div>
-      <div className="loading-skeleton h-4 w-64 mb-4"></div>
-      <div className="space-y-3">
-        <div className="flex items-center gap-4 mb-2">
-          <div className="loading-skeleton h-4 w-32"></div>
-          <div className="loading-skeleton h-8 w-36 rounded-md"></div>
-        </div>
-        <div className="flex items-center gap-4 mb-2">
-          <div className="loading-skeleton h-4 w-32"></div>
-          <div className="loading-skeleton h-8 w-36 rounded-md"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-const ActivitySkeleton = () => (
-  <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
-    <div className="p-4 md:p-6">
-      <div className="loading-skeleton h-6 w-32 mb-1"></div>
-      <div className="loading-skeleton h-4 w-48 mb-4"></div>
-      <div className="space-y-3 max-h-[260px] overflow-y-auto">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div
-            key={index}
-            className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
-          >
-            <div className="loading-skeleton w-8 h-8 rounded-full"></div>
-            <div className="flex-1">
-              <div className="loading-skeleton h-4 w-3/4 mb-1"></div>
-              <div className="loading-skeleton h-3 w-1/2"></div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
 
 const permissionOptions = [
   { value: "owner", label: "Owner" },
@@ -547,8 +297,8 @@ export default function WorkspaceSettings() {
                   case "workspace_settings_updated": {
                     const settingsFields = activity.data?.updatedFields || [];
                     // Combine all 'Who can ...' settings in one item
-                    const whoCanArr = [];
-                    const settingsTextArr = [];
+                    let whoCanArr = [];
+                    let settingsTextArr = [];
                     settingsFields.forEach((field) => {
                       if (field === "inviteRestriction")
                         whoCanArr.push("invite members");
@@ -833,50 +583,8 @@ export default function WorkspaceSettings() {
 
   if (loading || hasPermission === null) {
     return (
-      <div className="min-h-screen w-full bg-white">
-        <style>{styles}</style>
-
-        {/* Header */}
-        <div className="p-3 md:p-4 flex items-center">
-          {isMobile && (
-            <button className="mr-2 p-1 rounded-md">
-              <Menu size={24} className="text-[#4d2d61]" />
-            </button>
-          )}
-          <Breadcrumb customLabel="Workspace Settings" />
-        </div>
-
-        <div className="flex flex-col space-y-4 mx-auto px-3">
-          {/* Loading state with enhanced animations */}
-          <div className="flex justify-center items-center p-4 mb-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4d2d61] animate-pulse-soft"></div>
-          </div>
-
-          {/* Workspace Overview Skeleton */}
-          <div className="animate-fade-in-up stagger-1">
-            <WorkspaceOverviewSkeleton />
-          </div>
-
-          {/* Members Section and Permissions Side by Side */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="animate-fade-in-up stagger-2">
-              <MembersSkeleton />
-            </div>
-            <div className="animate-fade-in-up stagger-3">
-              <PermissionsSkeleton />
-            </div>
-          </div>
-
-          {/* Activity Overview Skeleton */}
-          <div className="animate-fade-in-up stagger-4">
-            <ActivitySkeleton />
-          </div>
-
-          {/* Save Button Skeleton */}
-          <div className="flex justify-end">
-            <div className="loading-skeleton h-10 w-32 rounded-lg mb-4"></div>
-          </div>
-        </div>
+      <div className="flex items-center justify-center h-screen bg-[#F5F5F7]">
+        <div className="animate-spin h-8 w-8 border-t-2 border-[#6a3b82] rounded-full"></div>
       </div>
     );
   }
@@ -909,7 +617,6 @@ export default function WorkspaceSettings() {
 
   return (
     <div className="min-h-screen w-full bg-white">
-      <style>{styles}</style>
       {errorAlert}
       {/* Header */}
       <div className="p-3 md:p-4 flex items-center">
@@ -937,7 +644,7 @@ export default function WorkspaceSettings() {
         )}
 
         {/* Workspace Overview */}
-        <div className="border border-purple-200 rounded-lg shadow-sm bg-white card-hover animate-fade-in-up stagger-1">
+        <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
           <div className="p-4 md:p-6">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 flex items-center justify-center bg-gradient-to-br from-[#6A3B82] to-[#57356A] text-white font-semibold rounded-xl text-xl shadow-lg">
@@ -1006,7 +713,7 @@ export default function WorkspaceSettings() {
         {/* Members Section and Permissions Side by Side */}
         <div className="grid md:grid-cols-2 gap-4">
           {/* Members Section */}
-          <div className="border border-purple-200 rounded-lg shadow-sm bg-white card-hover animate-fade-in-up stagger-2">
+          <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
             <div className="p-4 md:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -1053,7 +760,7 @@ export default function WorkspaceSettings() {
                           member.avatar !== "undefined" &&
                           member.avatar !== "" ? (
                             <img
-                              src={member.avatar || "/placeholder.svg"}
+                              src={member.avatar}
                               alt={member.name}
                               className="w-full h-full object-cover"
                             />
@@ -1082,7 +789,7 @@ export default function WorkspaceSettings() {
           </div>
 
           {/* Permissions */}
-          <div className="border border-purple-200 rounded-lg shadow-sm bg-white card-hover animate-fade-in-up stagger-3">
+          <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
             <div className="p-4 md:p-6">
               <h2 className="text-lg font-semibold text-[#6a3b82] flex items-center gap-2 mb-1">
                 <Shield size={20} />
@@ -1197,7 +904,7 @@ export default function WorkspaceSettings() {
         </div>
 
         {/* Activity Overview */}
-        <div className="border border-purple-200 rounded-lg shadow-sm bg-white card-hover animate-fade-in-up stagger-4">
+        <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
           <div className="p-4 md:p-6">
             <h2 className="text-lg font-semibold text-[#6a3b82] flex items-center gap-2 mb-1">
               <Clock size={20} />
@@ -1273,7 +980,10 @@ export default function WorkspaceSettings() {
         onClose={() => setShowMembersModal(false)}
         members={workspace.members}
         setMembers={(newMembers) =>
-          setWorkspace((prev) => ({ ...prev, members: [...newMembers] }))
+          setWorkspace((prev) => ({
+            ...prev,
+            members: Array.isArray(newMembers) ? [...newMembers] : prev.members,
+          }))
         }
         roleDropdownOpen={roleDropdownOpen}
         setRoleDropdownOpen={setRoleDropdownOpen}

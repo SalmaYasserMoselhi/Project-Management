@@ -1,14 +1,23 @@
+"use client";
 
-
-
-import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { X, MoreVertical } from "lucide-react";
 import axios from "axios";
+import {
+  usePopupAnimation,
+  setupArchivedPopupAnimation,
+} from "../utils/popup-animations";
 
 const BASE_URL = "http://localhost:3000";
 
-const ArchivedPopup = ({ onClose, boardId, onListRestored, onCardRestored }) => {
+const ArchivedPopup = ({
+  onClose,
+  boardId,
+  onListRestored,
+  onCardRestored,
+}) => {
   const popupRef = useRef(null);
+  const backdropRef = useRef(null);
   const dropdownRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState("Card");
@@ -17,7 +26,39 @@ const ArchivedPopup = ({ onClose, boardId, onListRestored, onCardRestored }) => 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [openDropdownId, setOpenDropdownId] = useState(null);
-  const [isVisible, setIsVisible] = useState(true);
+  const [transitionState, setTransitionState] = useState("opening");
+
+  // Use the standardized popup animation
+  usePopupAnimation();
+
+  // Handle animation end events for proper state transitions
+  const handleAnimationEnd = useCallback(
+    (currentTransitionState) => {
+      if (currentTransitionState === "opening") {
+        setTransitionState("open");
+      } else if (currentTransitionState === "closing") {
+        onClose();
+      }
+    },
+    [onClose]
+  );
+
+  // Handle closing the archived popup
+  const handleClose = useCallback(() => {
+    if (transitionState === "open") {
+      setTransitionState("closing");
+    }
+  }, [transitionState]);
+
+  // Setup animation based on transition state
+  useEffect(() => {
+    return setupArchivedPopupAnimation(
+      popupRef,
+      backdropRef,
+      transitionState,
+      handleAnimationEnd
+    );
+  }, [transitionState, handleAnimationEnd]);
 
   // Handle clicks outside popup and dropdown to close them
   useEffect(() => {
@@ -28,18 +69,21 @@ const ArchivedPopup = ({ onClose, boardId, onListRestored, onCardRestored }) => 
         dropdownRef.current && !dropdownRef.current.contains(event.target);
 
       if (clickedOutsidePopup) {
-        setIsVisible(false);
-        setTimeout(onClose, 200);
+        handleClose();
       }
 
-      if (openDropdownId && clickedOutsideDropdown && !event.target.closest("svg")) {
+      if (
+        openDropdownId &&
+        clickedOutsideDropdown &&
+        !event.target.closest("svg")
+      ) {
         setOpenDropdownId(null);
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [onClose, openDropdownId]);
+  }, [openDropdownId, handleClose]);
 
   // Fetch archived data based on active tab
   useEffect(() => {
@@ -55,7 +99,9 @@ const ArchivedPopup = ({ onClose, boardId, onListRestored, onCardRestored }) => 
       setLoading(true);
       const response = await axios.get(
         `${BASE_URL}/api/v1/lists/board/${boardId}/lists/archived`,
-        { withCredentials: true }
+        {
+          withCredentials: true,
+        }
       );
 
       const lists = Array.isArray(response.data.data)
@@ -158,140 +204,160 @@ const ArchivedPopup = ({ onClose, boardId, onListRestored, onCardRestored }) => 
     }
   };
 
-  // Render list or card items
-  const renderContent = () => {
-    if (loading) {
-      return <div className="text-center text-gray-400 py-10">Loading...</div>;
-    }
-    if (error) {
-      return <div className="text-center text-red-400 py-10">{error}</div>;
-    }
+  // Get current items based on active tab
+  const getCurrentItems = () => {
+    return activeTab === "List"
+      ? Array.isArray(archivedLists)
+        ? archivedLists
+        : []
+      : Array.isArray(archivedCards)
+      ? archivedCards
+      : [];
+  };
 
-    const items =
-      activeTab === "List"
-        ? Array.isArray(archivedLists)
-          ? archivedLists
-          : []
-        : Array.isArray(archivedCards)
-        ? archivedCards
-        : [];
-
-    if (items.length === 0) {
-      return (
-        <div className="text-center text-gray-400 py-10">
-          No {activeTab.toLowerCase()}s found.
-        </div>
-      );
+  useEffect(() => {
+    const header = document.querySelector("header");
+    if (popupRef.current && header) {
+      const headerHeight = header.offsetHeight;
+      popupRef.current.style.top = `${headerHeight}px`;
+      popupRef.current.style.height = `calc(100vh - ${headerHeight}px)`;
     }
+    if (backdropRef.current && header) {
+      const headerHeight = header.offsetHeight;
+      backdropRef.current.style.top = `${headerHeight}px`;
+      backdropRef.current.style.height = `calc(100vh - ${headerHeight}px)`;
+    }
+  }, []);
 
-    return items.map((item) => (
+  const currentItems = getCurrentItems();
+
+  return (
+    <>
+      {/* Backdrop - clicking here will close the archived popup */}
       <div
-        key={item._id}
-        className="relative w-full max-w-[360px] mx-auto border border-gray-200 rounded-lg p-4 hover:bg-[#F7F1FA] transition shadow-sm"
-      >
-        <div className="flex justify-between items-center">
-          <div>
-            {/* <div className="font-medium text-gray-800">{item.name}</div>
-             */}
-             <div className="font-medium text-gray-800">
-               {activeTab === "List" ? item.name : item.title}
-               </div>
+        ref={backdropRef}
+        className="workspace-backdrop"
+        onClick={handleClose}
+      />
+
+      {/* Archived Panel - positioned on the right with proper animation classes */}
+      <div ref={popupRef} className="archived-popup">
+        {/* Fixed Header */}
+        <div className="p-4 space-y-4 border-b border-gray-100">
+          <div className="flex justify-between items-center">
+            <h1 className="text-lg font-bold text-[#4D2D61]">Archived Items</h1>
+            <button
+              onClick={handleClose}
+              className="text-gray-500 hover:text-[#4D2D61] transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 18 24"
-            onClick={() =>
-              setOpenDropdownId((prev) => (prev === item._id ? null : item._id))
-            }
-            className="cursor-pointer"
-          >
-            <path
-              fill="none"
-              stroke="#4D2D61"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0-2 0m7 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0m7 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0"
-            />
-          </svg>
+          {/* Tabs */}
+          <div className="flex bg-gray-100 p-1 rounded-xl">
+            {["Card", "List"].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                  activeTab === tab
+                    ? "bg-[#4D2D61] text-white"
+                    : "text-gray-600"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        </div>
 
-          {openDropdownId === item._id && (
-            <div
-              ref={dropdownRef}
-              className="absolute right-2 top-9 w-32 bg-white border border-gray-200 rounded shadow z-50"
-            >
-              <button
-                onClick={() => {
-                  activeTab === "List"
-                    ? handleRestoreList(item._id)
-                    : handleRestoreCard(item._id);
-                  setOpenDropdownId(null);
-                }}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-              >
-                Unarchive
-              </button>
-              <button
-                onClick={() =>
-                  activeTab === "List"
-                    ? handleDeleteList(item._id)
-                    : handleDeleteCard(item._id)
-                }
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-              >
-                Delete
-              </button>
+        {/* Fixed Count Header */}
+        <div className="flex justify-between items-center py-3 px-4 border-b border-gray-100">
+          <span className="text-sm font-medium text-gray-600">
+            All {activeTab}s ({currentItems.length})
+          </span>
+        </div>
+
+        {/* Content Container */}
+        <div className="flex-1 overflow-auto">
+          {loading ? (
+            <div className="text-center text-gray-500 my-5 p-4">
+              <div className="animate-spin h-5 w-5 border-t-2 border-[#4D2D61] rounded-full mx-auto"></div>
+              <p className="mt-2 text-sm">
+                Loading {activeTab.toLowerCase()}s...
+              </p>
+            </div>
+          ) : error ? (
+            <div className="text-center text-red-500 my-5 p-4 text-sm">
+              {error}
+            </div>
+          ) : currentItems.length === 0 ? (
+            <div className="text-center text-gray-500 my-5 p-4 text-sm">
+              No archived {activeTab.toLowerCase()}s found.
+            </div>
+          ) : (
+            <div>
+              {currentItems.map((item) => (
+                <div
+                  key={item._id}
+                  className="relative flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 group"
+                >
+                  <span className="flex-1 truncate text-sm font-medium text-[#4D2D61]">
+                    {activeTab === "List" ? item.name : item.title}
+                  </span>
+
+                  <div className="relative opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() =>
+                        setOpenDropdownId((prev) =>
+                          prev === item._id ? null : item._id
+                        )
+                      }
+                      className="p-1 text-gray-400 hover:text-[#4D2D61]"
+                    >
+                      <MoreVertical className="h-[18px] w-[18px]" />
+                    </button>
+
+                    {openDropdownId === item._id && (
+                      <div
+                        ref={dropdownRef}
+                        className="absolute right-0 top-8 z-50 w-32 rounded-lg border border-gray-200 bg-white shadow-lg"
+                      >
+                        <div className="py-1">
+                          <button
+                            onClick={() => {
+                              activeTab === "List"
+                                ? handleRestoreList(item._id)
+                                : handleRestoreCard(item._id);
+                              setOpenDropdownId(null);
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                          >
+                            Restore
+                          </button>
+                          <button
+                            onClick={() => {
+                              activeTab === "List"
+                                ? handleDeleteList(item._id)
+                                : handleDeleteCard(item._id);
+                              setOpenDropdownId(null);
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
       </div>
-    ));
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/10 flex justify-end items-start">
-      <div
-        ref={popupRef}
-        className={`bg-white w-[330px] h-screen overflow-hidden shadow-2xl rounded-none transform transition-all duration-200 ease-in-out ${
-          isVisible ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
-        }`}
-      >
-        <div className="flex justify-between items-center p-4 border-b">
-          <h2 className="text-lg font-semibold">Archived Items</h2>
-          <button
-            onClick={() => {
-              setIsVisible(false);
-              setTimeout(onClose, 200);
-            }}
-          >
-            <X className="w-5 h-5 text-gray-500 hover:text-gray-800" />
-          </button>
-        </div>
-
-        <div className="flex gap-3 px-4 pt-4">
-          {["Card", "List"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition w-[155px] ${
-                activeTab === tab
-                  ? "bg-[#4D2D61] text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        <div className="overflow-y-auto h-[calc(100vh-120px)] p-4 space-y-4">
-          {renderContent()}
-        </div>
-      </div>
-    </div>
+    </>
   );
 };
 

@@ -1,11 +1,4 @@
-// taskCARD
-
-import drag from "../assets/drag-icon.png";
-import avatar3 from "../assets/Avatar3.png";
 import addButton from "../assets/Add Button.png";
-import List from "../assets/prime_list.png";
-import File from "../assets/file_present.png";
-import third from "../assets/third.png";
 import { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import CardDetails from "../Card/CardDetails";
@@ -197,7 +190,11 @@ const TaskCard = ({
         const container = containerRef.current;
         const cardRect = cardElement.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
-        const offset = cardRect.top - containerRect.top - container.clientHeight / 2 + cardRect.height / 2;
+        const offset =
+          cardRect.top -
+          containerRect.top -
+          container.clientHeight / 2 +
+          cardRect.height / 2;
         container.scrollBy({ top: offset, behavior: "smooth" });
         setTimeout(() => {
           cardElement.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -307,7 +304,17 @@ const TaskCard = ({
           className="w-8 bg-[#4D2D61] flex items-center justify-center"
           style={{ minHeight: "100px" }}
         >
-          <img src={drag} className="w-5 h-8 text-white" alt="Drag" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="30"
+            height="32"
+            viewBox="0 0 16 16"
+          >
+            <path
+              fill="#f7f7f7"
+              d="M5 4c0-.14 0-.209.008-.267a.85.85 0 0 1 .725-.725C5.79 3 5.86 3 6 3s.209 0 .267.008a.85.85 0 0 1 .725.725C7 3.79 7 3.86 7 4s0 .209-.008.267a.85.85 0 0 1-.725.725C6.21 5 6.14 5 6 5s-.209 0-.267-.008a.85.85 0 0 1-.725-.725C5 4.21 5 4.14 5 4m0 4c0-.14 0-.209.008-.267a.85.85 0 0 1 .725-.725C5.79 7 5.86 7 6 7s.209 0 .267.008a.85.85 0 0 1 .725.725C7 7.79 7 7.86 7 8s0 .209-.008.267a.85.85 0 0 1-.725.725C6.21 9 6.14 9 6 9s-.209 0-.267-.008a.85.85 0 0 1-.725-.725C5 8.21 5 8.14 5 8m0 4c0-.139 0-.209.008-.267a.85.85 0 0 1 .724-.724c.059-.008.128-.008.267-.008s.21 0 .267.008a.85.85 0 0 1 .724.724c.008.058.008.128.008.267s0 .209-.008.267a.85.85 0 0 1-.724.724c-.058.008-.128.008-.267.008s-.209 0-.267-.008a.85.85 0 0 1-.724-.724C5 12.209 5 12.139 5 12m4-8c0-.14 0-.209.008-.267a.85.85 0 0 1 .725-.725C9.79 3 9.86 3 10 3s.209 0 .267.008a.85.85 0 0 1 .725.725C11 3.79 11 3.86 11 4s0 .209-.008.267a.85.85 0 0 1-.725.725C10.21 5 10.14 5 10 5s-.209 0-.267-.008a.85.85 0 0 1-.725-.725C9 4.21 9 4.14 9 4m0 4c0-.14 0-.209.008-.267a.85.85 0 0 1 .725-.725C9.79 7 9.86 7 10 7s.209 0 .267.008a.85.85 0 0 1 .725.725C11 7.79 11 7.86 11 8s0 .209-.008.267a.85.85 0 0 1-.725.725C10.21 9 10.14 9 10 9s-.209 0-.267-.008a.85.85 0 0 1-.725-.725C9 8.21 9 8.14 9 8m0 4c0-.139 0-.209.008-.267a.85.85 0 0 1 .724-.724c.059-.008.128-.008.267-.008c.14 0 .21 0 .267.008a.85.85 0 0 1 .724.724c.008.058.008.128.008.267s0 .209-.008.267a.85.85 0 0 1-.724.724c-.058.008-.128.008-.267.008s-.209 0-.267-.008a.85.85 0 0 1-.724-.724C9 12.209 9 12.139 9 12"
+            />
+          </svg>
         </div>
 
         <div className="bg-white text-black p-3 rounded-r-lg flex-grow w-full">
@@ -356,7 +363,7 @@ const TaskCard = ({
 
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className="px-2 py-1 text-xs font-medium rounded-lg"
+              className="px-2 py-1 text-xs font-extrabold rounded-lg"
               style={{
                 backgroundColor: priorityStyle.bg,
                 color: priorityStyle.color,
@@ -371,7 +378,7 @@ const TaskCard = ({
                 {labels.slice(0, MAX_VISIBLE_LABELS).map((label, index) => (
                   <span
                     key={label.id || index}
-                    className="px-2 py-1 text-xs font-medium rounded-lg"
+                    className="px-2 py-1 text-xs font-extrabold rounded-lg"
                     style={{
                       backgroundColor: `${label.color}33`,
                       color: label.color,
@@ -420,33 +427,51 @@ const TaskCard = ({
               <img
                 src={addButton}
                 alt="Add member"
-                className="w-8 h-8 ms-4 rounded-full border-2 border-white bg-gray-300 cursor-pointer"
+                className="w-8 h-8 ms-4 rounded-full cursor-pointer"
               />
             </div>
 
             <div className="flex gap-2 ml-4 items-center">
-              <img
-                src={List}
-                className="w-6 h-6 cursor-pointer hover:opacity-70"
-                alt="Checklist"
-              />
-              <div className="flex items-center gap-0">
-                <img
-                  src={File}
-                  className="w-5 h-5 cursor-pointer hover:opacity-70"
-                  alt="Files"
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  fill="#dadee5"
+                  d="M19 12.75H8a.75.75 0 0 1 0-1.5h11a.75.75 0 0 1 0 1.5m0-4.5H8a.75.75 0 0 1 0-1.5h11a.75.75 0 0 1 0 1.5m0 9H8a.75.75 0 0 1 0-1.5h11a.75.75 0 0 1 0 1.5M5 8.5a1 1 0 0 1-.38-.07a1.5 1.5 0 0 1-.33-.22A1 1 0 0 1 4 7.5a1.05 1.05 0 0 1 .29-.71a.9.9 0 0 1 .33-.21a1 1 0 0 1 .76 0a1 1 0 0 1 .33.21A1.05 1.05 0 0 1 6 7.5a1 1 0 0 1-.29.71a1.5 1.5 0 0 1-.33.22A1 1 0 0 1 5 8.5M5 13a1 1 0 0 1-.38-.08a1.2 1.2 0 0 1-.33-.21A1 1 0 0 1 4 12a1.05 1.05 0 0 1 .29-.71a1.2 1.2 0 0 1 .33-.21A1 1 0 0 1 5.2 11l.18.06l.18.09a2 2 0 0 1 .15.12A1.05 1.05 0 0 1 6 12a1 1 0 0 1-1 1m0 4.5a1 1 0 0 1-.38-.07a1.5 1.5 0 0 1-.33-.22a1.2 1.2 0 0 1-.21-.33a.94.94 0 0 1 0-.76a1.2 1.2 0 0 1 .21-.33a1 1 0 0 1 1.09-.21a1 1 0 0 1 .33.21a1.2 1.2 0 0 1 .21.33a.94.94 0 0 1 0 .76a1.2 1.2 0 0 1-.21.33a1 1 0 0 1-.71.29"
                 />
-                <span className="text-sm text-gray-600 font-bold mt-1">
+              </svg>
+              <div className="flex items-center gap-0">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 20"
+                >
+                  <path
+                    fill="#dadee5"
+                    d="M13.17 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8.83c0-.53-.21-1.04-.59-1.41l-4.83-4.83c-.37-.38-.88-.59-1.41-.59M16 15c0 2.34-2.01 4.21-4.39 3.98C9.53 18.78 8 16.92 8 14.83V9.64c0-1.31.94-2.5 2.24-2.63A2.5 2.5 0 0 1 13 9.5V14c0 .55-.45 1-1 1s-1-.45-1-1V9.5c0-.28-.22-.5-.5-.5s-.5.22-.5.5v5.39c0 1 .68 1.92 1.66 2.08A2 2 0 0 0 14 15v-3c0-.55.45-1 1-1s1 .45 1 1zm-2-8V4l4 4h-3c-.55 0-1-.45-1-1"
+                  />
+                </svg>
+                <span className="text-sm text-[#98A2B2] font-bold mt-1">
                   {actualFileCount}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <img
-                  src={third}
-                  className="w-5 h-5 cursor-pointer hover:opacity-70 mt-1"
-                  alt="Comments"
-                />
-                <span className="text-sm text-gray-600 font-bold mt-1">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 20"
+                >
+                  <path
+                    fill="#dadee5"
+                    d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2m-3 12H7c-.55 0-1-.45-1-1s.45-1 1-1h10c.55 0 1 .45 1 1s-.45 1-1 1m0-3H7c-.55 0-1-.45-1-1s.45-1 1-1h10c.55 0 1 .45 1 1s-.45 1-1 1m0-3H7c-.55 0-1-.45-1-1s.45-1 1-1h10c.55 0 1 .45 1 1s-.45 1-1 1"
+                  />
+                </svg>
+                <span className="text-sm text-[#98A2B2] font-bold mt-1">
                   {actualCommentCount}
                 </span>
               </div>

@@ -1,6 +1,3 @@
-
-
-
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -40,24 +37,44 @@ const SettingsPopup = ({ onClose, boardId }) => {
 
       try {
         console.log("[SettingsPopup] Fetching settings for boardId:", boardId);
-        const response = await axios.get(`${BASE_URL}/api/v1/boards/${boardId}`, {
-          withCredentials: true,
-        });
+        const response = await axios.get(
+          `${BASE_URL}/api/v1/boards/${boardId}`,
+          {
+            withCredentials: true,
+          }
+        );
 
         const boardSettings = response.data.data.board.settings?.general || {};
         console.log("[SettingsPopup] Fetched settings:", boardSettings);
 
         setSettings({
-          inviteRestriction: boardSettings.memberInvitation === "enabled" ? "allMembers" : 
-                            boardSettings.memberInvitation === "admin" ? "admin" : "owner",
-          cardEditing: boardSettings.cardEditing === "all_members" ? "allMembers" : 
-                      boardSettings.cardEditing === "admins_only" ? "admin" : "owner",
-          cardMoving: boardSettings.cardMoving === "all_members" ? "allMembers" : 
-                     boardSettings.cardMoving === "admins_only" ? "admin" : "owner",
+          inviteRestriction:
+            boardSettings.memberInvitation === "enabled"
+              ? "allMembers"
+              : boardSettings.memberInvitation === "admin"
+              ? "admin"
+              : "owner",
+          cardEditing:
+            boardSettings.cardEditing === "all_members"
+              ? "allMembers"
+              : boardSettings.cardEditing === "admins_only"
+              ? "admin"
+              : "owner",
+          cardMoving:
+            boardSettings.cardMoving === "all_members"
+              ? "allMembers"
+              : boardSettings.cardMoving === "admins_only"
+              ? "admin"
+              : "owner",
         });
       } catch (error) {
-        console.error("[SettingsPopup] Error fetching settings:", error.response?.data || error.message);
-        toast.error(`Failed to load settings: ${error.response?.status || error.message}`);
+        console.error(
+          "[SettingsPopup] Error fetching settings:",
+          error.response?.data || error.message
+        );
+        toast.error(
+          `Failed to load settings: ${error.response?.status || error.message}`
+        );
       }
     };
 
@@ -76,19 +93,36 @@ const SettingsPopup = ({ onClose, boardId }) => {
     const payload = {
       settings: {
         general: {
-          memberInvitation: settings.inviteRestriction === "allMembers" ? "enabled" : 
-                           settings.inviteRestriction === "admin" ? "admin" : "disabled",
-          cardEditing: settings.cardEditing === "allMembers" ? "all_members" : 
-                      settings.cardEditing === "admin" ? "admins_only" : "card_creator_only",
-          cardMoving: settings.cardMoving === "allMembers" ? "all_members" : 
-                     settings.cardMoving === "admin" ? "admins_only" : "owner_only",
+          memberInvitation:
+            settings.inviteRestriction === "allMembers"
+              ? "enabled"
+              : settings.inviteRestriction === "admin"
+              ? "admin"
+              : "disabled",
+          cardEditing:
+            settings.cardEditing === "allMembers"
+              ? "all_members"
+              : settings.cardEditing === "admin"
+              ? "admins_only"
+              : "card_creator_only",
+          cardMoving:
+            settings.cardMoving === "allMembers"
+              ? "all_members"
+              : settings.cardMoving === "admin"
+              ? "admins_only"
+              : "owner_only",
           memberListCreation: "disabled",
         },
       },
     };
 
     try {
-      console.log("[SettingsPopup] Submitting settings for boardId:", boardId, "Payload:", payload);
+      console.log(
+        "[SettingsPopup] Submitting settings for boardId:",
+        boardId,
+        "Payload:",
+        payload
+      );
       const response = await axios.patch(
         `${BASE_URL}/api/v1/boards/user-boards/${boardId}`,
         payload,
@@ -101,13 +135,22 @@ const SettingsPopup = ({ onClose, boardId }) => {
       toast.success("Settings updated successfully!");
       onClose();
     } catch (error) {
-      console.error("[SettingsPopup] Error updating settings:", error.response?.data || error.message);
+      console.error(
+        "[SettingsPopup] Error updating settings:",
+        error.response?.data || error.message
+      );
       const validationError = error.response?.data?.error?.errors;
       if (validationError) {
         console.log("[SettingsPopup] Validation errors:", validationError);
-        toast.error(`Validation failed: ${validationError.message || error.message}`);
+        toast.error(
+          `Validation failed: ${validationError.message || error.message}`
+        );
       } else {
-        toast.error(`Failed to update settings: ${error.response?.status || error.message}`);
+        toast.error(
+          `Failed to update settings: ${
+            error.response?.status || error.message
+          }`
+        );
       }
     } finally {
       setIsLoading(false);
@@ -116,13 +159,22 @@ const SettingsPopup = ({ onClose, boardId }) => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (inviteDropdownRef.current && !inviteDropdownRef.current.contains(event.target)) {
+      if (
+        inviteDropdownRef.current &&
+        !inviteDropdownRef.current.contains(event.target)
+      ) {
         setInviteDropdownOpen(false);
       }
-      if (editDropdownRef.current && !editDropdownRef.current.contains(event.target)) {
+      if (
+        editDropdownRef.current &&
+        !editDropdownRef.current.contains(event.target)
+      ) {
         setEditDropdownOpen(false);
       }
-      if (moveDropdownRef.current && !moveDropdownRef.current.contains(event.target)) {
+      if (
+        moveDropdownRef.current &&
+        !moveDropdownRef.current.contains(event.target)
+      ) {
         setMoveDropdownOpen(false);
       }
     };
@@ -134,8 +186,11 @@ const SettingsPopup = ({ onClose, boardId }) => {
   const openBorder = "border-[#6a3b82]";
 
   return (
-    <div className="fixed inset-0 flex justify-end items-center z-50">
-      <div className="absolute inset-0 bg-black/50 z-40" onClick={onClose}></div>
+    <div className="fixed inset-0 flex justify-center items-center z-50">
+      <div
+        className="absolute inset-0 bg-black/50 z-40"
+        onClick={onClose}
+      ></div>
 
       <div className="relative w-[550px] min-h-[350px] bg-white rounded-lg shadow-xl p-6 z-50 flex flex-col justify-between">
         <button
@@ -155,22 +210,34 @@ const SettingsPopup = ({ onClose, boardId }) => {
                 <Shield size={20} />
                 Permissions
               </h2>
-              <p className="text-sm text-gray-500 mb-4">Control who can perform actions in this board</p>
+              <p className="text-sm text-gray-500 mb-4">
+                Control who can perform actions in this board
+              </p>
               <div className="space-y-3">
                 <div className="flex items-center gap-4 mb-2">
-                  <div className="text-md font-medium text-gray-700 min-w-[140px]">Member Invitation</div>
+                  <div className="text-md font-medium text-gray-700 min-w-[140px]">
+                    Member Invitation
+                  </div>
                   <div className="relative" ref={inviteDropdownRef}>
                     <button
                       type="button"
-                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${inviteDropdownOpen ? openBorder : "border-[#BFA8D9] hover:border-[#6a3b82]"} ${!inviteDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
+                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${
+                        inviteDropdownOpen
+                          ? openBorder
+                          : "border-[#BFA8D9] hover:border-[#6a3b82]"
+                      } ${!inviteDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
                       onClick={() => setInviteDropdownOpen((v) => !v)}
                       disabled={isLoading}
                     >
                       <span className="truncate text-gray-900">
-                        {permissionOptions.find((opt) => opt.value === settings.inviteRestriction)?.label || "Select"}
+                        {permissionOptions.find(
+                          (opt) => opt.value === settings.inviteRestriction
+                        )?.label || "Select"}
                       </span>
                       <ChevronDown
-                        className={`ml-2 transition-transform ${inviteDropdownOpen ? "rotate-180" : ""} text-gray-400`}
+                        className={`ml-2 transition-transform ${
+                          inviteDropdownOpen ? "rotate-180" : ""
+                        } text-gray-400`}
                         size={18}
                       />
                     </button>
@@ -180,9 +247,16 @@ const SettingsPopup = ({ onClose, boardId }) => {
                           <button
                             key={opt.value}
                             type="button"
-                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${settings.inviteRestriction === opt.value ? "bg-[#F3EFFF] font-semibold text-[#6a3b82]" : ""}`}
+                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${
+                              settings.inviteRestriction === opt.value
+                                ? "bg-[#F3EFFF] font-semibold text-[#6a3b82]"
+                                : ""
+                            }`}
                             onClick={() => {
-                              setSettings((prev) => ({ ...prev, inviteRestriction: opt.value }));
+                              setSettings((prev) => ({
+                                ...prev,
+                                inviteRestriction: opt.value,
+                              }));
                               setInviteDropdownOpen(false);
                             }}
                           >
@@ -195,19 +269,29 @@ const SettingsPopup = ({ onClose, boardId }) => {
                 </div>
 
                 <div className="flex items-center gap-4 mb-2">
-                  <div className="text-md font-medium text-gray-700 min-w-[140px]">Card Editing</div>
+                  <div className="text-md font-medium text-gray-700 min-w-[140px]">
+                    Card Editing
+                  </div>
                   <div className="relative" ref={editDropdownRef}>
                     <button
                       type="button"
-                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${editDropdownOpen ? openBorder : "border-[#BFA8D9] hover:border-[#6a3b82]"} ${!editDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
+                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${
+                        editDropdownOpen
+                          ? openBorder
+                          : "border-[#BFA8D9] hover:border-[#6a3b82]"
+                      } ${!editDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
                       onClick={() => setEditDropdownOpen((v) => !v)}
                       disabled={isLoading}
                     >
                       <span className="truncate text-gray-900">
-                        {permissionOptions.find((opt) => opt.value === settings.cardEditing)?.label || "Select"}
+                        {permissionOptions.find(
+                          (opt) => opt.value === settings.cardEditing
+                        )?.label || "Select"}
                       </span>
                       <ChevronDown
-                        className={`ml-2 transition-transform ${editDropdownOpen ? "rotate-180" : ""} text-gray-400`}
+                        className={`ml-2 transition-transform ${
+                          editDropdownOpen ? "rotate-180" : ""
+                        } text-gray-400`}
                         size={18}
                       />
                     </button>
@@ -217,9 +301,16 @@ const SettingsPopup = ({ onClose, boardId }) => {
                           <button
                             key={opt.value}
                             type="button"
-                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${settings.cardEditing === opt.value ? "bg-[#F3EFFF] font-semibold text-[#6a3b82]" : ""}`}
+                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${
+                              settings.cardEditing === opt.value
+                                ? "bg-[#F3EFFF] font-semibold text-[#6a3b82]"
+                                : ""
+                            }`}
                             onClick={() => {
-                              setSettings((prev) => ({ ...prev, cardEditing: opt.value }));
+                              setSettings((prev) => ({
+                                ...prev,
+                                cardEditing: opt.value,
+                              }));
                               setEditDropdownOpen(false);
                             }}
                           >
@@ -232,19 +323,29 @@ const SettingsPopup = ({ onClose, boardId }) => {
                 </div>
 
                 <div className="flex items-center gap-4 mb-2">
-                  <div className="text-md font-medium text-gray-700 min-w-[140px]">Card Moving</div>
+                  <div className="text-md font-medium text-gray-700 min-w-[140px]">
+                    Card Moving
+                  </div>
                   <div className="relative" ref={moveDropdownRef}>
                     <button
                       type="button"
-                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${moveDropdownOpen ? openBorder : "border-[#BFA8D9] hover:border-[#6a3b82]"} ${!moveDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
+                      className={`w-36 flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none ${
+                        moveDropdownOpen
+                          ? openBorder
+                          : "border-[#BFA8D9] hover:border-[#6a3b82]"
+                      } ${!moveDropdownOpen ? "focus:border-[#BFA8D9]" : ""}`}
                       onClick={() => setMoveDropdownOpen((v) => !v)}
                       disabled={isLoading}
                     >
                       <span className="truncate text-gray-900">
-                        {permissionOptions.find((opt) => opt.value === settings.cardMoving)?.label || "Select"}
+                        {permissionOptions.find(
+                          (opt) => opt.value === settings.cardMoving
+                        )?.label || "Select"}
                       </span>
                       <ChevronDown
-                        className={`ml-2 transition-transform ${moveDropdownOpen ? "rotate-180" : ""} text-gray-400`}
+                        className={`ml-2 transition-transform ${
+                          moveDropdownOpen ? "rotate-180" : ""
+                        } text-gray-400`}
                         size={18}
                       />
                     </button>
@@ -254,9 +355,16 @@ const SettingsPopup = ({ onClose, boardId }) => {
                           <button
                             key={opt.value}
                             type="button"
-                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${settings.cardMoving === opt.value ? "bg-[#F3EFFF] font-semibold text-[#6a3b82]" : ""}`}
+                            className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${
+                              settings.cardMoving === opt.value
+                                ? "bg-[#F3EFFF] font-semibold text-[#6a3b82]"
+                                : ""
+                            }`}
                             onClick={() => {
-                              setSettings((prev) => ({ ...prev, cardMoving: opt.value }));
+                              setSettings((prev) => ({
+                                ...prev,
+                                cardMoving: opt.value,
+                              }));
                               setMoveDropdownOpen(false);
                             }}
                           >
@@ -275,7 +383,9 @@ const SettingsPopup = ({ onClose, boardId }) => {
         <div className="flex justify-end mt-4">
           <button
             onClick={handleSubmit}
-            className={`bg-[#4D2D61] text-white px-5 py-2 rounded-lg hover:opacity-90 text-sm font-medium ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+            className={`bg-[#4D2D61] text-white px-5 py-2 rounded-lg hover:opacity-90 text-sm font-medium ${
+              isLoading ? "opacity-50 cursor-not-allowed" : ""
+            }`}
             disabled={isLoading}
           >
             {isLoading ? "Saving..." : "Done"}

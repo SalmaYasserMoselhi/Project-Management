@@ -5,7 +5,6 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import Column from "./Column";
 import AddListButton from "./AddListButton";
-import drop from "../assets/drop.png";
 import Calendar from "../Calendar/Calendar";
 import AddMeetingModal from "../Calendar/AddMeetingModal";
 import { useSelector, useDispatch } from "react-redux";
@@ -536,7 +535,7 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
   if (loading) return <div className="p-4">Loading board...</div>;
 
   return (
-    <div className="p-6 min-h-screen mt-2 flex flex-col item-center overflow-y-auto -ml-4">
+    <div className="pb-6 min-h-screen flex flex-col item-center overflow-y-auto">
       <div className="border-2 border-[#C7C7C7] p-4 rounded-xl h-full flex flex-col">
         <div className="flex flex-col md:flex-row justify-between items-center mb-6">
           <div className="flex items-center gap-6 mb-4 md:mb-0">
@@ -1018,7 +1017,7 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
         {view === "board" && (
           <div className="flex-1 overflow-y-auto pb-4">
             <div
-              className={`flex gap-0 min-w-0 h-full -ml-10${
+              className={`flex gap-4 min-w-0 h-full -ml-10${
                 isSidebarOpen ? "pl-[300px]" : "pl-0"
               } overflow-x-auto max-w-full`}
             >

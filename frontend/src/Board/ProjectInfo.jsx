@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
@@ -7,13 +5,13 @@ import CalendarBlank from "../assets/CalendarBlank.png";
 import edit from "../assets/edit.png";
 import share from "../assets/share.png";
 import { useSelector } from "react-redux";
-import { ChevronDown, Settings } from "lucide-react";
-import ReactDOM from "react-dom";
+import { Settings } from "lucide-react";
 import ArchivedPopup from "./ArchivedPopup";
 import SettingsPopup from "./SettingsPopup";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import InviteMembersPopup from "../Components/InviteMembersPopup";
+import MembersModal from "../Components/MembersModal";
 
 const ProjectInfo = ({
   boardName,
@@ -27,7 +25,6 @@ const ProjectInfo = ({
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const membersScrollRef = useRef(null);
-  const observerRef = useRef(null);
   const nameInputRef = useRef(null);
   const descriptionTextareaRef = useRef(null);
 
@@ -43,10 +40,7 @@ const ProjectInfo = ({
   const [errorMembers, setErrorMembers] = useState(null);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(null);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
-  const [isRefreshingMembers, setIsRefreshingMembers] = useState(false);
-  const [successMessage, setSuccessMessage] = useState(null);
   const [showErrorAlert, setShowErrorAlert] = useState(null);
-  const [updatingRoleId, setUpdatingRoleId] = useState(null);
   const [editingName, setEditingName] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
   const [form, setForm] = useState({
@@ -84,34 +78,6 @@ const ProjectInfo = ({
     }
   };
 
-  // Intersection Observer for dropdown visibility
-  useEffect(() => {
-    if (roleDropdownOpen !== null && membersScrollRef.current) {
-      const btn = document.getElementById(
-        `role-dropdown-btn-${roleDropdownOpen}`
-      );
-      if (!btn) return;
-      if (observerRef.current) observerRef.current.disconnect();
-      observerRef.current = new window.IntersectionObserver(
-        ([entry]) => {
-          if (!entry.isIntersecting) {
-            setRoleDropdownOpen(null);
-          }
-        },
-        {
-          root: membersScrollRef.current,
-          threshold: 0.01,
-        }
-      );
-      observerRef.current.observe(btn);
-      return () => {
-        if (observerRef.current) observerRef.current.disconnect();
-      };
-    } else {
-      if (observerRef.current) observerRef.current.disconnect();
-    }
-  }, [roleDropdownOpen]);
-
   // Fetch members when component mounts or boardId changes
   useEffect(() => {
     if (boardId) {
@@ -141,29 +107,6 @@ const ProjectInfo = ({
     }
   }, [boardId]);
 
-  // Fetch members after role change or removal
-  const fetchMembers = () => {
-    setIsRefreshingMembers(true);
-    const url = `${BASE_URL}/api/v1/boards/${boardId}/members`;
-    fetch(url, { credentials: "include" })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch members");
-        return res.json();
-      })
-      .then((data) => {
-        const members = (data.data?.members || data.members || []).map((m) => ({
-          ...m,
-          id: m.id || m._id,
-          name: m.user?.username || m.user?.email || "Unknown",
-          avatar: m.user?.avatar,
-          email: m.user?.email,
-        }));
-        setMembers(members);
-      })
-      .catch((err) => setErrorMembers(err.message))
-      .finally(() => setIsRefreshingMembers(false));
-  };
-
   // Auto-dismiss error alert
   useEffect(() => {
     if (showErrorAlert) {
@@ -191,36 +134,6 @@ const ProjectInfo = ({
       descriptionTextareaRef.current.focus();
     }
   }, [editingName, editingDescription]);
-
-  // Handle member removal
-  const handleRemoveMember = async (memberId, userId) => {
-    try {
-      setIsRefreshingMembers(true);
-      const url = `${BASE_URL}/api/v1/boards/${boardId}/members/${userId}`;
-      const res = await fetch(url, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) {
-        let msg = "Failed to remove member";
-        try {
-          const data = await res.json();
-          if (data && data.message) msg = data.message;
-        } catch {}
-        throw new Error(msg);
-      }
-      if (currentUser && userId === currentUser._id) {
-        navigate("/main/dashboard");
-        return;
-      }
-      fetchMembers();
-    } catch (err) {
-      setErrorMembers(err.message || "Failed to remove member");
-      setShowErrorAlert(err.message || "Failed to remove member");
-    } finally {
-      setIsRefreshingMembers(false);
-    }
-  };
 
   // Handle clicks outside dropdown to close it
   useEffect(() => {
@@ -268,17 +181,20 @@ const ProjectInfo = ({
     setShowErrorAlert(null);
 
     try {
-      const response = await fetch(`${BASE_URL}/api/v1/boards/user-boards/${boardId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: form.name,
-          description: form.description,
-        }),
-        credentials: "include",
-      });
+      const response = await fetch(
+        `${BASE_URL}/api/v1/boards/user-boards/${boardId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: form.name,
+            description: form.description,
+          }),
+          credentials: "include",
+        }
+      );
 
       if (!response.ok) {
         let errorMsg = "Failed to update board";
@@ -355,290 +271,27 @@ const ProjectInfo = ({
       )}
 
       {showMembersModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#1E1E2E]/30"
-          onClick={() => setShowMembersModal(false)}
-        >
-          <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-xl p-6 relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {showErrorAlert && errorMembers && (
-              <div className="mb-3 px-4 py-2 bg-red-100 border border-red-300 text-red-700 rounded-lg text-center font-medium">
-                {errorMembers}
-              </div>
-            )}
-            {successMessage && (
-              <div className="mb-3 px-4 py-2 bg-green-50 border border-green-200 text-green-800 rounded-lg text-center font-medium">
-                {successMessage}
-              </div>
-            )}
-            <div className="mb-2 text-gray-700 text-sm font-medium">
-              People with access ({membersArray.length})
-            </div>
-            <div
-              ref={membersScrollRef}
-              className="space-y-2 max-h-60 overflow-y-auto pr-1"
-            >
-              {loadingMembers || isRefreshingMembers ? (
-                <div className="text-center py-8 text-gray-400">
-                  Loading members...
-                </div>
-              ) : membersArray.length === 0 ? (
-                errorMembers ? null : (
-                  <div className="text-center py-8 text-gray-400">
-                    No members found.
-                  </div>
-                )
-              ) : (
-                <>
-                  {membersArray.map((m) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50"
-                    >
-                      {m.avatar || m.user?.avatar ? (
-                        <img
-                          src={m.avatar || m.user?.avatar}
-                          alt={m.name || m.user?.username}
-                          className="h-8 w-8 rounded-full object-cover shadow-md"
-                        />
-                      ) : (
-                        <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600 shadow-md">
-                          {m.name?.charAt(0).toUpperCase() ||
-                            m.user?.username?.charAt(0).toUpperCase() ||
-                            m.user?.email?.charAt(0).toUpperCase() ||
-                            "?"}
-                        </div>
-                      )}
-                      <span className="flex-1 text-gray-900 text-sm">
-                        {m.name || m.user?.username}
-                      </span>
-                      {updatingRoleId === m.id || isRefreshingMembers ? (
-                        <span className="inline-block w-4 h-4 border-2 border-gray-300 border-t-[#6a3b82] rounded-full animate-spin align-middle ml-2"></span>
-                      ) : null}
-                      {m.role?.toLowerCase() === "owner" ? (
-                        <div className="w-24 py-1 px-4 rounded-lg border border-[#BFA8D9] text-[#6a3b82] text-sm font-semibold flex items-center justify-center bg-white ml-2">
-                          Owner
-                        </div>
-                      ) : (
-                        <>
-                          <div
-                            className="relative w-28"
-                            id={`role-dropdown-${m.id}`}
-                          >
-                            <button
-                              id={`role-dropdown-btn-${m.id}`}
-                              type="button"
-                              className={`w-full flex items-center justify-between px-4 py-1 rounded-lg border transition-all duration-150 text-sm shadow-sm bg-white outline-none border-[#BFA8D9] hover:border-[#6a3b82] focus:border-[#BFA8D9]`}
-                              onClick={(e) => {
-                                if (roleDropdownOpen === m.id) {
-                                  setRoleDropdownOpen(null);
-                                  window.removeEventListener(
-                                    "scroll",
-                                    updateDropdownPosition,
-                                    true
-                                  );
-                                  if (membersScrollRef.current) {
-                                    membersScrollRef.current.removeEventListener(
-                                      "scroll",
-                                      updateDropdownPosition,
-                                      true
-                                    );
-                                  }
-                                } else {
-                                  const rect =
-                                    e.currentTarget.getBoundingClientRect();
-                                  setDropdownPos({
-                                    top: rect.bottom,
-                                    left: rect.left,
-                                    width: rect.width,
-                                  });
-                                  setRoleDropdownOpen(m.id);
-                                  setTimeout(() => {
-                                    window.addEventListener(
-                                      "scroll",
-                                      updateDropdownPosition,
-                                      true
-                                    );
-                                    document.addEventListener(
-                                      "scroll",
-                                      updateDropdownPosition,
-                                      true
-                                    );
-                                    if (membersScrollRef.current) {
-                                      membersScrollRef.current.addEventListener(
-                                        "scroll",
-                                        updateDropdownPosition,
-                                        true
-                                      );
-                                    }
-                                  }, 0);
-                                }
-                              }}
-                            >
-                              <span className="text-gray-900">
-                                {updatingRoleId === m.id ? (
-                                  <span className="inline-block w-4 h-4 border-2 border-gray-300 border-t-[#6a3b82] rounded-full animate-spin align-middle"></span>
-                                ) : (
-                                  m.role
-                                )}
-                              </span>
-                              <ChevronDown
-                                className={`ml-2 transition-transform ${
-                                  roleDropdownOpen === m.id ? "rotate-180" : ""
-                                } text-gray-400`}
-                                size={18}
-                              />
-                            </button>
-                          </div>
-                          <button
-                            className="w-24 py-1 px-4 rounded-lg border border-red-200 text-red-500 text-sm font-medium transition-all duration-150 bg-white hover:border-red-400 hover:bg-red-50 focus:outline-none focus:border-red-400 focus:bg-red-50 ml-2"
-                            aria-label={
-                              currentUser && m.user?._id === currentUser._id
-                                ? "Leave board"
-                                : "Remove member"
-                            }
-                            onClick={() =>
-                              handleRemoveMember(m.id, m.user?._id)
-                            }
-                          >
-                            {currentUser && m.user?._id === currentUser._id
-                              ? "Leave"
-                              : "Remove"}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          </div>
-          {roleDropdownOpen !== null &&
-            ReactDOM.createPortal(
-              <div
-                className="bg-white rounded-lg shadow-lg border border-[#E5D6F3] z-[9999] animate-fade-in"
-                style={{
-                  position: "fixed",
-                  top: dropdownPos.top,
-                  left: dropdownPos.left,
-                  width: dropdownPos.width,
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                {["admin", "member"].map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    className={`w-full text-left px-4 py-1 text-gray-900 hover:bg-[#F3EFFF] focus:bg-[#F3EFFF] transition-colors text-sm ${
-                      membersArray
-                        .find((mem) => mem.id === roleDropdownOpen)
-                        ?.role?.toLowerCase() === opt
-                        ? "font-semibold text-[#6a3b82]"
-                        : ""
-                    }`}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    disabled={updatingRoleId === roleDropdownOpen}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (updatingRoleId === roleDropdownOpen) return;
-                      const memberId = roleDropdownOpen;
-                      const newRole = opt;
-                      const member = membersArray.find(
-                        (mem) => mem.id === memberId
-                      );
-                      const userId = member?.user?._id;
-                      if (
-                        member?.role?.toLowerCase() === newRole.toLowerCase()
-                      ) {
-                        setRoleDropdownOpen(null);
-                        return;
-                      }
-                      setUpdatingRoleId(memberId);
-                      setMembers((prev) =>
-                        prev.map((mem) =>
-                          mem.id === memberId ? { ...mem, role: newRole } : mem
-                        )
-                      );
-                      fetch(
-                        `${BASE_URL}/api/v1/boards/user-boards/${boardId}`,
-                        {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            members: [{ userId: userId, role: newRole }],
-                          }),
-                          credentials: "include",
-                        }
-                      )
-                        .then(async (res) => {
-                          if (!res.ok) {
-                            let errorMsg = "Failed to update role";
-                            try {
-                              const data = await res.json();
-                              if (data && data.message) errorMsg = data.message;
-                            } catch {}
-                            throw new Error(errorMsg);
-                          }
-                          return res.json();
-                        })
-                        .then(() => {
-                          fetchMembers();
-                          setSuccessMessage(
-                            `Role updated to ${newRole} successfully`
-                          );
-                          setTimeout(() => setSuccessMessage(null), 4000);
-                        })
-                        .catch((err) => {
-                          console.error(err);
-                          setMembers((prev) =>
-                            prev.map((mem) =>
-                              mem.id === memberId
-                                ? { ...mem, role: member?.role }
-                                : mem
-                            )
-                          );
-                          setErrorMembers(
-                            err.message || "Failed to update role"
-                          );
-                          setShowErrorAlert(err.message || "Failed to update role");
-                          fetchMembers();
-                          setTimeout(() => setShowErrorAlert(null), 4000);
-                        })
-                        .finally(() => {
-                          setUpdatingRoleId(null);
-                          setRoleDropdownOpen(null);
-                          window.removeEventListener(
-                            "scroll",
-                            updateDropdownPosition,
-                            true
-                          );
-                          document.removeEventListener(
-                            "scroll",
-                            updateDropdownPosition,
-                            true
-                          );
-                          if (membersScrollRef.current) {
-                            membersScrollRef.current.removeEventListener(
-                              "scroll",
-                              updateDropdownPosition,
-                              true
-                            );
-                          }
-                        });
-                    }}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>,
-              document.body
-            )}
-        </div>
+        <MembersModal
+          open={showMembersModal}
+          onClose={() => setShowMembersModal(false)}
+          members={members}
+          setMembers={setMembers}
+          roleDropdownOpen={roleDropdownOpen}
+          setRoleDropdownOpen={setRoleDropdownOpen}
+          dropdownPos={dropdownPos}
+          setDropdownPos={setDropdownPos}
+          updateDropdownPosition={updateDropdownPosition}
+          membersScrollRef={membersScrollRef}
+          entityId={boardId}
+          entityType="board"
+          loadingMembers={loadingMembers}
+          errorMembers={errorMembers}
+          setLoadingMembers={setLoadingMembers}
+          setErrorMembers={setErrorMembers}
+        />
       )}
 
-      <div className="bg-white p-6 rounded-2xl shadow-sm mb-2 mt-7 transition-all duration-300">
+      <div className="bg-white p-4 rounded-xl shadow-sm mb-6 mt-7 transition-all duration-300">
         <div className="flex flex-col md:flex-row justify-between items-start">
           <div>
             {editingName ? (
@@ -646,7 +299,9 @@ const ProjectInfo = ({
                 ref={nameInputRef}
                 type="text"
                 value={form.name}
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, name: e.target.value }))
+                }
                 onBlur={handleNameBlur}
                 onKeyDown={handleNameKeyDown}
                 className="text-2xl font-semibold border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-[#6a3b82] focus:border-transparent"
@@ -739,17 +394,21 @@ const ProjectInfo = ({
               <textarea
                 ref={descriptionTextareaRef}
                 value={form.description}
-                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, description: e.target.value }))
+                }
                 onBlur={handleDescriptionBlur}
                 onKeyDown={handleDescriptionKeyDown}
-                className="w-[60%] text-sm text-gray-700 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#6a3b82] focus:border-transparent transition-all duration-200 bg-white shadow-sm resize-vertical"
+                className="w-[60%] text-md text-gray-700 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#6a3b82] focus:border-transparent transition-all duration-200 bg-white shadow-sm resize-vertical"
                 rows={2}
                 placeholder="Add a board description"
               />
             </div>
           ) : (
             <div className="flex items-center gap-2 flex-1">
-              <p className="text-gray-600 text-sm">{form.description || "No description available"}</p>
+              <p className="text-gray-600 text-md">
+                {form.description || "No description available"}
+              </p>
               <img
                 src={edit || "/placeholder.svg"}
                 alt="Edit"
