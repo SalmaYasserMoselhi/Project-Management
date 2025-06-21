@@ -244,96 +244,6 @@ exports.getConversations = catchAsync(async (req, res, next) => {
   });
 });
 
-// exports.createGroup = catchAsync(async (req, res, next) => {
-//   const { name, users } = req.body;
-
-//   // Handle group picture upload
-//   let groupPicture
-
-//   if (req.body.picture && typeof req.body.picture === 'string') {
-//     // If picture was uploaded and processed by resizeUserAvatar
-//     groupPicture = `/uploads/group/${req.body.picture}`;
-//   } else {
-//     // Use default group picture
-//     groupPicture = process.env.DEFAULT_GROUP_PICTURE || '/uploads/default-group.png';
-//   }
-
-//     // Debug log to check what's in req.body.picture
-//   console.log('req.body.picture:', req.body.picture);
-//   console.log('typeof req.body.picture:', typeof req.body.picture);
-
-//   // Add current user to users if not already included
-//   const currentUserId = req.user._id.toString();
-//   let usersList = Array.isArray(users) ? [...users] : [];
-
-//   // Ensure IDs are valid and convert to string for comparison
-//   const validUsers = usersList.filter((id) =>
-//     mongoose.Types.ObjectId.isValid(id)
-//   );
-
-//   // Check if current user is already in the list
-//   const currentUserIncluded = validUsers.some(
-//     (id) => id.toString() === currentUserId
-//   );
-
-//   if (!currentUserIncluded) {
-//     validUsers.push(req.user._id);
-//   }
-
-//   if (!name) {
-//     return next(new AppError('Please provide a name for the group', 400));
-//   }
-
-//   if (validUsers.length < 2) {
-//     return next(
-//       new AppError('At least 2 users are required to start a group', 400)
-//     );
-//   }
-
-//   // Create conversation data with admin explicitly set
-//   let convoData = {
-//     name,
-//     users: validUsers,
-//     isGroup: true,
-//     admin: req.user._id, // Explicitly set the current user as admin
-//     picture: groupPicture,
-//   };
-
-//   // Log the data being used to create the group
-//   console.log('Creating group with data:', {
-//     name: convoData.name,
-//     usersCount: convoData.users.length,
-//     admin: convoData.admin.toString(),
-//     isGroup: convoData.isGroup,
-//   });
-
-//   const newConvo = await createConversation(convoData);
-
-//   if (!newConvo) {
-//     return next(new AppError('Failed to create group conversation', 500));
-//   }
-
-//   // Verify admin was set
-//   if (!newConvo.admin) {
-//     newConvo.admin = req.user._id;
-//     await newConvo.save();
-//     console.log('Fixed missing admin in newly created group');
-//   }
-
-//   const populatedConvo = await populateConversation(
-//     newConvo._id,
-//     'users admin picture',
-//     '-password'
-//   );
-
-//   res.status(200).json({
-//     status: 'success',
-//     data: {
-//       conversation: populatedConvo,
-//     },
-//   });
-// });
-
 exports.createGroup = catchAsync(async (req, res, next) => {
   const { name, users } = req.body;
 
@@ -696,5 +606,117 @@ exports.leaveGroup = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     message: 'You have left the group successfully',
+  });
+});
+
+/**
+ * Delete a specific chat/conversation
+ * Any participant can delete the conversation
+ */
+exports.deleteConversation = catchAsync(async (req, res, next) => {
+  const conversationId = req.params.id;
+
+  // Check if user is authenticated
+  if (!req.user || !req.user._id) {
+    return next(
+      new AppError('You must be logged in to delete conversations', 401)
+    );
+  }
+
+  const userId = req.user._id;
+
+  // Validate required field
+  if (!conversationId) {
+    return next(new AppError('Please provide conversation ID', 400));
+  }
+
+  // Find the conversation
+  const conversation = await Conversation.findById(conversationId);
+
+  if (!conversation) {
+    return next(new AppError('Conversation not found', 404));
+  }
+
+  // Check if user is part of this conversation
+  const isUserInConversation = conversation.users.some(
+    (user) => user.toString() === userId.toString()
+  );
+
+  if (!isUserInConversation) {
+    return next(new AppError('You are not part of this conversation', 403));
+  }
+
+  // Delete the conversation
+  await Conversation.findByIdAndDelete(conversationId);
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Conversation deleted successfully',
+  });
+});
+
+/**
+ * Delete a specific group
+ * Only group admin can delete
+ */
+exports.deleteGroup = catchAsync(async (req, res, next) => {
+  const conversationId = req.params.id;
+
+  // Check if user is authenticated
+  if (!req.user || !req.user._id) {
+    return next(new AppError('You must be logged in to delete groups', 401));
+  }
+
+  const userId = req.user._id;
+
+  // Validate required field
+  if (!conversationId) {
+    return next(new AppError('Please provide conversation ID', 400));
+  }
+
+  // Find the conversation
+  const conversation = await Conversation.findById(conversationId);
+
+  if (!conversation) {
+    return next(new AppError('Conversation not found', 404));
+  }
+
+  // Check if it's a group
+  if (!conversation.isGroup) {
+    return next(new AppError('This is not a group conversation', 400));
+  }
+
+  // Check if user is the admin
+  if (conversation.admin.toString() !== userId.toString()) {
+    return next(new AppError('Only group admin can delete the group', 403));
+  }
+
+  // Delete group picture file if it exists
+  if (
+    conversation.picture &&
+    conversation.picture.startsWith('/uploads/group/')
+  ) {
+    const picturePath = path.join(
+      process.cwd(),
+      'Uploads',
+      'group',
+      path.basename(conversation.picture)
+    );
+
+    if (fs.existsSync(picturePath)) {
+      try {
+        fs.unlinkSync(picturePath);
+      } catch (error) {
+        console.error('Error deleting group picture:', error);
+      }
+    }
+  }
+
+  // Delete the group
+  await Conversation.findByIdAndDelete(conversationId);
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Group deleted successfully',
   });
 });
