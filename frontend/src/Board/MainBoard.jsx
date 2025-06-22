@@ -13,6 +13,7 @@ const MainBoard = () => {
   const [restoredLists, setRestoredLists] = useState([]);
   const [boardName, setBoardName] = useState("");
   const [boardDescription, setBoardDescription] = useState("");
+  const [boardCreatedAt, setBoardCreatedAt] = useState(null);
 
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef(null);
@@ -49,6 +50,7 @@ const MainBoard = () => {
         if (data.status === "success") {
           setBoardName(data.data.board.name);
           setBoardDescription(data.data.board.description || "");
+          setBoardCreatedAt(data.data.board.createdAt);
         }
       } catch (error) {
         console.error("Error fetching board data:", error);
@@ -124,11 +126,9 @@ const MainBoard = () => {
 
   return (
     <div className="min-h-screen flex bg-[#f5f5f5] overflow-hidden relative -mt-8">
-     
       {/* Main Content */}
       <div className="flex-1 h-screen overflow-y-auto overflow-x-hidden p-3 transition-all duration-300 w-[1115px]">
-
-{/*       
+        {/*       
          <div className="w-full flex justify-end items-center px-2 py-1 rounded-md -mb-5 relative">
          
           <button
@@ -148,7 +148,7 @@ const MainBoard = () => {
           </button>
 
           {/* Notification Popup */}
-          {/* {showNotifications && (
+        {/* {showNotifications && (
             <NotificationPopup
               ref={notificationRef}
               notifications={notifications}
@@ -171,6 +171,7 @@ const MainBoard = () => {
           boardName={boardName}
           boardDescription={boardDescription}
           boardId={boardId}
+          boardCreatedAt={boardCreatedAt}
         />
         <Board
           isSidebarOpen={isSidebarOpen}
@@ -184,5 +185,3 @@ const MainBoard = () => {
 };
 
 export default MainBoard;
-
-

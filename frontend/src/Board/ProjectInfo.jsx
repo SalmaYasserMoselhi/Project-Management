@@ -16,6 +16,7 @@ const ProjectInfo = ({
   boardDescription,
   boardId,
   onListRestored,
+  boardCreatedAt,
 }) => {
   const BASE_URL = "http://localhost:3000";
   const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
@@ -49,7 +50,7 @@ const ProjectInfo = ({
 
   // Dynamic date formatting
   const formatDate = () => {
-    const date = new Date();
+    const date = boardCreatedAt ? new Date(boardCreatedAt) : new Date();
     const day = date.getDate();
     const month = date.toLocaleString("default", { month: "long" });
     return `${day} ${month}`;

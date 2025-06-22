@@ -60,6 +60,7 @@ const formatBoardResponse = (board, userId) => ({
   description: board.description,
   workspace: board.workspace,
   createdBy: board.createdBy,
+  createdAt: board.createdAt,
   memberCount: board.members ? board.members.length : 0,
   lastActivity: board.updatedAt,
   starred:
