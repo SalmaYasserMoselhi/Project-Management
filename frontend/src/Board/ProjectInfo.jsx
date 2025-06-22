@@ -16,6 +16,7 @@ const ProjectInfo = ({
   boardDescription,
   boardId,
   onListRestored,
+  onCardRestored,
   boardCreatedAt,
 }) => {
   const BASE_URL = "http://localhost:3000";
@@ -478,6 +479,7 @@ const ProjectInfo = ({
             onClose={() => setShowArchivedPopup(false)}
             boardId={boardId}
             onListRestored={handleListRestored}
+            onCardRestored={onCardRestored}
           />
         )}
         {showSettingsPopup && (

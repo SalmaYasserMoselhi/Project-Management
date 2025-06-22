@@ -11,6 +11,7 @@ const MainBoard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const { workspaceId, boardId } = useParams();
   const [restoredLists, setRestoredLists] = useState([]);
+  const [restoredCard, setRestoredCard] = useState(null);
   const [boardName, setBoardName] = useState("");
   const [boardDescription, setBoardDescription] = useState("");
   const [boardCreatedAt, setBoardCreatedAt] = useState(null);
@@ -29,6 +30,10 @@ const MainBoard = () => {
 
   const handleListRestored = (restoredList) => {
     setRestoredLists((prev) => [...prev, restoredList]);
+  };
+
+  const handleCardRestored = (card) => {
+    setRestoredCard(card);
   };
 
   // Fetch board info
@@ -171,6 +176,8 @@ const MainBoard = () => {
           boardName={boardName}
           boardDescription={boardDescription}
           boardId={boardId}
+          onListRestored={handleListRestored}
+          onCardRestored={handleCardRestored}
           boardCreatedAt={boardCreatedAt}
         />
         <Board
@@ -178,6 +185,7 @@ const MainBoard = () => {
           workspaceId={workspaceId}
           boardId={boardId}
           restoredLists={restoredLists}
+          restoredCard={restoredCard}
         />
       </div>
     </div>

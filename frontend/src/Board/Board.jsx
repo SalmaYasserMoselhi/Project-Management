@@ -1,6 +1,3 @@
-
-// Board
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -277,7 +274,7 @@ const BoardLoadingSkeleton = () => (
   </div>
 );
 
-const Board = ({ workspaceId, boardId, restoredLists }) => {
+const Board = ({ workspaceId, boardId, restoredLists, restoredCard }) => {
   const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
   const dispatch = useDispatch();
   const BASE_URL = "http://localhost:3000";
@@ -359,6 +356,12 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
       setColumns((prev) => [...prev, ...restoredLists]);
     }
   }, [restoredLists]);
+
+  useEffect(() => {
+    if (restoredCard) {
+      onCardRestored(restoredCard);
+    }
+  }, [restoredCard]);
 
   useEffect(() => {
     const fetchLists = async () => {
@@ -447,14 +450,20 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
           const updatedLists = prevLists.filter(
             (list) => (list._id || list.id) !== listId
           );
-          console.log(`[Board.jsx] Updated lists after archiving:`, updatedLists);
+          console.log(
+            `[Board.jsx] Updated lists after archiving:`,
+            updatedLists
+          );
           return updatedLists;
         });
         setColumns((prevColumns) => {
           const updatedColumns = prevColumns.filter(
             (col) => (col._id || col.id) !== listId
           );
-          console.log(`[Board.jsx] Updated columns after archiving:`, updatedColumns);
+          console.log(
+            `[Board.jsx] Updated columns after archiving:`,
+            updatedColumns
+          );
           return updatedColumns;
         });
         toast.success("List archived successfully");
@@ -463,13 +472,20 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
           `[Board.jsx] Unexpected response status ${res.status} for list ${listId}`,
           res.data
         );
-        toast.error(`Unexpected response (status ${res.status}) when archiving list`);
+        toast.error(
+          `Unexpected response (status ${res.status}) when archiving list`
+        );
       }
     } catch (err) {
-      console.error(`[Board.jsx] Error archiving list ${listId}:`, err.response || err);
+      console.error(
+        `[Board.jsx] Error archiving list ${listId}:`,
+        err.response || err
+      );
       // Handle "already archived" case
       if (err.response?.data?.message?.includes("already archived")) {
-        console.log(`[Board.jsx] List ${listId} is already archived, removing from UI`);
+        console.log(
+          `[Board.jsx] List ${listId} is already archived, removing from UI`
+        );
         setLists((prevLists) =>
           prevLists.filter((list) => (list._id || list.id) !== listId)
         );
@@ -478,7 +494,11 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
         );
         toast.warning("List is already archived");
       } else {
-        toast.error(`Failed to archive list: ${err.response?.data?.message || err.message}`);
+        toast.error(
+          `Failed to archive list: ${
+            err.response?.data?.message || err.message
+          }`
+        );
       }
     } finally {
       setLoading(false);
@@ -514,27 +534,37 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
 
   const onCardRestored = (restoredCard) => {
     console.log("[Board.jsx] Card restored:", restoredCard);
-    const listId = restoredCard.list?._id || restoredCard.listId;
+    const listId = restoredCard.list?._id || restoredCard.list;
     if (!listId) {
       console.error("[Board.jsx] Restored card has no listId:", restoredCard);
       return;
     }
+
     setColumns((prevColumns) => {
-      const updatedColumns = prevColumns.map((col) => {
+      const newColumns = prevColumns.map((col) => {
         if ((col.id || col._id) === listId) {
-          const updatedCards = [...(col.cards || []), restoredCard];
-          return { ...col, cards: updatedCards };
+          // Add card if it doesn't exist
+          const cardExists = (col.cards || []).some(
+            (c) => (c._id || c.id) === (restoredCard._id || restoredCard.id)
+          );
+          if (!cardExists) {
+            const newCards = [...(col.cards || []), restoredCard];
+            // Sort cards by position
+            newCards.sort((a, b) => a.position - b.position);
+            return { ...col, cards: newCards };
+          }
         }
         return col;
       });
-      console.log("[Board.jsx] Updated columns after card restoration:", updatedColumns);
-      return updatedColumns;
+      return newColumns;
     });
 
+    // Dispatch an event to notify the specific column to refresh.
     const event = new CustomEvent("refreshList", {
-      detail: { listId, sortBy: selectedSort, cards: [restoredCard] },
+      detail: { listId: listId },
     });
     window.dispatchEvent(event);
+
     toast.success("Card restored successfully");
   };
 
@@ -546,8 +576,14 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
       return updatedLists;
     });
     setColumns((prevColumns) => {
-      const updatedColumns = [...prevColumns, { ...restoredList, cards: restoredList.cards || [] }];
-      console.log("[Board.jsx] Updated columns after restoration:", updatedColumns);
+      const updatedColumns = [
+        ...prevColumns,
+        { ...restoredList, cards: restoredList.cards || [] },
+      ];
+      console.log(
+        "[Board.jsx] Updated columns after restoration:",
+        updatedColumns
+      );
       return updatedColumns;
     });
     toast.success("List restored successfully");
@@ -891,7 +927,10 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
       return updatedLists;
     });
     setColumns((prevColumns) => {
-      const updatedColumns = [...prevColumns, { ...newList, cards: newList.cards || [] }];
+      const updatedColumns = [
+        ...prevColumns,
+        { ...newList, cards: newList.cards || [] },
+      ];
       console.log(`[Board.jsx] Updated columns after adding:`, updatedColumns);
       return updatedColumns;
     });
@@ -1416,10 +1455,7 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
                 </div>
               ))}
 
-              <AddListButton
-                boardId={boardId}
-                onListAdded={onListAdded}
-              />
+              <AddListButton boardId={boardId} onListAdded={onListAdded} />
             </div>
           </div>
         )}
@@ -1433,4 +1469,3 @@ const Board = ({ workspaceId, boardId, restoredLists }) => {
 };
 
 export default Board;
-

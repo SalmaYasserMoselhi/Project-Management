@@ -1711,12 +1711,7 @@ exports.restoreCard = catchAsync(async (req, res, next) => {
     );
   }
 
-  // Get all cards in the list to send back updated positions
-  const allCards = await Card.find({
-    list: card.list,
-    archived: false,
-  })
-    .sort('position')
+  const populatedCard = await Card.findById(card._id)
     .populate('members.user', 'username email avatar')
     .populate('createdBy', 'username email avatar')
     .populate('labels');
@@ -1724,14 +1719,7 @@ exports.restoreCard = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     message: 'Card restored successfully',
-    data: {
-      card,
-      allCards,
-      list: {
-        id: list._id,
-        cardCount: allCards.length,
-      },
-    },
+    data: populatedCard,
   });
 });
 
