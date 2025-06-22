@@ -1,12 +1,9 @@
-
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import CalendarBlank from "../assets/CalendarBlank.png";
-import edit from "../assets/edit.png";
-import share from "../assets/share.png";
 import { useSelector } from "react-redux";
-import { Settings } from "lucide-react";
+import { Settings, Edit, MoreHorizontal, Calendar } from "lucide-react";
 import ArchivedPopup from "./ArchivedPopup";
 import SettingsPopup from "./SettingsPopup";
 import axios from "axios";
@@ -139,7 +136,10 @@ const ProjectInfo = ({
       nameInputRef.current.focus();
     }
     if (editingDescription && descriptionTextareaRef.current) {
-      descriptionTextareaRef.current.focus();
+      const textarea = descriptionTextareaRef.current;
+      textarea.focus();
+      // Move cursor to the end of the text
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
     }
   }, [editingName, editingDescription]);
 
@@ -316,26 +316,21 @@ const ProjectInfo = ({
                 }
                 onBlur={handleNameBlur}
                 onKeyDown={handleNameKeyDown}
-                className="text-2xl font-semibold border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-[#6a3b82] focus:border-transparent"
+                className="text-xl font-semibold border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-0.5 focus:ring-[#6a3b82]"
                 placeholder="Project Name"
               />
             ) : (
-              <h1 className="text-2xl font-semibold flex items-center gap-1">
+              <h1 className="text-2xl font-semibold flex items-center gap-2">
                 {form.name}
-                <img
-                  src={edit || "/placeholder.svg"}
-                  alt="Edit"
-                  className="w-4 h-4 cursor-pointer ms-2"
+                <Edit
+                  size={20}
+                  className="text-gray-400 hover:text-[#6a3b82]"
                   onClick={toggleEditName}
                 />
               </h1>
             )}
             <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
-              <img
-                src={CalendarBlank || "/placeholder.svg"}
-                alt="Calendar"
-                className="w-4 h-4"
-              />{" "}
+              <Calendar size={16} className="text-gray-400" />
               {formatDate()}
             </p>
           </div>
@@ -345,29 +340,23 @@ const ProjectInfo = ({
             ref={dropdownRef}
           >
             <div className="flex items-center gap-2 cursor-pointer">
-              <img
-                src={share || "/placeholder.svg"}
-                alt="Share"
-                className="w-8 h-8 rounded-full border-2 border-white"
-                onClick={() => setShowInvitePopup(true)}
-              />
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="24"
                 height="24"
-                viewBox="0 0 18 24"
-                onClick={() => setShowDropdown((prev) => !prev)}
-                className="cursor-pointer"
+                viewBox="0 0 16 16"
+                onClick={() => setShowInvitePopup(true)}
               >
                 <path
-                  fill="none"
-                  stroke="#4D2D61"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0-2 0m7 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0m7 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0"
+                  fill="#4D2D61"
+                  d="M7.5 2a.5.5 0 0 1 0 1h-3A1.5 1.5 0 0 0 3 4.5v7A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 1 1 0v2a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 11.5v-7A2.5 2.5 0 0 1 4.5 2zm3.28-.95a.5.5 0 0 1 .527.055l4.5 3.5a.5.5 0 0 1 0 .79l-4.5 3.5A.5.5 0 0 1 10.5 8.5V7.025c-2.232.23-3.624 1.973-4.396 3.399l-.157.3A.5.5 0 0 1 5 10.5c0-2.076.518-3.941 1.537-5.3c.938-1.25 2.286-2.047 3.963-2.179V1.5a.5.5 0 0 1 .28-.45m.72 2.45a.5.5 0 0 1-.5.5c-1.59 0-2.817.673-3.662 1.8c-.537.716-.928 1.626-1.144 2.68C7.222 7.198 8.775 6 11 6a.5.5 0 0 1 .5.5v.978L14.685 5L11.5 2.521z"
                 />
               </svg>
+              <MoreHorizontal
+                size={24}
+                className="text-[#4D2D61] cursor-pointer"
+                onClick={() => setShowDropdown((prev) => !prev)}
+              />
             </div>
 
             {showDropdown && (
@@ -400,9 +389,9 @@ const ProjectInfo = ({
           </div>
         </div>
 
-        <div className="flex justify-between items-center mt-4">
+        <div className="flex justify-between items-center mt-4 gap-2">
           {editingDescription ? (
-            <div className="flex items-center gap-2 mt-4 w-full">
+            <div className="flex items-center gap-2 flex-1">
               <textarea
                 ref={descriptionTextareaRef}
                 value={form.description}
@@ -411,7 +400,7 @@ const ProjectInfo = ({
                 }
                 onBlur={handleDescriptionBlur}
                 onKeyDown={handleDescriptionKeyDown}
-                className="w-[60%] text-md text-gray-700 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#6a3b82] focus:border-transparent transition-all duration-200 bg-white shadow-sm resize-vertical"
+                className="w-full text-md text-gray-700 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-0.5 focus:ring-[#6a3b82] transition-all duration-200 resize-vertical"
                 rows={2}
                 placeholder="Add a board description"
               />
@@ -421,10 +410,9 @@ const ProjectInfo = ({
               <p className="text-gray-600 text-md">
                 {form.description || "No description available"}
               </p>
-              <img
-                src={edit || "/placeholder.svg"}
-                alt="Edit"
-                className="w-4 h-4 cursor-pointer ml-2"
+              <Edit
+                size={16}
+                className="text-gray-400 hover:text-[#6a3b82]"
                 onClick={toggleEditDescription}
               />
             </div>
@@ -503,4 +491,3 @@ const ProjectInfo = ({
 };
 
 export default ProjectInfo;
-
