@@ -361,13 +361,13 @@ const ProjectInfo = ({
             </div>
 
             {showDropdown && (
-              <div className="absolute top-12 right-0 bg-white border rounded-md shadow-lg w-48 z-10 border-white">
+              <div className="absolute top-7 right-0 bg-white border border-gray-300 rounded-md shadow-md z-10 ">
                 <ul className="text-sm text-gray-700">
                   <li
                     onClick={handleArchivedClick}
-                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer whitespace-nowrap"
                   >
-                    Archived
+                    Archived Items
                   </li>
                   <li
                     onClick={() => {

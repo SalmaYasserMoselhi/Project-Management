@@ -343,7 +343,7 @@ const TaskCard = ({
               </svg>
 
               {isDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-300 rounded-lg shadow-md z-10">
+                <div className="absolute right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-md z-10">
                   <button
                     onClick={handleArchiveCard}
                     className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm text-gray-800"
