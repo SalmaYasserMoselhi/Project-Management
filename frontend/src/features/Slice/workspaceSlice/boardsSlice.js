@@ -6,7 +6,10 @@ const BASE_URL = "http://localhost:3000";
 // Async thunk for fetching boards
 export const fetchBoards = createAsyncThunk(
   "boards/fetchBoards",
-  async ({ workspaceId, activeTab, sortOption, searchTerm }, { rejectWithValue }) => {
+  async (
+    { workspaceId, activeTab, sortOption, searchTerm },
+    { rejectWithValue }
+  ) => {
     try {
       if (!workspaceId) {
         return rejectWithValue("Workspace not selected");
@@ -35,7 +38,7 @@ export const fetchBoards = createAsyncThunk(
       }
 
       const fullUrl = `${BASE_URL}${endpoint}?${queryParams.join("&")}`;
-      
+
       const response = await fetch(fullUrl, {
         method: "GET",
         headers: {
@@ -49,7 +52,7 @@ export const fetchBoards = createAsyncThunk(
       if (data?.status === "success") {
         return {
           boards: data.data?.boards || [],
-          totalBoards: data.data?.stats.total || 0
+          totalBoards: data.data?.stats.total || 0,
         };
       } else {
         return rejectWithValue(data?.message || "Failed to fetch boards");
@@ -86,10 +89,14 @@ export const toggleBoardStar = createAsyncThunk(
       if (data?.status === "success") {
         return { boardId, isStarred: !isStarred };
       } else {
-        return rejectWithValue(data?.message || "Failed to update board star status");
+        return rejectWithValue(
+          data?.message || "Failed to update board star status"
+        );
       }
     } catch (error) {
-      return rejectWithValue(error.message || "Failed to update board star status");
+      return rejectWithValue(
+        error.message || "Failed to update board star status"
+      );
     }
   }
 );
@@ -116,7 +123,7 @@ export const createBoard = createAsyncThunk(
         body: JSON.stringify({
           workspace: workspaceId,
           name: name.trim(),
-          description: (description || '').trim() || undefined,
+          description: (description || "").trim() || undefined,
         }),
       });
 
@@ -136,7 +143,66 @@ export const createBoard = createAsyncThunk(
         return rejectWithValue(data?.message || "Failed to create board");
       }
     } catch (error) {
-      return rejectWithValue(error.message || "Failed to create board. Please try again.");
+      return rejectWithValue(
+        error.message || "Failed to create board. Please try again."
+      );
+    }
+  }
+);
+
+// Async thunk for archiving/restoring a board
+export const archiveBoard = createAsyncThunk(
+  "boards/archiveBoard",
+  async ({ boardId, isArchiving }, { rejectWithValue }) => {
+    try {
+      const action = isArchiving ? "archive" : "restore";
+      const endpoint = `${BASE_URL}/api/v1/boards/user-boards/${boardId}/${action}`;
+
+      const response = await fetch(endpoint, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      const data = await response.json();
+
+      if (data.status === "success") {
+        toast.success(
+          `Board successfully ${isArchiving ? "archived" : "restored"}.`
+        );
+        return { boardId };
+      } else {
+        throw new Error(data.message || `Failed to ${action} board.`);
+      }
+    } catch (err) {
+      toast.error(err.message || "An error occurred. Please try again.");
+      return rejectWithValue(err.message);
+    }
+  }
+);
+
+// Async thunk for deleting a board
+export const deleteBoard = createAsyncThunk(
+  "boards/deleteBoard",
+  async (boardId, { rejectWithValue }) => {
+    try {
+      const endpoint = `${BASE_URL}/api/v1/boards/user-boards/${boardId}`;
+      const response = await fetch(endpoint, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      if (response.status === 204) {
+        toast.success("Board permanently deleted.");
+        return { boardId };
+      } else {
+        const data = await response.json();
+        throw new Error(data.message || "Failed to delete board.");
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to delete board.");
+      return rejectWithValue(err.message);
     }
   }
 );
@@ -153,6 +219,7 @@ const boardsSlice = createSlice({
     totalBoards: 0,
     isAddBoardOpen: false,
     isMenuOpen: false,
+    openBoardMenuId: null,
     // Add board form state
     boardName: "",
     boardDescription: "",
@@ -162,6 +229,10 @@ const boardsSlice = createSlice({
   reducers: {
     setActiveTab: (state, action) => {
       state.activeTab = action.payload;
+      state.boards = [];
+      state.totalBoards = 0;
+      state.loading = true;
+      state.error = null;
     },
     setSearchTerm: (state, action) => {
       state.searchTerm = action.payload;
@@ -175,6 +246,13 @@ const boardsSlice = createSlice({
     },
     closeMenu: (state) => {
       state.isMenuOpen = false;
+    },
+    toggleBoardMenu: (state, action) => {
+      state.openBoardMenuId =
+        state.openBoardMenuId === action.payload ? null : action.payload;
+    },
+    closeBoardMenu: (state) => {
+      state.openBoardMenuId = null;
     },
     openAddBoardPopup: (state) => {
       state.isAddBoardOpen = true;
@@ -198,6 +276,13 @@ const boardsSlice = createSlice({
     clearCreateBoardError: (state) => {
       state.createBoardError = null;
     },
+    resetWorkspacePopup: (state) => {
+      state.activeTab = "Active";
+      state.searchTerm = "";
+      state.sortOption = "-updatedAt";
+      state.isMenuOpen = false;
+      state.openBoardMenuId = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -205,6 +290,8 @@ const boardsSlice = createSlice({
       .addCase(fetchBoards.pending, (state) => {
         state.loading = true;
         state.error = null;
+        state.boards = [];
+        state.totalBoards = 0;
       })
       .addCase(fetchBoards.fulfilled, (state, action) => {
         state.boards = action.payload.boards;
@@ -219,7 +306,7 @@ const boardsSlice = createSlice({
       // Toggle board star
       .addCase(toggleBoardStar.fulfilled, (state, action) => {
         const { boardId, isStarred } = action.payload;
-        state.boards = state.boards.map((board) => 
+        state.boards = state.boards.map((board) =>
           board.id === boardId ? { ...board, starred: isStarred } : board
         );
       })
@@ -247,7 +334,7 @@ const boardsSlice = createSlice({
       .addCase(createBoard.rejected, (state, action) => {
         state.createBoardLoading = false;
         state.createBoardError = action.payload;
-        
+
         toast.error(action.payload || "Failed to create board", {
           duration: 4000,
           position: "top-right",
@@ -257,6 +344,22 @@ const boardsSlice = createSlice({
             border: "1px solid #DC2626",
           },
         });
+      })
+      // Archive or Restore Board
+      .addCase(archiveBoard.fulfilled, (state, action) => {
+        state.boards = state.boards.filter(
+          (board) => board.id !== action.payload.boardId
+        );
+        state.totalBoards = Math.max(0, state.totalBoards - 1);
+        state.openBoardMenuId = null;
+      })
+      // Delete Board
+      .addCase(deleteBoard.fulfilled, (state, action) => {
+        state.boards = state.boards.filter(
+          (board) => board.id !== action.payload.boardId
+        );
+        state.totalBoards = Math.max(0, state.totalBoards - 1);
+        state.openBoardMenuId = null;
       });
   },
 });
@@ -267,12 +370,15 @@ export const {
   setSortOption,
   toggleIsMenuOpen,
   closeMenu,
+  toggleBoardMenu,
+  closeBoardMenu,
   openAddBoardPopup,
   closeAddBoardPopup,
   setBoardName,
   setBoardDescription,
   clearBoardsError,
   clearCreateBoardError,
+  resetWorkspacePopup,
 } = boardsSlice.actions;
 
 export default boardsSlice.reducer;
