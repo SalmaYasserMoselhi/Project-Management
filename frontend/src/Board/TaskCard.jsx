@@ -1,4 +1,3 @@
-import addButton from "../assets/Add Button.png";
 import { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import CardDetails from "../Card/CardDetails";
@@ -72,7 +71,6 @@ const TaskCard = ({
   title,
   priority,
   fileCount = 0,
-  commentCount = 0,
   boardId,
   allLists,
   listId,
@@ -84,7 +82,6 @@ const TaskCard = ({
 }) => {
   const [isCardDetailsOpen, setIsCardDetailsOpen] = useState(false);
   const [actualFileCount, setActualFileCount] = useState(fileCount);
-  const [actualCommentCount, setActualCommentCount] = useState(commentCount);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [members, setMembers] = useState(initialMembers);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
@@ -96,34 +93,6 @@ const TaskCard = ({
 
   useEffect(() => {
     if (id && !id.startsWith("temp-")) {
-      const fetchCardCounts = async () => {
-        try {
-          // Fetch attachments
-          const attachmentsResponse = await axios.get(
-            `${BASE_URL}/api/v1/cards/${id}`
-          );
-          if (attachmentsResponse.data?.data?.attachments) {
-            setActualFileCount(
-              attachmentsResponse.data.data.attachments.length
-            );
-          }
-
-          // Fetch comments
-          const commentsResponse = await axios.get(
-            `${BASE_URL}/api/v1/cards/${id}/comments`
-          );
-          if (commentsResponse.data?.data?.comments) {
-            const totalComments = commentsResponse.data.data.comments.reduce(
-              (acc, comment) => acc + 1 + (comment.replies?.length || 0),
-              0
-            );
-            setActualCommentCount(totalComments);
-          }
-        } catch (err) {
-          console.error("Error fetching card counts:", err);
-        }
-      };
-
       const fetchMembers = async () => {
         // Check cache first
         if (membersCache.has(id)) {
@@ -173,15 +142,12 @@ const TaskCard = ({
         }
       };
 
-      fetchCardCounts();
       fetchMembers();
     } else {
-      setActualFileCount(fileCount);
-      setActualCommentCount(commentCount);
       setMembers(initialMembers);
       setIsLoadingMembers(false);
     }
-  }, [id, fileCount, commentCount, initialMembers]);
+  }, [id, initialMembers]);
 
   useEffect(() => {
     if (scrollToMe && containerRef && containerRef.current) {
@@ -450,9 +416,6 @@ const TaskCard = ({
                     d="M13.17 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8.83c0-.53-.21-1.04-.59-1.41l-4.83-4.83c-.37-.38-.88-.59-1.41-.59M16 15c0 2.34-2.01 4.21-4.39 3.98C9.53 18.78 8 16.92 8 14.83V9.64c0-1.31.94-2.5 2.24-2.63A2.5 2.5 0 0 1 13 9.5V14c0 .55-.45 1-1 1s-1-.45-1-1V9.5c0-.28-.22-.5-.5-.5s-.5.22-.5.5v5.39c0 1 .68 1.92 1.66 2.08A2 2 0 0 0 14 15v-3c0-.55.45-1 1-1s1 .45 1 1zm-2-8V4l4 4h-3c-.55 0-1-.45-1-1"
                   />
                 </svg>
-                <span className="text-sm text-[#98A2B2] font-bold mt-1">
-                  {actualFileCount}
-                </span>
               </div>
               <div className="flex items-center gap-1">
                 <svg
@@ -466,9 +429,6 @@ const TaskCard = ({
                     d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2m-3 12H7c-.55 0-1-.45-1-1s.45-1 1-1h10c.55 0 1 .45 1 1s-.45 1-1 1m0-3H7c-.55 0-1-.45-1-1s.45-1 1-1h10c.55 0 1 .45 1 1s-.45 1-1 1m0-3H7c-.55 0-1-.45-1-1s.45-1 1-1h10c.55 0 1 .45 1 1s-.45 1-1 1"
                   />
                 </svg>
-                <span className="text-sm text-[#98A2B2] font-bold mt-1">
-                  {actualCommentCount}
-                </span>
               </div>
             </div>
           </div>

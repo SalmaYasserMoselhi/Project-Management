@@ -454,7 +454,6 @@ const Column = ({
                   title={card.title}
                   priority={card.priority || "Medium"}
                   fileCount={card.attachments?.length || 0}
-                  commentCount={card.commentCount || 0}
                   listId={id}
                   boardId={boardId}
                   allLists={allLists}
