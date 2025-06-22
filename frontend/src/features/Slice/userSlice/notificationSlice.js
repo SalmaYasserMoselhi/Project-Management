@@ -1,4 +1,6 @@
 
+
+
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
 // Async thunk for fetching notifications with pagination
@@ -77,43 +79,6 @@ export const markAllNotificationsAsRead = createAsyncThunk(
       return true;
     } catch (error) {
       console.error("Error marking notifications as read:", error);
-      if (
-        error.message.includes("logged in") ||
-        error.message.includes("Unauthorized") ||
-        error.message.includes("jwt")
-      ) {
-        window.location.href = "/login";
-      }
-      return rejectWithValue(error.message);
-    }
-  }
-);
-
-// Async thunk for marking a single notification as read
-export const markNotificationAsRead = createAsyncThunk(
-  "notification/markAsRead",
-  async (notificationId, { rejectWithValue }) => {
-    try {
-      const response = await fetch(`/api/v1/notifications/${notificationId}/mark-read`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          window.location.href = "/login";
-          return rejectWithValue("Unauthorized");
-        }
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to mark notification as read");
-      }
-
-      return notificationId;
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
       if (
         error.message.includes("logged in") ||
         error.message.includes("Unauthorized") ||
@@ -230,16 +195,6 @@ const notificationSlice = createSlice({
       .addCase(markAllNotificationsAsRead.rejected, (state, action) => {
         state.error = action.payload;
       })
-      // Mark Single Notification As Read
-      .addCase(markNotificationAsRead.fulfilled, (state, action) => {
-        state.notifications = state.notifications.map((notif) =>
-          notif._id === action.payload ? { ...notif, isRead: true } : notif
-        );
-        state.unreadCount = state.notifications.filter((notif) => !notif.isRead).length;
-      })
-      .addCase(markNotificationAsRead.rejected, (state, action) => {
-        state.error = action.payload;
-      })
       // Delete Notification
       .addCase(deleteNotification.fulfilled, (state, action) => {
         state.notifications = state.notifications.filter(
@@ -267,4 +222,7 @@ export const selectCurrentPage = (state) => state.notification.page;
 export const selectLimit = (state) => state.notification.limit;
 
 export default notificationSlice.reducer;
+
+
+
 

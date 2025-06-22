@@ -1,11 +1,12 @@
 
 
+
 import { forwardRef } from "react";
 import { CheckCircle, X } from "lucide-react";
 import notify from "../assets/NotificationImage.png";
 
 const NotificationPopup = forwardRef(
-  ({ notifications, loading, unreadCount, onMarkAllAsRead, onDeleteNotification, onMarkAsRead, onPaginate, isPaginateDisabled, onPage, onTotal, onLimit }, ref) => {
+  ({ notifications, loading, unreadCount, onMarkAllAsRead, onDeleteNotification, onPaginate, isPaginateDisabled, onPage, onTotal, onLimit }, ref) => {
     // Fallback for isPaginateDisabled if not a function
     const isDisabled = (direction) => {
       if (typeof isPaginateDisabled === "function") {
@@ -25,13 +26,18 @@ const NotificationPopup = forwardRef(
           <h2 className="text-sm font-semibold text-black">
             All Notifications {unreadCount > 0 && `(${unreadCount} unread)`}
           </h2>
-          <button
-            onClick={onMarkAllAsRead}
-            className="text-sm text-gray-500 hover:underline disabled:text-gray-300"
-            disabled={unreadCount === 0}
-          >
-            Mark all as read
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={onMarkAllAsRead}
+              className="text-sm text-gray-500 hover:underline disabled:text-gray-300"
+              disabled={unreadCount === 0}
+            >
+              Mark all as read
+            </button>
+            {unreadCount === 0 && notifications.length > 0 && (
+              <CheckCircle size={16} className="text-green-500" />
+            )}
+          </div>
         </div>
 
         {/* Body */}
@@ -57,30 +63,22 @@ const NotificationPopup = forwardRef(
               {notifications.map((notif) => (
                 <li
                   key={notif._id}
-                  onClick={() => !notif.isRead && onMarkAsRead(notif._id)}
-                  className={`px-5 py-3 text-sm text-gray-700 mb-2 mt-1 rounded-lg shadow-sm hover:bg-gray-50 transition-colors duration-200 cursor-pointer ${
-                    notif.isRead ? "bg-gray-100" : "bg-white"
-                  }`}
+                  className="px-5 py-3 text-sm text-gray-700 mb-2 mt-1 rounded-lg shadow-sm hover:bg-gray-50 transition-colors duration-200"
                 >
                   <div className="flex justify-between items-start">
-                    <div className="flex items-start space-x-2">
-                      {notif.isRead && (
-                        <CheckCircle size={16} className="text-green-500 mt-1" />
-                      )}
-                      <div>
-                        <div className="text-gray-900">{notif.message}</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {new Date(notif.createdAt).toLocaleString("en-US", {
-                            weekday: "long",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }).replace(" at ", " at ") || "Monday at 07:00"}
-                        </div>
+                    <div>
+                      <div className="text-gray-900">{notif.message}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {new Date(notif.createdAt).toLocaleString("en-US", {
+                          weekday: "long",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }).replace(" at ", " at ") || "Monday at 07:00"}
                       </div>
                     </div>
                     <button
                       onClick={(e) => {
-                        e.stopPropagation(); // Prevent marking as read when clicking delete
+                        e.stopPropagation();
                         onDeleteNotification(notif._id);
                       }}
                       className="text-gray-500 hover:text-red-500"

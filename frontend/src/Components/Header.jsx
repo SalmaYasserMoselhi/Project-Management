@@ -1,7 +1,6 @@
 
 
 
-
 "use client";
 
 import { Menu } from "lucide-react";
@@ -17,7 +16,6 @@ import {
   togglePopup,
   fetchNotifications,
   markAllNotificationsAsRead,
-  markNotificationAsRead,
   deleteNotification,
   selectNotifications,
   selectNotificationLoading,
@@ -52,12 +50,13 @@ const Header = () => {
     ? "bg-[#f5f5f5]"
     : "bg-white";
 
-  // Fetch notifications on mount or when popup is opened
+  // Fetch notifications only when necessary
   useEffect(() => {
-    if (notifications.length === 0 || showPopup) {
+    // Fetch if no notifications or if explicitly needed (e.g., page change)
+    if (notifications.length === 0) {
       dispatch(fetchNotifications({ page: currentPage, limit }));
     }
-  }, [dispatch, notifications.length, showPopup, currentPage, limit]);
+  }, [dispatch, notifications.length, currentPage, limit]);
 
   // Handle click outside to close popup
   useEffect(() => {
@@ -88,16 +87,15 @@ const Header = () => {
   // Toggle notification popup
   const handleBellClick = () => {
     dispatch(togglePopup());
+    // Fetch notifications only if none exist
+    if (notifications.length === 0) {
+      dispatch(fetchNotifications({ page: currentPage, limit }));
+    }
   };
 
   // Mark all notifications as read
   const handleMarkAllAsRead = () => {
     dispatch(markAllNotificationsAsRead());
-  };
-
-  // Mark a single notification as read
-  const handleMarkAsRead = (notificationId) => {
-    dispatch(markNotificationAsRead(notificationId));
   };
 
   // Delete a notification
@@ -202,7 +200,6 @@ const Header = () => {
             unreadCount={unreadCount}
             onMarkAllAsRead={handleMarkAllAsRead}
             onDeleteNotification={handleDeleteNotification}
-            onMarkAsRead={handleMarkAsRead}
             onPaginate={handlePaginate}
             isPaginateDisabled={isPaginateDisabled}
             onPage={currentPage}
@@ -219,3 +216,4 @@ const Header = () => {
 };
 
 export default Header;
+
