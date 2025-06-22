@@ -426,142 +426,384 @@ exports.reorderList = catchAsync(async (req, res, next) => {
 });
 
 // Enhanced archive list function
-exports.archiveList = catchAsync(
-  // Main function
-  async (req, res, next) => {
-    const { id } = req.params;
+// exports.archiveList = catchAsync(
+//   // Main function
+//   async (req, res, next) => {
+//     const { id } = req.params;
 
-    // Get list with its board and verify access
-    const { list, board } = await getListWithBoard(id, req.user._id);
+//     // Get list with its board and verify access
+//     const { list, board } = await getListWithBoard(id, req.user._id);
 
-    // Check permission to archive lists
-    permissionService.verifyPermission(board, req.user._id, 'archive_lists');
+//     // Check permission to archive lists
+//     permissionService.verifyPermission(board, req.user._id, 'archive_lists');
 
-    // Check if list is already archived
-    if (list.archived) {
-      return next(new AppError('List is already archived', 400));
-    }
+//     // Check if list is already archived
+//     if (list.archived) {
+//       return next(new AppError('List is already archived', 400));
+//     }
 
-    // Check if the list has cards
-    const cardCount = await Card.countDocuments({
-      list: list._id,
-      archived: false,
-    });
+//     // Check if the list has cards
+//     const cardCount = await Card.countDocuments({
+//       list: list._id,
+//       archived: false,
+//     });
 
-    // If force parameter is not provided and list has cards, require confirmation
-    if (cardCount > 0 && req.query.force !== 'true') {
-      return res.status(200).json({
-        status: 'warning',
-        message: `This list contains ${cardCount} cards that will also be archived. Confirm to proceed.`,
-        data: {
-          requireConfirmation: true,
-          cardCount,
-          listId: list._id,
-        },
-      });
-    }
+//     // If force parameter is not provided and list has cards, require confirmation
+//     if (cardCount > 0 && req.query.force !== 'true') {
+//       return res.status(200).json({
+//         status: 'warning',
+//         message: `This list contains ${cardCount} cards that will also be archived. Confirm to proceed.`,
+//         data: {
+//           requireConfirmation: true,
+//           cardCount,
+//           listId: list._id,
+//         },
+//       });
+//     }
 
-    // Store original state for potential restoration
-    req.archiveOperation = {
-      listId: list._id,
-      originalState: {
-        archived: list.archived,
-        archivedAt: list.archivedAt,
-        archivedBy: list.archivedBy,
-        position: list.position,
-        originalPosition: list.originalPosition,
-      },
-      cardIds: [], // Will store IDs of archived cards
-    };
+//     // Store original state for potential restoration
+//     req.archiveOperation = {
+//       listId: list._id,
+//       originalState: {
+//         archived: list.archived,
+//         archivedAt: list.archivedAt,
+//         archivedBy: list.archivedBy,
+//         position: list.position,
+//         originalPosition: list.originalPosition,
+//       },
+//       cardIds: [], // Will store IDs of archived cards
+//     };
 
-    // Get current position before archiving
-    const currentPosition = list.position;
+//     // Get current position before archiving
+//     const currentPosition = list.position;
 
-    // Find all cards in the list that aren't already archived
-    const cards = await Card.find({ list: list._id, archived: false });
+//     // Find all cards in the list that aren't already archived
+//     const cards = await Card.find({ list: list._id, archived: false });
 
-    // Archive the list
-    await list.archive(req.user._id);
+//     // Archive the list
+//     await list.archive(req.user._id);
 
-    // Archive all cards in the list
-    for (const card of cards) {
-      await card.archive(req.user._id);
+//     // Archive all cards in the list
+//     for (const card of cards) {
+//       await card.archive(req.user._id);
 
-      // Log card archive activity
-      await activityService.logCardActivity(
-        board,
-        req.user._id,
-        'card_archived',
-        card._id,
-        {
-          title: card.title,
-          listId: list._id,
-          position: card.position,
-          listArchive: true, // Indicate this was part of a list archive
-        }
-      );
-    }
+//       // Log card archive activity
+//       await activityService.logCardActivity(
+//         board,
+//         req.user._id,
+//         'card_archived',
+//         card._id,
+//         {
+//           title: card.title,
+//           listId: list._id,
+//           position: card.position,
+//           listArchive: true, // Indicate this was part of a list archive
+//         }
+//       );
+//     }
 
-    // Log the list activity
-    await activityService.logListActivity(
-      board,
-      req.user._id,
-      'list_archived',
-      list._id,
-      {
-        name: list.name,
-        position: currentPosition,
-        cardCount: cards.length,
-      }
-    );
+//     // Log the list activity
+//     await activityService.logListActivity(
+//       board,
+//       req.user._id,
+//       'list_archived',
+//       list._id,
+//       {
+//         name: list.name,
+//         position: currentPosition,
+//         cardCount: cards.length,
+//       }
+//     );
 
-    // Update positions of remaining lists
-    await List.updateMany(
-      {
-        board: list.board,
-        archived: false,
-        position: { $gt: currentPosition },
-      },
-      { $inc: { position: -1 } }
-    );
+//     // Update positions of remaining lists
+//     await List.updateMany(
+//       {
+//         board: list.board,
+//         archived: false,
+//         position: { $gt: currentPosition },
+//       },
+//       { $inc: { position: -1 } }
+//     );
 
-    // Get all remaining lists to send back updated positions
-    const remainingLists = await List.find({
-      board: list.board,
-      archived: false,
-    }).sort('position');
+//     // Get all remaining lists to send back updated positions
+//     const remainingLists = await List.find({
+//       board: list.board,
+//       archived: false,
+//     }).sort('position');
 
-    // Send notification to board members
-  const recipients = board.members
-  .filter(member => member.user._id.toString() !== req.user._id.toString());
+//     // Send notification to board members
+//   const recipients = board.members
+//   .filter(member => member.user._id.toString() !== req.user._id.toString());
 
-for (const recipient of recipients) {
-  await notificationService.createNotification(
-    req.app.io,
-    recipient.user._id,
-    req.user._id,
-    'list_archived',
-    'list',
-    list._id,
-    {
-      listName: list.name,
-      boardName: board.name
-    }
-  );
-}
-    res.status(200).json({
-      status: 'success',
-      message: 'List archived successfully',
+// for (const recipient of recipients) {
+//   await notificationService.createNotification(
+//     req.app.io,
+//     recipient.user._id,
+//     req.user._id,
+//     'list_archived',
+//     'list',
+//     list._id,
+//     {
+//       listName: list.name,
+//       boardName: board.name
+//     }
+//   );
+// }
+//     res.status(200).json({
+//       status: 'success',
+//       message: 'List archived successfully',
+//       data: {
+//         list,
+//         lists: remainingLists,
+//         // archivedCardCount: cards.length,
+//       },
+//     });
+//   }
+// );
+
+
+// Enhanced archive list function with better card handling
+exports.archiveList = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const { force = false } = req.query;
+
+  // Get list with its board and verify access
+  const { list, board } = await getListWithBoard(id, req.user._id);
+
+  // Check permission to archive lists
+  permissionService.verifyPermission(board, req.user._id, 'archive_lists');
+
+  // Check if list is already archived
+  if (list.archived) {
+    return next(new AppError('List is already archived', 400));
+  }
+
+  // Get all NON-ARCHIVED cards in the list
+  const activeCards = await Card.find({
+    list: list._id,
+    archived: false,
+  });
+
+  // If force parameter is not provided and list has active cards, require confirmation
+  if (activeCards.length > 0 && force !== 'true') {
+    return res.status(200).json({
+      status: 'warning',
+      message: `This list contains ${activeCards.length} active cards that will also be archived. Add ?force=true to proceed.`,
       data: {
-        list,
-        lists: remainingLists,
-        // archivedCardCount: cards.length,
+        requireConfirmation: true,
+        activeCardCount: activeCards.length,
+        listId: list._id,
       },
     });
   }
-);
 
-// Enhanced restore list function
+  // Store current position before archiving
+  const currentPosition = list.position;
+  
+  // Archive the list first
+  await list.archive(req.user._id);
+
+  // Archive only the ACTIVE cards (not already archived ones)
+  const archivedCardIds = [];
+  for (const card of activeCards) {
+    // Store the list archive timestamp in card for restoration tracking
+    card.listArchivedAt = list.archivedAt;
+    await card.archive(req.user._id);
+    archivedCardIds.push(card._id);
+
+    // Log card archive activity
+    await activityService.logCardActivity(
+      board,
+      req.user._id,
+      'card_archived',
+      card._id,
+      {
+        title: card.title,
+        listId: list._id,
+        position: card.position,
+        listArchive: true, // Indicate this was part of a list archive
+      }
+    );
+  }
+
+  // Log the list activity
+  await activityService.logListActivity(
+    board,
+    req.user._id,
+    'list_archived',
+    list._id,
+    {
+      name: list.name,
+      position: currentPosition,
+      activeCardCount: activeCards.length,
+      archivedCardIds, // Store for potential rollback
+    }
+  );
+
+  // Update positions of remaining lists
+  await List.updateMany(
+    {
+      board: list.board,
+      archived: false,
+      position: { $gt: currentPosition },
+    },
+    { $inc: { position: -1 } }
+  );
+
+  // Get all remaining lists
+  const remainingLists = await List.find({
+    board: list.board,
+    archived: false,
+  }).sort('position');
+
+  // Send notification to board members
+  const recipients = board.members
+    .filter(member => member.user._id.toString() !== req.user._id.toString());
+
+  for (const recipient of recipients) {
+    await notificationService.createNotification(
+      req.app.io,
+      recipient.user._id,
+      req.user._id,
+      'list_archived',
+      'list',
+      list._id,
+      {
+        listName: list.name,
+        boardName: board.name,
+        cardCount: activeCards.length
+      }
+    );
+  }
+
+  res.status(200).json({
+    status: 'success',
+    message: `List archived successfully${activeCards.length > 0 ? ` with ${activeCards.length} cards` : ''}`,
+    data: {
+      list,
+      lists: remainingLists,
+      archivedCardCount: activeCards.length,
+    },
+  });
+});
+
+// // Enhanced restore list function
+// exports.restoreList = catchAsync(async (req, res, next) => {
+//   const { id } = req.params;
+//   const { restoreCards = true } = req.body;
+
+//   // Get list with its board and verify access
+//   const { list, board } = await getListWithBoard(id, req.user._id);
+
+//   // Check permission to restore lists (same permission covers both archive/restore operations)
+//   permissionService.verifyPermission(board, req.user._id, 'archive_lists');
+
+//   // Check if list is archived
+//   if (!list.archived) {
+//     return next(new AppError('List is not archived', 400));
+//   }
+
+//   // Store the original position for activity log
+//   const originalPosition = list.originalPosition;
+
+//   // Restore the list
+//   await list.restore();
+
+//   // Log the activity
+//   await activityService.logListActivity(
+//     board,
+//     req.user._id,
+//     'list_restored',
+//     list._id,
+//     {
+//       name: list.name,
+//       position: list.position,
+//       originalPosition,
+//     }
+//   );
+
+//   // If restoreCards is true, also restore all archived cards in this list
+//   let restoredCardCount = 0;
+//   if (restoreCards) {
+//     // Find archived cards in this list
+//     const archivedCards = await Card.find({
+//       list: list._id,
+//       archived: true,
+//       // Only restore cards that were archived when the list was archived
+//       archivedAt: { $gte: list.archivedAt },
+//     });
+
+//     // Restore each card
+//     for (const card of archivedCards) {
+//       await card.restore();
+//       restoredCardCount++;
+
+//       // Log card restore activity
+//       await activityService.logCardActivity(
+//         board,
+//         req.user._id,
+//         'card_restored',
+//         card._id,
+//         {
+//           title: card.title,
+//           listId: list._id,
+//           position: card.position,
+//           listRestore: true, // Indicate this was part of a list restore
+//         }
+//       );
+//     }
+//   }
+
+//   // Get updated list and all lists, ensuring proper order
+//   const [updatedList, allLists, cards] = await Promise.all([
+//     List.findById(id),
+//     List.find({
+//       board: list.board,
+//       archived: false,
+//     }).sort('position'),
+//     Card.find({
+//       list: list._id,
+//       archived: false,
+//     })
+//       .sort('position')
+//       .populate('members.user', 'username email avatar')
+//       .populate('labels'),
+//   ]);
+
+//    // Send notification to board members
+//    const recipients = board.members
+//    .filter(member => member.user._id.toString() !== req.user._id.toString());
+
+//  for (const recipient of recipients) {
+//    await notificationService.createNotification(
+//      req.app.io,
+//      recipient.user._id,
+//      req.user._id,
+//      'list_restored',
+//      'list',
+//      list._id,
+//      {
+//        listName: list.name,
+//        boardName: board.name
+//      }
+//    );
+//  }
+ 
+//   res.status(200).json({
+//     status: 'success',
+//     message: `List restored successfully${
+//       restoredCardCount > 0 ? ` with ${restoredCardCount} cards` : ''
+//     }`,
+//     data: {
+//       list: updatedList,
+//       lists: allLists,
+//       cards,
+//       restoredCardCount,
+//     },
+//   });
+// });
+
+// Enhanced restore list function with better card restoration
 exports.restoreList = catchAsync(async (req, res, next) => {
   const { id } = req.params;
   const { restoreCards = true } = req.body;
@@ -569,7 +811,7 @@ exports.restoreList = catchAsync(async (req, res, next) => {
   // Get list with its board and verify access
   const { list, board } = await getListWithBoard(id, req.user._id);
 
-  // Check permission to restore lists (same permission covers both archive/restore operations)
+  // Check permission to restore lists
   permissionService.verifyPermission(board, req.user._id, 'archive_lists');
 
   // Check if list is archived
@@ -577,39 +819,45 @@ exports.restoreList = catchAsync(async (req, res, next) => {
     return next(new AppError('List is not archived', 400));
   }
 
-  // Store the original position for activity log
+  // Store info for activity log
   const originalPosition = list.originalPosition;
+  const listArchivedAt = list.archivedAt;
 
-  // Restore the list
+  // Restore the list first
   await list.restore();
 
-  // Log the activity
-  await activityService.logListActivity(
-    board,
-    req.user._id,
-    'list_restored',
-    list._id,
-    {
-      name: list.name,
-      position: list.position,
-      originalPosition,
-    }
-  );
-
-  // If restoreCards is true, also restore all archived cards in this list
   let restoredCardCount = 0;
+  let restoredCards = [];
+
   if (restoreCards) {
-    // Find archived cards in this list
-    const archivedCards = await Card.find({
+    // Find cards that were archived as part of this list archival
+    // Using multiple criteria to ensure we only restore the right cards
+    const cardsToRestore = await Card.find({
       list: list._id,
       archived: true,
-      // Only restore cards that were archived when the list was archived
-      archivedAt: { $gte: list.archivedAt },
+      $or: [
+        // Cards archived at the same time as the list (within 1 minute)
+        {
+          archivedAt: {
+            $gte: new Date(listArchivedAt.getTime() - 60000), // 1 minute before
+            $lte: new Date(listArchivedAt.getTime() + 60000)  // 1 minute after
+          }
+        },
+        // Cards that have the listArchivedAt field (if we added it)
+        { listArchivedAt: { $exists: true, $eq: listArchivedAt } }
+      ]
     });
 
     // Restore each card
-    for (const card of archivedCards) {
+    for (const card of cardsToRestore) {
       await card.restore();
+      // Clean up the tracking field if it exists
+      if (card.listArchivedAt) {
+        card.listArchivedAt = undefined;
+        await card.save();
+      }
+      
+      restoredCards.push(card);
       restoredCardCount++;
 
       // Log card restore activity
@@ -622,14 +870,28 @@ exports.restoreList = catchAsync(async (req, res, next) => {
           title: card.title,
           listId: list._id,
           position: card.position,
-          listRestore: true, // Indicate this was part of a list restore
+          listRestore: true,
         }
       );
     }
   }
 
-  // Get updated list and all lists, ensuring proper order
-  const [updatedList, allLists, cards] = await Promise.all([
+  // Log the list activity
+  await activityService.logListActivity(
+    board,
+    req.user._id,
+    'list_restored',
+    list._id,
+    {
+      name: list.name,
+      position: list.position,
+      originalPosition,
+      restoredCardCount,
+    }
+  );
+
+  // Get updated data
+  const [updatedList, allLists, allCards] = await Promise.all([
     List.findById(id),
     List.find({
       board: list.board,
@@ -644,25 +906,26 @@ exports.restoreList = catchAsync(async (req, res, next) => {
       .populate('labels'),
   ]);
 
-   // Send notification to board members
-   const recipients = board.members
-   .filter(member => member.user._id.toString() !== req.user._id.toString());
+  // Send notification to board members
+  const recipients = board.members
+    .filter(member => member.user._id.toString() !== req.user._id.toString());
 
- for (const recipient of recipients) {
-   await notificationService.createNotification(
-     req.app.io,
-     recipient.user._id,
-     req.user._id,
-     'list_restored',
-     'list',
-     list._id,
-     {
-       listName: list.name,
-       boardName: board.name
-     }
-   );
- }
- 
+  for (const recipient of recipients) {
+    await notificationService.createNotification(
+      req.app.io,
+      recipient.user._id,
+      req.user._id,
+      'list_restored',
+      'list',
+      list._id,
+      {
+        listName: list.name,
+        boardName: board.name,
+        cardCount: restoredCardCount
+      }
+    );
+  }
+
   res.status(200).json({
     status: 'success',
     message: `List restored successfully${
@@ -671,8 +934,67 @@ exports.restoreList = catchAsync(async (req, res, next) => {
     data: {
       list: updatedList,
       lists: allLists,
-      cards,
+      cards: allCards,
       restoredCardCount,
+      restoredCards: restoredCards.map(card => ({
+        _id: card._id,
+        title: card.title,
+        position: card.position
+      }))
+    },
+  });
+});
+
+// Helper function to check list archive status
+exports.getListArchiveStatus = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+
+  // Get list with its board and verify access
+  const { list, board } = await getListWithBoard(id, req.user._id);
+
+  // Check permission to view board
+  permissionService.verifyPermission(board, req.user._id, 'view_board');
+
+  // Get card counts
+  const [totalCards, activeCards, archivedCards] = await Promise.all([
+    Card.countDocuments({ list: list._id }),
+    Card.countDocuments({ list: list._id, archived: false }),
+    Card.countDocuments({ list: list._id, archived: true })
+  ]);
+
+  // If list is archived, get cards that were archived with the list
+  let cardsArchivedWithList = 0;
+  if (list.archived && list.archivedAt) {
+    cardsArchivedWithList = await Card.countDocuments({
+      list: list._id,
+      archived: true,
+      archivedAt: {
+        $gte: new Date(list.archivedAt.getTime() - 60000),
+        $lte: new Date(list.archivedAt.getTime() + 60000)
+      }
+    });
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      list: {
+        _id: list._id,
+        name: list.name,
+        archived: list.archived,
+        archivedAt: list.archivedAt,
+        position: list.position,
+        originalPosition: list.originalPosition
+      },
+      cardCounts: {
+        total: totalCards,
+        active: activeCards,
+        archived: archivedCards,
+        archivedWithList: cardsArchivedWithList
+      },
+      canArchive: !list.archived,
+      canRestore: list.archived,
+      hasActiveCards: activeCards > 0
     },
   });
 });
