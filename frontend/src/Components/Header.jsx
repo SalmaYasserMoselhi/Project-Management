@@ -1,6 +1,7 @@
 
 
 
+
 "use client";
 
 import { Menu } from "lucide-react";
@@ -16,11 +17,16 @@ import {
   togglePopup,
   fetchNotifications,
   markAllNotificationsAsRead,
+  markNotificationAsRead,
   deleteNotification,
   selectNotifications,
   selectNotificationLoading,
   selectShowNotificationPopup,
   selectUnreadCount,
+  selectTotalNotifications,
+  selectCurrentPage,
+  selectLimit,
+  setPage,
 } from "../features/Slice/userSlice/notificationSlice";
 
 const Header = () => {
@@ -35,6 +41,9 @@ const Header = () => {
   const notificationLoading = useSelector(selectNotificationLoading);
   const showPopup = useSelector(selectShowNotificationPopup);
   const unreadCount = useSelector(selectUnreadCount);
+  const totalNotifications = useSelector(selectTotalNotifications);
+  const currentPage = useSelector(selectCurrentPage);
+  const limit = useSelector(selectLimit);
 
   // Determine background color based on route
   const headerBgColor = location.pathname.match(
@@ -43,12 +52,12 @@ const Header = () => {
     ? "bg-[#f5f5f5]"
     : "bg-white";
 
-  // Fetch notifications on mount or when popup is opened, only if no notifications are loaded
+  // Fetch notifications on mount or when popup is opened
   useEffect(() => {
-    if (notifications.length === 0) {
-      dispatch(fetchNotifications());
+    if (notifications.length === 0 || showPopup) {
+      dispatch(fetchNotifications({ page: currentPage, limit }));
     }
-  }, [dispatch, notifications.length]);
+  }, [dispatch, notifications.length, showPopup, currentPage, limit]);
 
   // Handle click outside to close popup
   useEffect(() => {
@@ -86,10 +95,39 @@ const Header = () => {
     dispatch(markAllNotificationsAsRead());
   };
 
+  // Mark a single notification as read
+  const handleMarkAsRead = (notificationId) => {
+    dispatch(markNotificationAsRead(notificationId));
+  };
+
   // Delete a notification
   const handleDeleteNotification = (notificationId) => {
     dispatch(deleteNotification(notificationId));
   };
+
+  // Handle pagination
+  const handlePaginate = (direction) => {
+    const newPage = direction === "next" ? currentPage + 1 : currentPage - 1;
+    dispatch(setPage(newPage));
+    dispatch(fetchNotifications({ page: newPage, limit }));
+  };
+
+  // Disable pagination buttons
+  const isPaginateDisabled = (direction) => {
+    if (direction === "prev") {
+      return currentPage <= 1;
+    }
+    if (direction === "next") {
+      return currentPage >= Math.ceil(totalNotifications / limit);
+    }
+    return false;
+  };
+
+  // Debug prop passing
+  useEffect(() => {
+    console.log("isPaginateDisabled type:", typeof isPaginateDisabled);
+    console.log("isPaginateDisabled value:", isPaginateDisabled);
+  }, []);
 
   return (
     <>
@@ -164,6 +202,12 @@ const Header = () => {
             unreadCount={unreadCount}
             onMarkAllAsRead={handleMarkAllAsRead}
             onDeleteNotification={handleDeleteNotification}
+            onMarkAsRead={handleMarkAsRead}
+            onPaginate={handlePaginate}
+            isPaginateDisabled={isPaginateDisabled}
+            onPage={currentPage}
+            onTotal={totalNotifications}
+            onLimit={limit}
           />
         </div>
       )}

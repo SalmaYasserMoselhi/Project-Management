@@ -1,10 +1,20 @@
 
+
 import { forwardRef } from "react";
+import { CheckCircle, X } from "lucide-react";
 import notify from "../assets/NotificationImage.png";
-import { X } from "lucide-react";
 
 const NotificationPopup = forwardRef(
-  ({ notifications, loading, unreadCount, onMarkAllAsRead, onDeleteNotification, onMarkAsRead }, ref) => {
+  ({ notifications, loading, unreadCount, onMarkAllAsRead, onDeleteNotification, onMarkAsRead, onPaginate, isPaginateDisabled, onPage, onTotal, onLimit }, ref) => {
+    // Fallback for isPaginateDisabled if not a function
+    const isDisabled = (direction) => {
+      if (typeof isPaginateDisabled === "function") {
+        return isPaginateDisabled(direction);
+      }
+      console.warn(`isPaginateDisabled is not a function, received: ${typeof isPaginateDisabled}`);
+      return false; // Default to enabled buttons if isPaginateDisabled is not provided
+    };
+
     return (
       <div
         ref={ref}
@@ -53,14 +63,19 @@ const NotificationPopup = forwardRef(
                   }`}
                 >
                   <div className="flex justify-between items-start">
-                    <div>
-                      <div className="text-gray-900">{notif.message}</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {new Date(notif.createdAt).toLocaleString("en-US", {
-                          weekday: "long",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }).replace(" at ", " at ") || "Monday at 07:00"}
+                    <div className="flex items-start space-x-2">
+                      {notif.isRead && (
+                        <CheckCircle size={16} className="text-green-500 mt-1" />
+                      )}
+                      <div>
+                        <div className="text-gray-900">{notif.message}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {new Date(notif.createdAt).toLocaleString("en-US", {
+                            weekday: "long",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }).replace(" at ", " at ") || "Monday at 07:00"}
+                        </div>
                       </div>
                     </div>
                     <button
@@ -79,6 +94,29 @@ const NotificationPopup = forwardRef(
             </ul>
           )}
         </div>
+
+        {/* Pagination Controls */}
+        {!loading && notifications.length > 0 && (
+          <div className="flex justify-between items-center px-4 py-2 border-t border-gray-200">
+            <button
+              onClick={() => onPaginate("prev")}
+              className="text-sm text-gray-500 hover:underline disabled:text-gray-300"
+              disabled={isDisabled("prev")}
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-500">
+              Page {onPage} of {Math.ceil(onTotal / onLimit)}
+            </span>
+            <button
+              onClick={() => onPaginate("next")}
+              className="text-sm text-gray-500 hover:underline disabled:text-gray-300"
+              disabled={isDisabled("next")}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
     );
   }
