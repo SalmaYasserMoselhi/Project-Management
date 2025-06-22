@@ -631,12 +631,18 @@ exports.deleteBoard = catchAsync(async (req, res, next) => {
   );
 
   // If workspace is public, remove board from all collaboration workspaces
-  if (workspace.type === 'public') {
-    await Workspace.updateMany(
-      { type: 'collaboration' },
-      { $pull: { boards: board._id } }
-    );
-  }
+  // if (workspace.type === 'public') {
+  //   await Workspace.updateMany(
+  //     { type: 'collaboration' },
+  //     { $pull: { boards: board._id } }
+  //   );
+  // }
+
+   await Workspace.updateMany(
+    { type: 'collaboration', boards: board._id },
+    { $pull: { boards: board._id } }
+  );
+  
   // Send notification before deleting
   const recipients = board.members.filter(
     (member) => member.user._id.toString() !== req.user._id.toString()
