@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import ReactDOM from "react-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -34,6 +35,7 @@ export default function CardDetails({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [hasUserChanges, setHasUserChanges] = useState(false);
   const [initialCardState, setInitialCardState] = useState(null);
+  const [isClient, setIsClient] = useState(false);
 
   const cardRef = useRef(null);
   const attachmentsRef = useRef();
@@ -334,7 +336,15 @@ export default function CardDetails({
     }
   };
 
-  return (
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  if (!isClient) {
+    return null;
+  }
+
+  return ReactDOM.createPortal(
     <>
       {isOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4">
@@ -447,6 +457,7 @@ export default function CardDetails({
           )}
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
 }
