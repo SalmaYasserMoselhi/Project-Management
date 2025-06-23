@@ -277,6 +277,7 @@ const notificationSlice = createSlice({
         state.page = action.payload.page;
         state.limit = action.payload.limit;
         state.unreadCount = action.payload.unreadCount;
+        console.log('Fetched notifications, unread count:', action.payload.unreadCount);
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.loading = false;

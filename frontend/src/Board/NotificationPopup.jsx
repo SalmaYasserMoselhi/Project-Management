@@ -20,14 +20,6 @@ const NotificationPopup = forwardRef(
       }
     };
 
-    // Sort notifications: unread first, then by creation date
-    const sortedNotifications = [...notifications].sort((a, b) => {
-      if (a.read !== b.read) {
-        return a.read ? 1 : -1; // Unread first
-      }
-      return new Date(b.createdAt) - new Date(a.createdAt); // Newest first
-    });
-
     return (
       <div
         ref={ref}
@@ -55,8 +47,11 @@ const NotificationPopup = forwardRef(
         {/* Body */}
         <div className="max-h-[300px] overflow-y-auto">
           {loading ? (
-            <div className="text-center py-6 text-gray-500 text-sm">Loading...</div>
-          ) : sortedNotifications.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+              <p className="text-sm text-gray-500">Loading notifications...</p>
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
               <img
                 src={notify}
@@ -72,7 +67,7 @@ const NotificationPopup = forwardRef(
             </div>
           ) : (
             <ul className="divide-y divide-gray-200">
-              {sortedNotifications.map((notif) => (
+              {notifications.map((notif) => (
                 <li
                   key={notif._id}
                   onClick={() => handleNotificationClick(notif)}
@@ -113,7 +108,7 @@ const NotificationPopup = forwardRef(
         </div>
 
         {/* Pagination Controls */}
-        {!loading && sortedNotifications.length > 0 && (
+        {!loading && notifications.length > 0 && (
           <div className="flex justify-between items-center px-4 py-2 border-t border-gray-200">
             <button
               onClick={() => onPaginate("prev")}

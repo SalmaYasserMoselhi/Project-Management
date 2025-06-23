@@ -49,6 +49,17 @@ const Header = () => {
     console.log('Unread count changed:', unreadCount);
   }, [unreadCount]);
 
+  // Refresh data when popup opens
+  useEffect(() => {
+    if (showPopup) {
+      console.log('Popup opened, refreshing notifications...');
+      // Reset to first page and fetch fresh data
+      dispatch(setPage(1));
+      dispatch(fetchNotifications({ page: 1, limit }));
+      dispatch(fetchUnreadCount());
+    }
+  }, [showPopup, dispatch, limit]);
+
   // Initialize Socket.IO connection
   useEffect(() => {
     if (user?._id) {
@@ -94,14 +105,6 @@ const Header = () => {
     ? "bg-[#f5f5f5]"
     : "bg-white";
 
-  // Fetch notifications only when necessary
-  useEffect(() => {
-    // Fetch if no notifications or if explicitly needed (e.g., page change)
-    if (notifications.length === 0) {
-      dispatch(fetchNotifications({ page: currentPage, limit }));
-    }
-  }, [dispatch, notifications.length, currentPage, limit]);
-
   // Fetch unread count on component mount
   useEffect(() => {
     dispatch(fetchUnreadCount());
@@ -135,13 +138,19 @@ const Header = () => {
 
   // Toggle notification popup
   const handleBellClick = () => {
-    dispatch(togglePopup());
-    // Fetch notifications only if none exist
-    if (notifications.length === 0) {
-      dispatch(fetchNotifications({ page: currentPage, limit }));
+    // If popup is closed, open it and fetch data
+    if (!showPopup) {
+      dispatch(togglePopup());
+      
+      // Always fetch fresh notifications when opening popup
+      dispatch(fetchNotifications({ page: 1, limit }));
+      
+      // Refresh unread count
+      dispatch(fetchUnreadCount());
+    } else {
+      // If popup is open, just close it
+      dispatch(togglePopup());
     }
-    // Refresh unread count
-    dispatch(fetchUnreadCount());
   };
 
   // Mark all notifications as read
