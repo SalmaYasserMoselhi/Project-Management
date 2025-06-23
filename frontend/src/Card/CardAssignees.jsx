@@ -192,8 +192,13 @@ export default function CardAssignees({ cardId }) {
 
       <div className="flex items-center gap-3">
         <div className="flex -space-x-3">
-          {isLoading && !allAssignees.length ? (
-            <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
+          {assigneesLoading ? (
+            (assignees.length > 0 ? assignees : [1]).map((_, index) => (
+              <div
+                key={index}
+                className="w-8 h-8 rounded-full bg-gray-200 animate-pulse border-2 border-white"
+              />
+            ))
           ) : allAssignees.length > 0 ? (
             allAssignees.map((assignee, index) => {
               // Make sure we're accessing the user data correctly
