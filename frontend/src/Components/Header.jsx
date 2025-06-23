@@ -1,6 +1,3 @@
-
-
-
 "use client";
 
 import { Menu } from "lucide-react";
@@ -15,7 +12,9 @@ import { openPopup } from "../features/Slice/userSlice/profilePopupSlice";
 import {
   togglePopup,
   fetchNotifications,
+  fetchUnreadCount,
   markAllNotificationsAsRead,
+  markNotificationAsRead,
   deleteNotification,
   selectNotifications,
   selectNotificationLoading,
@@ -26,6 +25,7 @@ import {
   selectLimit,
   setPage,
 } from "../features/Slice/userSlice/notificationSlice";
+import { io } from "socket.io-client";
 
 const Header = () => {
   const user = useSelector((state) => state.user.user);
@@ -33,6 +33,7 @@ const Header = () => {
   const { isSidebarOpen } = useSelector((state) => state.sidebar);
   const [isMobile, setIsMobile] = useState(false);
   const popupRef = useRef(null);
+  const socketRef = useRef(null);
 
   // Notification state from Redux
   const notifications = useSelector(selectNotifications);
@@ -42,6 +43,49 @@ const Header = () => {
   const totalNotifications = useSelector(selectTotalNotifications);
   const currentPage = useSelector(selectCurrentPage);
   const limit = useSelector(selectLimit);
+
+  // Debug unread count changes
+  useEffect(() => {
+    console.log('Unread count changed:', unreadCount);
+  }, [unreadCount]);
+
+  // Initialize Socket.IO connection
+  useEffect(() => {
+    if (user?._id) {
+      // Get JWT token from localStorage or cookies
+      const token = localStorage.getItem('token') || document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
+      
+      socketRef.current = io("http://localhost:5000", {
+        auth: {
+          userId: user._id,
+          token: token,
+        },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
+
+      // Connection events
+      socketRef.current.on('connect', () => {
+        console.log('Header Socket.IO connected');
+      });
+
+      socketRef.current.on('disconnect', () => {
+        console.log('Header Socket.IO disconnected');
+      });
+
+      socketRef.current.on('connect_error', (error) => {
+        console.error('Header Socket.IO connection error:', error);
+      });
+    }
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+  }, [user?._id]);
 
   // Determine background color based on route
   const headerBgColor = location.pathname.match(
@@ -57,6 +101,11 @@ const Header = () => {
       dispatch(fetchNotifications({ page: currentPage, limit }));
     }
   }, [dispatch, notifications.length, currentPage, limit]);
+
+  // Fetch unread count on component mount
+  useEffect(() => {
+    dispatch(fetchUnreadCount());
+  }, [dispatch]);
 
   // Handle click outside to close popup
   useEffect(() => {
@@ -91,16 +140,40 @@ const Header = () => {
     if (notifications.length === 0) {
       dispatch(fetchNotifications({ page: currentPage, limit }));
     }
+    // Refresh unread count
+    dispatch(fetchUnreadCount());
   };
 
   // Mark all notifications as read
   const handleMarkAllAsRead = () => {
-    dispatch(markAllNotificationsAsRead());
+    dispatch(markAllNotificationsAsRead()).then(() => {
+      dispatch(fetchUnreadCount());
+      // Emit Socket.IO event
+      if (socketRef.current) {
+        socketRef.current.emit("all notifications read", { userId: user._id });
+      }
+    });
+  };
+
+  // Mark a single notification as read
+  const handleMarkSingleAsRead = (notificationId) => {
+    dispatch(markNotificationAsRead(notificationId)).then(() => {
+      dispatch(fetchUnreadCount());
+      // Emit Socket.IO event
+      if (socketRef.current) {
+        socketRef.current.emit("notification read", { 
+          userId: user._id, 
+          notificationId 
+        });
+      }
+    });
   };
 
   // Delete a notification
   const handleDeleteNotification = (notificationId) => {
-    dispatch(deleteNotification(notificationId));
+    dispatch(deleteNotification(notificationId)).then(() => {
+      dispatch(fetchUnreadCount());
+    });
   };
 
   // Handle pagination
@@ -199,6 +272,7 @@ const Header = () => {
             loading={notificationLoading}
             unreadCount={unreadCount}
             onMarkAllAsRead={handleMarkAllAsRead}
+            onMarkSingleAsRead={handleMarkSingleAsRead}
             onDeleteNotification={handleDeleteNotification}
             onPaginate={handlePaginate}
             isPaginateDisabled={isPaginateDisabled}

@@ -1,6 +1,3 @@
-
-
-
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
 // Async thunk for fetching notifications with pagination
@@ -32,6 +29,7 @@ export const fetchNotifications = createAsyncThunk(
         total: data.data?.total || 0,
         page,
         limit,
+        unreadCount: data.data?.unreadCount || 0,
       };
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -128,6 +126,85 @@ export const deleteNotification = createAsyncThunk(
   }
 );
 
+// Async thunk for marking individual notification as read
+export const markNotificationAsRead = createAsyncThunk(
+  "notification/markAsRead",
+  async (notificationId, { rejectWithValue }) => {
+    try {
+      const response = await fetch("/api/v1/notifications/mark-read", {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ notificationIds: [notificationId] }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          window.location.href = "/login";
+          return rejectWithValue("Unauthorized");
+        }
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || "Failed to mark notification as read"
+        );
+      }
+
+      return notificationId;
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      if (
+        error.message.includes("logged in") ||
+        error.message.includes("Unauthorized") ||
+        error.message.includes("jwt")
+      ) {
+        window.location.href = "/login";
+      }
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Async thunk for fetching unread count only
+export const fetchUnreadCount = createAsyncThunk(
+  "notification/fetchUnreadCount",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await fetch("/api/v1/notifications/unread-count", {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          window.location.href = "/login";
+          return rejectWithValue("Unauthorized");
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch unread count");
+      }
+
+      const data = await response.json();
+      return data.data?.unreadCount || 0;
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      if (
+        error.message.includes("logged in") ||
+        error.message.includes("Unauthorized") ||
+        error.message.includes("jwt")
+      ) {
+        window.location.href = "/login";
+      }
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 const initialState = {
   notifications: [],
   loading: false,
@@ -155,6 +232,36 @@ const notificationSlice = createSlice({
     setPage: (state, action) => {
       state.page = action.payload;
     },
+    addNotification: (state, action) => {
+      const newNotification = action.payload;
+      
+      console.log('Adding notification:', newNotification);
+      console.log('Current unread count before:', state.unreadCount);
+      
+      // Check if notification already exists (to prevent duplicates)
+      const exists = state.notifications.find(notif => notif._id === newNotification._id);
+      if (exists) {
+        console.log('Notification already exists, skipping');
+        return;
+      }
+      
+      // Add new notification to the beginning of the list
+      state.notifications.unshift(newNotification);
+      
+      // Update unread count if notification is unread
+      if (!newNotification.read) {
+        state.unreadCount += 1;
+        console.log('Updated unread count to:', state.unreadCount);
+      }
+      
+      // Update total count
+      state.total += 1;
+      
+      // Keep only the first 50 notifications to prevent memory issues
+      if (state.notifications.length > 50) {
+        state.notifications = state.notifications.slice(0, 50);
+      }
+    },
   },
   extraReducers: (builder) => {
     // Fetch Notifications
@@ -169,7 +276,7 @@ const notificationSlice = createSlice({
         state.total = action.payload.total;
         state.page = action.payload.page;
         state.limit = action.payload.limit;
-        state.unreadCount = action.payload.notifications.filter((notif) => !notif.isRead).length;
+        state.unreadCount = action.payload.unreadCount;
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.loading = false;
@@ -180,7 +287,7 @@ const notificationSlice = createSlice({
         if (action.payload?.optimistic) {
           state.notifications = state.notifications.map((notif) => ({
             ...notif,
-            isRead: true,
+            read: true,
           }));
           state.unreadCount = 0;
         }
@@ -188,7 +295,7 @@ const notificationSlice = createSlice({
       .addCase(markAllNotificationsAsRead.fulfilled, (state) => {
         state.notifications = state.notifications.map((notif) => ({
           ...notif,
-          isRead: true,
+          read: true,
         }));
         state.unreadCount = 0;
       })
@@ -197,26 +304,49 @@ const notificationSlice = createSlice({
       })
       // Delete Notification
       .addCase(deleteNotification.fulfilled, (state, action) => {
+        const deletedNotification = state.notifications.find(
+          (notif) => notif._id === action.payload
+        );
         state.notifications = state.notifications.filter(
           (notif) => notif._id !== action.payload
         );
-        state.unreadCount = state.notifications.filter((notif) => !notif.isRead).length;
+        // Update unread count if the deleted notification was unread
+        if (deletedNotification && !deletedNotification.read) {
+          state.unreadCount = Math.max(0, state.unreadCount - 1);
+        }
       })
       .addCase(deleteNotification.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+      // Mark Notification As Read
+      .addCase(markNotificationAsRead.fulfilled, (state, action) => {
+        state.notifications = state.notifications.map((notif) =>
+          notif._id === action.payload ? { ...notif, read: true } : notif
+        );
+        // Update unread count
+        state.unreadCount = Math.max(0, state.unreadCount - 1);
+      })
+      .addCase(markNotificationAsRead.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+      // Fetch Unread Count
+      .addCase(fetchUnreadCount.fulfilled, (state, action) => {
+        state.unreadCount = action.payload;
+      })
+      .addCase(fetchUnreadCount.rejected, (state, action) => {
         state.error = action.payload;
       });
   },
 });
 
-export const { togglePopup, closePopup, clearError, setPage } = notificationSlice.actions;
+export const { togglePopup, closePopup, clearError, setPage, addNotification } = notificationSlice.actions;
 
 // Selectors
 export const selectNotifications = (state) => state.notification.notifications;
 export const selectNotificationLoading = (state) => state.notification.loading;
 export const selectNotificationError = (state) => state.notification.error;
 export const selectShowNotificationPopup = (state) => state.notification.showPopup;
-export const selectUnreadCount = (state) =>
-  state.notification.notifications.filter((notif) => !notif.isRead).length;
+export const selectUnreadCount = (state) => state.notification.unreadCount;
 export const selectTotalNotifications = (state) => state.notification.total;
 export const selectCurrentPage = (state) => state.notification.page;
 export const selectLimit = (state) => state.notification.limit;

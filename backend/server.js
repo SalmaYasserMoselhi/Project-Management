@@ -5,6 +5,7 @@ const http = require('http');
 const socketServer = require('./socketServer.js');
 const scheduledTasks = require('./utils/scheduledTasks');
 const scheduledmeeting = require('./utils/scheduledmeeting');
+const jwt = require('jsonwebtoken');
 
 
 // process.on("uncaughtException", (err) => {
@@ -53,6 +54,31 @@ const io = new Server(server, {
   }
 });
 
+// Socket.IO authentication middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token || socket.handshake.headers.authorization;
+  const userId = socket.handshake.auth.userId;
+
+  if (!token && !userId) {
+    return next(new Error('Authentication error'));
+  }
+
+  if (userId) {
+    // If userId is provided directly (for development/testing)
+    socket.userId = userId;
+    return next();
+  }
+
+  try {
+    // Verify JWT token
+    const decoded = jwt.verify(token.replace('Bearer ', ''), process.env.JWT_SECRET);
+    socket.userId = decoded.id;
+    next();
+  } catch (error) {
+    return next(new Error('Authentication error'));
+  }
+});
+
 // Make io instance available globally
 global.io = io;
 
@@ -61,11 +87,12 @@ app.io = io
 
 app.set('io', io);
 
-
-
-
 io.on('connection', (socket) => {
-  console.log('Socket io connected successfully');
+  console.log(`Socket io connected successfully for user: ${socket.userId}`);
+  
+  // Join user's personal room for notifications
+  socket.join(socket.userId);
+  
   socketServer(socket, io);
 });
 // process.on("unhandledRejection", (err) => {
