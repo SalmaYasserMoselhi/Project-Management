@@ -482,9 +482,9 @@ exports.forgotPassword = catchAsync(
     const message = `
     <div style="background-color: #f6f9fc; padding: 20px; font-family: Arial, sans-serif;">
       <div style="background-color: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 0 auto; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-        <h2 style="color: #EFC235; text-align: center; font-size: 24px; margin-bottom: 20px;">Password Reset Code</h2>
+        <h2 style="color: #4d2d61; text-align: center; font-size: 24px; margin-bottom: 20px;">Password Reset Code</h2>
         <p style="color: #3a2d34; text-align: center; font-size: 16px;">You requested a password reset. Use the code below to reset your password:</p>
-        <div style="background-color: #EFC235; padding: 15px; margin: 20px auto; text-align: center; border-radius: 5px; font-size: 18px; font-weight: bold; color: #fff; width: fit-content;">
+        <div style="background-color: #4d2d61; padding: 15px; margin: 20px auto; text-align: center; border-radius: 5px; font-size: 18px; font-weight: bold; color: #fff; width: fit-content;">
           ${resetCode}
         </div>
         <p style="color: #3a2d34; font-size: 14px; text-align: center; margin-bottom: 20px;">This code is valid for 10 minutes.</p>

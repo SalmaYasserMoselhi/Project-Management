@@ -4,8 +4,6 @@ const moment = require('moment');
 
 async function checkUpcomingMeetings() {
   try {
-    console.log('Running meeting reminder check...');
-    
     // Get current time and 1 hour from now
     const now = new Date();
     const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
@@ -35,21 +33,20 @@ async function checkUpcomingMeetings() {
       model: 'User'
     });
 
-    console.log(`Found ${upcomingMeetings.length} meetings needing reminders`);
 
     for (const meeting of upcomingMeetings) {
       // Skip if meeting is not properly populated
       if (!meeting || !meeting.attendees || !meeting.board || !meeting.createdBy) {
-        console.warn('Skipping invalid meeting data:', meeting);
+        // console.warn('Skipping invalid meeting data:', meeting);
         continue;
       }
 
-      console.log(`Processing meeting: ${meeting.name} (ID: ${meeting._id})`);
+      // console.log(`Processing meeting: ${meeting.name} (ID: ${meeting._id})`);
 
       // Send reminder to each attendee
       for (const attendee of meeting.attendees) {
         if (!attendee.user) {
-          console.warn('Skipping invalid attendee:', attendee);
+          // console.warn('Skipping invalid attendee:', attendee);
           continue;
         }
 
@@ -69,7 +66,7 @@ async function checkUpcomingMeetings() {
               meetingTime: meeting.time
             }
           );
-          console.log(`Reminder sent to user ${attendee.user._id}`);
+          // console.log(`Reminder sent to user ${attendee.user._id}`);
         } catch (error) {
           console.error(`Failed to send reminder to user ${attendee.user?._id}:`, error);
         }
@@ -79,7 +76,7 @@ async function checkUpcomingMeetings() {
       try {
         meeting.reminderSent = true;
         await meeting.save();
-        console.log(`Marked meeting ${meeting._id} as reminder sent`);
+        // console.log(`Marked meeting ${meeting._id} as reminder sent`);
       } catch (error) {
         console.error(`Failed to update meeting ${meeting._id}:`, error);
       }
@@ -90,10 +87,10 @@ async function checkUpcomingMeetings() {
 }
 
 module.exports = function initScheduledTasks() {
-  // Check every 15 minutes (adjust as needed)
+  // Check every 1 minute (adjust as needed)
   const intervalMinutes = 1;
   setInterval(checkUpcomingMeetings, intervalMinutes * 60 * 1000);
-  console.log(`Meeting reminder service started. Checking every ${intervalMinutes} minutes.`);
+  // console.log(`Meeting reminder service started. Checking every ${intervalMinutes} minutes.`);
   
   // Also run immediately on startup
   checkUpcomingMeetings();
