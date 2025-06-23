@@ -874,6 +874,35 @@ export const deleteMessage = createAsyncThunk(
   }
 );
 
+// Async Thunk: Delete a conversation (private chat) by ID
+export const deleteConversation = createAsyncThunk(
+  "chat/deleteConversation",
+  async (conversationId, { rejectWithValue }) => {
+    try {
+      const response = await api.delete(`/conversations/${conversationId}`);
+      return { conversationId, response: response.data };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to delete conversation"
+      );
+    }
+  }
+);
+
+// Async Thunk: Delete a group (admin only) by ID
+export const deleteGroup = createAsyncThunk(
+  "chat/deleteGroup",
+  async (groupId, { rejectWithValue }) => {
+    try {
+      const response = await api.delete(`/conversations/group/${groupId}`);
+      return { groupId, response: response.data };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to delete group"
+      );
+    }
+  }
+);
 // --- Chat Slice Definition ---
 const chatSlice = createSlice({
   name: "chat",
@@ -1624,6 +1653,42 @@ const chatSlice = createSlice({
         state.status = "failed";
         state.error = action.payload;
         console.error("chatSlice: deleteMessage rejected:", action.payload);
+      })
+    
+      // --- deleteConversation ---
+      .addCase(deleteConversation.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(deleteConversation.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        const deletedId = action.payload.conversationId;
+        state.conversations = state.conversations.filter((c) => c._id !== deletedId);
+        if (state.activeConversation?.id === deletedId) {
+          state.activeConversation = null;
+        }
+      })
+      .addCase(deleteConversation.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload;
+      })
+
+      // --- deleteGroup ---
+      .addCase(deleteGroup.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(deleteGroup.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        const deletedId = action.payload.groupId;
+        state.conversations = state.conversations.filter((c) => c._id !== deletedId);
+        if (state.activeConversation?.id === deletedId) {
+          state.activeConversation = null;
+        }
+      })
+      .addCase(deleteGroup.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload;
       });
   },
 });

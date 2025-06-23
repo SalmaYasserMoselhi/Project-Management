@@ -18,6 +18,8 @@ import {
   leaveGroup,
   fetchConversations,
   handleMessageDeleted,
+  deleteGroup,
+  deleteConversation,
 } from "../features/Slice/ChatSlice/chatSlice";
 import { onMessage, onTyping, onStopTyping } from "../utils/socket";
 import { useChat } from "../context/chat-context";
@@ -221,6 +223,28 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
     }
   };
 
+  const handleDeleteGroup = async () => {
+    try {
+      await dispatch(deleteGroup(activeChat.id)).unwrap();
+      setShowPopup(false);
+      setActiveConversation(null);
+      dispatch(fetchConversations());
+    } catch (error) {
+      console.error("Failed to delete group:", error);
+    }
+  };
+
+  const handleDeleteConversation = async () => {
+    try {
+      await dispatch(deleteConversation(activeChat.id)).unwrap();
+      setShowPopup(false);
+      setActiveConversation(null);
+      dispatch(fetchConversations());
+    } catch (error) {
+      console.error("Failed to delete conversation:", error);
+    }
+  };
+
   // Setup message listener
   useEffect(() => {
     const currentChatId = activeChat?.id;
@@ -364,6 +388,8 @@ const ChatContainer = ({ onBackClick, isMobile }) => {
         onRemoveUser={handleRemoveUser}
         onLeaveGroup={handleLeaveGroup}
         hasLeftGroup={hasLeftGroup}
+        onDeleteGroup={handleDeleteGroup}
+        onDeleteConversation={handleDeleteConversation}
       />
     </div>
   );

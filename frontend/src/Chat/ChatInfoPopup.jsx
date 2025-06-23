@@ -20,6 +20,8 @@ const ChatInfoPopup = memo(
     onRemoveUser,
     onLeaveGroup,
     hasLeftGroup = false,
+    onDeleteGroup,
+    onDeleteConversation,
   }) => {
     const dispatch = useDispatch();
     const { currentUser } = useChat();
@@ -537,11 +539,75 @@ const ChatInfoPopup = memo(
                   className={`w-full text-xs py-2.5 px-3 rounded-xl font-medium shadow-lg transition-all duration-300 flex items-center justify-center gap-2 ${
                     hasLeftGroup
                       ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-                      : "bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white hover:shadow-xl"
+                      : "bg-gradient-to-r from-[#4d2d61] to-[#7b4397] hover:from-[#4d2d61] hover:to-[#7b4397] text-white hover:shadow-xl"
                   }`}
                 >
                   <LogOut className="w-3 h-3" />
                   {hasLeftGroup ? "Already Left" : "Leave Group"}
+                </motion.button>
+              </div>
+            )}
+
+            {activeChat.isGroup && isAdmin && !hasLeftGroup && (
+              <div className="p-5 pt-0">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() =>
+                    setConfirmDialog({
+                      isOpen: true,
+                      type: "danger",
+                      title: "Delete Group",
+                      message:
+                        "Are you sure you want to permanently delete this group? This action cannot be undone.",
+                      onConfirm: (e) => {
+                        if (e) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }
+                        if (onDeleteGroup) onDeleteGroup();
+                        closeConfirmDialog();
+                      },
+                      confirmText: "Delete Group",
+                      cancelText: "Cancel",
+                    })
+                  }
+                  className="w-full text-xs py-2.5 px-3 rounded-xl font-medium shadow-lg transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-[#4d2d61] to-[#7b4397] hover:from-[#4d2d61] hover:to-[#7b4397] text-white hover:shadow-xl mt-2"
+                >
+                  <X className="w-3 h-3" />
+                  Delete Group
+                </motion.button>
+              </div>
+            )}
+
+            {!activeChat.isGroup && (
+              <div className="p-5 pt-0">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() =>
+                    setConfirmDialog({
+                      isOpen: true,
+                      type: "danger",
+                      title: "Delete Conversation",
+                      message:
+                        "Are you sure you want to permanently delete this conversation? This action cannot be undone.",
+                      onConfirm: (e) => {
+                        if (e) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }
+                        if (onDeleteConversation) onDeleteConversation();
+                        closeConfirmDialog();
+                      },
+                      confirmText: "Delete Conversation",
+                      cancelText: "Cancel",
+                    })
+                  }
+                  className="w-full text-xs py-2.5 px-3 rounded-xl font-medium shadow-lg transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-[#4d2d61] to-[#7b4397] hover:from-[#4d2d61] hover:to-[#7b4397] text-white hover:shadow-xl mt-2"
+                >
+                  <X className="w-3 h-3" />
+                  Delete Conversation
                 </motion.button>
               </div>
             )}
