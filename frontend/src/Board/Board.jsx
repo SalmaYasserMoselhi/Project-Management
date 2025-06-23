@@ -291,6 +291,8 @@ const Board = ({
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [draggedListId, setDraggedListId] = useState(null);
+  const [dropIndex, setDropIndex] = useState(null);
 
   // Sort state
   const [selectedSort, setSelectedSort] = useState("date");
@@ -423,28 +425,42 @@ const Board = ({
   const handleListDrop = async (e, targetCol) => {
     e.preventDefault();
     const draggedType = e.dataTransfer.getData("type");
-    const draggedListId = e.dataTransfer.getData("listId");
-    if (draggedType !== "list" || !draggedListId) return;
+    const newDraggedListId = e.dataTransfer.getData("listId");
+    if (draggedType !== "list" || !newDraggedListId) {
+      setDraggedListId(null);
+      setDropIndex(null);
+      return;
+    }
 
     const targetListId = targetCol.id || targetCol._id;
-    if (draggedListId === targetListId) return;
+    if (newDraggedListId === targetListId) {
+      setDraggedListId(null);
+      setDropIndex(null);
+      return;
+    }
 
     const draggedIndex = columns.findIndex(
-      (col) => (col.id || col._id) === draggedListId
+      (col) => (col.id || col._id) === newDraggedListId
     );
     const targetIndex = columns.findIndex(
       (col) => (col.id || col._id) === targetListId
     );
-    if (draggedIndex === -1 || targetIndex === -1) return;
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedListId(null);
+      setDropIndex(null);
+      return;
+    }
 
     const updatedColumns = [...columns];
     const [moved] = updatedColumns.splice(draggedIndex, 1);
     updatedColumns.splice(targetIndex, 0, moved);
     setColumns(updatedColumns);
+    setDraggedListId(null);
+    setDropIndex(null);
 
     try {
       await axios.patch(
-        `${BASE_URL}/api/v1/lists/${draggedListId}/reorder`,
+        `${BASE_URL}/api/v1/lists/${newDraggedListId}/reorder`,
         { position: targetIndex },
         { withCredentials: true }
       );
@@ -452,7 +468,30 @@ const Board = ({
     } catch (err) {
       console.error("[Board.jsx] Error reordering list:", err);
       toast.error("Failed to reorder list");
+      // Revert optimistic update
+      const revertedColumns = [...columns];
+      const [reverted] = revertedColumns.splice(targetIndex, 1);
+      revertedColumns.splice(draggedIndex, 0, reverted);
+      setColumns(revertedColumns);
     }
+  };
+
+  const handleListDragStart = (e, listId) => {
+    e.dataTransfer.setData("type", "list");
+    e.dataTransfer.setData("listId", listId);
+    setDraggedListId(listId);
+  };
+
+  const handleListDragOver = (e, index) => {
+    e.preventDefault();
+    if (dropIndex !== index) {
+      setDropIndex(index);
+    }
+  };
+
+  const handleListDragEnd = () => {
+    setDraggedListId(null);
+    setDropIndex(null);
   };
 
   const handleArchiveList = async (listId) => {
@@ -1454,26 +1493,29 @@ const Board = ({
                 isSidebarOpen ? "pl-[300px]" : "pl-0"
               } overflow-x-auto max-w-full`}
             >
-              {columns.map((col) => (
+              {columns.map((col, index) => (
                 <div
                   key={col.id || col._id}
                   draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData("listId", col.id || col._id);
-                    e.dataTransfer.setData("type", "list");
-                    e.dataTransfer.effectAllowed = "move";
-                  }}
-                  onDragOver={(e) => e.preventDefault()}
+                  onDragStart={(e) => handleListDragStart(e, col.id || col._id)}
+                  onDragOver={(e) => handleListDragOver(e, index)}
                   onDrop={(e) => handleListDrop(e, col)}
+                  onDragEnd={handleListDragEnd}
+                  className={`animate-fade-in-up stagger-${index + 1}`}
                 >
+                  {draggedListId &&
+                    dropIndex === index &&
+                    draggedListId !== (col.id || col._id) && (
+                      <div className="w-2 h-full bg-purple-300 rounded-full mx-2" />
+                    )}
                   <Column
                     id={col.id || col._id}
                     title={col.name}
                     className="min-w-[300px] h-full"
                     boardId={boardId}
                     allLists={columns}
-                    onDelete={handleDeleteList}
-                    onArchive={handleArchiveList}
+                    onDelete={() => handleDeleteList(col.id || col._id)}
+                    onArchive={() => handleArchiveList(col.id || col._id)}
                     targetCardId={targetCardId}
                     cards={col.cards || []}
                   />
