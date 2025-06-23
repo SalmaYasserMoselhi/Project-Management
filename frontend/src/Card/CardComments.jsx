@@ -20,10 +20,17 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import UserAvatar from "../Components/UserAvatar";
 
 export default function CardComments() {
   const dispatch = useDispatch();
-  const comments = useSelector((state) => state.cardDetails.comments || []);
+  const comments = useSelector((state) =>
+    (state.cardDetails.comments || []).map((c) => ({
+      ...c,
+      user: c.author, // Map author to user
+      replies: (c.replies || []).map((r) => ({ ...r, user: r.author })),
+    }))
+  );
   const cardId = useSelector((state) => state.cardDetails.id);
   const { commentsLoading, commentsError } = useSelector(
     (state) => state.cardDetails
@@ -252,14 +259,11 @@ export default function CardComments() {
               {/* Main comment */}
               <div className="group">
                 <div className="flex items-start">
-                  <CommentAvatar
-                    avatar={comment.avatar}
-                    username={comment.username}
-                  />
+                  <UserAvatar user={comment.user} className="h-8 w-8 mr-3" />
                   <div className="flex-grow">
                     <div className="flex items-center">
                       <span className="font-medium text-sm text-gray-800">
-                        {comment.username}
+                        {comment.user?.firstName || comment.user?.username}
                       </span>
                       <span className="ml-2 text-xs text-gray-500">
                         {formatDistanceToNow(new Date(comment.timestamp), {
@@ -325,11 +329,7 @@ export default function CardComments() {
               {replyingToId === comment.id && (
                 <div className="mt-2 ml-11">
                   <div className="flex items-start">
-                    <CommentAvatar
-                      avatar={currentUser?.avatar}
-                      username={currentUser?.firstName}
-                      size="small"
-                    />
+                    <UserAvatar user={currentUser} className="w-7 h-7 mr-3" />
                     <div className="flex-grow">
                       <div className="flex items-center space-x-2">
                         <textarea
@@ -402,15 +402,15 @@ export default function CardComments() {
                           className="pl-5 border-l-2 border-gray-200 ml-5 group"
                         >
                           <div className="flex items-start">
-                            <CommentAvatar
-                              avatar={reply.avatar}
-                              username={reply.username}
-                              size="small"
+                            <UserAvatar
+                              user={reply.user}
+                              className="w-7 h-7 mr-3"
                             />
                             <div className="flex-grow">
                               <div className="flex items-center">
                                 <span className="font-medium text-xs text-gray-800">
-                                  {reply.username}
+                                  {reply.user?.firstName ||
+                                    reply.user?.username}
                                 </span>
                                 <span className="ml-2 text-xs text-gray-500">
                                   {formatDistanceToNow(
@@ -494,34 +494,33 @@ export default function CardComments() {
 
       {/* Add new comment form */}
       <div className="flex items-start mt-4">
-        <CommentAvatar
-          avatar={currentUser?.avatar}
-          username={currentUser?.firstName}
-        />
-        <div className="flex-grow flex items-center space-x-2">
-          <textarea
-            ref={newCommentRef}
-            className="flex-grow border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#4D2D61] focus:border-[#4D2D61] min-h-[40px] max-h-[85px] resize-none overflow-auto"
-            placeholder="Send a message"
-            value={newCommentText}
-            onChange={(e) => setNewCommentText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && e.ctrlKey) {
-                handleAddComment();
-              }
-            }}
-          />
-          <button
-            className={`p-2 rounded-md bg-[#4D2D61] ${
-              newCommentText.trim() && !commentsLoading
-                ? "opacity-100"
-                : "opacity-70"
-            }`}
-            onClick={handleAddComment}
-            disabled={!newCommentText.trim() || commentsLoading || !cardId}
-          >
-            <Send size={16} className="text-white" />
-          </button>
+        <UserAvatar user={currentUser} className="h-8 w-8 mr-3" />
+        <div className="flex-grow">
+          <div className="flex items-center space-x-2">
+            <textarea
+              ref={newCommentRef}
+              className="flex-grow border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#4D2D61] focus:border-[#4D2D61] min-h-[40px] max-h-[85px] resize-none overflow-auto"
+              placeholder="Send a message"
+              value={newCommentText}
+              onChange={(e) => setNewCommentText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && e.ctrlKey) {
+                  handleAddComment();
+                }
+              }}
+            />
+            <button
+              className={`p-2 rounded-md bg-[#4D2D61] ${
+                newCommentText.trim() && !commentsLoading
+                  ? "opacity-100"
+                  : "opacity-70"
+              }`}
+              onClick={handleAddComment}
+              disabled={!newCommentText.trim() || commentsLoading || !cardId}
+            >
+              <Send size={16} className="text-white" />
+            </button>
+          </div>
         </div>
       </div>
       <div className="mt-1 text-xs text-gray-500 ml-11">
@@ -531,70 +530,29 @@ export default function CardComments() {
   );
 }
 
-// Reusable Avatar component for CardComments.jsx
-const CommentAvatar = ({ avatar, username, size = "normal" }) => {
-  const wrapperSize = size === "small" ? "w-6 h-6" : "w-8 h-8";
-  const iconSize = size === "small" ? 12 : 16;
-  const textSize = size === "small" ? "text-xs" : "text-base";
+// Reusable dropdown menu component
+const ActionMenu = ({ isOpen, menuRef, onEdit, onDelete, size = "normal" }) => {
+  if (!isOpen) return null;
 
-  const getInitials = (name) =>
-    name
-      ? name
-          .split(" ")
-          .map((n) => n[0])
-          .join("")
-          .toUpperCase()
-      : "";
+  const buttonClass =
+    "flex items-center w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100";
+  const iconSize = size === "small" ? 12 : 14;
 
   return (
     <div
-      className={`${wrapperSize} rounded-full bg-purple-200 flex items-center justify-center mr-3 flex-shrink-0`}
+      ref={menuRef}
+      className="absolute right-0 mt-1 w-28 bg-white rounded-md shadow-lg border border-gray-200 z-10"
     >
-      {avatar ? (
-        <img
-          src={avatar}
-          alt={username}
-          className="w-full h-full rounded-full object-cover"
-        />
-      ) : username ? (
-        <span className={`font-semibold text-[#4D2D61] ${textSize}`}>
-          {getInitials(username)}
-        </span>
-      ) : (
-        <User size={iconSize} className="text-[#4D2D61]" />
-      )}
+      <button className={buttonClass} onClick={onEdit}>
+        <Edit2 size={iconSize} className="mr-2" />
+        Edit
+      </button>
+      <button className={`${buttonClass} text-red-600`} onClick={onDelete}>
+        <Trash2 size={iconSize} className="mr-2" />
+        Delete
+      </button>
     </div>
   );
-};
-
-// Reusable dropdown menu component
-const ActionMenu = ({ isOpen, menuRef, onEdit, onDelete, size = "normal" }) => {
-  const iconSize = size === "small" ? 12 : 14;
-  const textSize = size === "small" ? "text-xs" : "text-sm";
-
-  return isOpen ? (
-    <div
-      ref={menuRef}
-      className="absolute right-0 mt-1 bg-white rounded-md shadow-lg border border-gray-200 z-10 w-32"
-    >
-      <ul>
-        <li
-          className={`px-4 py-2 ${textSize} text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer`}
-          onClick={onEdit}
-        >
-          <Edit2 size={iconSize} className="mr-2 text-blue-500" />
-          Edit
-        </li>
-        <li
-          className={`px-4 py-2 ${textSize} text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer`}
-          onClick={onDelete}
-        >
-          <Trash2 size={iconSize} className="mr-2 text-red-500" />
-          Delete
-        </li>
-      </ul>
-    </div>
-  ) : null;
 };
 
 // Reusable edit form component

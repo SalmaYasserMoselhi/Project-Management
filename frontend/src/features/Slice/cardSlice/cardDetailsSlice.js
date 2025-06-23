@@ -767,6 +767,7 @@ const cardDetailsSlice = createSlice({
           state.comments = cardData.comments.map((comment) => ({
             id: comment._id,
             text: comment.text,
+            author: comment.author,
             userId: comment.author?._id || comment.userId,
             avatar: comment.author?.avatar,
             username:
@@ -778,6 +779,7 @@ const cardDetailsSlice = createSlice({
             replies: (comment.replies || []).map((reply) => ({
               id: reply._id,
               text: reply.text,
+              author: reply.author,
               userId: reply.author?._id || reply.userId,
               avatar: reply.author?.avatar,
               username:
@@ -1104,6 +1106,7 @@ const cardDetailsSlice = createSlice({
         state.comments = commentsData.map((comment) => ({
           id: comment._id,
           text: comment.text,
+          author: comment.author,
           userId: comment.author?._id || comment.userId,
           avatar: comment.author?.avatar,
           username:
@@ -1117,6 +1120,7 @@ const cardDetailsSlice = createSlice({
           replies: (comment.replies || []).map((reply) => ({
             id: reply._id,
             text: reply.text,
+            author: reply.author,
             userId: reply.author?._id || reply.userId,
             avatar: reply.author?.avatar,
             username:
@@ -1143,13 +1147,14 @@ const cardDetailsSlice = createSlice({
       })
       .addCase(addCardComment.fulfilled, (state, action) => {
         state.commentsLoading = false;
-        const comment = action.payload;
+        const { comment } = action.payload;
 
         // تحويل الاستجابة للتوافق مع هيكل البيانات في واجهة المستخدم
         if (comment && comment._id) {
-          state.comments.push({
+          const newComment = {
             id: comment._id,
             text: comment.text,
+            author: comment.author,
             userId: comment.author?._id || comment.userId,
             avatar: comment.author?.avatar,
             username:
@@ -1160,8 +1165,13 @@ const cardDetailsSlice = createSlice({
               "Anonymous",
             timestamp: comment.createdAt || new Date().toISOString(),
             edited: false,
-            replies: comment.replies || [],
-          });
+            replies: (comment.replies || []).map((reply) => ({
+              ...reply,
+              id: reply._id,
+              author: reply.author,
+            })),
+          };
+          state.comments.unshift(newComment);
         }
         state.commentsCount = calculateCommentsCount(state.comments);
       })
@@ -1277,6 +1287,7 @@ const cardDetailsSlice = createSlice({
           parentComment.replies.push({
             id: reply._id,
             text: reply.text,
+            author: reply.author,
             userId: reply.author?._id || reply.userId,
             avatar: reply.author?.avatar,
             username:

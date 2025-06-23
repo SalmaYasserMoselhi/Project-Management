@@ -293,6 +293,7 @@ const Board = ({
   const [loading, setLoading] = useState(true);
   const [draggedListId, setDraggedListId] = useState(null);
   const [dropIndex, setDropIndex] = useState(null);
+  const [boardMembers, setBoardMembers] = useState([]);
 
   // Sort state
   const [selectedSort, setSelectedSort] = useState("date");
@@ -316,24 +317,12 @@ const Board = ({
     dueDate: null,
   });
 
-  // Mock board members data
-  const boardMembers = [
-    {
-      id: "1",
-      name: "John Doe",
-      avatar: "/placeholder.svg?height=32&width=32",
-    },
-    {
-      id: "2",
-      name: "Jane Smith",
-      avatar: "/placeholder.svg?height=32&width=32",
-    },
-    {
-      id: "3",
-      name: "Alex Johnson",
-      avatar: "/placeholder.svg?height=32&width=32",
-    },
-  ];
+  useEffect(() => {
+    if (boardData && boardData.members) {
+      const validMembers = boardData.members.filter((member) => member);
+      setBoardMembers(validMembers);
+    }
+  }, [boardData]);
 
   const sortRef = useRef(null);
   const filterRef = useRef(null);

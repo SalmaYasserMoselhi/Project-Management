@@ -86,10 +86,8 @@ exports.createComment = catchAsync(async (req, res, next) => {
   // 2. Notify card members
   for (const memberId of cardMembers) {
     // Skip author and mentioned users
-    if (
-      memberId === req.user._id.toString() ||
-      mentions.includes(memberId)
-    ) continue;
+    if (memberId === req.user._id.toString() || mentions.includes(memberId))
+      continue;
 
     await notificationService.createNotification(
       req.app.io,
@@ -122,7 +120,7 @@ exports.createComment = catchAsync(async (req, res, next) => {
   );
 
   const populatedComment = await Comment.findById(comment._id)
-    .populate('author', 'email firstName lastName avatar')
+    .populate('author', 'email firstName lastName avatar username')
     .populate('mentions', 'email firstName lastName')
     .populate({
       path: 'replies',
@@ -182,7 +180,10 @@ exports.updateComment = catchAsync(async (req, res, next) => {
   }
 
   // Validate access
-  const { card, board } = await validateCardAccess(comment.cardId, req.user._id);
+  const { card, board } = await validateCardAccess(
+    comment.cardId,
+    req.user._id
+  );
 
   // Verify ownership
   if (comment.author.toString() !== req.user._id.toString()) {
@@ -215,12 +216,12 @@ exports.updateComment = catchAsync(async (req, res, next) => {
 
   // Get card to find members to notify
   //  card = await Card.findById(comment.cardId);
-  
+
   // Get card members excluding the comment author
   const cardMembers = card.members
-    .filter(member => member.user.toString() !== req.user._id.toString())
-    .map(member => member.user);
-  
+    .filter((member) => member.user.toString() !== req.user._id.toString())
+    .map((member) => member.user);
+
   // Notify card members about the comment update
   for (const memberId of cardMembers) {
     await notificationService.createNotification(
@@ -258,7 +259,10 @@ exports.deleteComment = catchAsync(async (req, res, next) => {
   }
 
   // Validate card access and get board
-  const { card, board } = await validateCardAccess(comment.cardId, req.user._id);
+  const { card, board } = await validateCardAccess(
+    comment.cardId,
+    req.user._id
+  );
 
   // Check if user is the comment author
   if (comment.author.toString() !== req.user._id.toString()) {
@@ -275,12 +279,12 @@ exports.deleteComment = catchAsync(async (req, res, next) => {
 
   // Get card members excluding the comment author
   const cardMembers = card.members
-    .filter(member => member.user.toString() !== req.user._id.toString())
-    .map(member => member.user);
-  
+    .filter((member) => member.user.toString() !== req.user._id.toString())
+    .map((member) => member.user);
+
   // Store comment text for notification before deletion
   const commentText = comment.text.substring(0, 100);
-  
+
   // Notify card members about the comment deletion
   for (const memberId of cardMembers) {
     await notificationService.createNotification(
@@ -319,7 +323,6 @@ exports.deleteComment = catchAsync(async (req, res, next) => {
   });
 });
 
-
 // Add reply
 exports.replyToComment = catchAsync(async (req, res, next) => {
   const { id } = req.params;
@@ -336,7 +339,10 @@ exports.replyToComment = catchAsync(async (req, res, next) => {
   }
 
   // Validate access
-  const { card, board } = await validateCardAccess(parentComment.cardId, req.user._id);
+  const { card, board } = await validateCardAccess(
+    parentComment.cardId,
+    req.user._id
+  );
 
   const reply = await Comment.create({
     text,
@@ -381,7 +387,7 @@ exports.replyToComment = catchAsync(async (req, res, next) => {
         listId: card.list,
         listName: list ? list.name : 'Unknown List',
         commentText: text.substring(0, 100),
-        isReply: true
+        isReply: true,
       }
     );
   }
@@ -407,7 +413,7 @@ exports.replyToComment = catchAsync(async (req, res, next) => {
         listId: card.list,
         listName: list ? list.name : 'Unknown List',
         commentText: text.substring(0, 100),
-        isReply: true
+        isReply: true,
       }
     );
   }
@@ -415,12 +421,13 @@ exports.replyToComment = catchAsync(async (req, res, next) => {
   // Also notify card members (excluding the commenter and parent comment author)
   if (card.members && card.members.length > 0) {
     const cardMembers = card.members
-      .filter(member => 
-        member.user.toString() !== req.user._id.toString() && 
-        member.user.toString() !== parentComment.author._id.toString() &&
-        !mentions.includes(member.user.toString())
+      .filter(
+        (member) =>
+          member.user.toString() !== req.user._id.toString() &&
+          member.user.toString() !== parentComment.author._id.toString() &&
+          !mentions.includes(member.user.toString())
       )
-      .map(member => member.user);
+      .map((member) => member.user);
 
     for (const memberId of cardMembers) {
       await notificationService.createNotification(
@@ -437,7 +444,7 @@ exports.replyToComment = catchAsync(async (req, res, next) => {
           boardName: board.name,
           listName: list ? list.name : 'Unknown List',
           commentText: text.substring(0, 100),
-          isReply: true
+          isReply: true,
         }
       );
     }

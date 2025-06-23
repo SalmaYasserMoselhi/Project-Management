@@ -21,6 +21,7 @@ import {
 } from "../features/Slice/WorkspaceSlice/userWorkspacesSlice";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import UserAvatar from "../Components/UserAvatar";
 
 const permissionOptions = [
   { value: "owner", label: "Owner" },
@@ -625,7 +626,7 @@ export default function WorkspaceSettings() {
             <Menu size={24} className="text-[#4d2d61]" />
           </button>
         )} */}
-        {/* <Breadcrumb customLabel="Workspace Settings" /> */}
+      {/* <Breadcrumb customLabel="Workspace Settings" /> */}
       {/* </div> */}
 
       <div className="flex flex-col space-y-4 mx-auto px-3">
@@ -742,46 +743,19 @@ export default function WorkspaceSettings() {
                   <>
                     {Array.isArray(workspace?.members) &&
                       workspace.members.slice(0, 5).map((member, index) => (
-                        <div
-                          key={member.id}
-                          className="w-10 h-10 rounded-full border-2 border-white flex items-center justify-center overflow-hidden shadow-md"
-                          style={{
-                            background:
-                              member.avatar &&
-                              member.avatar !== "null" &&
-                              member.avatar !== "undefined" &&
-                              member.avatar !== ""
-                                ? undefined
-                                : "#4D2D61",
-                          }}
-                        >
-                          {member.avatar &&
-                          member.avatar !== "null" &&
-                          member.avatar !== "undefined" &&
-                          member.avatar !== "" ? (
-                            <img
-                              src={member.avatar}
-                              alt={member.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-sm font-medium text-white">
-                              {member.name?.charAt(0).toUpperCase() ||
-                                member.user?.username
-                                  ?.charAt(0)
-                                  .toUpperCase() ||
-                                member.user?.email?.charAt(0).toUpperCase() ||
-                                "?"}
-                            </span>
-                          )}
+                        <div key={member.id} className="w-10 h-10">
+                          <UserAvatar
+                            user={member.user}
+                            className="w-full h-full rounded-full border-2 border-white shadow-md"
+                          />
                         </div>
                       ))}
-                    {Array.isArray(workspace?.members) &&
-                      workspace.members.length > 5 && (
-                        <div className="w-10 h-10 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-sm font-medium text-gray-600">
-                          +{workspace.members.length - 5}
-                        </div>
-                      )}
+
+                    {workspace.members.length > 5 && (
+                      <div className="w-10 h-10 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-sm text-gray-600 font-semibold shadow-md">
+                        +{workspace.members.length - 5}
+                      </div>
+                    )}
                   </>
                 )}
               </div>
