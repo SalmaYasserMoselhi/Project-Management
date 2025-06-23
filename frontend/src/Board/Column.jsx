@@ -456,33 +456,17 @@ const Column = ({
       <div className="flex-grow flex flex-col h-full">
         <div
           ref={cardsContainerRef}
-          className={`cards-container flex-grow ${
+          className={`cards-container custom-scrollbar flex-grow ${
             cards.length > 3 ? "overflow-y-auto" : "overflow-y-visible"
           }`}
           style={{
             maxHeight: cards.length > 3 ? `${148 * 3}px` : "none",
-            scrollbarWidth: "thin",
-            scrollbarColor: "#d1d5db transparent",
           }}
           onDragOver={handleDragOver}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          <style>
-            {`
-              .cards-container::-webkit-scrollbar {
-                width: 7px;
-              }
-              .cards-container::-webkit-scrollbar-thumb {
-                background-color: #d1d5db;
-                border-radius: 3px;
-              }
-              .cards-container::-webkit-scrollbar-track {
-                background: transparent;
-              }
-            `}
-          </style>
           {cards && cards.length > 0 ? (
             <div>
               {cards.map((card, index) => (

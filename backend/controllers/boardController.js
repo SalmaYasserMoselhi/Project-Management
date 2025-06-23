@@ -87,6 +87,7 @@ const formatBoardResponse = (board, userId) => ({
               title: card.title,
               description: card.description,
               position: card.position,
+              priority: card.priority,
               dueDate: card.dueDate,
               state: card.state,
               members: card.members ? card.members.map(formatMemberData) : [],
