@@ -1493,10 +1493,10 @@ exports.getListCards = catchAsync(async (req, res, next) => {
 
   // Apply custom priority sorting if needed
   if (sortBy === 'priority') {
-    const priorityOrder = { high: 1, medium: 2, low: 3, none: 4 };
+    const priorityOrder = { none: 0, low: 1, medium: 2, high: 3 };
     cards.sort((a, b) => {
-      const aPriority = priorityOrder[a.priority] || 4;
-      const bPriority = priorityOrder[b.priority] || 4;
+      const aPriority = priorityOrder[a.priority] || 0;
+      const bPriority = priorityOrder[b.priority] || 0;
       return sortOrder === 'asc'
         ? aPriority - bPriority
         : bPriority - aPriority;

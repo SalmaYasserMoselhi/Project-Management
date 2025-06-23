@@ -599,10 +599,12 @@ const Board = ({
       const listData = cardsByList.find(
         (list) => list.listId === col.id || list.listId === col._id
       );
-      return {
+
+      const updatedCol = {
         ...col,
         cards: listData ? [...listData.cards] : [...(col.cards || [])],
       };
+      return updatedCol;
     });
 
     // Force state update with new array
@@ -676,11 +678,12 @@ const Board = ({
             const response = await axios.get(
               `${BASE_URL}/api/v1/cards/list/${listId}/cards?sortBy=${sortBy}&sortOrder=${sortOrder}`
             );
+            const cards = response.data.data.cards || [];
 
             return {
               listId: listId,
               listName: list.name,
-              cards: response.data.data.cards || [],
+              cards: cards,
             };
           } catch (error) {
             return {

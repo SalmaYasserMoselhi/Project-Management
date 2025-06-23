@@ -64,7 +64,8 @@ const Column = ({
       }
 
       const res = await axios.get(url);
-      setCards(res.data.data.cards || []);
+      const cards = res.data.data.cards || [];
+      setCards(cards);
     } catch (err) {
       toast.error("Failed to load cards");
     }
@@ -120,52 +121,6 @@ const Column = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const handleAddCard = async () => {
-    if (!newTitle.trim()) return;
-
-    try {
-      setLoading(true);
-      const tempId = `temp-${Date.now()}`;
-      const newCard = {
-        id: tempId,
-        title: newTitle,
-        priority,
-        attachments: [],
-        commentCount: 0,
-        labels: [],
-      };
-      console.log(`[Column.jsx] Adding temporary card to list ${id}:`, newCard);
-      setCards([...cards, newCard]);
-
-      const response = await axios.post(`${BASE_URL}/api/v1/cards`, {
-        title: newTitle,
-        listId: id,
-        priority,
-      });
-
-      const createdCard = response.data.data;
-      console.log(`[Column.jsx] Created card for list ${id}:`, createdCard);
-      setCards((prevCards) =>
-        prevCards.map((card) =>
-          card.id === tempId
-            ? { ...createdCard, id: createdCard._id || createdCard.id }
-            : card
-        )
-      );
-
-      setNewTitle("");
-      setPriority("Medium");
-      setIsAdding(false);
-      toast.success("Card created successfully");
-    } catch (err) {
-      console.error(`[Column.jsx] Error creating card for list ${id}:`, err);
-      setCards(cards.filter((card) => card.id !== tempId));
-      toast.error("Failed to create card");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleArchive = async () => {
     try {

@@ -21,7 +21,7 @@ const cardSchema = new mongoose.Schema(
     priority: {
       type: String,
       enum: ['none', 'low', 'medium', 'high'],
-      default: 'none'
+      default: 'none',
     },
     cover: {
       type: String,
@@ -187,14 +187,14 @@ cardSchema.virtual('comments', {
 });
 
 // Virtual to get priority level as a number for sorting
-cardSchema.virtual('priorityValue').get(function() {
+cardSchema.virtual('priorityValue').get(function () {
   const priorityMap = {
-    'none': 0,
-    'low': 1,
-    'medium': 2,
-    'high': 3
+    none: 0,
+    low: 1,
+    medium: 2,
+    high: 3,
   };
-  
+
   return priorityMap[this.priority] || 0;
 });
 // Virtual for subtasks completion percentage
