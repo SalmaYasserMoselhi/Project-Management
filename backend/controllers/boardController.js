@@ -12,6 +12,7 @@ const activityService = require('../utils/activityService');
 const invitationService = require('../utils/invitationService');
 const { createDefaultLists } = require('../controllers/listController');
 const notificationService = require('../utils/notificationService');
+const mongoose = require('mongoose');
 
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -697,111 +698,124 @@ exports.deleteBoard = catchAsync(async (req, res, next) => {
 // Get boards for a specific workspace
 exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
   const { workspaceId } = req.params;
-  const { search, sort = '-updatedAt', page = 1, limit = 10 } = req.query;
+  const { search, sort = '-updatedAt', page = 1, limit = 1000 } = req.query; // Increased limit
   const userId = req.user._id;
-  const userIdString = userId.toString();
 
-  // Validate numeric parameters
   const pageNum = parseInt(page, 10) || 1;
-  const limitNum = parseInt(limit, 10) || 10;
+  const limitNum = parseInt(limit, 10) || 1000;
   const skip = (pageNum - 1) * limitNum;
 
-  // Get workspace
   const workspace = await Workspace.findById(workspaceId);
   if (!workspace) {
     return next(new AppError('Workspace not found', 404));
   }
 
   const isMember = workspace.members.some(
-    (member) => member.user.toString() === userIdString
+    (member) => member.user.toString() === userId.toString()
   );
 
   if (!isMember) {
     return next(new AppError('You do not have access to this workspace', 403));
   }
 
-  // Different query for collaboration workspace
-  let query;
+  let matchQuery;
   if (workspace.type === 'collaboration') {
-    // For collaboration workspace, find boards where:
-    // 1. User is a direct member of the board
-    // 2. BUT the board doesn't belong to any workspace where user is a member
-    // 3. AND the board is not archived by the current user
-
-    // First, find all workspaces where user is a member
     const userWorkspaces = await Workspace.find({
       'members.user': userId,
       type: { $ne: 'collaboration' },
     }).select('_id');
-
     const userWorkspaceIds = userWorkspaces.map((w) => w._id);
 
-    query = {
+    matchQuery = {
       'members.user': userId,
-      // Exclude boards that belong to any workspace where the user is a member
       workspace: { $nin: userWorkspaceIds },
-      // Exclude boards archived by this user
       'archivedByUsers.user': { $ne: userId },
-      ...(search && {
-        $or: [
-          { name: { $regex: search, $options: 'i' } },
-          // { description: { $regex: search, $options: 'i' } },
-        ],
-      }),
     };
   } else {
-    // Regular query for other workspace types
-    query = {
-      workspace: workspaceId,
-      // Exclude boards archived by this user
+    matchQuery = {
+      workspace: new mongoose.Types.ObjectId(workspaceId),
       'archivedByUsers.user': { $ne: userId },
-      ...(search && {
-        $or: [
-          { name: { $regex: search, $options: 'i' } },
-          // { description: { $regex: search, $options: 'i' } },
-        ],
-      }),
     };
   }
 
-  const boards = await Board.find(query)
-    .select(
-      'name description background members lists starredByUsers updatedAt settings'
-    )
-    .sort(sort)
-    .skip(skip)
-    .limit(limitNum)
-    .lean();
+  if (search) {
+    matchQuery.name = { $regex: search, $options: 'i' };
+  }
 
-  // Count boards starred by this user
-  const starredBoardsCount = boards.reduce((count, board) => {
-    const isStarredByUser =
-      board.starredByUsers &&
-      board.starredByUsers.some(
-        (entry) => entry.user.toString() === userIdString
-      );
-    return isStarredByUser ? count + 1 : count;
-  }, 0);
+  const sortStage = {};
+  const sortFields = sort.split(',');
+  sortFields.forEach((field) => {
+    if (field.startsWith('-')) {
+      sortStage[field.substring(1)] = -1;
+    } else {
+      sortStage[field] = 1;
+    }
+  });
 
-  const formattedBoards = boards.map((board) => ({
-    id: board._id,
-    name: board.name,
-    description: board.description,
-    background: board.background,
-    userRole:
-      board.members.find((m) => m.user.toString() === userIdString)?.role ||
-      'member',
-    memberCount: board.members.length,
-    starred:
-      (board.starredByUsers &&
-        board.starredByUsers.some(
-          (entry) => entry.user.toString() === userIdString
-        )) ||
-      false,
-    lastActivity: board.updatedAt,
-    lists: board.lists || [],
-    settings: board.settings,
-  }));
+  const aggregationPipeline = [
+    { $match: matchQuery },
+    {
+      $addFields: {
+        isStarred: {
+          $gt: [
+            {
+              $size: {
+                $filter: {
+                  input: { $ifNull: ['$starredByUsers', []] },
+                  as: 'star',
+                  cond: { $eq: ['$$star.user', userId] },
+                },
+              },
+            },
+            0,
+          ],
+        },
+      },
+    },
+    {
+      $sort: {
+        isStarred: -1,
+        ...sortStage,
+      },
+    },
+    { $skip: skip },
+    { $limit: limitNum },
+    {
+      $project: {
+        name: 1,
+        description: 1,
+        background: 1,
+        members: 1,
+        lists: 1,
+        starredByUsers: 1,
+        updatedAt: 1,
+        settings: 1,
+        isStarred: 1,
+        workspace: 1,
+      },
+    },
+  ];
+
+  const boards = await Board.aggregate(aggregationPipeline);
+  const totalBoards = await Board.countDocuments(matchQuery);
+
+  const formattedBoards = boards.map((board) => {
+    const userIdString = userId.toString();
+    return {
+      id: board._id,
+      name: board.name,
+      description: board.description,
+      background: board.background,
+      userRole:
+        board.members.find((m) => m.user.toString() === userIdString)?.role ||
+        'member',
+      memberCount: board.members.length,
+      starred: board.isStarred,
+      lastActivity: board.updatedAt,
+      lists: board.lists || [],
+      settings: board.settings,
+    };
+  });
 
   res.status(200).json({
     status: 'success',
@@ -813,8 +827,8 @@ exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
       },
       boards: formattedBoards,
       stats: {
-        total: boards.length,
-        starred: starredBoardsCount,
+        total: totalBoards,
+        starred: boards.filter((b) => b.isStarred).length,
       },
     },
   });
@@ -1282,70 +1296,109 @@ exports.getArchivedBoards = catchAsync(async (req, res, next) => {
 
   const { sort = '-archivedAt', page = 1, limit = 10 } = req.query;
 
-  // Validate numeric parameters
   const pageNum = parseInt(page, 10) || 1;
   const limitNum = parseInt(limit, 10) || 10;
   const skip = (pageNum - 1) * limitNum;
 
-  // Base query
-  const query = {
+  const matchQuery = {
     'members.user': userId,
     'archivedByUsers.user': userId,
   };
 
-  // Get total count
-  const totalBoards = await Board.countDocuments(query);
-
-  // Find boards where the current user is in archivedByUsers array
-  const archivedBoards = await Board.find({
-    'members.user': userId,
-    'archivedByUsers.user': userId,
-  })
-    .sort(sort)
-    .skip(skip)
-    .limit(limitNum)
-    .lean();
-
-  // Filter out boards with missing workspace data
-  const validBoards = archivedBoards.filter((board) => board.workspace);
-
-  const formattedBoards = validBoards.map((board) => {
-    // Find the user's archive entry to get their specific archivedAt date
-    const userArchiveEntry = board.archivedByUsers.find(
-      (entry) => entry.user.toString() === userId.toString()
-    );
-
-    return {
-      ...formatBoardResponse(board, userId),
-      archivedAt: userArchiveEntry ? userArchiveEntry.archivedAt : null,
-    };
+  const sortStage = {};
+  const sortFields = sort.split(',');
+  sortFields.forEach((field) => {
+    if (field.startsWith('-')) {
+      sortStage[field.substring(1)] = -1;
+    } else {
+      sortStage[field] = 1;
+    }
   });
 
-  const stats = {
-    total: formattedBoards.length,
-    byWorkspaceType: {
-      private: validBoards.filter(
-        (board) =>
-          board.workspace?.type === 'private' &&
-          board.workspace?.createdBy?._id.toString() === userId.toString()
-      ).length,
-      public: validBoards.filter(
-        (board) =>
-          board.workspace?.type === 'public' &&
-          board.workspace?.createdBy?._id.toString() === userId.toString()
-      ).length,
-      collaboration: validBoards.filter(
-        (board) =>
-          board.workspace?.createdBy?._id.toString() !== userId.toString()
-      ).length,
+  const aggregationPipeline = [
+    { $match: matchQuery },
+    {
+      $addFields: {
+        isStarred: {
+          $gt: [
+            {
+              $size: {
+                $filter: {
+                  input: { $ifNull: ['$starredByUsers', []] },
+                  as: 'star',
+                  cond: { $eq: ['$$star.user', userId] },
+                },
+              },
+            },
+            0,
+          ],
+        },
+        userArchiveEntry: {
+          $arrayElemAt: [
+            {
+              $filter: {
+                input: '$archivedByUsers',
+                as: 'archiveEntry',
+                cond: { $eq: ['$$archiveEntry.user', userId] },
+              },
+            },
+            0,
+          ],
+        },
+      },
     },
-  };
+    {
+      $addFields: {
+        archivedAt: '$userArchiveEntry.archivedAt',
+      },
+    },
+    {
+      $sort: {
+        isStarred: -1,
+        ...sortStage,
+      },
+    },
+    { $skip: skip },
+    { $limit: limitNum },
+    {
+      $project: {
+        name: 1,
+        description: 1,
+        workspace: 1,
+        createdBy: 1,
+        createdAt: 1,
+        members: 1,
+        updatedAt: 1,
+        starredByUsers: 1,
+        archivedByUsers: 1,
+        isStarred: 1,
+        archivedAt: 1,
+      },
+    },
+  ];
+
+  const archivedBoards = await Board.aggregate(aggregationPipeline);
+  const totalBoards = await Board.countDocuments(matchQuery);
+  const populatedBoards = await Board.populate(archivedBoards, {
+    path: 'workspace',
+    select: 'name type createdBy',
+  });
+
+  const formattedBoards = populatedBoards
+    .filter((board) => board.workspace)
+    .map((board) => ({
+      ...formatBoardResponse(board, userId),
+      archivedAt: board.archivedAt,
+      starred: board.isStarred,
+    }));
 
   res.status(200).json({
     status: 'success',
     data: {
       boards: formattedBoards,
-      stats,
+      stats: {
+        total: totalBoards,
+      },
       pagination: {
         total: totalBoards,
         page: pageNum,

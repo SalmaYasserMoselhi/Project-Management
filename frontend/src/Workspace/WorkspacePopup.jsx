@@ -43,6 +43,30 @@ import {
   resetWorkspacePopup,
 } from "../features/Slice/WorkspaceSlice/boardsSlice";
 
+const styles = `
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+`;
+
+const BoardItemSkeleton = () => (
+  <div className="px-4 py-4">
+    <div className="loading-skeleton h-4 w-3/4 rounded"></div>
+  </div>
+);
+
 const WorkspacePopup = ({ workspaceId, workspaceName }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -67,6 +91,7 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
   const popupRef = useRef(null);
   const backdropRef = useRef(null);
   const menuRef = useRef(null);
+  const sortMenuRef = useRef(null);
 
   usePopupAnimation();
 
@@ -146,7 +171,11 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         dispatch(closeBoardMenu());
       }
-      if (isMenuOpen) {
+      if (
+        isMenuOpen &&
+        sortMenuRef.current &&
+        !sortMenuRef.current.contains(event.target)
+      ) {
         dispatch(closeMenu());
       }
     };
@@ -161,9 +190,23 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
     navigate(`/main/workspaces/${currentWorkspaceId}/boards/${boardId}`);
   };
 
-  const handlePinBoard = (e, boardId, isStarred) => {
+  const handlePinBoard = async (e, boardId, isStarred) => {
     e.stopPropagation();
-    dispatch(toggleBoardStar({ boardId, isStarred }));
+    try {
+      await dispatch(toggleBoardStar({ boardId, isStarred })).unwrap();
+      // Re-fetch boards to apply sorting correctly
+      dispatch(
+        fetchBoards({
+          workspaceId: currentWorkspaceId,
+          activeTab,
+          sortOption,
+          searchTerm,
+        })
+      );
+    } catch (error) {
+      // Error is already handled by toast in the slice, but you could add more here if needed
+      console.error("Failed to toggle board star:", error);
+    }
   };
 
   const handleArchiveBoard = (e, boardId) => {
@@ -180,25 +223,18 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
     dispatch(setSortOption(value));
   };
 
-  const sortedBoards = [...boards].sort((a, b) => {
-    if (a.starred && !b.starred) return -1;
-    if (!a.starred && b.starred) return 1;
-    return 0;
-  });
+  const sortedBoards = boards;
 
   if (!currentWorkspaceId) return null;
 
   const sortOptions = [
     { value: "-updatedAt", label: "Recently Updated" },
     { value: "updatedAt", label: "Oldest Updated" },
-    { value: "name", label: "Name (A-Z)" },
-    { value: "-name", label: "Name (Z-A)" },
-    { value: "-createdAt", label: "Recently Created" },
-    { value: "createdAt", label: "Oldest Created" },
   ];
 
   return (
     <>
+      <style>{styles}</style>
       <div
         ref={backdropRef}
         className="workspace-backdrop"
@@ -253,7 +289,7 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
             All Boards ({totalBoards})
           </span>
           {activeTab !== "Archived" && (
-            <div className="relative">
+            <div className="relative" ref={sortMenuRef}>
               <button
                 onClick={() => dispatch(toggleIsMenuOpen())}
                 className="flex items-center text-sm text-gray-600 hover:text-[#4D2D61] bg-transparent hover:bg-gray-100 py-1 px-2 rounded transition-colors"
@@ -285,9 +321,12 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
         </div>
         <div className="overflow-auto" style={{ height: "calc(100% - 250px)" }}>
           {loading ? (
-            <div className="text-center text-gray-500 my-5">
-              <div className="animate-spin h-5 w-5 border-t-2 border-[#4D2D61] rounded-full mx-auto"></div>
-              <p className="mt-2">Loading boards...</p>
+            <div className="py-2">
+              <BoardItemSkeleton />
+              <BoardItemSkeleton />
+              <BoardItemSkeleton />
+              <BoardItemSkeleton />
+              <BoardItemSkeleton />
             </div>
           ) : error ? (
             <div className="text-center text-red-500 my-5">{error}</div>
