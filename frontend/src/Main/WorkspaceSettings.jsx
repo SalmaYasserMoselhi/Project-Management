@@ -29,6 +29,153 @@ const permissionOptions = [
   { value: "member", label: "All members" },
 ];
 
+const styles = `
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.card-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  box-shadow: 0 4px 16px rgba(77, 45, 97, 0.10);
+  background-color: #faf9fc;
+  border-color: #bda4e6;
+  transform: scale(1.025);
+  z-index: 10;
+}
+
+.button-hover {
+  transition: all 0.2s ease-out;
+}
+
+.button-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(77, 45, 97, 0.2);
+}
+
+.stagger-1 { animation-delay: 0.1s; opacity: 0; }
+.stagger-2 { animation-delay: 0.2s; opacity: 0; }
+.stagger-3 { animation-delay: 0.3s; opacity: 0; }
+.stagger-4 { animation-delay: 0.4s; opacity: 0; }
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+@media (max-width: 1024px) {
+  .card-hover:hover {
+    transform: none;
+  }
+}
+`;
+
+const SettingsSkeleton = () => (
+  <div className="min-h-screen w-full bg-white">
+    <div className="flex flex-col space-y-4 mx-auto px-3 py-4">
+      {/* Workspace Overview Skeleton */}
+      <div className="border border-gray-200 rounded-lg bg-white p-6">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 loading-skeleton rounded-xl"></div>
+          <div className="flex-1 space-y-2">
+            <div className="h-6 w-1/2 loading-skeleton rounded"></div>
+            <div className="h-4 w-1/4 loading-skeleton rounded"></div>
+          </div>
+        </div>
+        <div className="mt-4 space-y-3">
+          <div className="h-4 w-1/5 loading-skeleton rounded"></div>
+          <div className="h-20 w-full loading-skeleton rounded-lg"></div>
+        </div>
+      </div>
+
+      {/* Members & Permissions Skeleton */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="border border-gray-200 rounded-lg bg-white p-6 space-y-4">
+          <div className="h-5 w-1/3 loading-skeleton rounded"></div>
+          <div className="h-4 w-2/3 loading-skeleton rounded"></div>
+          <div className="flex -space-x-2">
+            <div className="w-10 h-10 rounded-full loading-skeleton border-2 border-white"></div>
+            <div className="w-10 h-10 rounded-full loading-skeleton border-2 border-white"></div>
+            <div className="w-10 h-10 rounded-full loading-skeleton border-2 border-white"></div>
+          </div>
+        </div>
+        <div className="border border-gray-200 rounded-lg bg-white p-6 space-y-4">
+          <div className="h-5 w-1/3 loading-skeleton rounded"></div>
+          <div className="h-4 w-2/3 loading-skeleton rounded"></div>
+          <div className="h-8 w-1/2 loading-skeleton rounded-md mt-4"></div>
+          <div className="h-8 w-1/2 loading-skeleton rounded-md"></div>
+        </div>
+      </div>
+
+      {/* Activity Skeleton */}
+      <div className="border border-gray-200 rounded-lg bg-white p-6 space-y-4">
+        <div className="h-5 w-1/4 loading-skeleton rounded"></div>
+        <div className="h-4 w-1/2 loading-skeleton rounded"></div>
+        <div className="space-y-3 pt-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full loading-skeleton"></div>
+            <div className="flex-1 space-y-1">
+              <div className="h-4 w-full loading-skeleton rounded"></div>
+              <div className="h-3 w-1/4 loading-skeleton rounded"></div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full loading-skeleton"></div>
+            <div className="flex-1 space-y-1">
+              <div className="h-4 w-full loading-skeleton rounded"></div>
+              <div className="h-3 w-1/4 loading-skeleton rounded"></div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full loading-skeleton"></div>
+            <div className="flex-1 space-y-1">
+              <div className="h-4 w-full loading-skeleton rounded"></div>
+              <div className="h-3 w-1/4 loading-skeleton rounded"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 export default function WorkspaceSettings() {
   const { workspaceId: urlWorkspaceId } = useParams();
   const navigate = useNavigate();
@@ -583,11 +730,7 @@ export default function WorkspaceSettings() {
   }, [workspace?.members]);
 
   if (loading || hasPermission === null) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-[#F5F5F7]">
-        <div className="animate-spin h-8 w-8 border-t-2 border-[#6a3b82] rounded-full"></div>
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
   if (hasPermission === false) {
     return null;
@@ -618,6 +761,7 @@ export default function WorkspaceSettings() {
 
   return (
     <div className="min-h-screen w-full bg-white">
+      <style>{styles}</style>
       {errorAlert}
       {/* Header */}
       {/* <div className="p-3 md:p-4 flex items-center">
@@ -632,7 +776,7 @@ export default function WorkspaceSettings() {
       <div className="flex flex-col space-y-4 mx-auto px-3">
         {/* Success Message */}
         {success && (
-          <div className="border border-green-200 bg-green-50 rounded-lg shadow-sm">
+          <div className="border border-green-200 bg-green-50 rounded-lg shadow-sm animate-fade-in">
             <div className="p-4">
               <div className="flex items-center space-x-2 text-green-800">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -645,7 +789,7 @@ export default function WorkspaceSettings() {
         )}
 
         {/* Workspace Overview */}
-        <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
+        <div className="border border-purple-200 rounded-lg shadow-sm bg-white card-hover animate-fade-in-up stagger-1">
           <div className="p-4 md:p-6">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 flex items-center justify-center bg-gradient-to-br from-[#6A3B82] to-[#57356A] text-white font-semibold rounded-xl text-xl shadow-lg">
@@ -714,7 +858,7 @@ export default function WorkspaceSettings() {
         {/* Members Section and Permissions Side by Side */}
         <div className="grid md:grid-cols-2 gap-4">
           {/* Members Section */}
-          <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
+          <div className="border border-purple-200 rounded-lg shadow-sm bg-white card-hover animate-fade-in-up stagger-2">
             <div className="p-4 md:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -736,8 +880,11 @@ export default function WorkspaceSettings() {
               </div>
               <div className="flex items-center -space-x-2 min-h-[40px]">
                 {loadingMembers ? (
-                  <div className="flex items-center justify-center w-full py-2">
-                    <div className="animate-spin h-7 w-7 border-t-2 border-[#6a3b82] rounded-full"></div>
+                  <div className="flex -space-x-2">
+                    <div className="w-10 h-10 rounded-full loading-skeleton border-2 border-white"></div>
+                    <div className="w-10 h-10 rounded-full loading-skeleton border-2 border-white"></div>
+                    <div className="w-10 h-10 rounded-full loading-skeleton border-2 border-white"></div>
+                    <div className="w-10 h-10 rounded-full loading-skeleton border-2 border-white"></div>
                   </div>
                 ) : (
                   <>
@@ -763,7 +910,7 @@ export default function WorkspaceSettings() {
           </div>
 
           {/* Permissions */}
-          <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
+          <div className="border border-purple-200 rounded-lg shadow-sm bg-white card-hover animate-fade-in-up stagger-3">
             <div className="p-4 md:p-6">
               <h2 className="text-lg font-semibold text-[#6a3b82] flex items-center gap-2 mb-1">
                 <Shield size={20} />
@@ -878,7 +1025,7 @@ export default function WorkspaceSettings() {
         </div>
 
         {/* Activity Overview */}
-        <div className="border border-purple-200 rounded-lg shadow-sm bg-white">
+        <div className="border border-purple-200 rounded-lg shadow-sm bg-white card-hover animate-fade-in-up stagger-4">
           <div className="p-4 md:p-6">
             <h2 className="text-lg font-semibold text-[#6a3b82] flex items-center gap-2 mb-1">
               <Clock size={20} />
@@ -927,11 +1074,11 @@ export default function WorkspaceSettings() {
         </div>
 
         {/* Save Button */}
-        <div className="flex justify-end">
+        <div className="flex justify-end animate-fade-in-up stagger-4">
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2 rounded-lg bg-gradient-to-r from-[#4d2d61] to-[#7b4397] text-white text-sm font-medium transition-all hover:shadow-lg hover:scale-[1.01] hover:translate-y-[-2px] disabled:opacity-50 disabled:cursor-not-allowed flex items-center mb-4"
+            className="px-6 py-2 rounded-lg bg-gradient-to-r from-[#4d2d61] to-[#7b4397] text-white text-sm font-medium transition-all hover:shadow-lg hover:scale-[1.01] hover:translate-y-[-2px] disabled:opacity-50 disabled:cursor-not-allowed flex items-center mb-4 button-hover"
           >
             {saving ? (
               <>
