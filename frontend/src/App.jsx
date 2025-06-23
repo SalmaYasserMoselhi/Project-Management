@@ -15,7 +15,6 @@ import axios from "./utils/axiosConfig";
 import { io } from "socket.io-client";
 import { fetchUnreadCount, addNotification } from "./features/Slice/userSlice/notificationSlice";
 import toast from "react-hot-toast";
-import notificationSound from "./utils/notificationSound";
 
 function App() {
   const { isWorkspaceOpen, selectedWorkspace, workspaceTransitionState } =
