@@ -10,6 +10,48 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import InviteMembersPopup from "../Components/InviteMembersPopup";
 import MembersModal from "../Components/MembersModal";
+import UserAvatar from "../Components/UserAvatar";
+
+const avatarColors = [
+  "#4D2D61",
+  "#7b4397",
+  "#3498db",
+  "#2ecc71",
+  "#e74c3c",
+  "#f39c12",
+  "#9b59b6",
+  "#1abc9c",
+  "#34495e",
+];
+
+const getUserAvatar = (user) => {
+  if (
+    user &&
+    user.avatar &&
+    user.avatar !== "null" &&
+    user.avatar !== "undefined"
+  ) {
+    return user.avatar;
+  }
+  let initials = "UN";
+  if (user) {
+    const firstName = user.firstName || (user.user && user.user.firstName);
+    const lastName = user.lastName || (user.user && user.user.lastName);
+    const username = user.username || (user.user && user.user.username);
+    const email = user.email || (user.user && user.user.email);
+    if (firstName && lastName) initials = `${firstName[0]}${lastName[0]}`;
+    else if (username) initials = username.substring(0, 2).toUpperCase();
+    else if (email) initials = email.substring(0, 2).toUpperCase();
+  }
+  const userId = (user && (user._id || (user.user && user.user._id))) || "";
+  const colorIndex =
+    (userId.toString().charCodeAt(0) || 0) % avatarColors.length;
+  const bgColor = avatarColors[colorIndex];
+  return `https://ui-avatars.com/api/?name=${initials}&background=${bgColor.replace(
+    "#",
+    ""
+  )}&color=fff&bold=true&size=128`;
+};
 
 const ProjectInfo = ({
   boardName,
@@ -18,6 +60,7 @@ const ProjectInfo = ({
   onListRestored,
   onCardRestored,
   boardCreatedAt,
+  members: initialMembers,
 }) => {
   const BASE_URL = "http://localhost:3000";
   const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
@@ -35,8 +78,8 @@ const ProjectInfo = ({
   const [showSettingsPopup, setShowSettingsPopup] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showInvitePopup, setShowInvitePopup] = useState(false);
-  const [members, setMembers] = useState([]);
-  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [members, setMembers] = useState(initialMembers || []);
+  const [loadingMembers, setLoadingMembers] = useState(!initialMembers);
   const [errorMembers, setErrorMembers] = useState(null);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(null);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
@@ -85,34 +128,13 @@ const ProjectInfo = ({
     }
   };
 
-  // Fetch members when component mounts or boardId changes
+  // Update members when prop changes
   useEffect(() => {
-    if (boardId) {
-      setLoadingMembers(true);
-      const url = `${BASE_URL}/api/v1/boards/${boardId}/members`;
-      fetch(url, { credentials: "include" })
-        .then((res) => {
-          if (!res.ok) throw new Error("Failed to fetch members");
-          return res.json();
-        })
-        .then((data) => {
-          const members = (data.data?.members || data.members || []).map(
-            (m) => ({
-              ...m,
-              id: m.id || m._id,
-              name: m.user?.username || m.user?.email || "Unknown",
-              avatar: m.user?.avatar,
-              email: m.user?.email,
-            })
-          );
-          if (members.length > 0) {
-            setMembers(members);
-          }
-        })
-        .catch((err) => setErrorMembers(err.message))
-        .finally(() => setLoadingMembers(false));
+    if (initialMembers) {
+      setMembers(initialMembers);
+      setLoadingMembers(false);
     }
-  }, [boardId]);
+  }, [initialMembers]);
 
   // Auto-dismiss error alert
   useEffect(() => {
@@ -422,42 +444,17 @@ const ProjectInfo = ({
 
           <div className="flex items-center gap-3 ml-4">
             <div className="flex -space-x-2">
-              {membersArray.length === 0 && loadingMembers ? (
-                <span className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-full border-2 border-white text-sm font-bold text-[#606C80]">
-                  ...
-                </span>
-              ) : membersArray.length === 0 ? (
-                <span className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-full border-2 border-white text-sm font-bold text-[#606C80]">
-                  0
-                </span>
-              ) : (
-                <>
-                  {membersArray.slice(0, 4).map((member) =>
-                    member.avatar ? (
-                      <img
-                        key={member.id}
-                        src={member.avatar}
-                        className="w-8 h-8 rounded-full border-2 border-white"
-                        alt={member.name || member.user?.username || "Member"}
-                      />
-                    ) : (
-                      <div
-                        key={member.id}
-                        className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold text-[#606C80] border-2 border-white"
-                      >
-                        {member.name?.charAt(0).toUpperCase() ||
-                          member.user?.username?.charAt(0).toUpperCase() ||
-                          member.user?.email?.charAt(0).toUpperCase() ||
-                          "?"}
-                      </div>
-                    )
-                  )}
-                  {membersArray.length > 4 && (
-                    <span className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-full border-2 border-white text-sm font-bold text-[#606C80]">
-                      +{membersArray.length - 4}
-                    </span>
-                  )}
-                </>
+              {membersArray.slice(0, 5).map((member) => (
+                <UserAvatar
+                  key={member.id}
+                  user={member.user}
+                  className="h-8 w-8 border-2 border-white"
+                />
+              ))}
+              {membersArray.length > 5 && (
+                <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-600 border-2 border-white">
+                  +{membersArray.length - 5}
+                </div>
               )}
             </div>
             <Settings

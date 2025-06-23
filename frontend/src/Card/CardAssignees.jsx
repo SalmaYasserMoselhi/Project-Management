@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import MemberSelectionPopup from "../Components/MemberSelectionPopup";
+import UserAvatar from "../Components/UserAvatar";
 
 // Helper function to get user display name
 const getUserDisplayName = (user) => {
@@ -227,11 +228,9 @@ export default function CardAssignees({ cardId }) {
               // Make sure we're accessing the user data correctly
               const userData = assignee.user || assignee;
               return (
-                <img
+                <UserAvatar
                   key={assignee.id || assignee._id || userData._id}
-                  src={getUserAvatar(userData)}
-                  alt={getUserDisplayName(userData)}
-                  title={getUserDisplayName(userData)}
+                  user={userData}
                   className="w-8 h-8 rounded-full border-2 border-white shadow-md"
                 />
               );

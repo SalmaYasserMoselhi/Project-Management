@@ -15,6 +15,8 @@ const MainBoard = () => {
   const [boardName, setBoardName] = useState("");
   const [boardDescription, setBoardDescription] = useState("");
   const [boardCreatedAt, setBoardCreatedAt] = useState(null);
+  const [boardData, setBoardData] = useState(null);
+  const [loadingBoard, setLoadingBoard] = useState(true);
 
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef(null);
@@ -36,10 +38,11 @@ const MainBoard = () => {
     setRestoredCard(card);
   };
 
-  // Fetch board info
+  // Fetch board info with complete data
   useEffect(() => {
     const fetchBoardData = async () => {
       try {
+        setLoadingBoard(true);
         const response = await fetch(
           `http://localhost:3000/api/v1/boards/${boardId}`,
           {
@@ -56,9 +59,12 @@ const MainBoard = () => {
           setBoardName(data.data.board.name);
           setBoardDescription(data.data.board.description || "");
           setBoardCreatedAt(data.data.board.createdAt);
+          setBoardData(data.data.board); // Store complete board data
         }
       } catch (error) {
         console.error("Error fetching board data:", error);
+      } finally {
+        setLoadingBoard(false);
       }
     };
 
@@ -179,6 +185,7 @@ const MainBoard = () => {
           onListRestored={handleListRestored}
           onCardRestored={handleCardRestored}
           boardCreatedAt={boardCreatedAt}
+          members={boardData ? boardData.members : []}
         />
         <Board
           isSidebarOpen={isSidebarOpen}
@@ -186,6 +193,8 @@ const MainBoard = () => {
           boardId={boardId}
           restoredLists={restoredLists}
           restoredCard={restoredCard}
+          boardData={boardData}
+          loadingBoard={loadingBoard}
         />
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import UserAvatar from "./UserAvatar";
 
 // Helper function to get user display name
 const getUserDisplayName = (user) => {
@@ -303,17 +304,16 @@ export default function MemberSelectionPopup({
                           key={userId}
                           className="flex items-center justify-between p-2 hover:bg-gray-100 rounded-md"
                         >
-                          <div className="flex items-center">
-                            <img
-                              src={getUserAvatar(userData)}
-                              alt={displayName}
-                              className="w-8 h-8 rounded-full mr-3"
-                            />
+                          <div className="flex items-center gap-3">
+                            <UserAvatar user={member} className="h-8 w-8" />
                             <div>
-                              <div className="font-medium">{displayName}</div>
-                              <div className="text-xs text-gray-500">
-                                {userData.email}
-                              </div>
+                              <p className="font-medium text-sm">
+                                {displayName}
+                              </p>
+                              <p className="text-gray-500 text-xs">
+                                {userData.email ||
+                                  (userData.user && userData.user.email)}
+                              </p>
                             </div>
                           </div>
                           <button
@@ -371,17 +371,16 @@ export default function MemberSelectionPopup({
                           key={userId}
                           className="flex items-center justify-between p-2 hover:bg-gray-100 rounded-md"
                         >
-                          <div className="flex items-center">
-                            <img
-                              src={getUserAvatar(userData)}
-                              alt={displayName}
-                              className="w-8 h-8 rounded-full mr-3"
-                            />
+                          <div className="flex items-center gap-3">
+                            <UserAvatar user={member} className="h-8 w-8" />
                             <div>
-                              <div className="font-medium">{displayName}</div>
-                              <div className="text-xs text-gray-500">
-                                {userData.email}
-                              </div>
+                              <p className="font-medium text-sm">
+                                {displayName}
+                              </p>
+                              <p className="text-gray-500 text-xs">
+                                {userData.email ||
+                                  (userData.user && userData.user.email)}
+                              </p>
                             </div>
                           </div>
                           <button

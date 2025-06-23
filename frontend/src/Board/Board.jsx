@@ -274,7 +274,14 @@ const BoardLoadingSkeleton = () => (
   </div>
 );
 
-const Board = ({ workspaceId, boardId, restoredLists, restoredCard }) => {
+const Board = ({
+  workspaceId,
+  boardId,
+  restoredLists,
+  restoredCard,
+  boardData,
+  loadingBoard,
+}) => {
   const isSidebarOpen = useSelector((state) => state.sidebar.isSidebarOpen);
   const dispatch = useDispatch();
   const BASE_URL = "http://localhost:3000";
@@ -363,32 +370,49 @@ const Board = ({ workspaceId, boardId, restoredLists, restoredCard }) => {
     }
   }, [restoredCard]);
 
+  // Use boardData instead of fetching lists separately
   useEffect(() => {
-    const fetchLists = async () => {
-      try {
-        console.log(`[Board.jsx] Fetching lists for board ${boardId}`);
-        const res = await axios.get(
-          `${BASE_URL}/api/v1/lists/board/${boardId}/lists`
-        );
-        console.log("[Board.jsx] Fetched lists response:", res.data);
+    if (boardData && boardData.lists) {
+      console.log(
+        "[Board.jsx] ✅ Using optimized board data for lists:",
+        boardData.lists
+      );
+      // Filter out archived lists
+      const activeLists = boardData.lists.filter((list) => !list.archived);
+      console.log("[Board.jsx] Filtered active lists:", activeLists);
+      setColumns(activeLists);
+      setLoading(false);
+    } else if (!loadingBoard && !boardData) {
+      // Fallback to fetching lists if boardData is not available
+      console.log("[Board.jsx] ⚠️ Fallback: Fetching lists separately");
+      const fetchLists = async () => {
+        try {
+          console.log(
+            `[Board.jsx] Fallback: Fetching lists for board ${boardId}`
+          );
+          const res = await axios.get(
+            `${BASE_URL}/api/v1/lists/board/${boardId}/lists`
+          );
+          console.log("[Board.jsx] Fetched lists response:", res.data);
 
-        // Filter out archived lists
-        const activeLists = res.data.data.lists.filter(
-          (list) => !list.archived
-        );
-        console.log("[Board.jsx] Filtered active lists:", activeLists);
+          // Filter out archived lists
+          const activeLists = res.data.data.lists.filter(
+            (list) => !list.archived
+          );
+          console.log("[Board.jsx] Filtered active lists:", activeLists);
 
-        setColumns(activeLists);
-      } catch (error) {
-        console.error("[Board.jsx] Error fetching lists:", error);
-        toast.error("Failed to load board lists");
-      } finally {
-        setLoading(false);
-      }
-    };
+          setColumns(activeLists);
+        } catch (error) {
+          console.error("[Board.jsx] Error fetching lists:", error);
+          toast.error("Failed to load board lists");
+        } finally {
+          setLoading(false);
+        }
+      };
 
-    if (boardId) fetchLists();
-  }, [boardId]);
+      if (boardId) fetchLists();
+    }
+  }, [boardData, loadingBoard, boardId]);
 
   useEffect(() => {
     setTempSort(selectedSort);
@@ -938,7 +962,7 @@ const Board = ({ workspaceId, boardId, restoredLists, restoredCard }) => {
   };
 
   // Show enhanced loading skeleton
-  if (loading) {
+  if (loading || loadingBoard) {
     return <BoardLoadingSkeleton />;
   }
 
@@ -1451,6 +1475,7 @@ const Board = ({ workspaceId, boardId, restoredLists, restoredCard }) => {
                     onDelete={handleDeleteList}
                     onArchive={handleArchiveList}
                     targetCardId={targetCardId}
+                    cards={col.cards || []}
                   />
                 </div>
               ))}

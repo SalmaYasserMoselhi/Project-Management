@@ -1,67 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import CardDetails from "../Card/CardDetails";
-
-// Array of background colors for avatars
-const avatarColors = [
-  "#4D2D61", // Primary brand color
-  "#7b4397", // Secondary brand color
-  "#3498db", // Blue
-  "#2ecc71", // Green
-  "#e74c3c", // Red
-  "#f39c12", // Orange
-  "#9b59b6", // Purple
-  "#1abc9c", // Teal
-  "#34495e", // Dark blue
-];
-
-// Helper function to get avatar URL or generate one
-const getUserAvatar = (user) => {
-  // Check for actual avatar URL with multiple possible property names
-  if (user.avatar && user.avatar !== "null" && user.avatar !== "undefined") {
-    return user.avatar;
-  }
-
-  // For board members, the avatar might be nested in a different way
-  if (
-    user.user &&
-    user.user.avatar &&
-    user.user.avatar !== "null" &&
-    user.user.avatar !== "undefined"
-  ) {
-    return user.user.avatar;
-  }
-
-  // Generate initials for the avatar
-  let initials;
-  let firstName = user.firstName || (user.user && user.user.firstName);
-  let lastName = user.lastName || (user.user && user.user.lastName);
-  let username = user.username || (user.user && user.user.username);
-  let email = user.email || (user.user && user.user.email);
-
-  if (firstName && lastName) {
-    initials = `${firstName[0]}${lastName[0]}`;
-  } else if (username) {
-    initials = username.substring(0, 2).toUpperCase();
-  } else if (email) {
-    initials = email.substring(0, 2).toUpperCase();
-  } else {
-    initials = "UN";
-  }
-
-  // Generate a consistent color based on the user ID or name
-  const userId = user._id || (user.user && user.user._id) || "";
-  const userEmail = email || "";
-  const colorIndex =
-    (userId.toString().charCodeAt(0) || userEmail.charCodeAt(0) || 0) %
-    avatarColors.length;
-  const bgColor = avatarColors[colorIndex];
-
-  return `https://ui-avatars.com/api/?name=${initials}&background=${bgColor.replace(
-    "#",
-    ""
-  )}&color=fff&bold=true&size=128`;
-};
+import UserAvatar from "../Components/UserAvatar";
 
 // Local cache for member data
 const membersCache = new Map();
@@ -91,25 +31,32 @@ const TaskCard = ({
 
   const MAX_VISIBLE_LABELS = 2;
 
+  // Use initialMembers if provided, otherwise use cached data
   useEffect(() => {
-    if (id && !id.startsWith("temp-")) {
+    if (initialMembers && initialMembers.length > 0) {
+      console.log(
+        `[TaskCard.jsx] ✅ Using optimized members data for card ${id}:`,
+        initialMembers
+      );
+      setMembers(initialMembers);
+      membersCache.set(id, initialMembers);
+    } else if (id && !id.startsWith("temp-")) {
+      // Check cache first
+      if (membersCache.has(id)) {
+        const cachedMembers = membersCache.get(id);
+        console.log(
+          `[TaskCard.jsx] Using cached members for card ${id}:`,
+          cachedMembers
+        );
+        setMembers(cachedMembers);
+        return;
+      }
+
+      // Only make API call if no initial members and no cache
+      console.log(
+        `[TaskCard.jsx] ⚠️ Fallback: Fetching members for card ${id}`
+      );
       const fetchMembers = async () => {
-        // Check cache first
-        if (membersCache.has(id)) {
-          const cachedMembers = membersCache.get(id);
-          console.log(`Using cached members for card ${id}:`, cachedMembers);
-          setMembers(cachedMembers);
-          return;
-        }
-
-        // Skip API call if initialMembers is provided
-        if (initialMembers.length > 0) {
-          console.log(`Using initial members for card ${id}:`, initialMembers);
-          setMembers(initialMembers);
-          membersCache.set(id, initialMembers);
-          return;
-        }
-
         setIsLoadingMembers(true);
         try {
           const response = await axios.get(
@@ -369,19 +316,9 @@ const TaskCard = ({
                 <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
               ) : members.length > 0 ? (
                 <>
-                  <img
-                    src={getUserAvatar(members[0].user || members[0])}
+                  <UserAvatar
+                    user={members[0]}
                     className="w-8 h-8 rounded-full border-2 border-white"
-                    alt={`Member ${
-                      members[0].user?.firstName ||
-                      members[0].firstName ||
-                      "Unknown"
-                    }`}
-                    title={
-                      members[0].user?.firstName ||
-                      members[0].firstName ||
-                      "Unknown"
-                    }
                   />
                   {members.length > 1 && (
                     <span className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-full border-2 border-white text-sm font-bold text-[#606C80]">

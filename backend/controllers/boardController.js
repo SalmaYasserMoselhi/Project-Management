@@ -164,43 +164,45 @@ exports.getBoardById = catchAsync(async (req, res, next) => {
   const board = req.board;
 
   // Fetch lists if they're not already populated
-  const populatedBoard = !board.lists
-    ? await Board.findById(board._id)
-        .populate('workspace', 'name type')
-        .populate('createdBy', 'username email avatar firstName lastName')
-        .populate('members.user', 'username email avatar firstName lastName')
-        .populate({
-          path: 'lists',
-          match: { archived: false },
+  let query = Board.findById(board._id)
+    .populate('workspace', 'name type')
+    .populate('createdBy', 'username email avatar firstName lastName');
+
+  query = populateMembersWithAvatar(query);
+
+  query = query.populate({
+    path: 'lists',
+    match: { archived: false },
+    options: { sort: { position: 1 } },
+    populate: {
+      path: 'cards',
+      match: { archived: false },
+      options: { sort: { position: 1 } },
+      populate: [
+        {
+          path: 'members.user',
+          select: 'username email avatar firstName lastName',
+        },
+        {
+          path: 'labels',
+        },
+        {
+          path: 'createdBy',
+          select: 'username email avatar firstName lastName',
+        },
+        {
+          path: 'subtasks',
           options: { sort: { position: 1 } },
           populate: {
-            path: 'cards',
-            match: { archived: false },
-            options: { sort: { position: 1 } },
-            populate: [
-              {
-                path: 'members.user',
-                select: 'username email avatar firstName lastName',
-              },
-              {
-                path: 'labels',
-              },
-              {
-                path: 'createdBy',
-                select: 'username email avatar firstName lastName',
-              },
-              {
-                path: 'subtasks',
-                options: { sort: { position: 1 } },
-                populate: {
-                  path: 'assignedTo.user',
-                  select: 'username email avatar firstName lastName',
-                },
-              },
-            ],
+            path: 'assignedTo.user',
+            select: 'username email avatar firstName lastName',
           },
-        })
-    : board;
+        },
+      ],
+    },
+  });
+
+  const populatedBoard = await query;
 
   res.status(200).json({
     status: 'success',
@@ -209,6 +211,14 @@ exports.getBoardById = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+// Helper to populate members with avatar
+const populateMembersWithAvatar = (query) => {
+  return query.populate({
+    path: 'members.user',
+    select: 'username email avatar firstName lastName',
+  });
+};
 
 // Create Board
 exports.createBoard = catchAsync(
@@ -638,11 +648,11 @@ exports.deleteBoard = catchAsync(async (req, res, next) => {
   //   );
   // }
 
-   await Workspace.updateMany(
+  await Workspace.updateMany(
     { type: 'collaboration', boards: board._id },
     { $pull: { boards: board._id } }
   );
-  
+
   // Send notification before deleting
   const recipients = board.members.filter(
     (member) => member.user._id.toString() !== req.user._id.toString()

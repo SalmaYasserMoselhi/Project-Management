@@ -15,9 +15,10 @@ const Column = ({
   boardId,
   allLists,
   targetCardId,
+  cards: initialCards = [],
 }) => {
   const BASE_URL = "http://localhost:3000";
-  const [cards, setCards] = useState([]);
+  const [cards, setCards] = useState(initialCards);
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [priority, setPriority] = useState("Medium");
@@ -30,6 +31,16 @@ const Column = ({
   const vectorRef = useRef(null);
   const columnRef = useRef(null);
   const cardsContainerRef = useRef(null);
+
+  useEffect(() => {
+    if (initialCards && initialCards.length > 0) {
+      console.log(
+        `[Column.jsx] ✅ Using optimized cards data for list ${id}:`,
+        initialCards
+      );
+      setCards(initialCards);
+    }
+  }, [initialCards, id]);
 
   const fetchCards = async (sort = sortBy) => {
     try {
@@ -53,11 +64,13 @@ const Column = ({
   };
 
   useEffect(() => {
-    if (id) {
-      console.log(`[Column.jsx] Initial fetch for list ${id}`);
+    if (id && (!initialCards || initialCards.length === 0)) {
+      console.log(
+        `[Column.jsx] ⚠️ Fallback: Initial fetch for list ${id} (no initial cards)`
+      );
       fetchCards();
     }
-  }, [id]);
+  }, [id, initialCards]);
 
   useEffect(() => {
     const handleRefreshList = (event) => {
@@ -461,6 +474,7 @@ const Column = ({
                   onCardUpdate={handleCardUpdate}
                   containerRef={cardsContainerRef}
                   scrollToMe={targetCardId === (card.id || card._id)}
+                  members={card.members || []}
                 />
               </React.Fragment>
             ))}
