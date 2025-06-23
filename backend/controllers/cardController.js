@@ -1625,6 +1625,16 @@ exports.restoreCard = catchAsync(async (req, res, next) => {
     return next(new AppError('Card is not archived', 400));
   }
 
+  // Check if the parent list is archived - if so, prevent card restoration
+  if (list.archived) {
+    return next(
+      new AppError(
+        `You should restore "${list.name}" for the card to be restored`,
+        400
+      )
+    );
+  }
+
   // Check permission to edit cards
   if (card.createdBy.toString() === req.user._id.toString()) {
     permissionService.verifyPermission(board, req.user._id, 'edit_own_cards');

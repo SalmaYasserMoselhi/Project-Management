@@ -223,25 +223,25 @@ exports.createList = catchAsync(async (req, res, next) => {
       }
     );
 
-
     // Send notification to board members
-  const recipients = board.members
-  .filter(member => member.user._id.toString() !== req.user._id.toString());
+    const recipients = board.members.filter(
+      (member) => member.user._id.toString() !== req.user._id.toString()
+    );
 
-for (const recipient of recipients) {
-  await notificationService.createNotification(
-    req.app.io,
-    recipient.user._id,
-    req.user._id,
-    'list_created',
-    'list',
-    list._id,
-    {
-      listName: list.name,
-      boardName: board.name
+    for (const recipient of recipients) {
+      await notificationService.createNotification(
+        req.app.io,
+        recipient.user._id,
+        req.user._id,
+        'list_created',
+        'list',
+        list._id,
+        {
+          listName: list.name,
+          boardName: board.name,
+        }
+      );
     }
-  );
-}
     res.status(201).json({
       status: 'success',
       data: { list },
@@ -295,25 +295,26 @@ exports.updateList = catchAsync(async (req, res, next) => {
       updatedFields: Object.keys(filteredBody),
     }
   );
-// Send notification to board members
-const recipients = board.members
-.filter(member => member.user._id.toString() !== req.user._id.toString());
+  // Send notification to board members
+  const recipients = board.members.filter(
+    (member) => member.user._id.toString() !== req.user._id.toString()
+  );
 
-for (const recipient of recipients) {
-await notificationService.createNotification(
-  req.app.io,
-  recipient.user._id,
-  req.user._id,
-  'list_updated',
-  'list',
-  list._id,
-  {
-    listName: list.name,
-    boardName: board.name,
-    updatedFields: Object.keys(req.body)
+  for (const recipient of recipients) {
+    await notificationService.createNotification(
+      req.app.io,
+      recipient.user._id,
+      req.user._id,
+      'list_updated',
+      'list',
+      list._id,
+      {
+        listName: list.name,
+        boardName: board.name,
+        updatedFields: Object.keys(req.body),
+      }
+    );
   }
-);
-}
   res.status(200).json({
     status: 'success',
     data: { list: updatedList },
@@ -425,9 +426,6 @@ exports.reorderList = catchAsync(async (req, res, next) => {
   });
 });
 
-
-
-
 // Enhanced archive list function - archives lists with cards automatically
 exports.archiveList = catchAsync(async (req, res, next) => {
   const { id } = req.params;
@@ -451,7 +449,7 @@ exports.archiveList = catchAsync(async (req, res, next) => {
 
   // Store current position before archiving
   const currentPosition = list.position;
-  
+
   try {
     // Archive the list - using direct update instead of .archive() method
     const archivedList = await List.findByIdAndUpdate(
@@ -460,7 +458,7 @@ exports.archiveList = catchAsync(async (req, res, next) => {
         archived: true,
         archivedAt: new Date(),
         archivedBy: req.user._id,
-        originalPosition: currentPosition
+        originalPosition: currentPosition,
       },
       { new: true }
     );
@@ -468,7 +466,7 @@ exports.archiveList = catchAsync(async (req, res, next) => {
     // Archive only the ACTIVE cards (not already archived ones)
     const archivedCardIds = [];
     const listArchivedAt = new Date();
-    
+
     for (const card of activeCards) {
       // Archive card using direct update instead of .archive() method
       const archivedCard = await Card.findByIdAndUpdate(
@@ -478,11 +476,11 @@ exports.archiveList = catchAsync(async (req, res, next) => {
           archivedAt: listArchivedAt,
           archivedBy: req.user._id,
           originalPosition: card.position,
-          listArchivedAt: listArchivedAt // Track that this was archived with the list
+          listArchivedAt: listArchivedAt, // Track that this was archived with the list
         },
         { new: true }
       );
-      
+
       archivedCardIds.push(card._id);
 
       // Log card archive activity
@@ -531,8 +529,9 @@ exports.archiveList = catchAsync(async (req, res, next) => {
     }).sort('position');
 
     // Send notification to board members
-    const recipients = board.members
-      .filter(member => member.user._id.toString() !== req.user._id.toString());
+    const recipients = board.members.filter(
+      (member) => member.user._id.toString() !== req.user._id.toString()
+    );
 
     for (const recipient of recipients) {
       await notificationService.createNotification(
@@ -545,37 +544,39 @@ exports.archiveList = catchAsync(async (req, res, next) => {
         {
           listName: list.name,
           boardName: board.name,
-          cardCount: activeCards.length
+          cardCount: activeCards.length,
         }
       );
     }
 
     res.status(200).json({
       status: 'success',
-      message: `List "${list.name}" archived successfully${activeCards.length > 0 ? ` along with ${activeCards.length} cards` : ''}`,
+      message: `List "${list.name}" archived successfully${
+        activeCards.length > 0 ? ` along with ${activeCards.length} cards` : ''
+      }`,
       data: {
         list: archivedList,
         lists: remainingLists,
         archivedCardCount: activeCards.length,
-        message: activeCards.length > 0 
-          ? `The list and its ${activeCards.length} cards have been archived` 
-          : 'The list has been archived'
+        message:
+          activeCards.length > 0
+            ? `The list and its ${activeCards.length} cards have been archived`
+            : 'The list has been archived',
       },
     });
-
   } catch (error) {
     // If archiving fails, provide more detailed error information
     console.error('Archive list error:', error);
-    
+
     // Check if it's a validation error or permission error
     if (error.name === 'ValidationError') {
       return next(new AppError(`Validation error: ${error.message}`, 400));
     }
-    
+
     if (error.name === 'CastError') {
       return next(new AppError('Invalid list ID format', 400));
     }
-    
+
     // Generic error
     return next(new AppError(`Failed to archive list: ${error.message}`, 500));
   }
@@ -681,7 +682,7 @@ exports.archiveList = catchAsync(async (req, res, next) => {
 //      }
 //    );
 //  }
- 
+
 //   res.status(200).json({
 //     status: 'success',
 //     message: `List restored successfully${
@@ -749,7 +750,7 @@ exports.archiveList = catchAsync(async (req, res, next) => {
 //         card.listArchivedAt = undefined;
 //         await card.save();
 //       }
-      
+
 //       restoredCards.push(card);
 //       restoredCardCount++;
 
@@ -838,7 +839,6 @@ exports.archiveList = catchAsync(async (req, res, next) => {
 //   });
 // });
 
-
 // Enhanced restore list function with better card restoration
 exports.restoreList = catchAsync(async (req, res, next) => {
   const { id } = req.params;
@@ -860,22 +860,25 @@ exports.restoreList = catchAsync(async (req, res, next) => {
   const listArchivedAt = list.archivedAt;
 
   try {
-    // Find the appropriate position for restoration
-    // Get the count of active lists to place this at the end
-    const activeListCount = await List.countDocuments({
-      board: list.board,
-      archived: false
-    });
+    // 1. Make space for the restored list at its original position
+    await List.updateMany(
+      {
+        board: list.board,
+        archived: false,
+        position: { $gte: originalPosition },
+      },
+      { $inc: { position: 1 } }
+    );
 
-    // Restore the list - using direct update instead of .restore() method
+    // 2. Restore the list and set its position
     const restoredList = await List.findByIdAndUpdate(
       id,
       {
         archived: false,
         archivedAt: null,
         archivedBy: null,
-        position: activeListCount, // Place at the end
-        originalPosition: null
+        position: originalPosition, // Use original position
+        originalPosition: null,
       },
       { new: true }
     );
@@ -894,12 +897,12 @@ exports.restoreList = catchAsync(async (req, res, next) => {
           {
             archivedAt: {
               $gte: new Date(listArchivedAt.getTime() - 60000), // 1 minute before
-              $lte: new Date(listArchivedAt.getTime() + 60000)  // 1 minute after
-            }
+              $lte: new Date(listArchivedAt.getTime() + 60000), // 1 minute after
+            },
           },
           // Cards that have the listArchivedAt field (if we added it)
-          { listArchivedAt: { $exists: true, $eq: listArchivedAt } }
-        ]
+          { listArchivedAt: { $exists: true, $eq: listArchivedAt } },
+        ],
       });
 
       // Restore each card using direct update instead of .restore() method
@@ -911,11 +914,11 @@ exports.restoreList = catchAsync(async (req, res, next) => {
             archivedAt: null,
             archivedBy: null,
             originalPosition: null,
-            $unset: { listArchivedAt: 1 } // Remove the tracking field
+            $unset: { listArchivedAt: 1 }, // Remove the tracking field
           },
           { new: true }
         );
-        
+
         restoredCards.push(restoredCard);
         restoredCardCount++;
 
@@ -966,8 +969,9 @@ exports.restoreList = catchAsync(async (req, res, next) => {
     ]);
 
     // Send notification to board members
-    const recipients = board.members
-      .filter(member => member.user._id.toString() !== req.user._id.toString());
+    const recipients = board.members.filter(
+      (member) => member.user._id.toString() !== req.user._id.toString()
+    );
 
     for (const recipient of recipients) {
       await notificationService.createNotification(
@@ -980,7 +984,7 @@ exports.restoreList = catchAsync(async (req, res, next) => {
         {
           listName: list.name,
           boardName: board.name,
-          cardCount: restoredCardCount
+          cardCount: restoredCardCount,
         }
       );
     }
@@ -995,25 +999,24 @@ exports.restoreList = catchAsync(async (req, res, next) => {
         lists: allLists,
         cards: allCards,
         restoredCardCount,
-        restoredCards: restoredCards.map(card => ({
+        restoredCards: restoredCards.map((card) => ({
           _id: card._id,
           title: card.title,
-          position: card.position
-        }))
+          position: card.position,
+        })),
       },
     });
-
   } catch (error) {
     console.error('Restore list error:', error);
-    
+
     if (error.name === 'ValidationError') {
       return next(new AppError(`Validation error: ${error.message}`, 400));
     }
-    
+
     if (error.name === 'CastError') {
       return next(new AppError('Invalid list ID format', 400));
     }
-    
+
     return next(new AppError(`Failed to restore list: ${error.message}`, 500));
   }
 });
@@ -1032,7 +1035,7 @@ exports.getListArchiveStatus = catchAsync(async (req, res, next) => {
   const [totalCards, activeCards, archivedCards] = await Promise.all([
     Card.countDocuments({ list: list._id }),
     Card.countDocuments({ list: list._id, archived: false }),
-    Card.countDocuments({ list: list._id, archived: true })
+    Card.countDocuments({ list: list._id, archived: true }),
   ]);
 
   // If list is archived, get cards that were archived with the list
@@ -1043,8 +1046,8 @@ exports.getListArchiveStatus = catchAsync(async (req, res, next) => {
       archived: true,
       archivedAt: {
         $gte: new Date(list.archivedAt.getTime() - 60000),
-        $lte: new Date(list.archivedAt.getTime() + 60000)
-      }
+        $lte: new Date(list.archivedAt.getTime() + 60000),
+      },
     });
   }
 
@@ -1057,17 +1060,17 @@ exports.getListArchiveStatus = catchAsync(async (req, res, next) => {
         archived: list.archived,
         archivedAt: list.archivedAt,
         position: list.position,
-        originalPosition: list.originalPosition
+        originalPosition: list.originalPosition,
       },
       cardCounts: {
         total: totalCards,
         active: activeCards,
         archived: archivedCards,
-        archivedWithList: cardsArchivedWithList
+        archivedWithList: cardsArchivedWithList,
       },
       canArchive: !list.archived,
       canRestore: list.archived,
-      hasActiveCards: activeCards > 0
+      hasActiveCards: activeCards > 0,
     },
   });
 });
@@ -1154,56 +1157,50 @@ exports.getArchivedLists = catchAsync(async (req, res, next) => {
   }
 });
 
-
 // deletion with notification
 exports.deleteList = catchAsync(async (req, res, next) => {
   const { id } = req.params;
-  
+
   // Find the list
   const list = await List.findById(id);
   if (!list) {
     return next(new AppError('List not found', 404));
   }
-  
+
   // Find parent board
   const board = await Board.findById(list.board);
   if (!board) {
     return next(new AppError('Board not found', 404));
   }
-  
+
   // Verify user has permission to delete lists
   permissionService.verifyPermission(board, req.user._id, 'edit_lists');
-  
+
   // Find all cards in the list
   const cards = await Card.find({ list: list._id });
-  
+
   // Delete all cards in the list
   for (const card of cards) {
     await Card.findByIdAndDelete(card._id);
   }
-  
+
   // Store list info before deletion for activity log
   const listInfo = {
     name: list.name,
     position: list.position,
-    cardCount: cards.length
+    cardCount: cards.length,
   };
-  
+
   // Log activity
-  await activityService.logBoardActivity(
-    board,
-    req.user._id,
-    'list_deleted',
-    {
-      list: listInfo
-    }
-  );
-  
+  await activityService.logBoardActivity(board, req.user._id, 'list_deleted', {
+    list: listInfo,
+  });
+
   // Send notification to board members
   const boardMembers = board.members
-    .filter(member => member.user.toString() !== req.user._id.toString())
-    .map(member => member.user);
-  
+    .filter((member) => member.user.toString() !== req.user._id.toString())
+    .map((member) => member.user);
+
   for (const memberId of boardMembers) {
     await notificationService.createNotification(
       req.app.io,
@@ -1219,12 +1216,12 @@ exports.deleteList = catchAsync(async (req, res, next) => {
       }
     );
   }
-  
+
   // Delete the list
   await List.findByIdAndDelete(id);
-  
+
   res.status(204).json({
     status: 'success',
-    data: null
+    data: null,
   });
 });
