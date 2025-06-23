@@ -12,6 +12,8 @@ import {
   deleteAttachment,
   setSaveError,
   setBoardId,
+  savePendingAssignees,
+  resetPendingAssignees,
 } from "../features/Slice/cardSlice/cardDetailsSlice";
 import CardHeader from "./CardHeader";
 import CardDueDate from "./CardDueDate";
@@ -33,13 +35,11 @@ export default function CardDetails({
 }) {
   const [isOpen, setIsOpen] = useState(true);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [hasUserChanges, setHasUserChanges] = useState(false);
   const [initialCardState, setInitialCardState] = useState(null);
   const [isClient, setIsClient] = useState(false);
 
   const cardRef = useRef(null);
   const attachmentsRef = useRef();
-  const hasUserChangesRef = useRef(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const cardDetails = useSelector((state) => state.cardDetails);
@@ -54,6 +54,8 @@ export default function CardDetails({
     attachments,
     subtasks,
     comments,
+    assignees,
+    pendingAssignees,
     loading,
     error,
     saveLoading,
@@ -139,50 +141,6 @@ export default function CardDetails({
     cardId,
   ]);
 
-  // تتبع التغييرات التي يقوم بها المستخدم
-  useEffect(() => {
-    // لا نتحقق من التغييرات إلا بعد تحميل البيانات الأولية
-    if (!initialCardState) return;
-
-    // For new cards, check if user has added any content
-    if (!cardId && !id) {
-      const hasContent =
-        (title && title !== "Card name" && title.trim() !== "") ||
-        (description && description.trim() !== "") ||
-        subtasks?.length > 0;
-
-      setHasUserChanges(hasContent);
-      console.log("New card changes detected:", hasContent);
-      return;
-    }
-
-    // For existing cards, check if there are differences from initial state
-    const hasChanged =
-      title !== initialCardState.title ||
-      description !== initialCardState.description ||
-      listId !== initialCardState.listId ||
-      priority !== initialCardState.priority ||
-      (subtasks?.length || 0) !== initialCardState.subtasksLength;
-
-    setHasUserChanges(hasChanged);
-    console.log("Changes detected:", hasChanged);
-  }, [
-    title,
-    description,
-    listId,
-    priority,
-    subtasks,
-    initialCardState,
-    loading,
-    cardId,
-    id,
-  ]);
-
-  // Update ref when hasUserChanges changes
-  useEffect(() => {
-    hasUserChangesRef.current = hasUserChanges;
-  }, [hasUserChanges]);
-
   // إضافة مستمع لإغلاق الكارد عند النقر خارجه
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -212,10 +170,40 @@ export default function CardDetails({
     };
   }, [isOpen]);
 
+  // Function to check for changes
+  const checkForChanges = () => {
+    // For new cards, check if user has added any content
+    if (!cardId && !id) {
+      const hasContent =
+        (title && title !== "Card name" && title.trim() !== "") ||
+        (description && description.trim() !== "") ||
+        subtasks?.length > 0 ||
+        (assignees && assignees.length > 0) ||
+        (pendingAssignees && pendingAssignees.length > 0);
+
+      return hasContent;
+    }
+
+    // For existing cards, check if there are differences from initial state
+    if (!initialCardState) return false;
+
+    const hasChanged =
+      title !== initialCardState.title ||
+      description !== initialCardState.description ||
+      listId !== initialCardState.listId ||
+      priority !== initialCardState.priority ||
+      (subtasks?.length || 0) !== initialCardState.subtasksLength ||
+      (pendingAssignees && pendingAssignees.length > 0);
+
+    return hasChanged;
+  };
+
   // التحقق من التغييرات قبل الإغلاق
   const handleCloseAttempt = () => {
-    console.log("Close attempt, has changes:", hasUserChangesRef.current);
-    if (hasUserChangesRef.current) {
+    const hasChanges = checkForChanges();
+    console.log("Close attempt, has changes:", hasChanges);
+
+    if (hasChanges) {
       setShowConfirmDialog(true);
     } else {
       handleClose();
@@ -223,6 +211,9 @@ export default function CardDetails({
   };
 
   const handleClose = () => {
+    // Reset pending assignees when closing without saving
+    dispatch(resetPendingAssignees());
+
     setIsOpen(false);
     if (onClose) onClose();
   };
@@ -255,6 +246,8 @@ export default function CardDetails({
       attachments,
       subtasks,
       comments,
+      // Note: assignees are handled separately through the members API endpoints
+      // and are already saved to the backend when changed in CardAssignees component
     };
 
     // التحقق من وجود listId صالح
@@ -280,7 +273,19 @@ export default function CardDetails({
       const savedCardId =
         savedCard.card?._id || savedCard.card?.id || cardId || id;
 
-      // 2. معالجة المرفقات
+      // 2. حفظ المسندين المعلقة
+      if (cardId || id) {
+        try {
+          await dispatch(
+            savePendingAssignees({ cardId: savedCardId })
+          ).unwrap();
+        } catch (err) {
+          console.error("Error saving pending assignees:", err);
+          // Continue with other operations even if assignees save fails
+        }
+      }
+
+      // 3. معالجة المرفقات
       if (attachmentsRef.current) {
         // رفع الملفات الجديدة
         const pendingFiles = attachmentsRef.current.getPendingFiles?.() || [];
@@ -315,9 +320,6 @@ export default function CardDetails({
           onCardSaved();
         }
       }
-
-      // إعادة تعيين علامة التغييرات
-      setHasUserChanges(false);
 
       // Close the dialog only after everything is complete
       handleClose();
@@ -437,6 +439,8 @@ export default function CardDetails({
                     className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100"
                     onClick={() => {
                       setShowConfirmDialog(false);
+                      // Reset pending assignees when discarding changes
+                      dispatch(resetPendingAssignees());
                       handleClose();
                     }}
                   >
