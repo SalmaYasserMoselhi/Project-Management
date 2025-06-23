@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import axios from "axios";
+import toast from "react-hot-toast";
 import CardDetails from "../Card/CardDetails";
 import UserAvatar from "../Components/UserAvatar";
+import DeleteConfirmationDialog from "../Components/DeleteConfirmationDialog";
 
 // Local cache for member data
 const membersCache = new Map();
@@ -25,6 +27,8 @@ const TaskCard = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [members, setMembers] = useState(initialMembers);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const dropdownRef = useRef(null);
 
   const BASE_URL = "http://localhost:3000";
@@ -161,8 +165,14 @@ const TaskCard = ({
     }
   };
 
-  const handleDeleteCard = async () => {
+  const handleDeleteCard = () => {
+    setShowDeleteConfirm(true);
+    setIsDropdownOpen(false);
+  };
+
+  const handleConfirmDelete = async () => {
     try {
+      setIsDeleting(true);
       const response = await fetch(`${BASE_URL}/api/v1/cards/${id}`, {
         method: "DELETE",
         credentials: "include",
@@ -172,12 +182,22 @@ const TaskCard = ({
       });
 
       if (response.ok) {
-        setIsDropdownOpen(false);
         onCardUpdate?.();
+        toast.success("Card deleted successfully");
+      } else {
+        toast.error("Failed to delete card");
       }
     } catch (error) {
       console.error(`Error deleting card ${id}:`, error);
+      toast.error("Failed to delete card");
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
   };
 
   useEffect(() => {
@@ -380,6 +400,20 @@ const TaskCard = ({
           allLists={allLists}
           onClose={handleCardClose}
           onCardSaved={handleCardSaved}
+        />
+      )}
+
+      {showDeleteConfirm && (
+        <DeleteConfirmationDialog
+          isOpen={showDeleteConfirm}
+          onClose={handleCancelDelete}
+          onConfirm={handleConfirmDelete}
+          title="Delete Card"
+          itemName={title || "Untitled"}
+          itemType="card"
+          confirmText="Delete Card"
+          cancelText="Cancel"
+          loading={isDeleting}
         />
       )}
     </>

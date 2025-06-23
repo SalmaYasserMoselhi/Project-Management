@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import TaskCard from "./TaskCard";
 import icon from "../assets/icon.png";
 import CardDetails from "../Card/CardDetails";
+import DeleteConfirmationDialog from "../Components/DeleteConfirmationDialog";
 import React from "react";
 
 const Column = ({
@@ -27,6 +28,7 @@ const Column = ({
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [dropPosition, setDropPosition] = useState(null);
   const [sortBy, setSortBy] = useState("position");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const dropdownRef = useRef(null);
   const vectorRef = useRef(null);
   const columnRef = useRef(null);
@@ -193,14 +195,18 @@ const Column = ({
   };
 
   const handleDelete = () => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this list?"
-    );
-    if (!confirmDelete) return;
-
-    console.log(`[Column.jsx] Deleting list ${id}`);
+    setShowDeleteConfirm(true);
     setDropdownVisible(false);
+  };
+
+  const handleConfirmDelete = () => {
+    console.log(`[Column.jsx] Deleting list ${id}`);
     if (onDelete) onDelete(id);
+    setShowDeleteConfirm(false);
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
   };
 
   useEffect(() => {
@@ -515,6 +521,20 @@ const Column = ({
           )}
         </div>
       </div>
+
+      {showDeleteConfirm && (
+        <DeleteConfirmationDialog
+          isOpen={showDeleteConfirm}
+          onClose={handleCancelDelete}
+          onConfirm={handleConfirmDelete}
+          title="Delete List"
+          itemName={title}
+          itemType="list"
+          confirmText="Delete List"
+          cancelText="Cancel"
+          loading={loading}
+        />
+      )}
     </div>
   );
 };

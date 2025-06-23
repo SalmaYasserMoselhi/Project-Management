@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import InviteMembersPopup from "../Components/InviteMembersPopup";
 import MembersModal from "../Components/MembersModal";
 import UserAvatar from "../Components/UserAvatar";
+import DeleteConfirmationDialog from "../Components/DeleteConfirmationDialog";
 
 const avatarColors = [
   "#4D2D61",
@@ -91,6 +92,8 @@ const ProjectInfo = ({
     description: boardDescription || "",
   });
   const [saving, setSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Dynamic date formatting
   const formatDate = () => {
@@ -185,25 +188,32 @@ const ProjectInfo = ({
   };
 
   // Handle board deletion
-  const handleDeleteBoard = async () => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this board?"
-    );
-    if (!confirmDelete) return;
+  const handleDeleteBoard = () => {
+    setShowDeleteConfirm(true);
+    setShowDropdown(false);
+  };
 
+  const handleConfirmDelete = async () => {
     try {
+      setIsDeleting(true);
       await axios.delete(`${BASE_URL}/api/v1/boards/user-boards/${boardId}`, {
         withCredentials: true,
       });
       navigate("/main/dashboard");
       setShowToast(true);
-      setShowDropdown(false);
       setTimeout(() => setShowToast(false), 3000);
     } catch (error) {
       console.error("Error deleting board:", error);
       setShowErrorAlert("Failed to delete board.");
       setTimeout(() => setShowErrorAlert(null), 4000);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
   };
 
   // Handle save changes
@@ -486,6 +496,20 @@ const ProjectInfo = ({
           />
         )}
       </div>
+
+      {showDeleteConfirm && (
+        <DeleteConfirmationDialog
+          isOpen={showDeleteConfirm}
+          onClose={handleCancelDelete}
+          onConfirm={handleConfirmDelete}
+          title="Delete Board"
+          itemName={boardName || "Project Name"}
+          itemType="board"
+          confirmText="Delete Board"
+          cancelText="Cancel"
+          loading={isDeleting}
+        />
+      )}
     </>
   );
 };

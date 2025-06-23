@@ -21,6 +21,7 @@ import {
 } from "../features/Slice/MeetingSlice/meetingModalSlice";
 import MemberSelectionPopup from "../Components/MemberSelectionPopup";
 import axios from "axios";
+import DeleteConfirmationDialog from "../Components/DeleteConfirmationDialog";
 
 const getUserDisplayName = (user) => {
   const firstName = user.firstName || (user.user && user.user.firstName);
@@ -721,70 +722,17 @@ const AddMeetingModal = ({ boardId }) => {
 
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-60">
-          <div
-            ref={deleteDialogRef}
-            className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
-          >
-            {/* Header */}
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center">
-                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-4">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-red-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1H9a1 1 0 00-1 1v1M4 7h16"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Delete Meeting
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    This action cannot be undone
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-6">
-              <p className="text-gray-600">
-                Are you sure you want to delete "{meetingData.meetingName}"?
-                This will permanently remove the meeting.
-              </p>
-            </div>
-
-            {/* Actions */}
-            <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
-              <button
-                className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={status === "loading"}
-              >
-                Cancel
-              </button>
-              <button
-                className={`px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors ${
-                  status === "loading" ? "opacity-70 cursor-not-allowed" : ""
-                }`}
-                onClick={handleConfirmDelete}
-                disabled={status === "loading"}
-              >
-                {status === "loading" ? "Deleting..." : "Delete Meeting"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeleteConfirmationDialog
+          isOpen={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={handleConfirmDelete}
+          title="Delete Meeting"
+          itemName={meetingData.meetingName || "Meeting"}
+          itemType="meeting"
+          confirmText="Delete Meeting"
+          cancelText="Cancel"
+          loading={status === "loading"}
+        />
       )}
     </div>
   );
