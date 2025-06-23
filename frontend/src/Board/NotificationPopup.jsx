@@ -1,12 +1,9 @@
-
-
-
 import { forwardRef } from "react";
 import { CheckCircle, X } from "lucide-react";
 import notify from "../assets/NotificationImage.png";
 
 const NotificationPopup = forwardRef(
-  ({ notifications, loading, unreadCount, onMarkAllAsRead, onDeleteNotification, onPaginate, isPaginateDisabled, onPage, onTotal, onLimit }, ref) => {
+  ({ notifications, loading, unreadCount, onMarkAllAsRead, onMarkSingleAsRead, onDeleteNotification, onPaginate, isPaginateDisabled, onPage, onTotal, onLimit }, ref) => {
     // Fallback for isPaginateDisabled if not a function
     const isDisabled = (direction) => {
       if (typeof isPaginateDisabled === "function") {
@@ -15,6 +12,21 @@ const NotificationPopup = forwardRef(
       console.warn(`isPaginateDisabled is not a function, received: ${typeof isPaginateDisabled}`);
       return false; // Default to enabled buttons if isPaginateDisabled is not provided
     };
+
+    // Handle notification click to mark as read
+    const handleNotificationClick = (notification) => {
+      if (!notification.read && onMarkSingleAsRead) {
+        onMarkSingleAsRead(notification._id);
+      }
+    };
+
+    // Sort notifications: unread first, then by creation date
+    const sortedNotifications = [...notifications].sort((a, b) => {
+      if (a.read !== b.read) {
+        return a.read ? 1 : -1; // Unread first
+      }
+      return new Date(b.createdAt) - new Date(a.createdAt); // Newest first
+    });
 
     return (
       <div
@@ -44,7 +56,7 @@ const NotificationPopup = forwardRef(
         <div className="max-h-[300px] overflow-y-auto">
           {loading ? (
             <div className="text-center py-6 text-gray-500 text-sm">Loading...</div>
-          ) : notifications.length === 0 ? (
+          ) : sortedNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
               <img
                 src={notify}
@@ -60,14 +72,21 @@ const NotificationPopup = forwardRef(
             </div>
           ) : (
             <ul className="divide-y divide-gray-200">
-              {notifications.map((notif) => (
+              {sortedNotifications.map((notif) => (
                 <li
                   key={notif._id}
-                  className="px-5 py-3 text-sm text-gray-700 mb-2 mt-1 rounded-lg shadow-sm hover:bg-gray-50 transition-colors duration-200"
+                  onClick={() => handleNotificationClick(notif)}
+                  className={`px-5 py-3 text-sm text-gray-700 mb-2 mt-1 rounded-lg shadow-sm transition-all duration-200 cursor-pointer ${
+                    notif.read 
+                      ? 'bg-gray-50 hover:bg-gray-100' 
+                      : 'bg-blue-50 hover:bg-blue-100 border-l-4 border-blue-500 animate-pulse'
+                  }`}
                 >
                   <div className="flex justify-between items-start">
-                    <div>
-                      <div className="text-gray-900">{notif.message}</div>
+                    <div className="flex-1">
+                      <div className={`${notif.read ? 'text-gray-600' : 'text-gray-900 font-medium'}`}>
+                        {notif.message}
+                      </div>
                       <div className="text-xs text-gray-500 mt-1">
                         {new Date(notif.createdAt).toLocaleString("en-US", {
                           weekday: "long",
@@ -81,7 +100,7 @@ const NotificationPopup = forwardRef(
                         e.stopPropagation();
                         onDeleteNotification(notif._id);
                       }}
-                      className="text-gray-500 hover:text-red-500"
+                      className="text-gray-500 hover:text-red-500 ml-2"
                       aria-label="Delete notification"
                     >
                       <X size={16} />
@@ -94,7 +113,7 @@ const NotificationPopup = forwardRef(
         </div>
 
         {/* Pagination Controls */}
-        {!loading && notifications.length > 0 && (
+        {!loading && sortedNotifications.length > 0 && (
           <div className="flex justify-between items-center px-4 py-2 border-t border-gray-200">
             <button
               onClick={() => onPaginate("prev")}

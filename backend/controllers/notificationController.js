@@ -18,7 +18,11 @@ exports.getMyNotifications = catchAsync(async (req, res, next) => {
     status: 'success',
     data: {
       notifications: result.notifications,
-      pagination: result.pagination,
+      total: result.pagination.total,
+      unreadCount: result.pagination.unreadCount,
+      page: result.pagination.page,
+      limit: result.pagination.limit,
+      pages: result.pagination.pages,
     },
   });
 });

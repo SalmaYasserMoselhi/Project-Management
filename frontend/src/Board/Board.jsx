@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import Column from "./Column";
@@ -277,7 +277,6 @@ const BoardLoadingSkeleton = () => (
 const Board = ({
   workspaceId,
   boardId,
-  restoredLists,
   restoredCard,
   boardData,
   loadingBoard,
@@ -330,6 +329,44 @@ const Board = ({
   const searchParams = new URLSearchParams(location.search);
   const targetCardId = searchParams.get("cardId");
 
+  const onListRestored = useCallback(
+    (data) => {
+      const { list: restoredList, lists: allLists } = data;
+      console.log("[Board.jsx] List restored via event:", data);
+
+      setColumns((prevColumns) => {
+        const updatedColumns = allLists.map((list) => {
+          if (list._id === restoredList._id) {
+            return { ...restoredList, id: restoredList._id };
+          }
+          const existingColumn = prevColumns.find(
+            (c) => (c.id || c._id) === list._id
+          );
+          return {
+            ...list,
+            id: list._id,
+            cards: existingColumn ? existingColumn.cards : [],
+          };
+        });
+        return updatedColumns;
+      });
+
+      toast.success("List restored successfully");
+    },
+    [setColumns]
+  );
+
+  useEffect(() => {
+    const handleListRestoredEvent = (event) => {
+      onListRestored(event.detail);
+    };
+    window.addEventListener("listRestored", handleListRestoredEvent);
+
+    return () => {
+      window.removeEventListener("listRestored", handleListRestoredEvent);
+    };
+  }, [onListRestored]);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -348,12 +385,6 @@ const Board = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [selectedSort, sortDirection, activeFilters]);
-
-  useEffect(() => {
-    if (restoredLists && restoredLists.length > 0) {
-      setColumns((prev) => [...prev, ...restoredLists]);
-    }
-  }, [restoredLists]);
 
   useEffect(() => {
     if (restoredCard) {
@@ -618,27 +649,6 @@ const Board = ({
     window.dispatchEvent(event);
 
     toast.success("Card restored successfully");
-  };
-
-  const onListRestored = (restoredList) => {
-    console.log("[Board.jsx] List restored:", restoredList);
-    setLists((prevLists) => {
-      const updatedLists = [...prevLists, restoredList];
-      console.log("[Board.jsx] Updated lists after restoration:", updatedLists);
-      return updatedLists;
-    });
-    setColumns((prevColumns) => {
-      const updatedColumns = [
-        ...prevColumns,
-        { ...restoredList, cards: restoredList.cards || [] },
-      ];
-      console.log(
-        "[Board.jsx] Updated columns after restoration:",
-        updatedColumns
-      );
-      return updatedColumns;
-    });
-    toast.success("List restored successfully");
   };
 
   const fetchSortedByPriority = async () => {

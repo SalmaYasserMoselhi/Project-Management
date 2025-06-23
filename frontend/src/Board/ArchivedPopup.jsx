@@ -7,6 +7,7 @@ import {
   usePopupAnimation,
   setupArchivedPopupAnimation,
 } from "../utils/popup-animations";
+import { toast } from "react-hot-toast";
 
 const BASE_URL = "http://localhost:3000";
 
@@ -150,9 +151,15 @@ const ArchivedPopup = ({
       );
 
       setArchivedLists((prev) => prev.filter((l) => l._id !== listId));
-      if (res?.data?.data) onListRestored?.(res.data.data);
+      if (res?.data?.data) {
+        onListRestored?.(res.data.data);
+        window.dispatchEvent(
+          new CustomEvent("listRestored", { detail: res.data.data })
+        );
+      }
     } catch (error) {
       console.error("Failed to restore list:", error);
+      toast.error("Failed to restore list");
     }
   };
 
@@ -168,7 +175,7 @@ const ArchivedPopup = ({
       }
     } catch (error) {
       console.error("Error deleting list:", error);
-      alert("Failed to delete list.");
+      toast.error("Failed to delete list");
     }
   };
 
@@ -185,6 +192,18 @@ const ArchivedPopup = ({
       if (res?.data?.data) onCardRestored?.(res.data.data);
     } catch (error) {
       console.error("Failed to restore card:", error);
+
+      // Check if the error is about the parent list being archived
+      if (error.response?.data?.message?.includes("You should restore")) {
+        // Show the specific error message from the backend
+        toast.error(error.response.data.message);
+      } else {
+        // Show a generic error message for other errors
+        toast.error("Failed to restore card");
+      }
+
+      // Don't remove the card from the archived cards list if restoration failed
+      // The card should remain in the archived cards list
     }
   };
 
@@ -200,7 +219,7 @@ const ArchivedPopup = ({
       }
     } catch (error) {
       console.error("Error deleting card:", error);
-      alert("Failed to delete card.");
+      toast.error("Failed to delete card");
     }
   };
 
@@ -362,7 +381,3 @@ const ArchivedPopup = ({
 };
 
 export default ArchivedPopup;
-
-
-
-
