@@ -213,6 +213,20 @@ const Column = ({
     if (onDelete) onDelete(id);
   };
 
+  useEffect(() => {
+    const handleCardMoved = (e) => {
+      const { cardId, sourceListId, destListId } = e.detail;
+
+      // Remove card from source list
+      if (sourceListId === id && sourceListId !== destListId) {
+        setCards((prev) => prev.filter((c) => (c.id || c._id) !== cardId));
+      }
+    };
+
+    window.addEventListener("cardMoved", handleCardMoved);
+    return () => window.removeEventListener("cardMoved", handleCardMoved);
+  }, [id]);
+
   const handleCardUpdate = async (originalListId, newListId) => {
     console.log(`[Column.jsx] handleCardUpdate for list ${id}:`, {
       originalListId,
@@ -308,6 +322,7 @@ const Column = ({
     if (!cardId || !sourceListId) return;
 
     const targetPosition = dropPosition !== null ? dropPosition : cards.length;
+    let cardHasMoved = false;
 
     try {
       let updatedCards = [...cards];
@@ -322,6 +337,7 @@ const Column = ({
           cardIndex !== targetPosition &&
           cardIndex !== targetPosition - 1
         ) {
+          cardHasMoved = true;
           const [movedCard] = updatedCards.splice(cardIndex, 1);
           updatedCards.splice(targetPosition, 0, movedCard);
           console.log(
@@ -331,6 +347,7 @@ const Column = ({
           setCards(updatedCards);
         }
       } else {
+        cardHasMoved = true;
         updatedCards.splice(targetPosition, 0, {
           id: cardId,
           title: cardTitle || "Untitled",
@@ -346,21 +363,31 @@ const Column = ({
         setCards(updatedCards);
       }
 
-      await axios.patch(
-        `${BASE_URL}/api/v1/cards/${cardId}/move`,
-        {
-          listId: id,
-          position: targetPosition,
-        },
-        { withCredentials: true }
-      );
+      if (cardHasMoved) {
+        if (!isSameList) {
+          // Dispatch a custom event to notify other columns
+          window.dispatchEvent(
+            new CustomEvent("cardMoved", {
+              detail: { cardId, sourceListId, destListId: id },
+            })
+          );
+        }
 
-      handleCardUpdate(sourceListId, id);
-      toast.success("Card moved successfully");
+        await axios.patch(
+          `${BASE_URL}/api/v1/cards/${cardId}/move`,
+          {
+            listId: id,
+            position: targetPosition,
+          },
+          { withCredentials: true }
+        );
+
+        toast.success("Card moved successfully");
+      }
     } catch (err) {
       console.error(`[Column.jsx] Error moving card in list ${id}:`, err);
       fetchCards();
-      toast.error("Failed to move card");
+      if (cardHasMoved) toast.error("Failed to move card");
     }
   };
 
@@ -429,7 +456,7 @@ const Column = ({
       <div className="flex-grow flex flex-col h-full">
         <div
           ref={cardsContainerRef}
-          className={`cards-container ${
+          className={`cards-container flex-grow ${
             cards.length > 3 ? "overflow-y-auto" : "overflow-y-visible"
           }`}
           style={{
@@ -456,32 +483,38 @@ const Column = ({
               }
             `}
           </style>
-          <div>
-            {cards.map((card, index) => (
-              <React.Fragment key={card.id || card._id}>
-                {dropPosition === index && isDraggingOver && (
-                  <div className="h-3 bg-gray-300 rounded my-1"></div>
-                )}
-                <TaskCard
-                  id={card.id || card._id}
-                  title={card.title}
-                  priority={card.priority || "Medium"}
-                  fileCount={card.attachments?.length || 0}
-                  listId={id}
-                  boardId={boardId}
-                  allLists={allLists}
-                  labels={card.labels || []}
-                  onCardUpdate={handleCardUpdate}
-                  containerRef={cardsContainerRef}
-                  scrollToMe={targetCardId === (card.id || card._id)}
-                  members={card.members || []}
-                />
-              </React.Fragment>
-            ))}
-            {dropPosition === cards.length && isDraggingOver && (
-              <div className="h-2 bg-gray-300 rounded my-1"></div>
-            )}
-          </div>
+          {cards && cards.length > 0 ? (
+            <div>
+              {cards.map((card, index) => (
+                <React.Fragment key={card.id || card._id}>
+                  {dropPosition === index && isDraggingOver && (
+                    <div className="h-3 bg-purple-200 rounded my-1"></div>
+                  )}
+                  <TaskCard
+                    id={card.id || card._id}
+                    title={card.title}
+                    priority={card.priority || "Medium"}
+                    fileCount={card.attachments?.length || 0}
+                    listId={id}
+                    boardId={boardId}
+                    allLists={allLists}
+                    labels={card.labels || []}
+                    onCardUpdate={handleCardUpdate}
+                    containerRef={cardsContainerRef}
+                    scrollToMe={targetCardId === (card.id || card._id)}
+                    members={card.members || []}
+                  />
+                </React.Fragment>
+              ))}
+              {dropPosition === cards.length && isDraggingOver && (
+                <div className="h-2 bg-purple-200 rounded my-1"></div>
+              )}
+            </div>
+          ) : isDraggingOver ? (
+            <div className="h-full w-full border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center m-2">
+              <span className="text-gray-500">Drop card here</span>
+            </div>
+          ) : null}
         </div>
 
         <div>
