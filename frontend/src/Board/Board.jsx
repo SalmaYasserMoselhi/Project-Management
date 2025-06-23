@@ -5,6 +5,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import Column from "./Column";
 import AddListButton from "./AddListButton";
+import AddList from "./AddList";
 import Calendar from "../Calendar/Calendar";
 import AddMeetingModal from "../Calendar/AddMeetingModal";
 import { useSelector, useDispatch } from "react-redux";
@@ -315,6 +316,8 @@ const Board = ({
     priority: null,
     dueDate: null,
   });
+  const [isEditingList, setIsEditingList] = useState(false);
+  const [editingListData, setEditingListData] = useState(null);
 
   useEffect(() => {
     if (boardData && boardData.members) {
@@ -366,6 +369,51 @@ const Board = ({
       window.removeEventListener("listRestored", handleListRestoredEvent);
     };
   }, [onListRestored]);
+
+  useEffect(() => {
+    const handleListUpdatedEvent = (event) => {
+      const { listId, newName, updatedList } = event.detail;
+      console.log(`[Board.jsx] List updated: ${listId} -> ${newName}`);
+
+      // Update the lists state
+      setLists((prevLists) =>
+        prevLists.map((list) =>
+          (list.id || list._id) === listId ? { ...list, name: newName } : list
+        )
+      );
+
+      // Update the columns state
+      setColumns((prevColumns) =>
+        prevColumns.map((col) =>
+          (col.id || col._id) === listId ? { ...col, name: newName } : col
+        )
+      );
+    };
+
+    window.addEventListener("listUpdated", handleListUpdatedEvent);
+    return () => {
+      window.removeEventListener("listUpdated", handleListUpdatedEvent);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleEditListRequestEvent = (event) => {
+      const { listId, listName, boardId } = event.detail;
+      console.log(`[Board.jsx] Edit list request: ${listId} - ${listName}`);
+
+      setEditingListData({
+        listId,
+        listName,
+        boardId,
+      });
+      setIsEditingList(true);
+    };
+
+    window.addEventListener("editListRequest", handleEditListRequestEvent);
+    return () => {
+      window.removeEventListener("editListRequest", handleEditListRequestEvent);
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -1002,6 +1050,24 @@ const Board = ({
     toast.success("List added successfully");
   };
 
+  const onListEdited = (updatedList) => {
+    console.log(`[Board.jsx] List edited:`, updatedList);
+    setIsEditingList(false);
+    setEditingListData(null);
+
+    // The listUpdated event will handle updating the UI
+    if (updatedList && updatedList.name) {
+      const event = new CustomEvent("listUpdated", {
+        detail: {
+          listId: editingListData?.listId,
+          newName: updatedList.name,
+          updatedList: updatedList,
+        },
+      });
+      window.dispatchEvent(event);
+    }
+  };
+
   // Show enhanced loading skeleton
   if (loading || loadingBoard) {
     return <BoardLoadingSkeleton />;
@@ -1532,6 +1598,20 @@ const Board = ({
         {view === "calendar" && <Calendar />}
 
         <AddMeetingModal boardId={boardId} />
+
+        {isEditingList && editingListData && (
+          <AddList
+            boardId={editingListData.boardId}
+            onClose={() => {
+              setIsEditingList(false);
+              setEditingListData(null);
+            }}
+            onSuccess={onListEdited}
+            isEditing={true}
+            currentListName={editingListData.listName}
+            listId={editingListData.listId}
+          />
+        )}
       </div>
     </div>
   );

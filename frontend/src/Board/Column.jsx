@@ -154,6 +154,19 @@ const Column = ({
     setDropdownVisible(false);
   };
 
+  const handleEditRequest = () => {
+    // Emit an event to the parent Board component to open the edit modal
+    const event = new CustomEvent("editListRequest", {
+      detail: {
+        listId: id,
+        listName: title,
+        boardId: boardId,
+      },
+    });
+    window.dispatchEvent(event);
+    setDropdownVisible(false);
+  };
+
   const handleConfirmDelete = () => {
     console.log(`[Column.jsx] Deleting list ${id}`);
     if (onDelete) onDelete(id);
@@ -385,6 +398,12 @@ const Column = ({
               className="absolute right-0 top-full w-auto bg-white border border-gray-200 rounded-lg shadow-lg z-10"
               ref={dropdownRef}
             >
+              <button
+                onClick={handleEditRequest}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50"
+              >
+                Edit
+              </button>
               <button
                 onClick={handleArchive}
                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50"
