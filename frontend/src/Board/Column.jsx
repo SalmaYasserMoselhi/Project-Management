@@ -42,23 +42,28 @@ const Column = ({
     }
   }, [initialCards, id]);
 
-  const fetchCards = async (sort = sortBy) => {
+  const fetchCards = async (sort = sortBy, sortOrder = "asc") => {
     try {
       let url = `${BASE_URL}/api/v1/cards/list/${id}/cards`;
-      if (sort === "priority") {
-        url += "?sortBy=priorityValue&sortOrder=desc";
+
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (sort && sort !== "position") {
+        params.append("sortBy", sort);
+        params.append("sortOrder", sortOrder);
+      } else {
+        // Default position sorting
+        params.append("sortBy", "position");
+        params.append("sortOrder", sortOrder);
       }
-      console.log(
-        `[Column.jsx] Fetching cards for list ${id} with URL: ${url}`
-      );
+
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+
       const res = await axios.get(url);
-      console.log(
-        `[Column.jsx] Fetched cards for list ${id} with sort ${sort}:`,
-        res.data.data.cards
-      );
       setCards(res.data.data.cards || []);
     } catch (err) {
-      console.error(`[Column.jsx] Error loading cards for list ${id}:`, err);
       toast.error("Failed to load cards");
     }
   };
@@ -74,37 +79,22 @@ const Column = ({
 
   useEffect(() => {
     const handleRefreshList = (event) => {
-      console.log(
-        "[Column.jsx] refreshList event received:",
-        event.detail,
-        "Column id:",
-        id
-      );
       if (event.detail && event.detail.listId === id) {
         const newSortBy = event.detail.sortBy || "position";
-        console.log(
-          `[Column.jsx] Updating sortBy to ${newSortBy} for list ${id}`
-        );
+        const newSortOrder = event.detail.sortOrder || "asc";
         setSortBy(newSortBy);
-        if (event.detail.cards && newSortBy === "priority") {
-          console.log(
-            `[Column.jsx] Using cards from refreshList for list ${id}:`,
-            event.detail.cards
-          );
-          setCards((prevCards) => {
-            const existingCardIds = new Set(
-              prevCards.map((card) => card.id || card._id)
-            );
-            const newCards = event.detail.cards.filter(
-              (card) => !existingCardIds.has(card.id || card._id)
-            );
-            return [...prevCards, ...newCards];
-          });
+
+        if (event.detail.cards) {
+          // Force update by creating a new array and updating state
+          const newCards = [...event.detail.cards];
+          setCards(newCards);
+
+          // Force re-render by updating the component key if needed
+          setTimeout(() => {
+            setCards([...event.detail.cards]);
+          }, 100);
         } else {
-          console.log(
-            `[Column.jsx] Fetching cards for list ${id} with sort ${newSortBy}`
-          );
-          fetchCards(newSortBy);
+          fetchCards(newSortBy, newSortOrder);
         }
       }
     };
@@ -390,8 +380,6 @@ const Column = ({
       if (cardHasMoved) toast.error("Failed to move card");
     }
   };
-
-  console.log(`[Column.jsx] Rendering list ${id} with cards:`, cards);
 
   return (
     <div

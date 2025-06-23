@@ -48,11 +48,11 @@ const ConfirmationDialog = memo(
       switch (type) {
         case "danger":
           return {
-            gradient: "from-red-500 to-pink-500",
-            hoverGradient: "from-red-600 to-pink-600",
-            iconColor: "text-red-500",
-            bgColor: "bg-red-50",
-            borderColor: "border-red-100",
+            gradient: "from-[#4d2d61] to-[#7b4397]",
+            hoverGradient: "from-[#4d2d61] to-[#7b4397]",
+            iconColor: "text-[#4d2d61]",
+            bgColor: "bg-[#4d2d61]/5",
+            borderColor: "border-[#4d2d61]/10",
           };
         case "warning":
           return {

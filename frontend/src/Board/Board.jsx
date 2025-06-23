@@ -295,12 +295,12 @@ const Board = ({
   const [boardMembers, setBoardMembers] = useState([]);
 
   // Sort state
-  const [selectedSort, setSelectedSort] = useState("date");
-  const [appliedSort, setAppliedSort] = useState("date");
-  const [tempSort, setTempSort] = useState("date");
-  const [sortDirection, setSortDirection] = useState("desc");
-  const [appliedSortDirection, setAppliedSortDirection] = useState("desc");
-  const [tempSortDirection, setTempSortDirection] = useState("desc");
+  const [selectedSort, setSelectedSort] = useState("priority");
+  const [appliedSort, setAppliedSort] = useState("priority");
+  const [tempSort, setTempSort] = useState("priority");
+  const [sortDirection, setSortDirection] = useState("asc");
+  const [appliedSortDirection, setAppliedSortDirection] = useState("asc");
+  const [tempSortDirection, setTempSortDirection] = useState("asc");
 
   // Filter state
   const [selectedFilter, setSelectedFilter] = useState("date");
@@ -402,6 +402,7 @@ const Board = ({
       // Filter out archived lists
       const activeLists = boardData.lists.filter((list) => !list.archived);
       console.log("[Board.jsx] Filtered active lists:", activeLists);
+      setLists(activeLists);
       setColumns(activeLists);
       setLoading(false);
     } else if (!loadingBoard && !boardData) {
@@ -423,6 +424,7 @@ const Board = ({
           );
           console.log("[Board.jsx] Filtered active lists:", activeLists);
 
+          setLists(activeLists);
           setColumns(activeLists);
         } catch (error) {
           console.error("[Board.jsx] Error fetching lists:", error);
@@ -588,31 +590,39 @@ const Board = ({
     }
   };
 
-  const updateColumnsWithCards = (cardsByList, sortBy = "position") => {
-    console.log("[Board.jsx] Received cardsByList:", cardsByList);
-    console.log("[Board.jsx] Current columns:", columns);
+  const updateColumnsWithCards = (
+    cardsByList,
+    sortBy = "position",
+    sortOrder = "asc"
+  ) => {
     const updatedColumns = columns.map((col) => {
       const listData = cardsByList.find(
         (list) => list.listId === col.id || list.listId === col._id
       );
-      console.log(`[Board.jsx] Mapping listId ${col.id || col._id}:`, listData);
-      return { ...col, cards: listData ? listData.cards : col.cards || [] };
+      return {
+        ...col,
+        cards: listData ? [...listData.cards] : [...(col.cards || [])],
+      };
     });
-    console.log("[Board.jsx] Updated columns:", updatedColumns);
-    setColumns(updatedColumns);
 
-    updatedColumns.forEach((col) => {
-      console.log(
-        `[Board.jsx] Dispatching refreshList for listId: ${
-          col.id || col._id
-        }, sortBy: ${sortBy}, cards:`,
-        col.cards
-      );
-      const event = new CustomEvent("refreshList", {
-        detail: { listId: col.id || col._id, sortBy, cards: col.cards || [] },
+    // Force state update with new array
+    setColumns([...updatedColumns]);
+
+    // Wait for state to update then dispatch events
+    setTimeout(() => {
+      updatedColumns.forEach((col) => {
+        const listId = col.id || col._id;
+        const event = new CustomEvent("refreshList", {
+          detail: {
+            listId: listId,
+            sortBy,
+            sortOrder,
+            cards: [...(col.cards || [])],
+          },
+        });
+        window.dispatchEvent(event);
       });
-      window.dispatchEvent(event);
-    });
+    }, 50);
   };
 
   const onCardRestored = (restoredCard) => {
@@ -651,76 +661,60 @@ const Board = ({
     toast.success("Card restored successfully");
   };
 
-  const fetchSortedByPriority = async () => {
+  const fetchSortedCards = async (sortBy = "position", sortOrder = "asc") => {
     try {
-      const res = await axios.get(
-        `${BASE_URL}/api/v1/cards/board/${boardId}/priority-sorted`
-      );
-      console.log("[Board.jsx] Priority sorted response:", res.data);
-      let cardsByList = res.data.data.cardsByList || [];
-      if (!cardsByList.length) {
-        console.warn(
-          "[Board.jsx] No cards returned for priority sort, keeping existing cards"
-        );
-        cardsByList = columns.map((col) => ({
-          listId: col.id || col._id,
-          listName: col.name,
-          cards: col.cards || [],
-        }));
+      if (!lists || lists.length === 0) {
+        toast.error("No lists available for sorting");
+        return;
       }
-      updateColumnsWithCards(cardsByList, "priority");
-      setSelectedSort("priority");
-      setAppliedSort("priority");
-    } catch (error) {
-      console.error(
-        "[Board.jsx] Error fetching sorted cards by priority:",
-        error
+
+      // Fetch cards for each list with the specified sorting
+      const updatedCardsByList = await Promise.all(
+        lists.map(async (list) => {
+          try {
+            const listId = list.id || list._id;
+            const response = await axios.get(
+              `${BASE_URL}/api/v1/cards/list/${listId}/cards?sortBy=${sortBy}&sortOrder=${sortOrder}`
+            );
+
+            return {
+              listId: listId,
+              listName: list.name,
+              cards: response.data.data.cards || [],
+            };
+          } catch (error) {
+            return {
+              listId: list.id || list._id,
+              listName: list.name,
+              cards: [],
+            };
+          }
+        })
       );
-      toast.error("Failed to sort cards by priority");
-    } finally {
-      setIsSortOpen(false);
+
+      updateColumnsWithCards(updatedCardsByList, sortBy, sortOrder);
+    } catch (error) {
+      toast.error(`Failed to sort cards by ${sortBy}`);
     }
   };
 
-  const fetchSortedByDate = async () => {
-    try {
-      const res = await axios.get(
-        `${BASE_URL}/api/v1/lists/board/${boardId}/lists`
-      );
-      console.log(
-        "[Board.jsx] Default sorted response (by date/position):",
-        res.data
-      );
-      const cardsByList = res.data.data.lists.map((list) => ({
-        listId: list._id,
-        listName: list.name,
-        cards: list.cards || [],
-      }));
-      updateColumnsWithCards(cardsByList, "date");
-      setSelectedSort("date");
-      setAppliedSort("date");
-    } catch (error) {
-      console.error("[Board.jsx] Error fetching sorted cards by date:", error);
-      toast.error("Failed to sort by date");
-    } finally {
-      setIsSortOpen(false);
-    }
-  };
-
-  const applySort = () => {
+  const applySort = async () => {
     setSelectedSort(tempSort);
     setSortDirection(tempSortDirection);
     setAppliedSort(tempSort);
     setAppliedSortDirection(tempSortDirection);
 
-    if (tempSort === "priority") {
-      fetchSortedByPriority();
-    } else if (tempSort === "date") {
-      fetchSortedByDate();
-    }
+    // Use the unified fetchSortedCards function
+    await fetchSortedCards(tempSort, tempSortDirection);
+
+    const sortLabels = {
+      priority: "Priority",
+      dueDate: "Due Date",
+      position: "Position",
+    };
 
     toast.success(
-      `Sort applied: ${tempSort === "date" ? "Due Date" : "Priority"} (${
+      `Sort applied: ${sortLabels[tempSort] || tempSort} (${
         tempSortDirection === "asc" ? "Ascending" : "Descending"
       })`
     );
@@ -971,11 +965,17 @@ const Board = ({
   };
 
   const getSortLabel = () => {
-    const fieldLabels = {
-      priority: "Priority",
-      date: "Due Date",
-    };
-    return fieldLabels[appliedSort] || "Due Date";
+    const directionLabel =
+      appliedSortDirection === "asc" ? "Ascending" : "Descending";
+
+    switch (appliedSort) {
+      case "priority":
+        return `Priority (${directionLabel})`;
+      case "dueDate":
+        return `Due Date (${directionLabel})`;
+      default:
+        return "Priority (Ascending)";
+    }
   };
 
   const filterCount = Object.values(activeFilters).filter(Boolean).length;
@@ -1067,13 +1067,13 @@ const Board = ({
 
                         <div
                           className={`flex items-center justify-between px-3 py-2 rounded-md cursor-pointer hover:bg-gray-50 ${
-                            tempSort === "date" ? "bg-gray-50" : ""
+                            tempSort === "dueDate" ? "bg-gray-50" : ""
                           }`}
-                          onClick={() => setTempSort("date")}
+                          onClick={() => setTempSort("dueDate")}
                         >
                           <div className="flex items-center gap-2">
                             <div className="w-4">
-                              {tempSort === "date" && (
+                              {tempSort === "dueDate" && (
                                 <Check className="h-4 w-4 text-[#4D2D61]" />
                               )}
                             </div>
