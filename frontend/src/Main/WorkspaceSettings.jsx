@@ -207,6 +207,7 @@ export default function WorkspaceSettings() {
   const [errorMembers, setErrorMembers] = useState(null);
   const [activities, setActivities] = useState([]);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
   const dispatch = useDispatch();
   const user = useSelector((state) => state.user?.user || state.login?.user);
   const userId = user?._id || user?.id;
@@ -246,9 +247,196 @@ export default function WorkspaceSettings() {
     }
   }, [urlWorkspaceId, selectedWorkspace]);
 
-  // Fetch workspace data
+  // Fetch workspace activities
+  const fetchActivities = async () => {
+    if (!workspaceId) return;
+
+    try {
+      setActivitiesLoading(true);
+      const workspaceRes = await fetch(`/api/v1/workspaces/${workspaceId}`);
+      if (!workspaceRes.ok) throw new Error("Failed to fetch workspace");
+      const workspaceData = await workspaceRes.json();
+      const workspaceInfo = workspaceData.data.workspace;
+
+      const membersRes = await fetch(
+        `/api/v1/workspaces/${workspaceId}/members`
+      );
+      if (!membersRes.ok) throw new Error("Failed to fetch members");
+      const membersData = await membersRes.json();
+      const membersArray = Array.isArray(membersData.data.members)
+        ? membersData.data.members
+        : [];
+
+      // Build userId to name/email map
+      const userMap = {};
+      membersArray.forEach((m) => {
+        const userId = m.user?._id || m.user || m.userId || m.id || m._id;
+        userMap[userId] = m.user?.username || m.user?.email || "Unknown";
+      });
+
+      // Fetch user info by ID if not found in userMap
+      async function fetchUserNameById(userId) {
+        if (!userId) return "Unknown";
+        if (userCache.current[userId]) return userCache.current[userId];
+        try {
+          const res = await fetch(`/api/v1/users/${userId}`);
+          if (!res.ok) return "Unknown";
+          const data = await res.json();
+          const name =
+            data.data?.user?.username || data.data?.user?.email || "Unknown";
+          userCache.current[userId] = name;
+          return name;
+        } catch {
+          return "Unknown";
+        }
+      }
+
+      if (workspaceInfo.activities) {
+        const newActivities = await Promise.all(
+          workspaceInfo.activities.map(async (activity) => {
+            let userName = userMap[activity.user] || "Unknown";
+            if (
+              activity.action === "invitation_accepted" &&
+              activity.data?.user
+            ) {
+              userName =
+                userMap[activity.data.user] ||
+                (await fetchUserNameById(activity.data.user));
+            }
+            let actionText = "";
+            let updatedList = null;
+            switch (activity.action) {
+              case "board_created": {
+                const boardName = activity.data?.board?.name || "";
+                actionText = `created board \"${boardName}\"`;
+                break;
+              }
+              case "board_removed": {
+                const boardName = activity.data?.board?.name || "";
+                actionText = `deleted board \"${boardName}\"`;
+                break;
+              }
+              case "workspace_created":
+                actionText = `created this workspace`;
+                break;
+              case "invitation_sent":
+                actionText = `invited ${activity.data?.email || ""} as ${
+                  activity.data?.role || "member"
+                }`;
+                break;
+              case "invitation_accepted":
+                actionText = `joined the workspace as ${
+                  activity.data?.role || "member"
+                }`;
+                break;
+              case "invitation_cancelled":
+                actionText = `cancelled invitation for ${
+                  activity.data?.email || ""
+                }`;
+                break;
+              case "member_role_updated": {
+                let targetUserName =
+                  userMap[activity.data?.targetUser] || "Unknown";
+                if (targetUserName === "Unknown" && activity.data?.targetUser) {
+                  targetUserName = await fetchUserNameById(
+                    activity.data.targetUser
+                  );
+                }
+                actionText = `changed ${targetUserName}'s role from ${activity.data?.from} to ${activity.data?.to}`;
+                break;
+              }
+              case "member_removed": {
+                let removedUserName =
+                  userMap[activity.data?.member?.user] || "Unknown";
+                if (
+                  removedUserName === "Unknown" &&
+                  activity.data?.member?.user
+                ) {
+                  removedUserName = await fetchUserNameById(
+                    activity.data.member.user
+                  );
+                }
+                actionText = `removed ${removedUserName} from the workspace`;
+                break;
+              }
+              case "workspace_settings_updated": {
+                const settingsFields = activity.data?.updatedFields || [];
+                let whoCanArr = [];
+                let settingsTextArr = [];
+                settingsFields.forEach((field) => {
+                  if (field === "inviteRestriction")
+                    whoCanArr.push("invite members");
+                  else if (field === "boardCreation")
+                    whoCanArr.push("create boards");
+                  else if (field === "notificationsEnabled")
+                    settingsTextArr.push("Notifications settings");
+                  else settingsTextArr.push(field);
+                });
+                if (whoCanArr.length) {
+                  settingsTextArr.unshift(`Who can ${whoCanArr.join(", ")}`);
+                }
+                if (settingsTextArr.length > 1) {
+                  actionText = `updated the following settings:`;
+                  updatedList = settingsTextArr;
+                } else if (settingsTextArr.length === 1) {
+                  actionText = `updated ${settingsTextArr[0]}`;
+                } else {
+                  actionText = `updated workspace settings`;
+                }
+                break;
+              }
+              case "workspace_updated": {
+                const updatedFields = activity.data?.updatedFields || [];
+                const fieldsTextArr = updatedFields.map((field) => {
+                  switch (field) {
+                    case "name":
+                      return "Workspace name";
+                    case "description":
+                      return "Workspace description";
+                    default:
+                      return field;
+                  }
+                });
+                if (fieldsTextArr.length > 1) {
+                  actionText = `updated the following:`;
+                  updatedList = fieldsTextArr;
+                } else if (fieldsTextArr.length === 1) {
+                  actionText = `updated ${fieldsTextArr[0]}`;
+                } else {
+                  actionText = `updated workspace`;
+                }
+                break;
+              }
+              default:
+                actionText = activity.action.replace(/_/g, " ");
+            }
+            actionText =
+              actionText.charAt(0).toUpperCase() + actionText.slice(1);
+            return {
+              user: userName,
+              action: actionText,
+              time: new Date(activity.createdAt).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "numeric",
+              }),
+              updatedList,
+            };
+          })
+        );
+        setActivities(newActivities.reverse());
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActivitiesLoading(false);
+    }
+  };
+
+  // Fetch initial workspace data
   useEffect(() => {
-    const fetchWorkspace = async () => {
+    const fetchWorkspaceData = async () => {
       if (!workspaceId) {
         setError("No workspace selected");
         setLoading(false);
@@ -265,12 +453,10 @@ export default function WorkspaceSettings() {
         setError(null);
         setLoadingMembers(true);
 
-        // Fetch workspace details
         const workspaceRes = await fetch(`/api/v1/workspaces/${workspaceId}`);
         if (!workspaceRes.ok) throw new Error("Failed to fetch workspace");
         const workspaceData = await workspaceRes.json();
 
-        // Fetch workspace members
         const membersRes = await fetch(
           `/api/v1/workspaces/${workspaceId}/members`
         );
@@ -278,18 +464,12 @@ export default function WorkspaceSettings() {
         const membersData = await membersRes.json();
 
         const workspaceInfo = workspaceData.data.workspace;
-
-        // Ensure members is an array and transform the data
         const membersArray = Array.isArray(membersData.data.members)
           ? membersData.data.members
-          : Array.isArray(membersData.members)
-          ? membersData.members
           : [];
 
-        // Find current user role
         let currentUserRole = null;
         for (const m of membersArray) {
-          // غطّي كل الحالات الممكنة للـuserId
           const memberUserId =
             m.user?._id ||
             m.userId ||
@@ -301,16 +481,7 @@ export default function WorkspaceSettings() {
             break;
           }
         }
-        console.log(
-          "userId:",
-          userId,
-          "membersArray:",
-          membersArray,
-          "currentUserRole:",
-          currentUserRole
-        );
 
-        // إذا لم يكن Owner أو Admin، اعمل redirect مرة واحدة فقط
         if (currentUserRole !== "owner" && currentUserRole !== "admin") {
           if (!hasRedirected.current) {
             hasRedirected.current = true;
@@ -329,7 +500,6 @@ export default function WorkspaceSettings() {
           setHasPermission(true);
         }
 
-        // Update workspace state with fetched data
         setWorkspace({
           ...workspaceInfo,
           members: membersArray.map((m) => ({
@@ -342,186 +512,6 @@ export default function WorkspaceSettings() {
           })),
         });
 
-        // Build userId to name/email map
-        const userMap = {};
-        membersArray.forEach((m) => {
-          const userId = m.user?._id || m.user || m.userId || m.id || m._id;
-          userMap[userId] = m.user?.username || m.user?.email || "Unknown";
-        });
-
-        // Fetch user info by ID if not found in userMap
-        async function fetchUserNameById(userId) {
-          if (!userId) return "Unknown";
-          if (userCache.current[userId]) return userCache.current[userId];
-          try {
-            const res = await fetch(`/api/v1/users/${userId}`);
-            if (!res.ok) return "Unknown";
-            const data = await res.json();
-            const name =
-              data.data?.user?.username || data.data?.user?.email || "Unknown";
-            userCache.current[userId] = name;
-            return name;
-          } catch {
-            return "Unknown";
-          }
-        }
-
-        // Set activities from workspace data
-        if (workspaceInfo.activities) {
-          setActivitiesLoading(true);
-          (async () => {
-            const newActivities = await Promise.all(
-              workspaceInfo.activities.map(async (activity) => {
-                // User name
-                let userName = userMap[activity.user] || "Unknown";
-                if (
-                  activity.action === "invitation_accepted" &&
-                  activity.data?.user
-                ) {
-                  userName =
-                    userMap[activity.data.user] ||
-                    (await fetchUserNameById(activity.data.user));
-                }
-                // Action details
-                let actionText = "";
-                let updatedList = null;
-                switch (activity.action) {
-                  case "board_created": {
-                    const boardName = activity.data?.board?.name || "";
-                    actionText = `created board \"${boardName}\"`;
-                    break;
-                  }
-                  case "board_removed": {
-                    const boardName = activity.data?.board?.name || "";
-                    actionText = `deleted board \"${boardName}\"`;
-                    break;
-                  }
-                  case "workspace_created":
-                    actionText = `created this workspace`;
-                    break;
-                  case "invitation_sent":
-                    actionText = `invited ${activity.data?.email || ""} as ${
-                      activity.data?.role || "member"
-                    }`;
-                    break;
-                  case "invitation_accepted":
-                    actionText = `joined the workspace as ${
-                      activity.data?.role || "member"
-                    }`;
-                    break;
-                  case "invitation_cancelled":
-                    actionText = `cancelled invitation for ${
-                      activity.data?.email || ""
-                    }`;
-                    break;
-                  case "member_role_updated": {
-                    let targetUserName =
-                      userMap[activity.data?.targetUser] || "Unknown";
-                    if (
-                      targetUserName === "Unknown" &&
-                      activity.data?.targetUser
-                    ) {
-                      targetUserName = await fetchUserNameById(
-                        activity.data.targetUser
-                      );
-                    }
-                    actionText = `changed ${targetUserName}'s role from ${activity.data?.from} to ${activity.data?.to}`;
-                    break;
-                  }
-                  case "member_removed": {
-                    let removedUserName =
-                      userMap[activity.data?.member?.user] || "Unknown";
-                    if (
-                      removedUserName === "Unknown" &&
-                      activity.data?.member?.user
-                    ) {
-                      removedUserName = await fetchUserNameById(
-                        activity.data.member.user
-                      );
-                    }
-                    actionText = `removed ${removedUserName} from the workspace`;
-                    break;
-                  }
-                  case "workspace_settings_updated": {
-                    const settingsFields = activity.data?.updatedFields || [];
-                    // Combine all 'Who can ...' settings in one item
-                    let whoCanArr = [];
-                    let settingsTextArr = [];
-                    settingsFields.forEach((field) => {
-                      if (field === "inviteRestriction")
-                        whoCanArr.push("invite members");
-                      else if (field === "boardCreation")
-                        whoCanArr.push("create boards");
-                      else if (field === "notificationsEnabled")
-                        settingsTextArr.push("Notifications settings");
-                      else settingsTextArr.push(field);
-                    });
-                    if (whoCanArr.length) {
-                      settingsTextArr.unshift(
-                        `Who can ${whoCanArr.join(", ")}`
-                      );
-                    }
-                    if (settingsTextArr.length > 1) {
-                      actionText = `updated the following settings:`;
-                      updatedList = settingsTextArr;
-                    } else if (settingsTextArr.length === 1) {
-                      actionText = `updated ${settingsTextArr[0]}`;
-                    } else {
-                      actionText = `updated workspace settings`;
-                    }
-                    break;
-                  }
-                  case "workspace_updated": {
-                    const updatedFields = activity.data?.updatedFields || [];
-                    const fieldsTextArr = updatedFields.map((field) => {
-                      switch (field) {
-                        case "name":
-                          return "Workspace name";
-                        case "description":
-                          return "Workspace description";
-                        default:
-                          return field;
-                      }
-                    });
-                    if (fieldsTextArr.length > 1) {
-                      actionText = `updated the following:`;
-                      updatedList = fieldsTextArr;
-                    } else if (fieldsTextArr.length === 1) {
-                      actionText = `updated ${fieldsTextArr[0]}`;
-                    } else {
-                      actionText = `updated workspace`;
-                    }
-                    break;
-                  }
-                  default:
-                    actionText = activity.action.replace(/_/g, " ");
-                }
-                // Capitalize first letter
-                actionText =
-                  actionText.charAt(0).toUpperCase() + actionText.slice(1);
-                return {
-                  user: userName,
-                  action: actionText,
-                  time: new Date(activity.createdAt).toLocaleDateString(
-                    "en-US",
-                    {
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "numeric",
-                    }
-                  ),
-                  updatedList,
-                };
-              })
-            );
-            // رتب الأنشطة بحيث الأحدث أولاً
-            setActivities(newActivities.reverse());
-            setActivitiesLoading(false);
-          })();
-        }
-
-        // Update form state
         setForm({
           name: workspaceInfo.name,
           description: workspaceInfo.description,
@@ -539,8 +529,13 @@ export default function WorkspaceSettings() {
       }
     };
 
-    fetchWorkspace();
-  }, [workspaceId, userId]); // Depend on workspaceId and userId
+    fetchWorkspaceData();
+  }, [workspaceId, userId]);
+
+  // Fetch activities on initial load and when triggered
+  useEffect(() => {
+    fetchActivities();
+  }, [reloadTrigger, workspaceId]);
 
   useEffect(() => {
     const checkIfMobile = () => {
@@ -649,6 +644,7 @@ export default function WorkspaceSettings() {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
 
+      setReloadTrigger((c) => c + 1);
       // بعد الحفظ، أعد جلب بيانات الـ workspace للسايدبار
       const fetchSidebarWorkspace = async () => {
         try {
@@ -1036,8 +1032,19 @@ export default function WorkspaceSettings() {
             </p>
             <div className="space-y-3 max-h-[260px] overflow-y-auto">
               {activitiesLoading ? (
-                <div className="flex justify-center items-center py-8">
-                  <div className="animate-spin h-8 w-8 border-t-2 border-[#6a3b82] rounded-full"></div>
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div className="w-8 h-8 rounded-full loading-skeleton"></div>
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 w-3/4 loading-skeleton rounded"></div>
+                        <div className="h-3 w-1/4 loading-skeleton rounded"></div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : activities.length > 0 ? (
                 activities.map((activity, index) => (

@@ -247,191 +247,85 @@ exports.getWorkspaceById = catchAsync(async (req, res, next) => {
   });
 });
 
-// Update workspace details (only for public workspace)
+// Update workspace details
 exports.updateWorkspace = catchAsync(async (req, res, next) => {
-  const workspace = req.workspace;
-  const userRole = workspace.getMemberRole(req.user._id);
-  const { settings, members, ...basicFields } = req.body;
+  const { workspace } = req;
+  const { name, description, settings } = req.body;
 
-  let updateData = {};
+  // Keep track of old values for logging
+  const oldName = workspace.name;
+  const oldDescription = workspace.description;
+  const oldSettings = { ...workspace.settings };
 
-  // Handle basic properties (name, description, etc.)
-  if (Object.keys(basicFields).length > 0) {
-    const allowedBasicFields = ['name', 'description'];
-    allowedBasicFields.forEach((field) => {
-      if (basicFields[field] !== undefined) {
-        updateData[field] = basicFields[field];
-      }
-    });
+  let hasWorkspaceChanged = false;
+  let hasSettingsChanged = false;
+  const updatedWorkspaceFields = [];
+  const updatedSettingsFields = [];
+
+  // 1. Update workspace name and description if provided
+  if (name !== undefined && name !== oldName) {
+    workspace.name = name;
+    updatedWorkspaceFields.push('name');
+    hasWorkspaceChanged = true;
+  }
+  if (description !== undefined && description !== oldDescription) {
+    workspace.description = description;
+    updatedWorkspaceFields.push('description');
+    hasWorkspaceChanged = true;
   }
 
-  // Handle Settings Updates
+  // 2. Update settings if provided
   if (settings) {
-    updateData.settings = { ...workspace.settings };
-
-    // Critical settings (owner only)
-    if (settings.inviteRestriction || settings.boardCreation) {
-      if (userRole !== 'owner') {
-        return next(
-          new AppError('Only workspace owner can modify critical settings', 403)
-        );
-      }
-
-      if (settings.inviteRestriction)
-        updateData.settings.inviteRestriction = settings.inviteRestriction;
-      if (settings.boardCreation)
-        updateData.settings.boardCreation = settings.boardCreation;
+    if (
+      settings.inviteRestriction &&
+      settings.inviteRestriction !== oldSettings.inviteRestriction
+    ) {
+      workspace.settings.inviteRestriction = settings.inviteRestriction;
+      updatedSettingsFields.push('inviteRestriction');
+      hasSettingsChanged = true;
     }
-
-    // General settings (owner & admin)
-    const generalSettings = ['defaultView', 'notificationsEnabled'];
-    if (generalSettings.some((field) => settings[field] !== undefined)) {
-      permissionService.verifyWorkspacePermission(
-        workspace,
-        req.user._id,
-        'manage_settings'
-      );
-
-      generalSettings.forEach((field) => {
-        if (settings[field] !== undefined) {
-          updateData.settings[field] = settings[field];
-        }
-      });
+    if (
+      settings.boardCreation &&
+      settings.boardCreation !== oldSettings.boardCreation
+    ) {
+      workspace.settings.boardCreation = settings.boardCreation;
+      updatedSettingsFields.push('boardCreation');
+      hasSettingsChanged = true;
+    }
+    if (
+      settings.notificationsEnabled !== undefined &&
+      settings.notificationsEnabled !== oldSettings.notificationsEnabled
+    ) {
+      workspace.settings.notificationsEnabled = settings.notificationsEnabled;
+      updatedSettingsFields.push('notificationsEnabled');
+      hasSettingsChanged = true;
     }
   }
 
-  // Log activities for basic fields and settings
-  if (Object.keys(updateData).length > 0) {
-    if (settings) {
-      await activityService.logWorkspaceActivity(
-        workspace,
-        req.user._id,
-        'workspace_settings_updated',
-        {
-          updatedFields: Object.keys(settings),
-        }
-      );
-    }
+  // Save the updated workspace
+  const updatedWorkspace = await workspace.save();
 
-    if (Object.keys(basicFields).length > 0) {
-      await activityService.logWorkspaceActivity(
-        workspace,
-        req.user._id,
-        'workspace_updated',
-        {
-          updatedFields: Object.keys(basicFields),
-        }
-      );
-    }
+  // 3. Log activities if changes were made
+  if (hasWorkspaceChanged) {
+    await activityService.logWorkspaceActivity(
+      workspace,
+      req.user._id,
+      'workspace_updated',
+      { updatedFields: updatedWorkspaceFields }
+    );
   }
-
-  // Handle Member Role Updates
-  if (members && Array.isArray(members)) {
-    for (const update of members) {
-      const { user: userId, role } = update;
-
-      if (!['admin', 'member'].includes(role)) {
-        return next(new AppError('Invalid role. Must be admin or member', 400));
-      }
-
-      const targetMember = workspace.members.find(
-        (m) => m.user.toString() === userId
-      );
-      if (!targetMember) {
-        return next(new AppError('Member not found', 404));
-      }
-
-      if (targetMember.role === 'owner') {
-        return next(new AppError("Cannot change workspace owner's role", 400));
-      }
-
-      const currentUserRole = workspace.getMemberRole(req.user._id);
-      // Save the previous role before any changes
-      const previousRole = targetMember.role;
-
-      // Handle promotion to admin (only owner can do this)
-      if (role === 'admin' && previousRole === 'member') {
-        if (currentUserRole !== 'owner') {
-          return next(
-            new AppError('Only workspace owner can promote to admin', 403)
-          );
-        }
-      }
-
-      // Handle demotion from admin (only owner can do this)
-      if (role === 'member' && previousRole === 'admin') {
-        if (currentUserRole !== 'owner') {
-          return next(
-            new AppError('Only workspace owner can demote an admin', 403)
-          );
-        }
-      }
-
-      // Calculate new permissions based on the role
-      let newPermissions;
-      switch (role) {
-        case 'admin':
-          newPermissions = [
-            'manage_members',
-            'create_boards',
-            'delete_own_boards',
-            'invite_members',
-            'view_members',
-            'manage_settings',
-          ];
-          break;
-        case 'member':
-          newPermissions = [
-            'view_workspace',
-            'view_own_boards',
-            'view_members',
-          ];
-          break;
-        default:
-          newPermissions = targetMember.permissions;
-      }
-
-      // Use update operator for member updates
-      await Workspace.updateOne(
-        { _id: workspace._id, 'members.user': userId },
-        {
-          $set: {
-            'members.$.role': role,
-            'members.$.permissions': newPermissions,
-          },
-        }
-      );
-
-      // Use previously saved role in the activity log
-      await activityService.logWorkspaceActivity(
-        workspace,
-        req.user._id,
-        'member_role_updated',
-        {
-          targetUser: userId,
-          from: previousRole,
-          to: role,
-        }
-      );
-    }
+  if (hasSettingsChanged) {
+    await activityService.logWorkspaceActivity(
+      workspace,
+      req.user._id,
+      'workspace_settings_updated',
+      { updatedFields: updatedSettingsFields }
+    );
   }
-
-  // Update workspace with basic fields and settings
-  if (Object.keys(updateData).length > 0) {
-    await Workspace.updateOne({ _id: workspace._id }, { $set: updateData });
-  }
-
-  // ALWAYS get the latest workspace data after any updates
-  const UpdatedWorkspace = await Workspace.findById(workspace._id).populate(
-    'members.user',
-    'username email avatar'
-  );
 
   res.status(200).json({
     status: 'success',
-    data: {
-      workspace: UpdatedWorkspace,
-    },
+    data: { workspace: updatedWorkspace },
   });
 });
 
@@ -968,4 +862,9 @@ exports.cancelInvitation = catchAsync(async (req, res, next) => {
     status: 'success',
     message: 'Invitation cancelled',
   });
+});
+
+exports.deleteWorkspace = catchAsync(async (req, res, next) => {
+  const { workspaceId } = req.params;
+  // ... existing code ...
 });
