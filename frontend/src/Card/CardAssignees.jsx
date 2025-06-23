@@ -1,8 +1,14 @@
 import { useState, useEffect } from "react";
-import { useSelector } from "react-redux";
-import axios from "axios";
+import { useSelector, useDispatch } from "react-redux";
 import MemberSelectionPopup from "../Components/MemberSelectionPopup";
 import UserAvatar from "../Components/UserAvatar";
+import {
+  fetchCardAssignees,
+  addPendingAssignee,
+  removePendingAssignee,
+  fetchBoardMembers,
+  updateCardAssignees,
+} from "../features/Slice/cardSlice/cardDetailsSlice";
 
 // Helper function to get user display name
 const getUserDisplayName = (user) => {
@@ -84,128 +90,93 @@ const avatarColors = [
 ];
 
 export default function CardAssignees({ cardId }) {
-  const [assignees, setAssignees] = useState([]);
-  const [boardMembers, setBoardMembers] = useState([]);
+  const dispatch = useDispatch();
   const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
 
-  const boardId = useSelector((state) => state.cardDetails.boardId);
+  // Get state from Redux
+  const {
+    assignees,
+    pendingAssignees,
+    boardMembers,
+    boardId,
+    assigneesLoading,
+    boardMembersLoading,
+    assigneesError,
+    boardMembersError,
+  } = useSelector((state) => state.cardDetails);
 
-  // Fetch card members when component mounts or cardId changes
+  // Combine current assignees with pending assignees for display
+  const allAssignees = [...assignees, ...pendingAssignees];
+
+  // Fetch card assignees when component mounts or cardId changes
   useEffect(() => {
     if (cardId) {
-      fetchCardMembers();
+      dispatch(fetchCardAssignees(cardId));
     }
-  }, [cardId]);
+  }, [cardId, dispatch]);
 
-  // Fetch card members
-  const fetchCardMembers = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const response = await axios.get(`/api/v1/cards/${cardId}/members`);
-      console.log("Card members data:", response.data.data.members);
-      setAssignees(response.data.data.members);
-    } catch (err) {
-      console.error("Error fetching card members:", err);
-      setError("Failed to load card members");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Fetch board members
-  const fetchBoardMembers = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const response = await axios.get(
-        `/api/v1/boards/${boardId}/members?limit=100`
-      );
-      console.log("Board members data:", response.data.data.members);
-      setBoardMembers(response.data.data.members);
-    } catch (err) {
-      console.error("Error fetching board members:", err);
-      setError("Failed to load board members");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Add member to card
+  // Add member to card (pending)
   const addMember = async (userId) => {
     try {
-      setIsLoading(true);
-      setError(null);
-      await axios.post(`/api/v1/cards/${cardId}/members`, { userId });
-      await fetchCardMembers();
+      await dispatch(addPendingAssignee({ userId })).unwrap();
     } catch (err) {
       console.error("Error adding member:", err);
-      setError("Failed to add member");
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  // Remove member from card
+  // Remove member from card (pending)
   const removeMember = async (userId) => {
     try {
-      setIsLoading(true);
-      setError(null);
-      await axios.delete(`/api/v1/cards/${cardId}/members/${userId}`);
-      await fetchCardMembers();
+      await dispatch(removePendingAssignee({ userId })).unwrap();
     } catch (err) {
       console.error("Error removing member:", err);
-      setError("Failed to remove member");
-    } finally {
-      setIsLoading(false);
     }
   };
 
   // Handle changes from member selection popup
   const handleApplyChanges = async (finalMembers, pendingChanges) => {
     try {
-      setIsLoading(true);
-      setError(null);
+      // Prepare bulk changes
+      const assigneeChanges = [];
 
-      // Process all pending changes
       for (const userId of pendingChanges) {
-        const isCurrentlyAssigned = assignees.some((assignee) => {
-          if (assignee.user) {
-            return assignee.user._id === userId || assignee.id === userId;
-          } else {
-            return assignee._id === userId || assignee.id === userId;
-          }
+        const isCurrentlyAssigned = allAssignees.some((assignee) => {
+          const assigneeId = assignee.user?._id || assignee._id || assignee.id;
+          return assigneeId === userId;
         });
 
         if (isCurrentlyAssigned) {
-          await removeMember(userId);
+          assigneeChanges.push({ userId, action: "remove" });
         } else {
-          await addMember(userId);
+          assigneeChanges.push({ userId, action: "add" });
         }
       }
 
-      // Update assignees after changes are applied
-      await fetchCardMembers();
+      // Apply all changes at once using pending system
+      for (const change of assigneeChanges) {
+        if (change.action === "add") {
+          await addMember(change.userId);
+        } else {
+          await removeMember(change.userId);
+        }
+      }
     } catch (err) {
       console.error("Error applying changes:", err);
-      setError("Failed to apply changes");
-    } finally {
-      setIsLoading(false);
     }
   };
 
   // Open the member selection popup
   const openMemberSelection = async () => {
-    // Fetch board members first
-    if (boardMembers.length === 0) {
-      await fetchBoardMembers();
+    // Fetch board members first if not already loaded
+    if (boardMembers.length === 0 && boardId) {
+      await dispatch(fetchBoardMembers(boardId));
     }
     setIsPopupOpen(true);
   };
+
+  // Determine loading state
+  const isLoading = assigneesLoading || boardMembersLoading;
+  const error = assigneesError || boardMembersError;
 
   return (
     <div className="flex flex-row items-center mt-4 w-full ">
@@ -221,18 +192,28 @@ export default function CardAssignees({ cardId }) {
 
       <div className="flex items-center gap-3">
         <div className="flex -space-x-3">
-          {isLoading && !assignees.length ? (
+          {isLoading && !allAssignees.length ? (
             <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
-          ) : assignees.length > 0 ? (
-            assignees.map((assignee, index) => {
+          ) : allAssignees.length > 0 ? (
+            allAssignees.map((assignee, index) => {
               // Make sure we're accessing the user data correctly
               const userData = assignee.user || assignee;
+              const isPending = assignee.isPending;
               return (
-                <UserAvatar
+                <div
                   key={assignee.id || assignee._id || userData._id}
-                  user={userData}
-                  className="w-8 h-8 rounded-full border-2 border-white shadow-md"
-                />
+                  className="relative"
+                >
+                  <UserAvatar
+                    user={userData}
+                    className={`w-8 h-8 rounded-full border-2 border-white shadow-md ${
+                      isPending ? "opacity-60" : ""
+                    }`}
+                  />
+                  {isPending && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border border-white"></div>
+                  )}
+                </div>
               );
             })
           ) : (
@@ -257,7 +238,7 @@ export default function CardAssignees({ cardId }) {
         isOpen={isPopupOpen}
         onClose={() => setIsPopupOpen(false)}
         allMembers={boardMembers}
-        selectedMembers={assignees}
+        selectedMembers={allAssignees}
         title="Assign Members"
         onApplyChanges={handleApplyChanges}
         isLoading={isLoading}

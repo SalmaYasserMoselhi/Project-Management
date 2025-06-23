@@ -597,6 +597,250 @@ const calculateCommentsCount = (comments) => {
   );
 };
 
+// جلب أعضاء البطاقة (المسندين)
+export const fetchCardAssignees = createAsyncThunk(
+  "card/fetchCardAssignees",
+  async (cardId, { rejectWithValue }) => {
+    try {
+      const response = await axios.get(
+        `${BASE_URL}/api/v1/cards/${cardId}/members`
+      );
+      return response.data.data.members;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch card assignees"
+      );
+    }
+  }
+);
+
+// إضافة عضو للبطاقة
+export const addCardAssignee = createAsyncThunk(
+  "card/addCardAssignee",
+  async ({ cardId, userId }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/api/v1/cards/${cardId}/members`,
+        {
+          userId,
+        }
+      );
+      return response.data.data.members;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to add assignee"
+      );
+    }
+  }
+);
+
+// إزالة عضو من البطاقة
+export const removeCardAssignee = createAsyncThunk(
+  "card/removeCardAssignee",
+  async ({ cardId, userId }, { rejectWithValue }) => {
+    try {
+      await axios.delete(
+        `${BASE_URL}/api/v1/cards/${cardId}/members/${userId}`
+      );
+      return { userId };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to remove assignee"
+      );
+    }
+  }
+);
+
+// تحديث المسندين بشكل جماعي
+export const updateCardAssignees = createAsyncThunk(
+  "card/updateCardAssignees",
+  async ({ cardId, assigneeChanges }, { dispatch, rejectWithValue }) => {
+    try {
+      const results = [];
+
+      // Process all changes
+      for (const change of assigneeChanges) {
+        const { userId, action } = change; // action can be 'add' or 'remove'
+
+        if (action === "add") {
+          const result = await dispatch(
+            addCardAssignee({ cardId, userId })
+          ).unwrap();
+          results.push({ userId, action, result });
+        } else if (action === "remove") {
+          const result = await dispatch(
+            removeCardAssignee({ cardId, userId })
+          ).unwrap();
+          results.push({ userId, action, result });
+        }
+      }
+
+      return results;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update assignees"
+      );
+    }
+  }
+);
+
+// جلب أعضاء البورد
+export const fetchBoardMembers = createAsyncThunk(
+  "card/fetchBoardMembers",
+  async (boardId, { rejectWithValue }) => {
+    try {
+      const response = await axios.get(
+        `${BASE_URL}/api/v1/boards/${boardId}/members?limit=100`
+      );
+      return response.data.data.members;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch board members"
+      );
+    }
+  }
+);
+
+// إضافة عضو للبطاقة (معلق)
+export const addPendingAssignee = createAsyncThunk(
+  "card/addPendingAssignee",
+  async ({ userId }, { getState, rejectWithValue }) => {
+    try {
+      const state = getState();
+      const currentPendingAssignees = state.cardDetails.pendingAssignees || [];
+      const currentAssignees = state.cardDetails.assignees || [];
+
+      // Check if user is already assigned
+      const isAlreadyAssigned = currentAssignees.some((assignee) => {
+        const assigneeId = assignee.user?._id || assignee._id || assignee.id;
+        return assigneeId === userId;
+      });
+
+      if (isAlreadyAssigned) {
+        return rejectWithValue("User is already assigned to this card");
+      }
+
+      // Find user data from board members
+      const boardMembers = state.cardDetails.boardMembers || [];
+      const userData = boardMembers.find((member) => {
+        const memberId = member.user?._id || member._id || member.id;
+        return memberId === userId;
+      });
+
+      if (!userData) {
+        return rejectWithValue("User not found in board members");
+      }
+
+      // Add to pending assignees
+      const newPendingAssignee = {
+        id: userData.user?._id || userData._id || userData.id,
+        user: userData.user || userData,
+        isPending: true,
+      };
+
+      return newPendingAssignee;
+    } catch (error) {
+      return rejectWithValue("Failed to add pending assignee");
+    }
+  }
+);
+
+// إزالة عضو من البطاقة (معلق)
+export const removePendingAssignee = createAsyncThunk(
+  "card/removePendingAssignee",
+  async ({ userId }, { getState, rejectWithValue }) => {
+    try {
+      const state = getState();
+      const currentAssignees = state.cardDetails.assignees || [];
+      const currentPendingAssignees = state.cardDetails.pendingAssignees || [];
+
+      // Check if user is currently assigned
+      const isCurrentlyAssigned = currentAssignees.some((assignee) => {
+        const assigneeId = assignee.user?._id || assignee._id || assignee.id;
+        return assigneeId === userId;
+      });
+
+      // Check if user is in pending assignees
+      const isPending = currentPendingAssignees.some((assignee) => {
+        const assigneeId = assignee.user?._id || assignee._id || assignee.id;
+        return assigneeId === userId;
+      });
+
+      if (!isCurrentlyAssigned && !isPending) {
+        return rejectWithValue("User is not assigned to this card");
+      }
+
+      return { userId, isCurrentlyAssigned, isPending };
+    } catch (error) {
+      return rejectWithValue("Failed to remove pending assignee");
+    }
+  }
+);
+
+// حفظ المسندين المعلقة إلى الباكند
+export const savePendingAssignees = createAsyncThunk(
+  "card/savePendingAssignees",
+  async ({ cardId }, { getState, dispatch, rejectWithValue }) => {
+    try {
+      const state = getState();
+      const currentAssignees = state.cardDetails.assignees || [];
+      const pendingAssignees = state.cardDetails.pendingAssignees || [];
+
+      const results = [];
+
+      // Process all pending additions
+      for (const pendingAssignee of pendingAssignees) {
+        const userId =
+          pendingAssignee.user?._id ||
+          pendingAssignee._id ||
+          pendingAssignee.id;
+
+        // Check if this user is not already assigned
+        const isCurrentlyAssigned = currentAssignees.some((assignee) => {
+          const assigneeId = assignee.user?._id || assignee._id || assignee.id;
+          return assigneeId === userId;
+        });
+
+        if (!isCurrentlyAssigned) {
+          // This is a new assignment
+          const result = await dispatch(
+            addCardAssignee({ cardId, userId })
+          ).unwrap();
+          results.push({ userId, action: "add", result });
+        }
+      }
+
+      // Check for removals (assignees that were in original state but not in current + pending)
+      const originalAssignees = state.cardDetails.assignees || [];
+      const allCurrentAssignees = [...currentAssignees, ...pendingAssignees];
+
+      for (const originalAssignee of originalAssignees) {
+        const originalUserId =
+          originalAssignee.user?._id ||
+          originalAssignee._id ||
+          originalAssignee.id;
+
+        const stillAssigned = allCurrentAssignees.some((assignee) => {
+          const assigneeId = assignee.user?._id || assignee._id || assignee.id;
+          return assigneeId === originalUserId;
+        });
+
+        if (!stillAssigned) {
+          // This assignee was removed
+          const result = await dispatch(
+            removeCardAssignee({ cardId, userId: originalUserId })
+          ).unwrap();
+          results.push({ userId: originalUserId, action: "remove", result });
+        }
+      }
+
+      return results;
+    } catch (error) {
+      return rejectWithValue("Failed to save pending assignees");
+    }
+  }
+);
+
 const initialState = {
   id: null,
   title: "",
@@ -612,12 +856,19 @@ const initialState = {
   comments: [],
   listId: null,
   boardId: null,
+  assignees: [], // إضافة المسندين
+  pendingAssignees: [], // إضافة المسندين المعلقة
+  boardMembers: [], // إضافة أعضاء البورد
   loading: false,
   saveLoading: false,
   commentsLoading: false,
+  assigneesLoading: false, // حالة تحميل المسندين
+  boardMembersLoading: false, // حالة تحميل أعضاء البورد
   error: null,
   saveError: null,
   commentsError: null,
+  assigneesError: null, // خطأ المسندين
+  boardMembersError: null, // خطأ أعضاء البورد
   commentsCount: 0,
 };
 
@@ -743,6 +994,49 @@ const cardDetailsSlice = createSlice({
       state.saveError = action.payload;
     },
     resetCardDetails: () => initialState,
+    // إضافة reducer للمسندين
+    setAssignees: (state, action) => {
+      state.assignees = action.payload;
+    },
+
+    // إضافة reducer لأعضاء البورد
+    setBoardMembers: (state, action) => {
+      state.boardMembers = action.payload;
+    },
+
+    // إضافة reducer لإعادة تعيين المسندين فقط
+    resetAssignees: (state) => {
+      state.assignees = [];
+      state.assigneesLoading = false;
+      state.assigneesError = null;
+    },
+
+    // إضافة reducer لإعادة تعيين أعضاء البورد فقط
+    resetBoardMembers: (state) => {
+      state.boardMembers = [];
+      state.boardMembersLoading = false;
+      state.boardMembersError = null;
+    },
+
+    // إضافة reducer لإعادة تعيين المسندين إلى الحالة الأولية
+    revertAssignees: (state, action) => {
+      state.assignees = action.payload;
+      state.assigneesLoading = false;
+      state.assigneesError = null;
+    },
+
+    // إضافة reducer لإعادة تعيين المسندين المعلقة
+    resetPendingAssignees: (state) => {
+      state.pendingAssignees = [];
+      state.assigneesLoading = false;
+      state.assigneesError = null;
+    },
+
+    // إضافة reducer لدمج المسندين المعلقة مع المسندين الحاليين
+    mergePendingAssignees: (state) => {
+      state.assignees = [...state.assignees, ...state.pendingAssignees];
+      state.pendingAssignees = [];
+    },
   },
   extraReducers: (builder) => {
     // معالجة جلب بيانات البطاقة
@@ -760,6 +1054,16 @@ const cardDetailsSlice = createSlice({
         // Store board ID if available
         if (action.payload.boardId) {
           state.boardId = action.payload.boardId;
+        }
+
+        // Handle assignees if they are part of the card data
+        if (cardData.members && Array.isArray(cardData.members)) {
+          state.assignees = cardData.members.map((member) => ({
+            id: member.user?._id || member._id,
+            user: member.user,
+            assignedBy: member.assignedBy,
+            assignedAt: member.assignedAt,
+          }));
         }
 
         // Handle comments if they are part of the card data, ensuring consistent structure
@@ -839,6 +1143,7 @@ const cardDetailsSlice = createSlice({
             key !== "dueDate" &&
             key !== "attachments" &&
             key !== "comments" && // Prevent overwriting our mapped comments
+            key !== "members" && // Prevent overwriting our mapped assignees
             key in state
           ) {
             state[key] = cardData[key];
@@ -1305,6 +1610,147 @@ const cardDetailsSlice = createSlice({
       .addCase(addReplyToComment.rejected, (state, action) => {
         state.commentsLoading = false;
         state.commentsError = action.payload || "Failed to add reply";
+      })
+
+      // معالجة جلب المسندين
+      .addCase(fetchCardAssignees.pending, (state) => {
+        state.assigneesLoading = true;
+        state.assigneesError = null;
+      })
+      .addCase(fetchCardAssignees.fulfilled, (state, action) => {
+        state.assigneesLoading = false;
+        state.assignees = action.payload;
+      })
+      .addCase(fetchCardAssignees.rejected, (state, action) => {
+        state.assigneesLoading = false;
+        state.assigneesError = action.payload || "Failed to fetch assignees";
+      })
+
+      // معالجة إضافة مسند
+      .addCase(addCardAssignee.pending, (state) => {
+        state.assigneesLoading = true;
+        state.assigneesError = null;
+      })
+      .addCase(addCardAssignee.fulfilled, (state, action) => {
+        state.assigneesLoading = false;
+        state.assignees = action.payload;
+      })
+      .addCase(addCardAssignee.rejected, (state, action) => {
+        state.assigneesLoading = false;
+        state.assigneesError = action.payload || "Failed to add assignee";
+      })
+
+      // معالجة إزالة مسند
+      .addCase(removeCardAssignee.pending, (state) => {
+        state.assigneesLoading = true;
+        state.assigneesError = null;
+      })
+      .addCase(removeCardAssignee.fulfilled, (state, action) => {
+        state.assigneesLoading = false;
+        const { userId } = action.payload;
+        state.assignees = state.assignees.filter((assignee) => {
+          const assigneeId = assignee.user?._id || assignee._id || assignee.id;
+          return assigneeId !== userId;
+        });
+      })
+      .addCase(removeCardAssignee.rejected, (state, action) => {
+        state.assigneesLoading = false;
+        state.assigneesError = action.payload || "Failed to remove assignee";
+      })
+
+      // معالجة تحديث المسندين بشكل جماعي
+      .addCase(updateCardAssignees.pending, (state) => {
+        state.assigneesLoading = true;
+        state.assigneesError = null;
+      })
+      .addCase(updateCardAssignees.fulfilled, (state, action) => {
+        state.assigneesLoading = false;
+        // The individual add/remove actions will have already updated the state
+        // This is just for handling the loading state
+      })
+      .addCase(updateCardAssignees.rejected, (state, action) => {
+        state.assigneesLoading = false;
+        state.assigneesError = action.payload || "Failed to update assignees";
+      })
+
+      // معالجة جلب أعضاء البورد
+      .addCase(fetchBoardMembers.pending, (state) => {
+        state.boardMembersLoading = true;
+        state.boardMembersError = null;
+      })
+      .addCase(fetchBoardMembers.fulfilled, (state, action) => {
+        state.boardMembersLoading = false;
+        state.boardMembers = action.payload;
+      })
+      .addCase(fetchBoardMembers.rejected, (state, action) => {
+        state.boardMembersLoading = false;
+        state.boardMembersError =
+          action.payload || "Failed to fetch board members";
+      })
+
+      // معالجة إضافة عضو معلق
+      .addCase(addPendingAssignee.pending, (state) => {
+        state.assigneesLoading = true;
+        state.assigneesError = null;
+      })
+      .addCase(addPendingAssignee.fulfilled, (state, action) => {
+        state.assigneesLoading = false;
+        state.pendingAssignees.push(action.payload);
+      })
+      .addCase(addPendingAssignee.rejected, (state, action) => {
+        state.assigneesLoading = false;
+        state.assigneesError =
+          action.payload || "Failed to add pending assignee";
+      })
+
+      // معالجة إزالة عضو معلق
+      .addCase(removePendingAssignee.pending, (state) => {
+        state.assigneesLoading = true;
+        state.assigneesError = null;
+      })
+      .addCase(removePendingAssignee.fulfilled, (state, action) => {
+        state.assigneesLoading = false;
+        const { userId, isCurrentlyAssigned, isPending } = action.payload;
+
+        if (isPending) {
+          // Remove from pending assignees
+          state.pendingAssignees = state.pendingAssignees.filter((assignee) => {
+            const assigneeId =
+              assignee.user?._id || assignee._id || assignee.id;
+            return assigneeId !== userId;
+          });
+        }
+
+        if (isCurrentlyAssigned) {
+          // Remove from current assignees
+          state.assignees = state.assignees.filter((assignee) => {
+            const assigneeId =
+              assignee.user?._id || assignee._id || assignee.id;
+            return assigneeId !== userId;
+          });
+        }
+      })
+      .addCase(removePendingAssignee.rejected, (state, action) => {
+        state.assigneesLoading = false;
+        state.assigneesError =
+          action.payload || "Failed to remove pending assignee";
+      })
+
+      // معالجة حفظ المسندين المعلقة
+      .addCase(savePendingAssignees.pending, (state) => {
+        state.assigneesLoading = true;
+        state.assigneesError = null;
+      })
+      .addCase(savePendingAssignees.fulfilled, (state, action) => {
+        state.assigneesLoading = false;
+        // Clear pending assignees after successful save
+        state.pendingAssignees = [];
+        // The actual assignees will be updated by the individual add/remove actions
+      })
+      .addCase(savePendingAssignees.rejected, (state, action) => {
+        state.assigneesLoading = false;
+        state.assigneesError =
+          action.payload || "Failed to save pending assignees";
       });
   },
 });
@@ -1332,6 +1778,13 @@ export const {
   editReply,
   setSaveError,
   resetCardDetails,
+  setAssignees,
+  setBoardMembers,
+  resetAssignees,
+  resetBoardMembers,
+  revertAssignees,
+  resetPendingAssignees,
+  mergePendingAssignees,
 } = cardDetailsSlice.actions;
 
 export default cardDetailsSlice.reducer;
