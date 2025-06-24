@@ -141,15 +141,11 @@ notificationSchema.statics.generateMessage = function (type, data, sender) {
       return `${senderName} created a new list "${safeString(data.listName, 'a list')}" in board "${safeString(data.boardName, 'a board')}"`;
     case 'board_shared':
       return `${senderName} shared a board "${safeString(data.boardName, 'a board')}" with you`;
-    case 'mention':
-      return `${senderName} mentioned you in ${getEntityType(data)} "${getEntityName(data)}"`;
-    case 'message':
-      return `${senderName} sent you a message`;
     case 'invitation_sent':
       return `${senderName} sent an invitation to join ${getEntityType(data)} "${getEntityName(data)}"`;
-  case 'invitation_accepted':
+    case 'invitation_accepted':
       return `${senderName} accepted your invitation to join ${getEntityType(data)} "${getEntityName(data)}"`;
-  case 'invitation_cancelled':
+    case 'invitation_cancelled':
       return `${senderName} cancelled the invitation to join ${getEntityType(data)} "${getEntityName(data)}"`;
 
     // New notification messages - FIXED

@@ -315,6 +315,13 @@ const notificationSlice = createSlice({
         if (deletedNotification && !deletedNotification.read) {
           state.unreadCount = Math.max(0, state.unreadCount - 1);
         }
+        // Update total count
+        state.total = Math.max(0, state.total - 1);
+        
+        // If we're on a page that's now empty and there are more pages, go to previous page
+        if (state.notifications.length === 0 && state.page > 1 && state.total > 0) {
+          state.page = Math.max(1, state.page - 1);
+        }
       })
       .addCase(deleteNotification.rejected, (state, action) => {
         state.error = action.payload;

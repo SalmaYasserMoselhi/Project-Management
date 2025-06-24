@@ -176,8 +176,13 @@ const Breadcrumb = ({ customLabel }) => {
       }
     };
 
-    if (!workspaceName) {
+    // Always fetch board data when boardIdFromUrl changes
+    if (isBoardPage && boardIdFromUrl) {
       fetchBoardAndWorkspace();
+    }
+    
+    // Only fetch workspace data if we don't have it yet
+    if (!workspaceName) {
       fetchWorkspace();
     }
   }, [
@@ -188,6 +193,13 @@ const Breadcrumb = ({ customLabel }) => {
     userWorkspaces,
     workspaceName,
   ]);
+
+  // Reset board name when board ID changes
+  useEffect(() => {
+    if (isBoardPage && boardIdFromUrl) {
+      setBoardName(null); // Reset to show loading state
+    }
+  }, [boardIdFromUrl, isBoardPage]);
 
   if (isWorkspaceSettings) {
     return (

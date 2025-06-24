@@ -49,6 +49,13 @@ const Header = () => {
     console.log('Unread count changed:', unreadCount);
   }, [unreadCount]);
 
+  // Auto-refetch notifications when page changes (e.g., after deletion)
+  useEffect(() => {
+    if (showPopup && currentPage > 1) {
+      dispatch(fetchNotifications({ page: currentPage, limit }));
+    }
+  }, [currentPage, showPopup, dispatch, limit]);
+
   // Refresh data when popup opens
   useEffect(() => {
     if (showPopup) {
@@ -156,7 +163,6 @@ const Header = () => {
   // Mark all notifications as read
   const handleMarkAllAsRead = () => {
     dispatch(markAllNotificationsAsRead()).then(() => {
-      dispatch(fetchUnreadCount());
       // Emit Socket.IO event
       if (socketRef.current) {
         socketRef.current.emit("all notifications read", { userId: user._id });
@@ -167,7 +173,6 @@ const Header = () => {
   // Mark a single notification as read
   const handleMarkSingleAsRead = (notificationId) => {
     dispatch(markNotificationAsRead(notificationId)).then(() => {
-      dispatch(fetchUnreadCount());
       // Emit Socket.IO event
       if (socketRef.current) {
         socketRef.current.emit("notification read", { 
@@ -180,9 +185,7 @@ const Header = () => {
 
   // Delete a notification
   const handleDeleteNotification = (notificationId) => {
-    dispatch(deleteNotification(notificationId)).then(() => {
-      dispatch(fetchUnreadCount());
-    });
+    dispatch(deleteNotification(notificationId));
   };
 
   // Handle pagination
