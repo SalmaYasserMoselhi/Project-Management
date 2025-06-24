@@ -29,22 +29,30 @@ const Column = ({
   const [dropPosition, setDropPosition] = useState(null);
   const [sortBy, setSortBy] = useState("position");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isFiltered, setIsFiltered] = useState(false);
+  const [filteredCards, setFilteredCards] = useState([]);
   const dropdownRef = useRef(null);
   const vectorRef = useRef(null);
   const columnRef = useRef(null);
   const cardsContainerRef = useRef(null);
 
   useEffect(() => {
-    if (initialCards && initialCards.length > 0) {
-      console.log(
-        `[Column.jsx] ✅ Using optimized cards data for list ${id}:`,
-        initialCards
-      );
+    // If we receive initialCards from parent (Board), always set isFiltered to true (even if empty)
+    if (Array.isArray(initialCards)) {
       setCards(initialCards);
+      setIsFiltered(true);
+      setFilteredCards(initialCards);
     }
   }, [initialCards, id]);
 
   const fetchCards = async (sort = sortBy, sortOrder = "asc") => {
+    if (isFiltered && filteredCards.length >= 0) {
+      console.log(
+        `[Column.jsx] Skipping fetchCards for list ${id} - filters are active`
+      );
+      return;
+    }
+
     try {
       let url = `${BASE_URL}/api/v1/cards/list/${id}/cards`;
 
@@ -66,19 +74,19 @@ const Column = ({
       const res = await axios.get(url);
       const cards = res.data.data.cards || [];
       setCards(cards);
+      setIsFiltered(false);
+      setFilteredCards([]);
     } catch (err) {
       toast.error("Failed to load cards");
     }
   };
 
   useEffect(() => {
-    if (id && (!initialCards || initialCards.length === 0)) {
-      console.log(
-        `[Column.jsx] ⚠️ Fallback: Initial fetch for list ${id} (no initial cards)`
-      );
+    // Only fetch cards if not filtered and no initial cards
+    if (id && !isFiltered && (!initialCards || initialCards.length === 0)) {
       fetchCards();
     }
-  }, [id, initialCards]);
+  }, [id, initialCards, isFiltered]);
 
   useEffect(() => {
     const handleRefreshList = (event) => {
@@ -92,11 +100,23 @@ const Column = ({
           const newCards = [...event.detail.cards];
           setCards(newCards);
 
+          // Update filter state based on whether we're receiving filtered cards
+          const isFilteredState =
+            event.detail.isFiltered !== undefined
+              ? event.detail.isFiltered
+              : true;
+          setIsFiltered(isFilteredState);
+          if (isFilteredState) {
+            setFilteredCards(newCards);
+          } else {
+            setFilteredCards([]);
+          }
+
           // Force re-render by updating the component key if needed
           setTimeout(() => {
             setCards([...event.detail.cards]);
           }, 100);
-        } else {
+        } else if (!isFiltered) {
           fetchCards(newSortBy, newSortOrder);
         }
       }
@@ -104,7 +124,7 @@ const Column = ({
 
     window.addEventListener("refreshList", handleRefreshList);
     return () => window.removeEventListener("refreshList", handleRefreshList);
-  }, [id]);
+  }, [id, isFiltered]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -198,7 +218,10 @@ const Column = ({
     });
     if (originalListId && newListId) {
       if (originalListId === id || newListId === id) {
-        await fetchCards();
+        // Only fetch cards if not in filtered state
+        if (!isFiltered) {
+          await fetchCards();
+        }
       }
       if (originalListId !== newListId) {
         const otherListId = originalListId === id ? newListId : originalListId;
@@ -211,7 +234,10 @@ const Column = ({
         window.dispatchEvent(event);
       }
     } else {
-      await fetchCards();
+      // Only fetch cards if not in filtered state
+      if (!isFiltered) {
+        await fetchCards();
+      }
     }
   };
 
@@ -350,7 +376,10 @@ const Column = ({
       }
     } catch (err) {
       console.error(`[Column.jsx] Error moving card in list ${id}:`, err);
-      fetchCards();
+      // Only fetch cards if not in filtered state
+      if (!isFiltered) {
+        fetchCards();
+      }
       if (cardHasMoved) toast.error("Failed to move card");
     }
   };

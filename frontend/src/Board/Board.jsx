@@ -20,6 +20,7 @@ import {
   User,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
+import UserAvatar from "../Components/UserAvatar";
 
 const styles = `
 .no-scrollbar::-webkit-scrollbar {
@@ -294,6 +295,7 @@ const Board = ({
   const [draggedListId, setDraggedListId] = useState(null);
   const [dropIndex, setDropIndex] = useState(null);
   const [boardMembers, setBoardMembers] = useState([]);
+  const currentUser = useSelector((state) => state.login?.user);
 
   // Sort state
   const [selectedSort, setSelectedSort] = useState("priority");
@@ -319,9 +321,35 @@ const Board = ({
   const [isEditingList, setIsEditingList] = useState(false);
   const [editingListData, setEditingListData] = useState(null);
 
+  // Memoized list for filter: Assigned to me, then other members
+  const assignedMemberOptions = [
+    {
+      id: "me",
+      name: "Assigned to me",
+      avatar: currentUser?.avatar,
+      email: currentUser?.email,
+      isCurrentUser: true,
+    },
+    ...boardMembers.filter(
+      (member) =>
+        member.id !== currentUser?._id &&
+        member.id !== "me" &&
+        member.user?._id !== currentUser?._id &&
+        member.name?.toLowerCase() !== "unknown user"
+    ),
+  ];
+
   useEffect(() => {
     if (boardData && boardData.members) {
-      const validMembers = boardData.members.filter((member) => member);
+      const validMembers = boardData.members
+        .filter((member) => member && member.user)
+        .map((member) => ({
+          ...member,
+          id: member.user?._id,
+          name: member.user?.username || member.user?.email || "Unknown",
+          avatar: member.user?.avatar,
+          email: member.user?.email,
+        }));
       setBoardMembers(validMembers);
     }
   }, [boardData]);
@@ -425,6 +453,7 @@ const Board = ({
       ) {
         setIsSortOpen(false);
         setIsFilterOpen(false);
+        setActiveFilterSubmenu(null);
         setTempSort(selectedSort);
         setTempSortDirection(sortDirection);
         setTempFilters(activeFilters);
@@ -641,7 +670,8 @@ const Board = ({
   const updateColumnsWithCards = (
     cardsByList,
     sortBy = "position",
-    sortOrder = "asc"
+    sortOrder = "asc",
+    isFiltered = false
   ) => {
     const updatedColumns = columns.map((col) => {
       const listData = cardsByList.find(
@@ -668,6 +698,7 @@ const Board = ({
             sortBy,
             sortOrder,
             cards: [...(col.cards || [])],
+            isFiltered: isFiltered,
           },
         });
         window.dispatchEvent(event);
@@ -743,7 +774,7 @@ const Board = ({
         })
       );
 
-      updateColumnsWithCards(updatedCardsByList, sortBy, sortOrder);
+      updateColumnsWithCards(updatedCardsByList, sortBy, sortOrder, false);
     } catch (error) {
       toast.error(`Failed to sort cards by ${sortBy}`);
     }
@@ -780,56 +811,44 @@ const Board = ({
 
   const handleFilterByPriority = async (priority) => {
     try {
-      const res = await axios.get(
-        `${BASE_URL}/api/v1/cards/board/${boardId}/priority/${priority}`
-      );
-      console.log(`[Board.jsx] Filter by ${priority} response:`, res.data);
-      let cardsByList = [];
-      if (res.data.data.cards && res.data.data.cards.length) {
-        cardsByList = columns.map((col) => {
-          console.log(
-            `[Board.jsx] Checking list ${col.id || col._id} (${
-              col.name
-            }) with col.id:`,
-            col.id,
-            "col._id:",
-            col._id
-          );
-          const filteredCards = res.data.data.cards.filter((card) => {
-            const cardListId = card.list?._id || card.list?.id;
-            console.log(
-              `[Board.jsx] Card ${card.id || card._id} list:`,
-              card.list,
-              "cardListId:",
-              cardListId
+      console.log(`[Board.jsx] Filtering by priority: ${priority}`);
+
+      // Get cards for each list with the specified priority filter
+      const updatedCardsByList = await Promise.all(
+        lists.map(async (list) => {
+          try {
+            const listId = list.id || list._id;
+            const response = await axios.get(
+              `${BASE_URL}/api/v1/cards/list/${listId}/cards?priority=${priority}`
             );
-            return cardListId === (col.id || col._id);
-          });
-          console.log(
-            `[Board.jsx] Filtered cards for list ${col.id || col._id} (${
-              col.name
-            }):`,
-            filteredCards
-          );
-          return {
-            listId: col.id || col._id,
-            listName: col.name,
-            cards: filteredCards,
-          };
-        });
-      } else {
-        console.warn(`[Board.jsx] No cards found for priority ${priority}`);
-        cardsByList = columns.map((col) => ({
-          listId: col.id || col._id,
-          listName: col.name,
-          cards: [],
-        }));
-      }
-      console.log(
-        "[Board.jsx] Transformed cardsByList for filter:",
-        cardsByList
+            const cards = response.data.data.cards || [];
+
+            return {
+              listId: listId,
+              listName: list.name,
+              cards: cards,
+            };
+          } catch (error) {
+            console.error(
+              `[Board.jsx] Error fetching cards for list ${
+                list.id || list._id
+              }:`,
+              error
+            );
+            return {
+              listId: list.id || list._id,
+              listName: list.name,
+              cards: [],
+            };
+          }
+        })
       );
-      updateColumnsWithCards(cardsByList, "priority");
+
+      console.log(
+        "[Board.jsx] Transformed cardsByList for priority filter:",
+        updatedCardsByList
+      );
+      updateColumnsWithCards(updatedCardsByList, "priority", "asc", true);
       setSelectedFilter(`priority-${priority}`);
       return true;
     } catch (error) {
@@ -842,29 +861,47 @@ const Board = ({
     }
   };
 
-  const handleFilterByDate = async () => {
+  const handleFilterByDate = async (dueDateFilter) => {
     try {
-      const res = await axios.get(
-        `${BASE_URL}/api/v1/lists/board/${boardId}/lists`
+      console.log(`[Board.jsx] Filtering by due date: ${dueDateFilter}`);
+
+      // Get cards for each list with the specified due date filter
+      const updatedCardsByList = await Promise.all(
+        lists.map(async (list) => {
+          try {
+            const listId = list.id || list._id;
+            const response = await axios.get(
+              `${BASE_URL}/api/v1/cards/list/${listId}/cards?dueDateFilter=${dueDateFilter}`
+            );
+            const cards = response.data.data.cards || [];
+
+            return {
+              listId: listId,
+              listName: list.name,
+              cards: cards,
+            };
+          } catch (error) {
+            console.error(
+              `[Board.jsx] Error fetching cards for list ${
+                list.id || list._id
+              }:`,
+              error
+            );
+            return {
+              listId: list.id || list._id,
+              listName: list.name,
+              cards: [],
+            };
+          }
+        })
       );
-      console.log("[Board.jsx] Filter by date response:", res.data);
-      const cardsByList = res.data.data.lists.map((list) => {
-        console.log(
-          `[Board.jsx] Cards for list ${list._id} (${list.name}):`,
-          list.cards || []
-        );
-        return {
-          listId: list._id,
-          listName: list.name,
-          cards: list.cards || [],
-        };
-      });
+
       console.log(
         "[Board.jsx] Transformed cardsByList for date filter:",
-        cardsByList
+        updatedCardsByList
       );
-      updateColumnsWithCards(cardsByList, "position");
-      setSelectedFilter("date");
+      updateColumnsWithCards(updatedCardsByList, "position", "asc", true);
+      setSelectedFilter(`date-${dueDateFilter}`);
       return true;
     } catch (error) {
       console.error("[Board.jsx] Error filtering cards by date:", error);
@@ -875,11 +912,34 @@ const Board = ({
 
   const handleFilterByAssignedMember = async (memberId) => {
     try {
-      console.log(`[Board.jsx] Filtering by assigned member: ${memberId}`);
+      // Fetch cards for each list filtered by assigned member
+      const updatedCardsByList = await Promise.all(
+        lists.map(async (list) => {
+          try {
+            const listId = list.id || list._id;
+            const response = await axios.get(
+              `${BASE_URL}/api/v1/cards/list/${listId}/cards?assignedTo=${memberId}`
+            );
+            const cards = response.data.data.cards || [];
+            return {
+              listId: listId,
+              listName: list.name,
+              cards: cards,
+            };
+          } catch (error) {
+            return {
+              listId: list.id || list._id,
+              listName: list.name,
+              cards: [],
+            };
+          }
+        })
+      );
+      updateColumnsWithCards(updatedCardsByList, "position", "asc", true);
+      setSelectedFilter(`assignedTo-${memberId}`);
       return true;
     } catch (error) {
-      console.error(`[Board.jsx] Error filtering by assigned member:`, error);
-      toast.error(`Failed to filter by assigned member`);
+      toast.error("Failed to filter by assigned member");
       return false;
     }
   };
@@ -889,63 +949,78 @@ const Board = ({
     let appliedCount = 0;
     const filterMessages = [];
 
+    // Build query params for all active filters
+    const params = {};
     if (tempFilters.priority) {
-      const result = await handleFilterByPriority(tempFilters.priority);
-      if (result) {
-        appliedCount++;
-        filterMessages.push(`Priority: ${tempFilters.priority}`);
-      }
-      success = success && result;
+      params.priority = tempFilters.priority;
+      filterMessages.push(`Priority: ${tempFilters.priority}`);
+      appliedCount++;
     }
-
     if (tempFilters.dueDate) {
-      let result = true;
-      if (tempFilters.dueDate === "all") {
-        result = await handleFilterByDate();
-        if (result) {
-          appliedCount++;
-          filterMessages.push("Due Date: All");
-        }
-      } else {
-        appliedCount++;
-        filterMessages.push(`Due Date: ${tempFilters.dueDate}`);
-      }
-      success = success && result;
+      params.dueDateFilter = tempFilters.dueDate;
+      filterMessages.push(`Due Date: ${tempFilters.dueDate}`);
+      appliedCount++;
     }
-
     if (tempFilters.assignedMember) {
-      const result = await handleFilterByAssignedMember(
-        tempFilters.assignedMember
-      );
-      if (result) {
-        appliedCount++;
-        const memberName =
-          tempFilters.assignedMember === "me"
-            ? "Me"
-            : boardMembers.find((m) => m.id === tempFilters.assignedMember)
-                ?.name || "Selected member";
-        filterMessages.push(`Assignee: ${memberName}`);
-      }
-      success = success && result;
+      params.assignedTo = tempFilters.assignedMember;
+      const memberName =
+        tempFilters.assignedMember === "me"
+          ? "Me"
+          : boardMembers.find((m) => m.id === tempFilters.assignedMember)
+              ?.name || "Selected member";
+      filterMessages.push(`Assignee: ${memberName}`);
+      appliedCount++;
     }
 
     if (appliedCount === 0) {
-      const result = await handleFilterByDate();
-      success = success && result;
-      filterMessages.push("Default filters");
+      // If no filters are applied, clear all filters and close dropdown
+      await clearAllFilters();
+      setIsFilterOpen(false);
+      setActiveFilterSubmenu(null);
+      return;
     }
 
-    if (success) {
+    try {
+      // For each list, fetch cards with all filters applied
+      const updatedCardsByList = await Promise.all(
+        lists.map(async (list) => {
+          try {
+            const listId = list.id || list._id;
+            const searchParams = new URLSearchParams(params).toString();
+            const response = await axios.get(
+              `${BASE_URL}/api/v1/cards/list/${listId}/cards?${searchParams}`
+            );
+            const cards = response.data.data.cards || [];
+            return {
+              listId: listId,
+              listName: list.name,
+              cards: cards,
+            };
+          } catch (error) {
+            return {
+              listId: list.id || list._id,
+              listName: list.name,
+              cards: [],
+            };
+          }
+        })
+      );
+      updateColumnsWithCards(updatedCardsByList, "position", "asc", true);
       setActiveFilters(tempFilters);
       toast.success(`Filters applied: ${filterMessages.join(", ")}`);
+    } catch (error) {
+      toast.error("Failed to apply filters");
+      success = false;
     }
 
     setIsFilterOpen(false);
+    setActiveFilterSubmenu(null);
   };
 
   const cancelFilters = () => {
     setTempFilters(activeFilters);
     setIsFilterOpen(false);
+    setActiveFilterSubmenu(null);
   };
 
   const handleDeleteList = async (listId) => {
@@ -976,7 +1051,46 @@ const Board = ({
   };
 
   const clearFilters = () => {
-    setTempFilters(activeFilters);
+    setTempFilters({
+      assignedMember: null,
+      priority: null,
+      dueDate: null,
+    });
+  };
+
+  const clearAllFilters = async () => {
+    try {
+      // Reset filter state
+      setActiveFilters({
+        assignedMember: null,
+        priority: null,
+        dueDate: null,
+      });
+      setSelectedFilter("date");
+
+      // Fetch all cards without filters
+      const res = await axios.get(
+        `${BASE_URL}/api/v1/lists/board/${boardId}/lists`
+      );
+      console.log("[Board.jsx] Clear filters response:", res.data);
+      const cardsByList = res.data.data.lists.map((list) => {
+        return {
+          listId: list._id,
+          listName: list.name,
+          cards: list.cards || [],
+        };
+      });
+
+      // Update columns with all cards (not filtered)
+      updateColumnsWithCards(cardsByList, "position", "asc", false);
+
+      toast.success("All filters cleared");
+      return true;
+    } catch (error) {
+      console.error("[Board.jsx] Error clearing filters:", error);
+      toast.error("Failed to clear filters");
+      return false;
+    }
   };
 
   const clearFilterCategory = (category) => {
@@ -1002,8 +1116,12 @@ const Board = ({
           : "Any priority";
       case "dueDate":
         return tempFilters.dueDate
-          ? tempFilters.dueDate === "all"
-            ? "All dates"
+          ? tempFilters.dueDate === "overdue"
+            ? "Overdue"
+            : tempFilters.dueDate === "dueSoon"
+            ? "Due Soon"
+            : tempFilters.dueDate === "dueThisWeek"
+            ? "Due This Week"
             : tempFilters.dueDate
           : "Any date";
       default:
@@ -1198,8 +1316,9 @@ const Board = ({
                   <button
                     className="text-sm px-3 py-1.5 rounded-md text-gray-700 font-semibold border border-gray-300 bg-white shadow-sm hover:bg-gray-50 flex items-center gap-1"
                     onClick={() => {
-                      setIsFilterOpen(!isFilterOpen);
-                      setIsSortOpen(false);
+                      const willOpen = !isFilterOpen;
+                      setIsFilterOpen(willOpen);
+                      if (!willOpen) setActiveFilterSubmenu(null);
                       setTempFilters(activeFilters);
                     }}
                   >
@@ -1266,29 +1385,7 @@ const Board = ({
 
                         {activeFilterSubmenu === "assignedMember" && (
                           <div className="bg-gray-50 p-3 border-t border-gray-50">
-                            <div
-                              className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-white ${
-                                tempFilters.assignedMember === "me"
-                                  ? "bg-white"
-                                  : ""
-                              }`}
-                              onClick={() =>
-                                setTempFilters((prev) => ({
-                                  ...prev,
-                                  assignedMember: "me",
-                                }))
-                              }
-                            >
-                              <div className="w-4">
-                                {tempFilters.assignedMember === "me" && (
-                                  <Check className="h-4 w-4 text-[#4D2D61]" />
-                                )}
-                              </div>
-                              <User className="h-4 w-4 text-gray-500" />
-                              <span className="text-sm">Assigned to me</span>
-                            </div>
-
-                            {boardMembers.map((member) => (
+                            {assignedMemberOptions.map((member) => (
                               <div
                                 key={member.id}
                                 className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-white ${
@@ -1308,20 +1405,12 @@ const Board = ({
                                     <Check className="h-4 w-4 text-[#4D2D61]" />
                                   )}
                                 </div>
-                                <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                                  {member.avatar ? (
-                                    <img
-                                      src={member.avatar || "/placeholder.svg"}
-                                      alt={member.name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <span className="text-xs">
-                                      {member.name.charAt(0)}
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="text-sm">{member.name}</span>
+                                <UserAvatar user={member} className="w-5 h-5" />
+                                <span className="text-sm">
+                                  {member.isCurrentUser
+                                    ? "Assigned to me"
+                                    : member.name}
+                                </span>
                               </div>
                             ))}
                           </div>
@@ -1502,24 +1591,6 @@ const Board = ({
                                 )}
                               </div>
                               <span className="text-sm">Due This Week</span>
-                            </div>
-                            <div
-                              className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-white ${
-                                tempFilters.dueDate === "all" ? "bg-white" : ""
-                              }`}
-                              onClick={() =>
-                                setTempFilters((prev) => ({
-                                  ...prev,
-                                  dueDate: "all",
-                                }))
-                              }
-                            >
-                              <div className="w-4">
-                                {tempFilters.dueDate === "all" && (
-                                  <Check className="h-4 w-4 text-[#4D2D61]" />
-                                )}
-                              </div>
-                              <span className="text-sm">All Dates</span>
                             </div>
                           </div>
                         )}
