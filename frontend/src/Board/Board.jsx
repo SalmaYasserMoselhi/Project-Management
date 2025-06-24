@@ -444,6 +444,108 @@ const Board = ({
   }, []);
 
   useEffect(() => {
+    const handleCardUpdatedEvent = (event) => {
+      const { cardId, updatedData } = event.detail;
+      console.log(`[Board.jsx] Card ${cardId} updated:`, updatedData);
+
+      // Update the card in all columns that contain it
+      setColumns((prevColumns) => {
+        return prevColumns.map((col) => {
+          const cardIndex = col.cards?.findIndex(
+            (c) => (c.id || c._id) === cardId
+          );
+          if (cardIndex !== -1 && cardIndex !== undefined) {
+            const updatedCards = [...col.cards];
+            updatedCards[cardIndex] = {
+              ...updatedCards[cardIndex],
+              ...updatedData,
+              // Preserve existing properties that might not be in updatedData
+              id: updatedCards[cardIndex].id || updatedCards[cardIndex]._id,
+              _id: updatedCards[cardIndex]._id || updatedCards[cardIndex].id,
+            };
+            console.log(
+              `[Board.jsx] Updated card ${cardId} in column ${col.id}:`,
+              updatedCards[cardIndex]
+            );
+            return { ...col, cards: updatedCards };
+          }
+          return col;
+        });
+      });
+
+      // If the card was moved to a different list, we need to refresh both lists
+      if (updatedData.listId) {
+        // Dispatch refresh events for both the old and new lists
+        const event = new CustomEvent("refreshList", {
+          detail: {
+            listId: updatedData.listId,
+            sortBy: "position",
+            sortOrder: "asc",
+          },
+        });
+        window.dispatchEvent(event);
+      }
+    };
+
+    const handleCardArchivedEvent = (event) => {
+      const { cardId, listId } = event.detail;
+      console.log(`[Board.jsx] Card ${cardId} archived from list ${listId}`);
+
+      // Remove the card from all columns
+      setColumns((prevColumns) => {
+        return prevColumns.map((col) => {
+          const cardIndex = col.cards?.findIndex(
+            (c) => (c.id || c._id) === cardId
+          );
+          if (cardIndex !== -1 && cardIndex !== undefined) {
+            const filteredCards = col.cards.filter(
+              (c) => (c.id || c._id) !== cardId
+            );
+            console.log(
+              `[Board.jsx] Removed archived card ${cardId} from column ${col.id}. Cards remaining: ${filteredCards.length}`
+            );
+            return { ...col, cards: filteredCards };
+          }
+          return col;
+        });
+      });
+    };
+
+    const handleCardDeletedEvent = (event) => {
+      const { cardId, listId } = event.detail;
+      console.log(`[Board.jsx] Card ${cardId} deleted from list ${listId}`);
+
+      // Remove the card from all columns
+      setColumns((prevColumns) => {
+        return prevColumns.map((col) => {
+          const cardIndex = col.cards?.findIndex(
+            (c) => (c.id || c._id) === cardId
+          );
+          if (cardIndex !== -1 && cardIndex !== undefined) {
+            const filteredCards = col.cards.filter(
+              (c) => (c.id || c._id) !== cardId
+            );
+            console.log(
+              `[Board.jsx] Removed deleted card ${cardId} from column ${col.id}. Cards remaining: ${filteredCards.length}`
+            );
+            return { ...col, cards: filteredCards };
+          }
+          return col;
+        });
+      });
+    };
+
+    window.addEventListener("cardUpdated", handleCardUpdatedEvent);
+    window.addEventListener("cardArchived", handleCardArchivedEvent);
+    window.addEventListener("cardDeleted", handleCardDeletedEvent);
+    return () => {
+      window.removeEventListener("cardUpdated", handleCardUpdatedEvent);
+      window.removeEventListener("cardArchived", handleCardArchivedEvent);
+      window.removeEventListener("cardDeleted", handleCardDeletedEvent);
+    };
+  }, []);
+
+  useEffect(() => {
     const handleClickOutside = (event) => {
       if (
         sortRef.current &&
@@ -1391,6 +1493,7 @@ const Board = ({
                     onClick={() => {
                       const willOpen = !isFilterOpen;
                       setIsFilterOpen(willOpen);
+                      setIsSortOpen(false);
                       if (!willOpen) setActiveFilterSubmenu(null);
                       setTempFilters(activeFilters);
                     }}

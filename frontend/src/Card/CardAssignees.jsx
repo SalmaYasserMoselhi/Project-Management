@@ -160,6 +160,17 @@ export default function CardAssignees({ cardId }) {
           await removeMember(change.userId);
         }
       }
+
+      // Dispatch event to notify TaskCard components to refresh their member data
+      const event = new CustomEvent("cardUpdated", {
+        detail: {
+          cardId: cardId,
+          updatedData: {
+            members: finalMembers,
+          },
+        },
+      });
+      window.dispatchEvent(event);
     } catch (err) {
       console.error("Error applying changes:", err);
     }

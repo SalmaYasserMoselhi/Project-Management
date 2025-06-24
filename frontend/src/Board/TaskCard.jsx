@@ -35,6 +35,33 @@ const TaskCard = ({
 
   const MAX_VISIBLE_LABELS = 2;
 
+  // Clear cache when card ID changes
+  useEffect(() => {
+    if (id && !id.startsWith("temp-")) {
+      // Clear cache for this card when component mounts or ID changes
+      membersCache.delete(id);
+    }
+  }, [id]);
+
+  // Sync local state with props
+  useEffect(() => {
+    setActualFileCount(fileCount);
+  }, [fileCount]);
+
+  // Sync card properties with props (for immediate updates)
+  useEffect(() => {
+    // The component will re-render with updated props automatically
+    // This ensures that title, priority, labels, etc. are always in sync
+    console.log(`[TaskCard.jsx] Props updated for card ${id}:`, {
+      title,
+      priority,
+      labels: labels.length,
+      fileCount,
+      members: members.length,
+      initialMembers: initialMembers.length,
+    });
+  }, [id, title, priority, labels, fileCount, members, initialMembers]);
+
   // Use initialMembers if provided, otherwise use cached data
   useEffect(() => {
     if (initialMembers && initialMembers.length > 0) {
@@ -100,6 +127,100 @@ const TaskCard = ({
     }
   }, [id, initialMembers]);
 
+  // Listen for card update events and refresh data
+  useEffect(() => {
+    const handleCardUpdated = (event) => {
+      const { cardId, updatedData } = event.detail;
+      if (cardId === id) {
+        console.log(
+          `[TaskCard.jsx] Card ${id} updated, refreshing data:`,
+          updatedData
+        );
+
+        // Update members if provided
+        if (updatedData.members !== undefined) {
+          if (updatedData.members.length > 0) {
+            // Use the provided members data
+            setMembers(updatedData.members);
+            membersCache.set(id, updatedData.members);
+          } else {
+            // Empty array means we need to refresh from API
+            console.log(
+              `[TaskCard.jsx] Members updated, clearing cache and refreshing for card ${id}`
+            );
+            membersCache.delete(id);
+            // Trigger a refresh by setting loading state and fetching again
+            setIsLoadingMembers(true);
+            const fetchMembers = async () => {
+              try {
+                const response = await axios.get(
+                  `${BASE_URL}/api/v1/cards/${id}/members`,
+                  {
+                    withCredentials: true,
+                  }
+                );
+                const membersData = response.data?.data?.members || [];
+                setMembers(membersData);
+                membersCache.set(id, membersData);
+              } catch (err) {
+                console.error(
+                  `Error fetching updated members for card ${id}:`,
+                  err
+                );
+                setMembers([]);
+                membersCache.set(id, []);
+              } finally {
+                setIsLoadingMembers(false);
+              }
+            };
+            fetchMembers();
+          }
+        }
+
+        // Clear cache to force refresh on next load for other data
+        membersCache.delete(id);
+      }
+    };
+
+    const handleCardForceRefresh = (event) => {
+      const { cardId } = event.detail;
+      if (cardId === id) {
+        console.log(`[TaskCard.jsx] Force refresh requested for card ${id}`);
+        // Clear all cache and force a complete refresh
+        membersCache.delete(id);
+        setIsLoadingMembers(true);
+
+        const fetchMembers = async () => {
+          try {
+            const response = await axios.get(
+              `${BASE_URL}/api/v1/cards/${id}/members`,
+              {
+                withCredentials: true,
+              }
+            );
+            const membersData = response.data?.data?.members || [];
+            setMembers(membersData);
+            membersCache.set(id, membersData);
+          } catch (err) {
+            console.error(`Error fetching members for card ${id}:`, err);
+            setMembers([]);
+            membersCache.set(id, []);
+          } finally {
+            setIsLoadingMembers(false);
+          }
+        };
+        fetchMembers();
+      }
+    };
+
+    window.addEventListener("cardUpdated", handleCardUpdated);
+    window.addEventListener("cardForceRefresh", handleCardForceRefresh);
+    return () => {
+      window.removeEventListener("cardUpdated", handleCardUpdated);
+      window.removeEventListener("cardForceRefresh", handleCardForceRefresh);
+    };
+  }, [id]);
+
   useEffect(() => {
     if (scrollToMe && containerRef && containerRef.current) {
       const cardElement = document.getElementById(`card-${id}`);
@@ -139,6 +260,11 @@ const TaskCard = ({
   const handleCardClose = () => setIsCardDetailsOpen(false);
 
   const handleCardSaved = (originalListId, newListId) => {
+    // Clear cache when card is saved to ensure fresh data
+    if (id) {
+      membersCache.delete(id);
+    }
+
     if (onCardUpdate) {
       if (originalListId && newListId && originalListId !== newListId) {
         onCardUpdate(originalListId, newListId);
@@ -158,10 +284,31 @@ const TaskCard = ({
       const result = await response.json();
       if (response.ok && result.status === "success") {
         setIsDropdownOpen(false);
+        // Clear cache when card is archived
+        if (id) {
+          membersCache.delete(id);
+        }
+
+        // Dispatch event to immediately remove the card from the list
+        const event = new CustomEvent("cardArchived", {
+          detail: {
+            cardId: id,
+            listId: listId,
+            cardTitle: title || "Untitled",
+          },
+        });
+        window.dispatchEvent(event);
+
+        // Also call the parent update function as fallback
         onCardUpdate?.();
+
+        toast.success("Card archived successfully");
+      } else {
+        toast.error("Failed to archive card");
       }
     } catch (error) {
       console.error(`Error archiving card ${id}:`, error);
+      toast.error("Failed to archive card");
     }
   };
 
@@ -182,6 +329,22 @@ const TaskCard = ({
       });
 
       if (response.ok) {
+        // Clear cache when card is deleted
+        if (id) {
+          membersCache.delete(id);
+        }
+
+        // Dispatch event to immediately remove the card from the list
+        const event = new CustomEvent("cardDeleted", {
+          detail: {
+            cardId: id,
+            listId: listId,
+            cardTitle: title || "Untitled",
+          },
+        });
+        window.dispatchEvent(event);
+
+        // Also call the parent update function as fallback
         onCardUpdate?.();
         toast.success("Card deleted successfully");
       } else {

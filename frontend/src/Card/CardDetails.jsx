@@ -279,6 +279,17 @@ export default function CardDetails({
           await dispatch(
             savePendingAssignees({ cardId: savedCardId })
           ).unwrap();
+
+          // Dispatch event to notify TaskCard components about member changes
+          const memberEvent = new CustomEvent("cardUpdated", {
+            detail: {
+              cardId: savedCardId,
+              updatedData: {
+                members: [], // This will trigger TaskCard to refresh members from API
+              },
+            },
+          });
+          window.dispatchEvent(memberEvent);
         } catch (err) {
           console.error("Error saving pending assignees:", err);
           // Continue with other operations even if assignees save fails
@@ -320,6 +331,28 @@ export default function CardDetails({
           onCardSaved();
         }
       }
+
+      // Dispatch event to notify TaskCard components to refresh their data
+      const event = new CustomEvent("cardUpdated", {
+        detail: {
+          cardId: savedCardId,
+          updatedData: {
+            title: savedCard.card?.title || title,
+            description: savedCard.card?.description || description,
+            priority: savedCard.card?.priority || priority,
+            listId: savedCard.card?.listId || listId,
+            labels: savedCard.card?.labels || labels,
+            dueDate: savedCard.card?.dueDate || dueDate,
+            attachments: savedCard.card?.attachments || attachments,
+            // Members will be updated separately through the members API
+          },
+        },
+      });
+      console.log(
+        `[CardDetails.jsx] Dispatching cardUpdated event for card ${savedCardId}:`,
+        event.detail
+      );
+      window.dispatchEvent(event);
 
       // Close the dialog only after everything is complete
       handleClose();

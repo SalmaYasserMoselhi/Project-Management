@@ -202,8 +202,81 @@ const Column = ({
       }
     };
 
+    const handleCardUpdated = (e) => {
+      const { cardId, updatedData } = e.detail;
+      console.log(
+        `[Column.jsx] Card ${cardId} updated in list ${id}:`,
+        updatedData
+      );
+
+      // Update the specific card in the list
+      setCards((prev) => {
+        const cardIndex = prev.findIndex((c) => (c.id || c._id) === cardId);
+        if (cardIndex !== -1) {
+          const updatedCards = [...prev];
+          updatedCards[cardIndex] = {
+            ...updatedCards[cardIndex],
+            ...updatedData,
+            // Preserve existing properties that might not be in updatedData
+            id: updatedCards[cardIndex].id || updatedCards[cardIndex]._id,
+            _id: updatedCards[cardIndex]._id || updatedCards[cardIndex].id,
+          };
+          console.log(
+            `[Column.jsx] Updated card ${cardId} in list ${id}:`,
+            updatedCards[cardIndex]
+          );
+          return updatedCards;
+        }
+        return prev;
+      });
+    };
+
+    const handleCardArchived = (e) => {
+      const { cardId, listId } = e.detail;
+      console.log(
+        `[Column.jsx] Card ${cardId} archived from list ${listId}, current list ${id}`
+      );
+
+      // Only remove the card if it's in this list
+      if (listId === id) {
+        setCards((prev) => {
+          const filteredCards = prev.filter((c) => (c.id || c._id) !== cardId);
+          console.log(
+            `[Column.jsx] Removed archived card ${cardId} from list ${id}. Cards remaining: ${filteredCards.length}`
+          );
+          return filteredCards;
+        });
+      }
+    };
+
+    const handleCardDeleted = (e) => {
+      const { cardId, listId } = e.detail;
+      console.log(
+        `[Column.jsx] Card ${cardId} deleted from list ${listId}, current list ${id}`
+      );
+
+      // Only remove the card if it's in this list
+      if (listId === id) {
+        setCards((prev) => {
+          const filteredCards = prev.filter((c) => (c.id || c._id) !== cardId);
+          console.log(
+            `[Column.jsx] Removed deleted card ${cardId} from list ${id}. Cards remaining: ${filteredCards.length}`
+          );
+          return filteredCards;
+        });
+      }
+    };
+
     window.addEventListener("cardMoved", handleCardMoved);
-    return () => window.removeEventListener("cardMoved", handleCardMoved);
+    window.addEventListener("cardUpdated", handleCardUpdated);
+    window.addEventListener("cardArchived", handleCardArchived);
+    window.addEventListener("cardDeleted", handleCardDeleted);
+    return () => {
+      window.removeEventListener("cardMoved", handleCardMoved);
+      window.removeEventListener("cardUpdated", handleCardUpdated);
+      window.removeEventListener("cardArchived", handleCardArchived);
+      window.removeEventListener("cardDeleted", handleCardDeleted);
+    };
   }, [id]);
 
   const handleCardUpdate = async (originalListId, newListId) => {
@@ -462,7 +535,11 @@ const Column = ({
           {cards && cards.length > 0 ? (
             <div>
               {cards.map((card, index) => (
-                <React.Fragment key={card.id || card._id}>
+                <React.Fragment
+                  key={`${card.id || card._id}-${card.title}-${card.priority}-${
+                    card.labels?.length || 0
+                  }`}
+                >
                   {dropPosition === index && isDraggingOver && (
                     <div className="h-3 bg-purple-200 rounded my-1"></div>
                   )}
