@@ -111,11 +111,6 @@ const Column = ({
           } else {
             setFilteredCards([]);
           }
-
-          // Force re-render by updating the component key if needed
-          setTimeout(() => {
-            setCards([...event.detail.cards]);
-          }, 100);
         } else if (!isFiltered) {
           fetchCards(newSortBy, newSortOrder);
         }

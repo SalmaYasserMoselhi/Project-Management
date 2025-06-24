@@ -515,6 +515,37 @@ const Board = ({
     }
   }, [boardData, loadingBoard, boardId]);
 
+  // Reset sort and filter states when switching boards
+  useEffect(() => {
+    if (boardData) {
+      // Reset sort states to defaults
+      setSelectedSort("priority");
+      setAppliedSort("priority");
+      setTempSort("priority");
+      setSortDirection("asc");
+      setAppliedSortDirection("asc");
+      setTempSortDirection("asc");
+
+      // Reset filter states to defaults
+      setSelectedFilter("date");
+      setActiveFilters({
+        assignedMember: null,
+        priority: null,
+        dueDate: null,
+      });
+      setTempFilters({
+        assignedMember: null,
+        priority: null,
+        dueDate: null,
+      });
+
+      // Close any open dropdowns
+      setIsSortOpen(false);
+      setIsFilterOpen(false);
+      setActiveFilterSubmenu(null);
+    }
+  }, [boardId]); // Only reset when boardId changes (switching boards)
+
   useEffect(() => {
     setTempSort(selectedSort);
     setTempSortDirection(sortDirection);
@@ -688,22 +719,20 @@ const Board = ({
     // Force state update with new array
     setColumns([...updatedColumns]);
 
-    // Wait for state to update then dispatch events
-    setTimeout(() => {
-      updatedColumns.forEach((col) => {
-        const listId = col.id || col._id;
-        const event = new CustomEvent("refreshList", {
-          detail: {
-            listId: listId,
-            sortBy,
-            sortOrder,
-            cards: [...(col.cards || [])],
-            isFiltered: isFiltered,
-          },
-        });
-        window.dispatchEvent(event);
+    // Dispatch events immediately without setTimeout to avoid race conditions
+    updatedColumns.forEach((col) => {
+      const listId = col.id || col._id;
+      const event = new CustomEvent("refreshList", {
+        detail: {
+          listId: listId,
+          sortBy,
+          sortOrder,
+          cards: [...(col.cards || [])],
+          isFiltered: isFiltered,
+        },
       });
-    }, 50);
+      window.dispatchEvent(event);
+    });
   };
 
   const onCardRestored = (restoredCard) => {
@@ -742,20 +771,33 @@ const Board = ({
     toast.success("Card restored successfully");
   };
 
-  const fetchSortedCards = async (sortBy = "position", sortOrder = "asc") => {
+  const fetchSortedCards = async (
+    sortBy = "position",
+    sortOrder = "asc",
+    filters = null
+  ) => {
     try {
       if (!lists || lists.length === 0) {
         toast.error("No lists available for sorting");
         return;
       }
 
-      // Fetch cards for each list with the specified sorting
+      const useFilters =
+        filters &&
+        (filters.priority || filters.dueDate || filters.assignedMember);
+
+      // Fetch cards for each list with the specified sorting and filters
       const updatedCardsByList = await Promise.all(
         lists.map(async (list) => {
           try {
             const listId = list.id || list._id;
+            const query = buildQueryParams(
+              useFilters ? filters : {},
+              sortBy,
+              sortOrder
+            );
             const response = await axios.get(
-              `${BASE_URL}/api/v1/cards/list/${listId}/cards?sortBy=${sortBy}&sortOrder=${sortOrder}`
+              `${BASE_URL}/api/v1/cards/list/${listId}/cards?${query}`
             );
             const cards = response.data.data.cards || [];
 
@@ -774,7 +816,12 @@ const Board = ({
         })
       );
 
-      updateColumnsWithCards(updatedCardsByList, sortBy, sortOrder, false);
+      updateColumnsWithCards(
+        updatedCardsByList,
+        sortBy,
+        sortOrder,
+        !!useFilters
+      );
     } catch (error) {
       toast.error(`Failed to sort cards by ${sortBy}`);
     }
@@ -786,8 +833,15 @@ const Board = ({
     setAppliedSort(tempSort);
     setAppliedSortDirection(tempSortDirection);
 
-    // Use the unified fetchSortedCards function
-    await fetchSortedCards(tempSort, tempSortDirection);
+    // Check if filters are active
+    const filtersActive = Object.values(activeFilters).some(Boolean);
+
+    // If filters are active, sort filtered cards; otherwise sort all cards
+    await fetchSortedCards(
+      tempSort,
+      tempSortDirection,
+      filtersActive ? activeFilters : null
+    );
 
     const sortLabels = {
       priority: "Priority",
@@ -1068,21 +1122,29 @@ const Board = ({
       });
       setSelectedFilter("date");
 
-      // Fetch all cards without filters
-      const res = await axios.get(
-        `${BASE_URL}/api/v1/lists/board/${boardId}/lists`
-      );
-      console.log("[Board.jsx] Clear filters response:", res.data);
-      const cardsByList = res.data.data.lists.map((list) => {
-        return {
-          listId: list._id,
-          listName: list.name,
-          cards: list.cards || [],
-        };
-      });
+      // Check if there's an active sort that should be preserved
+      const hasActiveSort = appliedSort && appliedSort !== "position";
 
-      // Update columns with all cards (not filtered)
-      updateColumnsWithCards(cardsByList, "position", "asc", false);
+      if (hasActiveSort) {
+        // If there's an active sort, use fetchSortedCards to maintain the sort
+        await fetchSortedCards(appliedSort, appliedSortDirection, null);
+      } else {
+        // Fallback to fetching all cards without filters (original behavior)
+        const res = await axios.get(
+          `${BASE_URL}/api/v1/lists/board/${boardId}/lists`
+        );
+        console.log("[Board.jsx] Clear filters response:", res.data);
+        const cardsByList = res.data.data.lists.map((list) => {
+          return {
+            listId: list._id,
+            listName: list.name,
+            cards: list.cards || [],
+          };
+        });
+
+        // Update columns with all cards (not filtered)
+        updateColumnsWithCards(cardsByList, "position", "asc", false);
+      }
 
       toast.success("All filters cleared");
       return true;
@@ -1098,6 +1160,17 @@ const Board = ({
       ...prev,
       [category]: null,
     }));
+  };
+
+  // Helper function to build query parameters for API calls
+  const buildQueryParams = (filters, sortBy, sortOrder) => {
+    const params = {};
+    if (filters?.priority) params.priority = filters.priority;
+    if (filters?.dueDate) params.dueDateFilter = filters.dueDate;
+    if (filters?.assignedMember) params.assignedTo = filters.assignedMember;
+    if (sortBy) params.sortBy = sortBy;
+    if (sortOrder) params.sortOrder = sortOrder;
+    return new URLSearchParams(params).toString();
   };
 
   const getFilterSummary = (category) => {
