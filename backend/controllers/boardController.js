@@ -74,7 +74,11 @@ const formatBoardResponse = (board, userId) => ({
     board.archivedByUsers.some(
       (entry) => entry.user.toString() === userId.toString()
     ),
-  members: board.members ? board.members.map(formatMemberData) : [],
+  members: board.members
+    ? board.members
+        .filter((member) => member && member.user)
+        .map(formatMemberData)
+    : [],
   lists: Array.isArray(board.lists)
     ? board.lists.map((list) => ({
         id: list._id,
