@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import CardDetails from "../Card/CardDetails";
 import UserAvatar from "../Components/UserAvatar";
 import DeleteConfirmationDialog from "../Components/DeleteConfirmationDialog";
+import { Check } from "lucide-react";
 
 // Local cache for member data
 const membersCache = new Map();
@@ -21,6 +22,7 @@ const TaskCard = ({
   members: initialMembers = [], // Optional prop for initial members
   containerRef,
   scrollToMe,
+  isCompleted: initialIsCompleted = false,
 }) => {
   const [isCardDetailsOpen, setIsCardDetailsOpen] = useState(false);
   const [actualFileCount, setActualFileCount] = useState(fileCount);
@@ -30,6 +32,7 @@ const TaskCard = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const dropdownRef = useRef(null);
+  const [isCompleted, setIsCompleted] = useState(initialIsCompleted);
 
   const BASE_URL = "http://localhost:3000";
 
@@ -241,6 +244,10 @@ const TaskCard = ({
     }
   }, [scrollToMe, containerRef, id]);
 
+  useEffect(() => {
+    setIsCompleted(initialIsCompleted);
+  }, [initialIsCompleted]);
+
   const priorityColors = {
     high: { color: "#DC2626", bg: "#FFECEC" },
     medium: { color: "#F59E0B", bg: "#FFF6E6" },
@@ -386,6 +393,36 @@ const TaskCard = ({
     e.currentTarget.style.opacity = "1";
   };
 
+  const handleToggleComplete = async (e) => {
+    e.stopPropagation();
+    try {
+      const response = await axios.patch(
+        `${BASE_URL}/api/v1/cards/${id}/toggle`,
+        {},
+        { withCredentials: true }
+      );
+      const updated = response.data?.data?.card;
+      if (updated && typeof updated.state?.current !== "undefined") {
+        const newIsCompleted = updated.state.current === "completed";
+        setIsCompleted(newIsCompleted);
+        toast.success(
+          newIsCompleted
+            ? "Card marked as complete"
+            : "Card marked as incomplete"
+        );
+        if (onCardUpdate) {
+          onCardUpdate({
+            id,
+            isCompleted: newIsCompleted,
+            forceRefresh: true,
+          });
+        }
+      }
+    } catch (err) {
+      toast.error("Failed to toggle card completion");
+    }
+  };
+
   return (
     <>
       <div
@@ -412,13 +449,36 @@ const TaskCard = ({
             />
           </svg>
         </div>
-
-        <div className="bg-white text-black p-3 rounded-r-lg flex-grow w-full">
+        <div className="bg-white text-black p-3 rounded-r-lg flex-grow w-full flex flex-col justify-between">
           <div className="flex justify-between items-center">
-            <h4 className="font-semibold mt-1 mb-3 truncate">
-              {title || "Untitled"}
-            </h4>
-
+            <div className="flex items-center gap-2 w-0 flex-1 min-w-0 mb-3">
+              <button
+                className={`w-5 h-5 rounded-md border flex items-center justify-center z-10 pointer-events-auto ${
+                  isCompleted
+                    ? "bg-[#4D2D61] border-[#4D2D61]"
+                    : "border-gray-400 bg-white"
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleComplete(e);
+                }}
+                tabIndex={0}
+                aria-label={
+                  isCompleted ? "Mark as incomplete" : "Mark as complete"
+                }
+              >
+                {isCompleted ? (
+                  <Check size={14} className="text-white" />
+                ) : null}
+              </button>
+              <h4
+                className={`font-semibold truncate ${
+                  isCompleted && "line-through text-gray-600"
+                }`}
+              >
+                {title || "Untitled"}
+              </h4>
+            </div>
             <div className="relative dropdown-button" ref={dropdownRef}>
               <svg
                 onClick={() => setIsDropdownOpen((prev) => !prev)}

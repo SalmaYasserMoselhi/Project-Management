@@ -279,33 +279,18 @@ const Column = ({
     };
   }, [id]);
 
-  const handleCardUpdate = async (originalListId, newListId) => {
-    console.log(`[Column.jsx] handleCardUpdate for list ${id}:`, {
-      originalListId,
-      newListId,
-    });
-    if (originalListId && newListId) {
-      if (originalListId === id || newListId === id) {
-        // Only fetch cards if not in filtered state
-        if (!isFiltered) {
-          await fetchCards();
-        }
-      }
-      if (originalListId !== newListId) {
-        const otherListId = originalListId === id ? newListId : originalListId;
-        console.log(
-          `[Column.jsx] Dispatching refreshList for other list ${otherListId}`
-        );
-        const event = new CustomEvent("refreshList", {
-          detail: { listId: otherListId, sortBy },
-        });
-        window.dispatchEvent(event);
+  const handleCardUpdate = (update) => {
+    if (update && update.id) {
+      setCards((prevCards) =>
+        prevCards.map((card) =>
+          (card.id || card._id) === update.id ? { ...card, ...update } : card
+        )
+      );
+      if (update.forceRefresh) {
+        fetchCards();
       }
     } else {
-      // Only fetch cards if not in filtered state
-      if (!isFiltered) {
-        await fetchCards();
-      }
+      // fallback: refetch or other logic
     }
   };
 
@@ -556,6 +541,7 @@ const Column = ({
                     containerRef={cardsContainerRef}
                     scrollToMe={targetCardId === (card.id || card._id)}
                     members={card.members || []}
+                    isCompleted={card.state?.current === "completed"}
                   />
                 </React.Fragment>
               ))}

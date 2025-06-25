@@ -99,8 +99,9 @@ export default function CardHeader({ cardId, externalError }) {
 
   return (
     <div className="flex justify-between items-center pb-2">
-      {isEditing ? (
-        <div className="flex-1 relative">
+      {/* Title (editable) */}
+      <div className="flex-1 relative">
+        {isEditing ? (
           <input
             ref={inputRef}
             value={localTitle}
@@ -111,9 +112,7 @@ export default function CardHeader({ cardId, externalError }) {
             className="text-xl font-bold w-full border-none focus:ring-0 focus:outline-none"
             placeholder="Card name"
           />
-        </div>
-      ) : (
-        <div className="flex-1 relative">
+        ) : (
           <h1
             className={`text-xl font-bold cursor-pointer w-full truncate ${
               hasInvalidTitle ? "text-gray-400" : ""
@@ -122,8 +121,8 @@ export default function CardHeader({ cardId, externalError }) {
           >
             {localTitle || "Card name"}
           </h1>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

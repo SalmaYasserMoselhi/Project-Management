@@ -841,6 +841,23 @@ export const savePendingAssignees = createAsyncThunk(
   }
 );
 
+// Toggle card completion
+export const toggleCardCompletion = createAsyncThunk(
+  "card/toggleCardCompletion",
+  async (cardId, { rejectWithValue }) => {
+    try {
+      const response = await axios.patch(
+        `${BASE_URL}/api/v1/cards/${cardId}/toggle`
+      );
+      return response.data.data.card;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to toggle card completion"
+      );
+    }
+  }
+);
+
 const initialState = {
   id: null,
   title: "",
@@ -870,6 +887,7 @@ const initialState = {
   assigneesError: null, // خطأ المسندين
   boardMembersError: null, // خطأ أعضاء البورد
   commentsCount: 0,
+  isCompleted: false, // Add this field
 };
 
 const cardDetailsSlice = createSlice({
@@ -1751,6 +1769,17 @@ const cardDetailsSlice = createSlice({
         state.assigneesLoading = false;
         state.assigneesError =
           action.payload || "Failed to save pending assignees";
+      })
+
+      // معالجة تحديث حالة الإكمال
+      .addCase(toggleCardCompletion.fulfilled, (state, action) => {
+        // Update isCompleted from API response
+        if (typeof action.payload.isCompleted !== "undefined") {
+          state.isCompleted = action.payload.isCompleted;
+        }
+      })
+      .addCase(toggleCardCompletion.rejected, (state, action) => {
+        state.error = action.payload || "Failed to toggle card completion";
       });
   },
 });
