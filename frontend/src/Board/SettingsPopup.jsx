@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
-import { ChevronDown, Shield } from "lucide-react";
+import { ChevronDown, Shield, Check } from "lucide-react";
 
 const SettingsPopup = ({ onClose, boardId }) => {
   const BASE_URL = "http://localhost:3000";
@@ -216,40 +216,88 @@ const SettingsPopup = ({ onClose, boardId }) => {
                       Member can
                     </h3>
                     <div className="flex items-center gap-6 ml-2">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-gray-300"
-                          checked={settings.canInviteMembers}
-                          onChange={(e) =>
+                      <div className="flex items-center gap-2 cursor-pointer">
+                        <button
+                          type="button"
+                          className={`w-5 h-5 rounded-md border flex items-center justify-center z-10 pointer-events-auto transition-colors duration-150 ${
+                            settings.canInviteMembers
+                              ? "bg-[#4D2D61] border-[#4D2D61]"
+                              : "border-gray-400 bg-white"
+                          } ${
+                            isLoading ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
+                          onClick={() =>
+                            !isLoading &&
                             setSettings((prev) => ({
                               ...prev,
-                              canInviteMembers: e.target.checked,
+                              canInviteMembers: !prev.canInviteMembers,
                             }))
                           }
                           disabled={isLoading}
-                        />
-                        <span className="text-sm text-gray-600">
+                          aria-label={
+                            settings.canInviteMembers
+                              ? "Disable member invitation"
+                              : "Enable member invitation"
+                          }
+                        >
+                          {settings.canInviteMembers ? (
+                            <Check size={14} className="text-white" />
+                          ) : null}
+                        </button>
+                        <span
+                          className="text-sm text-gray-600"
+                          onClick={() =>
+                            !isLoading &&
+                            setSettings((prev) => ({
+                              ...prev,
+                              canInviteMembers: !prev.canInviteMembers,
+                            }))
+                          }
+                        >
                           Invite members
                         </span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-gray-300"
-                          checked={settings.canCreateList}
-                          onChange={(e) =>
+                      </div>
+                      <div className="flex items-center gap-2 cursor-pointer">
+                        <button
+                          type="button"
+                          className={`w-5 h-5 rounded-md border flex items-center justify-center z-10 pointer-events-auto transition-colors duration-150 ${
+                            settings.canCreateList
+                              ? "bg-[#4D2D61] border-[#4D2D61]"
+                              : "border-gray-400 bg-white"
+                          } ${
+                            isLoading ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
+                          onClick={() =>
+                            !isLoading &&
                             setSettings((prev) => ({
                               ...prev,
-                              canCreateList: e.target.checked,
+                              canCreateList: !prev.canCreateList,
                             }))
                           }
                           disabled={isLoading}
-                        />
-                        <span className="text-sm text-gray-600">
+                          aria-label={
+                            settings.canCreateList
+                              ? "Disable list creation"
+                              : "Enable list creation"
+                          }
+                        >
+                          {settings.canCreateList ? (
+                            <Check size={14} className="text-white" />
+                          ) : null}
+                        </button>
+                        <span
+                          className="text-sm text-gray-600"
+                          onClick={() =>
+                            !isLoading &&
+                            setSettings((prev) => ({
+                              ...prev,
+                              canCreateList: !prev.canCreateList,
+                            }))
+                          }
+                        >
                           Create list
                         </span>
-                      </label>
+                      </div>
                     </div>
                   </div>
                   <div>
