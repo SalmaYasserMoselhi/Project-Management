@@ -1187,7 +1187,7 @@ const Board = ({ workspaceId, boardId, restoredCard, boardData, loadingBoard }) 
               <>
                 <div className="relative w-full sm:w-auto" ref={sortRef}>
                   <button
-                    className="text-xs sm:text-sm px-3 py-1.5 rounded-md text-gray-700 font-semibold border border-gray-300 bg-white shadow-sm hover:bg-gray-50 flex items-center gap-1 w-full sm:w-auto justify-center sm:justify-start"
+                    className="text-xs sm:text-sm px-3 py-1.5 rounded-md text-gray-700 max-w-[300px] font-semibold border border-gray-300 bg-white shadow-sm hover:bg-gray-50 flex items-center gap-1 w-full sm:w-auto justify-center sm:justify-start"
                     onClick={() => {
                       setIsSortOpen(!isSortOpen);
                       setIsFilterOpen(false);
@@ -1272,7 +1272,7 @@ const Board = ({ workspaceId, boardId, restoredCard, boardData, loadingBoard }) 
                 </div>
                 <div className="relative w-full sm:w-auto" ref={filterRef}>
                   <button
-                    className="text-xs sm:text-sm px-3 py-1.5 rounded-md text-gray-700 font-semibold border border-gray-300 bg-white shadow-sm hover:bg-gray-50 flex items-center gap-1 w-full sm:w-auto justify-center sm:justify-start"
+                    className="text-xs sm:text-sm px-3 py-1.5 rounded-md max-w-[300px] text-gray-700 font-semibold border border-gray-300 bg-white shadow-sm hover:bg-gray-50 flex items-center gap-1 w-full sm:w-auto justify-center sm:justify-start"
                     onClick={() => {
                       const willOpen = !isFilterOpen;
                       setIsFilterOpen(willOpen);
@@ -1281,7 +1281,7 @@ const Board = ({ workspaceId, boardId, restoredCard, boardData, loadingBoard }) 
                       setTempFilters(activeFilters);
                     }}
                   >
-                    Filter
+                    Filter by
                     {filterCount > 0 && (
                       <span className="ml-1 bg-gray-200 text-gray-700 rounded-full w-4 sm:w-5 h-4 sm:h-5 flex items-center justify-center text-xs">
                         {filterCount}

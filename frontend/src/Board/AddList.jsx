@@ -58,7 +58,7 @@ const AddList = ({
 
   return (
     <div className="fixed inset-0  bg-opacity-20 backdrop-blur-[1px] z-50 flex justify-center items-center">
-      <div className="bg-white rounded-lg p-6 w-[280px] relative">
+      <div className="bg-white rounded-lg p-6 w-[280px] relative max-w-[300px]">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 text-gray-500 hover:text-gray-700 transition-colors duration-200 hover:scale-110 transform"

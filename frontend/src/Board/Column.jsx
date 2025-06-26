@@ -418,8 +418,8 @@ const Column = ({
       }`}
       ref={columnRef}
     >
-      <div className="flex justify-between items-center mb-3 lg:mb-4 bg-white p-3 rounded-lg shadow-sm">
-        <div className="flex items-center min-w-0 flex-1">
+      <div className="flex justify-between items-center mb-3 lg:mb-4 bg-white p-3 rounded-lg shadow-sm w-[300px]">
+        <div className="flex items-center min-w-0 flex-1 ">
           <h3 className="text-black font-semibold text-sm lg:text-base truncate">
             {title}
             <span
@@ -532,7 +532,7 @@ const Column = ({
           {!isAdding && (
             <button
               onClick={() => setIsAdding(true)}
-              className="bg-white py-2 lg:py-3 w-full rounded-md border border-[#F2F4F7] shadow-sm transition-all button-hover"
+              className="bg-white py-2 lg:py-3 w-full rounded-md border max-w-[300px] border-[#F2F4F7] shadow-sm transition-all button-hover"
               disabled={loading}
             >
               <img
