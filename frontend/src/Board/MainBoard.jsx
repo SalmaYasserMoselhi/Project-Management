@@ -139,43 +139,7 @@ const MainBoard = () => {
     <div className="min-h-screen flex bg-[#f5f5f5] overflow-hidden relative -mt-8">
       {/* Main Content */}
       <div className="flex-1 h-screen overflow-y-auto overflow-x-hidden p-3 transition-all duration-300 w-[1115px]">
-        {/*       
-         <div className="w-full flex justify-end items-center px-2 py-1 rounded-md -mb-5 relative">
-         
-          <button
-            className="relative mr-4"
-            onClick={() => setShowNotifications(!showNotifications)}
-          >
-            <img
-              src={notifyIcon}
-              alt="Notifications"
-              className="w-6 h-6 object-contain"
-            />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5">
-                {unreadCount}
-              </span>
-            )}
-          </button>
-
-          {/* Notification Popup */}
-        {/* {showNotifications && (
-            <NotificationPopup
-              ref={notificationRef}
-              notifications={notifications}
-              loading={loadingNotifications}
-              unreadCount={unreadCount}
-            />
-          )}
-
-          
-          <img
-            src={profile}
-            alt="Profile"
-            className="w-8 h-8 rounded-full object-cover cursor-pointer"
-          />
-        </div>   */}
-
+       
         {/* Project Info and Board */}
         <ProjectInfo
           isSidebarOpen={isSidebarOpen}
@@ -202,3 +166,5 @@ const MainBoard = () => {
 };
 
 export default MainBoard;
+
+
