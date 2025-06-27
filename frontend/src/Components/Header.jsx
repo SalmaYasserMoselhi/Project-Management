@@ -218,7 +218,7 @@ const Header = () => {
       <style jsx>{`
         .header-container {
           width: 100%;
-          max-width: 103vw;
+          max-width: 102vw;
           margin: 0;
           padding: 0.25rem 1.5rem;
         }
@@ -261,69 +261,74 @@ const Header = () => {
           }
         }
       `}</style>
-      <header className={`w-full header-container ${headerBgColor}`}>
-        <div className="flex items-center justify-between min-w-0">
-          <div className="flex items-center animate-slide-in-left flex-shrink-0">
-            {isMobile && (
-              <button
-                onClick={() => dispatch(toggleSidebar())}
-                className="mr-2 p-1 rounded-md button-hover"
-                aria-label="Toggle sidebar"
-              >
-                <Menu size={24} className="text-[#4d2d61]" />
-              </button>
-            )}
-            <div className="min-w-0 flex-1 truncate">
-              <Breadcrumb />
+      <div className="w-full m-0" style={{ backgroundColor: headerBgColor === 'bg-[#f5f5f5]' ? '#f5f5f5' : '#ffffff', overflowX: 'hidden' }}>
+        <header
+          className={`w-full header-container m-0 ${headerBgColor}`}
+          style={{ marginRight: isSidebarOpen ? '-1rem' : '0' }}
+        >
+          <div className="flex items-center justify-between min-w-0">
+            <div className="flex items-center animate-slide-in-left flex-shrink-0">
+              {isMobile && (
+                <button
+                  onClick={() => dispatch(toggleSidebar())}
+                  className="mr-2 p-1 rounded-md button-hover"
+                  aria-label="Toggle sidebar"
+                >
+                  <Menu size={24} className="text-[#4d2d61]" />
+                </button>
+              )}
+              <div className="min-w-0 flex-1 truncate">
+                <Breadcrumb />
+              </div>
             </div>
-          </div>
 
-          <div className="flex items-center space-x-5 flex-shrink-0">
-            {/* Notifications */}
-            <div
-              className="relative cursor-pointer icon-container flex items-center justify-center"
-              onClick={handleBellClick}
-            >
-              <SlBell size={20} className="text-gray-600 hover:text-gray-800" />
-              {unreadCount > 0 && (
-                <span className="absolute unread-badge bg-red-500 text-white text-xs font-semibold rounded-full flex items-center justify-center">
-                  {unreadCount}
-                </span>
+            <div className="flex items-center space-x-5 flex-shrink-0">
+              {/* Notifications */}
+              <div
+                className="relative cursor-pointer icon-container flex items-center justify-center"
+                onClick={handleBellClick}
+              >
+                <SlBell size={20} className="text-gray-600 hover:text-gray-800" />
+                {unreadCount > 0 && (
+                  <span className="absolute unread-badge bg-red-500 text-white text-xs font-semibold rounded-full flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
+
+              {/* User Avatar */}
+              {user ? (
+                <div className="relative">
+                  <button
+                    onClick={() => dispatch(openPopup())}
+                    className="w-8 h-8 rounded-full border border-gray-300 hover:ring-2 hover:ring-blue-500 hover:ring-offset-1 transition-all overflow-hidden"
+                  >
+                    <img
+                      src={user.avatar || ""}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        const name = user.username || user.email || "User";
+                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                          name
+                        )}&background=4D2D61&color=fff&bold=true&size=32`;
+                      }}
+                      alt="User Avatar"
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  </button>
+                  <div
+                    className={`absolute status-dot border-white rounded-full ${
+                      user?.status === "online" ? "bg-green-500" : "bg-gray-400"
+                    }`}
+                  ></div>
+                </div>
+              ) : (
+                <div className="w-8 h-8 avatar-container bg-gray-300 rounded-full"></div>
               )}
             </div>
-
-            {/* User Avatar */}
-            {user ? (
-              <div className="relative">
-                <button
-                  onClick={() => dispatch(openPopup())}
-                  className="w-8 h-8 rounded-full border border-gray-300 hover:ring-2 hover:ring-blue-500 hover:ring-offset-1 transition-all overflow-hidden"
-                >
-                  <img
-                    src={user.avatar || ""}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      const name = user.username || user.email || "User";
-                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                        name
-                      )}&background=4D2D61&color=fff&bold=true&size=32`;
-                    }}
-                    alt="User Avatar"
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                </button>
-                <div
-                  className={`absolute status-dot border-white rounded-full ${
-                    user?.status === "online" ? "bg-green-500" : "bg-gray-400"
-                  }`}
-                ></div>
-              </div>
-            ) : (
-              <div className="w-8 h-8 avatar-container bg-gray-300 rounded-full"></div>
-            )}
           </div>
-        </div>
-      </header>
+        </header>
+      </div>
 
       {/* Notification Popup */}
       {showPopup && (
@@ -351,365 +356,3 @@ const Header = () => {
 };
 
 export default Header;
-
-
-
-
-// "use client";
-
-// import { Menu } from "lucide-react";
-// import { SlBell } from "react-icons/sl";
-// import { useEffect, useState, useRef } from "react";
-// import Breadcrumb from "./Breadcrumb";
-// import ProfilePopup from "./profilePopup";
-// import { useDispatch, useSelector } from "react-redux";
-// import { toggleSidebar } from "../features/Slice/ComponentSlice/sidebarSlice";
-// import NotificationPopup from "../Board/NotificationPopup";
-// import { openPopup } from "../features/Slice/userSlice/profilePopupSlice";
-// import {
-//   togglePopup,
-//   fetchNotifications,
-//   fetchUnreadCount,
-//   markAllNotificationsAsRead,
-//   markNotificationAsRead,
-//   deleteNotification,
-//   selectNotifications,
-//   selectNotificationLoading,
-//   selectShowNotificationPopup,
-//   selectUnreadCount,
-//   selectTotalNotifications,
-//   selectCurrentPage,
-//   selectLimit,
-//   setPage,
-// } from "../features/Slice/userSlice/notificationSlice";
-// import { io } from "socket.io-client";
-
-// const Header = () => {
-//   const user = useSelector((state) => state.user.user);
-//   const dispatch = useDispatch();
-//   const { isSidebarOpen } = useSelector((state) => state.sidebar);
-//   const [isMobile, setIsMobile] = useState(false);
-//   const popupRef = useRef(null);
-//   const socketRef = useRef(null);
-
-//   // Notification state from Redux
-//   const notifications = useSelector(selectNotifications);
-//   const notificationLoading = useSelector(selectNotificationLoading);
-//   const showPopup = useSelector(selectShowNotificationPopup);
-//   const unreadCount = useSelector(selectUnreadCount);
-//   const totalNotifications = useSelector(selectTotalNotifications);
-//   const currentPage = useSelector(selectCurrentPage);
-//   const limit = useSelector(selectLimit);
-
-//   // Debug unread count changes
-//   useEffect(() => {
-//     console.log('Unread count changed:', unreadCount);
-//   }, [unreadCount]);
-
-//   // Auto-refetch notifications when page changes (e.g., after deletion)
-//   useEffect(() => {
-//     if (showPopup && currentPage > 1) {
-//       dispatch(fetchNotifications({ page: currentPage, limit }));
-//     }
-//   }, [currentPage, showPopup, dispatch, limit]);
-
-//   // Refresh data when popup opens
-//   useEffect(() => {
-//     if (showPopup) {
-//       console.log('Popup opened, refreshing notifications...');
-//       // Reset to first page and fetch fresh data
-//       dispatch(setPage(1));
-//       dispatch(fetchNotifications({ page: 1, limit }));
-//       dispatch(fetchUnreadCount());
-//     }
-//   }, [showPopup, dispatch, limit]);
-
-//   // Initialize Socket.IO connection
-//   useEffect(() => {
-//     if (user?._id) {
-//       // Get JWT token from localStorage or cookies
-//       const token = localStorage.getItem('token') || document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
-      
-//       socketRef.current = io("http://localhost:5000", {
-//         auth: {
-//           userId: user._id,
-//           token: token,
-//         },
-//         transports: ['websocket', 'polling'],
-//         reconnection: true,
-//         reconnectionAttempts: 5,
-//         reconnectionDelay: 1000,
-//       });
-
-//       // Connection events
-//       socketRef.current.on('connect', () => {
-//         console.log('Header Socket.IO connected');
-//       });
-
-//       socketRef.current.on('disconnect', () => {
-//         console.log('Header Socket.IO disconnected');
-//       });
-
-//       socketRef.current.on('connect_error', (error) => {
-//         console.error('Header Socket.IO connection error:', error);
-//       });
-//     }
-
-//     return () => {
-//       if (socketRef.current) {
-//         socketRef.current.disconnect();
-//       }
-//     };
-//   }, [user?._id]);
-
-//   // Determine background color based on route
-//   const headerBgColor = location.pathname.match(
-//     /^\/main\/workspaces\/[^/]+\/boards\/[^/]+/
-//   )
-//     ? "bg-[#f5f5f5]"
-//     : "bg-white";
-
-//   // Fetch unread count on component mount
-//   useEffect(() => {
-//     dispatch(fetchUnreadCount());
-//   }, [dispatch]);
-
-//   // Handle click outside to close popup
-//   useEffect(() => {
-//     const handleClickOutside = (event) => {
-//       if (popupRef.current && !popupRef.current.contains(event.target)) {
-//         dispatch(togglePopup());
-//       }
-//     };
-
-//     document.addEventListener("mousedown", handleClickOutside);
-//     return () => {
-//       document.removeEventListener("mousedown", handleClickOutside);
-//     };
-//   }, [dispatch]);
-
-//   // Check for mobile view
-//   useEffect(() => {
-//     const checkMobile = () => {
-//       setIsMobile(window.innerWidth < 768);
-//     };
-//     checkMobile();
-//     window.addEventListener("resize", checkMobile);
-//     return () => {
-//       window.removeEventListener("resize", checkMobile);
-//     };
-//   }, []);
-
-//   // Toggle notification popup
-//   const handleBellClick = () => {
-//     // If popup is closed, open it and fetch data
-//     if (!showPopup) {
-//       dispatch(togglePopup());
-      
-//       // Always fetch fresh notifications when opening popup
-//       dispatch(fetchNotifications({ page: 1, limit }));
-      
-//       // Refresh unread count
-//       dispatch(fetchUnreadCount());
-//     } else {
-//       // If popup is open, just close it
-//       dispatch(togglePopup());
-//     }
-//   };
-
-//   // Mark all notifications as read
-//   const handleMarkAllAsRead = () => {
-//     dispatch(markAllNotificationsAsRead()).then(() => {
-//       // Emit Socket.IO event
-//       if (socketRef.current) {
-//         socketRef.current.emit("all notifications read", { userId: user._id });
-//       }
-//     });
-//   };
-
-//   // Mark a single notification as read
-//   const handleMarkSingleAsRead = (notificationId) => {
-//     dispatch(markNotificationAsRead(notificationId)).then(() => {
-//       // Emit Socket.IO event
-//       if (socketRef.current) {
-//         socketRef.current.emit("notification read", { 
-//           userId: user._id, 
-//           notificationId 
-//         });
-//       }
-//     });
-//   };
-
-//   // Delete a notification
-//   const handleDeleteNotification = (notificationId) => {
-//     dispatch(deleteNotification(notificationId));
-//   };
-
-//   // Handle pagination
-//   const handlePaginate = (direction) => {
-//     const newPage = direction === "next" ? currentPage + 1 : currentPage - 1;
-//     dispatch(setPage(newPage));
-//     dispatch(fetchNotifications({ page: newPage, limit }));
-//   };
-
-//   // Disable pagination buttons
-//   const isPaginateDisabled = (direction) => {
-//     if (direction === "prev") {
-//       return currentPage <= 1;
-//     }
-//     if (direction === "next") {
-//       return currentPage >= Math.ceil(totalNotifications / limit);
-//     }
-//     return false;
-//   };
-
-//   // Debug prop passing
-//   useEffect(() => {
-//     console.log("isPaginateDisabled type:", typeof isPaginateDisabled);
-//     console.log("isPaginateDisabled value:", isPaginateDisabled);
-//   }, []);
-
-//   return (
-//     <>
-//       <style jsx>{`
-//         .header-container {
-//           width: 100%;
-//           max-width: 103vw;
-//           margin: 0;
-//           padding: 0.25rem 1.5rem;
-//         }
-
-//         @media (max-width: 640px) {
-//           .header-container {
-//             padding: 0.25rem 0.75rem;
-//           }
-//         }
-
-//         @media (max-width: 360px) {
-//           .header-container {
-//             padding: 0.25rem 0.5rem;
-//           }
-
-//           .icon-container {
-//             width: 1.75rem;
-//             height: 1.75rem;
-//           }
-
-//           .avatar-container {
-//             width: 1.75rem;
-//             height: 1.75rem;
-//           }
-
-//           .status-dot {
-//             width: 0.5rem;
-//             height: 0.5rem;
-//             bottom: 0;
-//             right: 0;
-//             border-width: 1px;
-//           }
-
-//           .unread-badge {
-//             width: 1rem;
-//             height: 1rem;
-//             top: -0.25rem;
-//             right: -0.25rem;
-//             font-size: 0.65rem;
-//           }
-//         }
-//       `}</style>
-//       <header
-//         className={`w-full header-container m-0 ${headerBgColor}`}
-//         style={{ marginRight: isSidebarOpen ? '0rem' : '0' }}
-//       >
-//         <div className="flex items-center justify-between min-w-0">
-//           <div className="flex items-center animate-slide-in-left flex-shrink-0">
-//             {isMobile && (
-//               <button
-//                 onClick={() => dispatch(toggleSidebar())}
-//                 className="mr-2 p-1 rounded-md button-hover"
-//                 aria-label="Toggle sidebar"
-//               >
-//                 <Menu size={24} className="text-[#4d2d61]" />
-//               </button>
-//             )}
-//             <div className="min-w-0 flex-1 truncate">
-//               <Breadcrumb />
-//             </div>
-//           </div>
-
-//           <div className="flex items-center space-x-5 flex-shrink-0">
-//             {/* Notifications */}
-//             <div
-//               className="relative cursor-pointer icon-container flex items-center justify-center"
-//               onClick={handleBellClick}
-//             >
-//               <SlBell size={20} className="text-gray-600 hover:text-gray-800" />
-//               {unreadCount > 0 && (
-//                 <span className="absolute unread-badge bg-red-500 text-white text-xs font-semibold rounded-full flex items-center justify-center">
-//                   {unreadCount}
-//                 </span>
-//               )}
-//             </div>
-
-//             {/* User Avatar */}
-//             {user ? (
-//               <div className="relative">
-//                 <button
-//                   onClick={() => dispatch(openPopup())}
-//                   className="w-8 h-8 rounded-full border border-gray-300 hover:ring-2 hover:ring-blue-500 hover:ring-offset-1 transition-all overflow-hidden"
-//                 >
-//                   <img
-//                     src={user.avatar || ""}
-//                     onError={(e) => {
-//                       e.target.onerror = null;
-//                       const name = user.username || user.email || "User";
-//                       e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-//                         name
-//                       )}&background=4D2D61&color=fff&bold=true&size=32`;
-//                     }}
-//                     alt="User Avatar"
-//                     className="w-8 h-8 rounded-full object-cover"
-//                   />
-//                 </button>
-//                 <div
-//                   className={`absolute status-dot border-white rounded-full ${
-//                     user?.status === "online" ? "bg-green-500" : "bg-gray-400"
-//                   }`}
-//                 ></div>
-//               </div>
-//             ) : (
-//               <div className="w-8 h-8 avatar-container bg-gray-300 rounded-full"></div>
-//             )}
-//           </div>
-//         </div>
-//       </header>
-
-//       {/* Notification Popup */}
-//       {showPopup && (
-//         <div ref={popupRef}>
-//           <NotificationPopup
-//             notifications={notifications}
-//             loading={notificationLoading}
-//             unreadCount={unreadCount}
-//             onMarkAllAsRead={handleMarkAllAsRead}
-//             onMarkSingleAsRead={handleMarkSingleAsRead}
-//             onDeleteNotification={handleDeleteNotification}
-//             onPaginate={handlePaginate}
-//             isPaginateDisabled={isPaginateDisabled}
-//             onPage={currentPage}
-//             onTotal={totalNotifications}
-//             onLimit={limit}
-//           />
-//         </div>
-//       )}
-
-//       {/* Profile Popup */}
-//       <ProfilePopup user={user} />
-//     </>
-//   );
-// };
-
-// export default Header;
-
-
-
