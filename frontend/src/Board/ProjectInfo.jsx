@@ -413,7 +413,7 @@ const ProjectInfo = ({
               </p>
               <Edit
                 size={12}
-                className="text-gray-400 hover:text-[#6a3b82] flex-shrink-0 mt-2"
+                className="text-gray-400 hover:text-[#6a3b82] flex-shrink-0 mt-1.5"
                 onClick={toggleEditDescription}
               />
             </div>
