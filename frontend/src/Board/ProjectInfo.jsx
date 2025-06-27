@@ -105,9 +105,9 @@ const ProjectInfo = ({
       if (btn) {
         const rect = btn.getBoundingClientRect()
         setDropdownPos({
-          top: rect.bottom,
-          left: rect.left,
-          width: rect.width,
+          top: rect.bottom + window.scrollY,
+          left: window.innerWidth < 640 ? rect.left : rect.right - 180,
+          width: window.innerWidth < 640 ? rect.width : 180,
         })
       }
     }
@@ -147,7 +147,6 @@ const ProjectInfo = ({
     if (editingDescription && descriptionTextareaRef.current) {
       const textarea = descriptionTextareaRef.current
       textarea.focus()
-      // Move cursor to the end of the text
       textarea.setSelectionRange(textarea.value.length, textarea.value.length)
     }
   }, [editingName, editingDescription])
@@ -204,12 +203,11 @@ const ProjectInfo = ({
     setSaving(true)
     setShowErrorAlert(null)
 
-    // Check if there are any changes
     if (form.name === (boardName || "Project Name") && form.description === (boardDescription || "")) {
       setEditingName(false)
       setEditingDescription(false)
       setSaving(false)
-      return // No changes, exit early
+      return
     }
 
     try {
@@ -257,7 +255,7 @@ const ProjectInfo = ({
   const toggleEditName = () => setEditingName((v) => !v)
   const handleNameBlur = () => {
     setEditingName(false)
-    handleSave(new Event("blur")) // Trigger save on blur
+    handleSave(new Event("blur"))
   }
   const handleNameKeyDown = async (e) => {
     if (e.key === "Enter") {
@@ -269,7 +267,7 @@ const ProjectInfo = ({
   const toggleEditDescription = () => setEditingDescription((v) => !v)
   const handleDescriptionBlur = () => {
     setEditingDescription(false)
-    handleSave(new Event("blur")) // Trigger save on blur
+    handleSave(new Event("blur"))
   }
   const handleDescriptionKeyDown = async (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -282,12 +280,12 @@ const ProjectInfo = ({
   return (
     <>
       {showToast && (
-        <div className="fixed top-4 right-4 bg-green-500 text-white px-3 sm:px-4 py-2 rounded-md shadow-md z-50 text-sm sm:text-base">
+        <div className="fixed top-4 right-1 sm:right-4 bg-green-500 text-white px-2 sm:px-4 py-2 rounded-md shadow-md z-50 text-xs sm:text-sm md:text-base max-w-[90vw]">
           Board deleted successfully!
         </div>
       )}
       {showErrorAlert && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-100 border border-red-300 text-red-700 px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg text-center min-w-[250px] sm:min-w-[280px] max-w-[90vw] text-sm sm:text-base">
+        <div className="fixed top--4 left-1/2 transform -translate-x-1/2 z-50 bg-red-100 border border-red-300 text-red-700 px-3 sm:px-4 md:px-6 py-2 sm:py-3 rounded-lg shadow-lg text-center min-w-[200px] sm:min-w-[250px] md:min-w-[300px] max-w-[90vw] text-xs sm:text-sm md:text-base">
           {showErrorAlert}
         </div>
       )}
@@ -313,8 +311,11 @@ const ProjectInfo = ({
         />
       )}
 
-      <div className="bg-white p-3 sm:p-4 lg:p-6 rounded-xl shadow-sm mb-6 mt-7 transition-all duration-300">
-        <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:justify-between sm:items-start">
+      <div 
+        className="bg-white p-3 sm:p-4 md:p-6 rounded-xl shadow-sm mb-4 sm:mb-6 mt-4 sm:mt-7 transition-all duration-300 w-full max-w-[100vw] mx-0"
+        style={{ marginLeft: isSidebarOpen ? '0rem' : '0', marginRight: isSidebarOpen ? '-1rem' : '0' }}
+      >
+        <div className="flex flex-col space-y-3 sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-4 -mb-3">
           <div className="flex-1 min-w-0">
             {editingName ? (
               <input
@@ -324,30 +325,30 @@ const ProjectInfo = ({
                 onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                 onBlur={handleNameBlur}
                 onKeyDown={handleNameKeyDown}
-                className="text-lg sm:text-xl lg:text-2xl font-semibold border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-0.5 focus:ring-[#6a3b82] w-full"
+                className="text-lg sm:text-xl lg:text-2xl font-semibold border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-0.5 focus:ring-[#6a3b82] w-sm"
                 placeholder="Project Name"
               />
             ) : (
-              <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold flex items-center gap-2 break-words">
+              <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-semibold flex items-center gap-2 break-words">
                 <span className="break-words">{form.name}</span>
-                <Edit size={18} className="text-gray-400 hover:text-[#6a3b82] flex-shrink-0" onClick={toggleEditName} />
+                <Edit size={16} className="text-gray-400 hover:text-[#6a3b82] flex-shrink-0" onClick={toggleEditName} />
               </h1>
             )}
             <p className="text-xs sm:text-sm text-gray-500 mt-1 flex items-center gap-1">
-              <Calendar size={14} className="text-gray-400 flex-shrink-0" />
+              <Calendar size={12} className="text-gray-400 flex-shrink-0" />
               {formatDate()}
             </p>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-5 mt-4 sm:mt-0 sm:ml-4 relative" ref={dropdownRef}>
+          <div className="flex items-center gap-2 sm:gap-3 md:gap-4 mt-2 sm:mt-0 relative" ref={dropdownRef}>
             <div className="flex items-center gap-2 cursor-pointer">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
+                width="16"
+                height="16"
                 viewBox="0 0 16 16"
                 onClick={() => setShowInvitePopup(true)}
-                className="sm:w-6 sm:h-6"
+                className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6"
               >
                 <path
                   fill="#4D2D61"
@@ -355,18 +356,18 @@ const ProjectInfo = ({
                 />
               </svg>
               <MoreHorizontal
-                size={20}
-                className="text-[#4D2D61] cursor-pointer sm:w-6 sm:h-6"
+                size={16}
+                className="text-[#4D2D61] cursor-pointer w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6"
                 onClick={() => setShowDropdown((prev) => !prev)}
               />
             </div>
 
             {showDropdown && (
-              <div className="absolute top-7 right-0 bg-white border border-gray-300 rounded-md shadow-md z-10 min-w-[150px] sm:min-w-[180px]">
-                <ul className="text-sm text-gray-700">
+              <div className="absolute top-6 sm:top-7 right-0 bg-white border border-gray-300 rounded-md shadow-md z-10 min-w-[120px] sm:min-w-[150px] md:min-w-[180px] max-w-[90vw]">
+                <ul className="text-xs sm:text-sm text-gray-700">
                   <li
                     onClick={handleArchivedClick}
-                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer whitespace-nowrap"
+                    className="px-2 sm:px-3 md:px-4 py-1 sm:py-2 hover:bg-gray-100 cursor-pointer whitespace-nowrap"
                   >
                     Archived Items
                   </li>
@@ -375,11 +376,14 @@ const ProjectInfo = ({
                       setShowSettingsPopup(true)
                       setShowDropdown(false)
                     }}
-                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                    className="px-2 sm:px-3 md:px-4 py-1 sm:py-2 hover:bg-gray-100 cursor-pointer"
                   >
                     Settings
                   </li>
-                  <li onClick={handleDeleteBoard} className="px-4 py-2 hover:bg-red-100 text-red-600 cursor-pointer">
+                  <li
+                    onClick={handleDeleteBoard}
+                    className="px-2 sm:px-3 md:px-4 py-1 sm:py-2 hover:bg-red-100 text-red-600 cursor-pointer"
+                  >
                     Delete
                   </li>
                 </ul>
@@ -388,7 +392,7 @@ const ProjectInfo = ({
           </div>
         </div>
 
-        <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:justify-between sm:items-start mt-4 gap-2">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mt-3 sm:mt-4 gap-2">
           {editingDescription ? (
             <div className="flex items-start gap-2 flex-1 min-w-0">
               <textarea
@@ -404,34 +408,34 @@ const ProjectInfo = ({
             </div>
           ) : (
             <div className="flex items-start gap-2 flex-1 min-w-0">
-              <p className="text-gray-600 text-sm sm:text-md break-words">
+              <p className="text-gray-600 text-xs sm:text-sm md:text-base break-words">
                 {form.description || "No description available"}
               </p>
               <Edit
-                size={14}
-                className="text-gray-400 hover:text-[#6a3b82] flex-shrink-0 mt-0.5"
+                size={12}
+                className="text-gray-400 hover:text-[#6a3b82] flex-shrink-0 mt-2"
                 onClick={toggleEditDescription}
               />
             </div>
           )}
 
-          <div className="flex items-center gap-2 sm:gap-3 ml-0 sm:ml-4 justify-start sm:justify-end flex-shrink-0">
-            <div className="flex -space-x-2">
-              {membersArray.slice(0, 5).map((member) => (
+          <div className="flex items-center gap-2 sm:gap-3 ml-0 sm:ml-3 justify-start sm:justify-end flex-shrink-0">
+            <div className="flex -space-x-1 sm:-space-x-2">
+              {membersArray.slice(0, 4).map((member) => (
                 <UserAvatar
                   key={member.id}
                   user={member.user}
-                  className="h-6 w-6 sm:h-8 sm:w-8 border-2 border-white flex-shrink-0"
+                  className="h-5 w-5 sm:h-7 sm:w-7 md:h-8 md:w-8 border-2 border-white flex-shrink-0"
                 />
               ))}
-              {membersArray.length > 5 && (
-                <div className="h-6 w-6 sm:h-8 sm:w-8 rounded-full bg-gray-200 flex items-center justify-center text-xs sm:text-sm font-bold text-gray-600 border-2 border-white flex-shrink-0">
-                  +{membersArray.length - 5}
+              {membersArray.length > 4 && (
+                <div className="h-5 w-5 sm:h-7 sm:w-7 md:h-8 md:w-8 rounded-full bg-gray-200 flex items-center justify-center text-[10px] sm:text-xs md:text-sm font-bold text-gray-600 border-2 border-white flex-shrink-0">
+                  +{membersArray.length - 4}
                 </div>
               )}
             </div>
             <Settings
-              className="w-4 h-4 sm:w-5 sm:h-5 text-[#4D2D61] cursor-pointer flex-shrink-0"
+              className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-[#4D2D61] cursor-pointer flex-shrink-0"
               onClick={() => setShowMembersModal(true)}
             />
           </div>
@@ -469,3 +473,7 @@ const ProjectInfo = ({
 }
 
 export default ProjectInfo
+
+
+
+
