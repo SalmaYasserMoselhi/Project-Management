@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Menu } from "lucide-react";
@@ -215,120 +214,67 @@ const Header = () => {
 
   return (
     <>
-      <style jsx>{`
-        .header-container {
-          width: 100%;
-          max-width: 102vw;
-          margin: 0;
-          padding: 0.25rem 1.5rem;
-        }
-
-        @media (max-width: 640px) {
-          .header-container {
-            padding: 0.25rem 0.75rem;
-          }
-        }
-
-        @media (max-width: 360px) {
-          .header-container {
-            padding: 0.25rem 0.5rem;
-          }
-
-          .icon-container {
-            width: 1.75rem;
-            height: 1.75rem;
-          }
-
-          .avatar-container {
-            width: 1.75rem;
-            height: 1.75rem;
-          }
-
-          .status-dot {
-            width: 0.5rem;
-            height: 0.5rem;
-            bottom: 0;
-            right: 0;
-            border-width: 1px;
-          }
-
-          .unread-badge {
-            width: 1rem;
-            height: 1rem;
-            top: -0.25rem;
-            right: -0.25rem;
-            font-size: 0.65rem;
-          }
-        }
-      `}</style>
-      <div className="w-full m-0" style={{ backgroundColor: headerBgColor === 'bg-[#f5f5f5]' ? '#f5f5f5' : '#ffffff', overflowX: 'hidden' }}>
-        <header
-          className={`w-full header-container m-0 ${headerBgColor}`}
-          style={{ marginRight: isSidebarOpen ? '-1rem' : '0' }}
-        >
-          <div className="flex items-center justify-between min-w-0">
-            <div className="flex items-center animate-slide-in-left flex-shrink-0">
-              {isMobile && (
-                <button
-                  onClick={() => dispatch(toggleSidebar())}
-                  className="mr-2 p-1 rounded-md button-hover"
-                  aria-label="Toggle sidebar"
-                >
-                  <Menu size={24} className="text-[#4d2d61]" />
-                </button>
-              )}
-              <div className="min-w-0 flex-1 truncate">
-                <Breadcrumb />
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-5 flex-shrink-0">
-              {/* Notifications */}
-              <div
-                className="relative cursor-pointer icon-container flex items-center justify-center"
-                onClick={handleBellClick}
+      <header className={`w-full px-6 py-1 ${headerBgColor} relative`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center animate-slide-in-left">
+            {isMobile && (
+              <button
+                onClick={() => dispatch(toggleSidebar())}
+                className="mr-2 p-1 rounded-md button-hover"
+                aria-label="Toggle sidebar"
               >
-                <SlBell size={20} className="text-gray-600 hover:text-gray-800" />
-                {unreadCount > 0 && (
-                  <span className="absolute unread-badge bg-red-500 text-white text-xs font-semibold rounded-full flex items-center justify-center">
-                    {unreadCount}
-                  </span>
-                )}
-              </div>
+                <Menu size={24} className="text-[#4d2d61]" />
+              </button>
+            )}
+            <Breadcrumb />
+          </div>
 
-              {/* User Avatar */}
-              {user ? (
-                <div className="relative">
-                  <button
-                    onClick={() => dispatch(openPopup())}
-                    className="w-8 h-8 rounded-full border border-gray-300 hover:ring-2 hover:ring-blue-500 hover:ring-offset-1 transition-all overflow-hidden"
-                  >
-                    <img
-                      src={user.avatar || ""}
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        const name = user.username || user.email || "User";
-                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                          name
-                        )}&background=4D2D61&color=fff&bold=true&size=32`;
-                      }}
-                      alt="User Avatar"
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
-                  </button>
-                  <div
-                    className={`absolute status-dot border-white rounded-full ${
-                      user?.status === "online" ? "bg-green-500" : "bg-gray-400"
-                    }`}
-                  ></div>
-                </div>
-              ) : (
-                <div className="w-8 h-8 avatar-container bg-gray-300 rounded-full"></div>
+          <div className="flex items-center space-x-5">
+            {/* Notifications */}
+            <div
+              className="relative cursor-pointer w-8 h-8 flex items-center justify-center"
+              onClick={handleBellClick}
+            >
+              <SlBell size={20} className="text-gray-600 hover:text-gray-800" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-2 bg-red-500 text-white text-xs font-semibold rounded-full w-5 h-5 flex items-center justify-center">
+                  {unreadCount}
+                </span>
               )}
             </div>
+
+            {/* User Avatar */}
+            {user ? (
+              <div className="relative">
+                <button
+                  onClick={() => dispatch(openPopup())}
+                  className="w-8 h-8 rounded-full border border-gray-300 hover:ring-2 hover:ring-blue-500 hover:ring-offset-1 transition-all overflow-hidden"
+                >
+                  <img
+                    src={user.avatar || ""}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      const name = user.username || user.email || "User";
+                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                        name
+                      )}&background=4D2D61&color=fff&bold=true&size=128`;
+                    }}
+                    alt="User Avatar"
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                </button>
+                <div
+                  className={`absolute bottom-2 -right-1.5 w-3.5 h-3.5 border-2 border-white rounded-full ${
+                    user?.status === "online" ? "bg-green-500" : "bg-gray-400"
+                  }`}
+                ></div>
+              </div>
+            ) : (
+              <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
+            )}
           </div>
-        </header>
-      </div>
+        </div>
+      </header>
 
       {/* Notification Popup */}
       {showPopup && (
@@ -356,3 +302,4 @@ const Header = () => {
 };
 
 export default Header;
+
