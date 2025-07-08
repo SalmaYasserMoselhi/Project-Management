@@ -298,32 +298,8 @@ cardSchema.pre('save', async function (next) {
       }
     }
 
-    // Check if all subtasks are completed
-    if (
-      this.subtasks.length > 0 &&
-      this.subtasks.every((task) => task.isCompleted)
-    ) {
-      if (this.state.current !== 'completed') {
-        this.state.current = 'completed';
-        this.state.completedAt = new Date();
-        this.state.completedBy = this.modifiedBy || this.createdBy;
-        this.state.lastStateChange = new Date();
-      }
-    } else if (
-      this.state.current === 'completed' &&
-      this.subtasks.some((task) => !task.isCompleted)
-    ) {
-      // If card was completed but now some subtasks are incomplete
-      if (
-        this.dueDate?.endDate &&
-        new Date(this.dueDate.endDate) < new Date()
-      ) {
-        this.state.current = 'overdue';
-      } else {
-        this.state.current = 'active';
-      }
-      this.state.lastStateChange = new Date();
-    }
+    // Note: Automatic card completion based on subtasks is now handled in the controller
+    // with proper permission checks. This middleware only handles member assignment.
   }
   next();
 });

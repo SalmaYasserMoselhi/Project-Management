@@ -250,7 +250,7 @@ exports.getWorkspaceById = catchAsync(async (req, res, next) => {
 // Update workspace details
 exports.updateWorkspace = catchAsync(async (req, res, next) => {
   const { workspace } = req;
-  const { name, description, settings } = req.body;
+  const { name, description, settings, members } = req.body;
 
   // Keep track of old values for logging
   const oldName = workspace.name;
@@ -259,6 +259,7 @@ exports.updateWorkspace = catchAsync(async (req, res, next) => {
 
   let hasWorkspaceChanged = false;
   let hasSettingsChanged = false;
+  let hasMemberRoleChanged = false;
   const updatedWorkspaceFields = [];
   const updatedSettingsFields = [];
 
@@ -276,10 +277,24 @@ exports.updateWorkspace = catchAsync(async (req, res, next) => {
 
   // 2. Update settings if provided
   if (settings) {
+    // Get current user's role in the workspace
+    const currentUserRole = workspace.getMemberRole(req.user._id);
+
     if (
       settings.inviteRestriction &&
       settings.inviteRestriction !== oldSettings.inviteRestriction
     ) {
+      // Check if user can modify critical settings
+      if (
+        !permissionService.canModifyCriticalSettings(workspace, req.user._id)
+      ) {
+        return next(
+          new AppError(
+            'Only workspace owners can modify invitation restrictions',
+            403
+          )
+        );
+      }
       workspace.settings.inviteRestriction = settings.inviteRestriction;
       updatedSettingsFields.push('inviteRestriction');
       hasSettingsChanged = true;
@@ -288,6 +303,17 @@ exports.updateWorkspace = catchAsync(async (req, res, next) => {
       settings.boardCreation &&
       settings.boardCreation !== oldSettings.boardCreation
     ) {
+      // Check if user can modify critical settings
+      if (
+        !permissionService.canModifyCriticalSettings(workspace, req.user._id)
+      ) {
+        return next(
+          new AppError(
+            'Only workspace owners can modify board creation permissions',
+            403
+          )
+        );
+      }
       workspace.settings.boardCreation = settings.boardCreation;
       updatedSettingsFields.push('boardCreation');
       hasSettingsChanged = true;
@@ -296,14 +322,152 @@ exports.updateWorkspace = catchAsync(async (req, res, next) => {
       settings.notificationsEnabled !== undefined &&
       settings.notificationsEnabled !== oldSettings.notificationsEnabled
     ) {
+      // Non-critical setting - admins can modify this
       workspace.settings.notificationsEnabled = settings.notificationsEnabled;
       updatedSettingsFields.push('notificationsEnabled');
       hasSettingsChanged = true;
     }
   }
 
-  // Save the updated workspace
-  const updatedWorkspace = await workspace.save();
+  // 3. Handle member role updates if provided
+  if (members && Array.isArray(members)) {
+    for (const memberUpdate of members) {
+      const { user: userId, role: newRole } = memberUpdate;
+
+      if (!userId || !newRole) continue;
+
+      // Find the target member
+      const targetMember = workspace.members.find(
+        (member) => member.user.toString() === userId.toString()
+      );
+
+      if (!targetMember) {
+        return next(new AppError('Member not found in workspace', 404));
+      }
+
+      // Store previous role for activity logging
+      const previousRole = targetMember.role;
+
+      // Validate role
+      if (!['owner', 'admin', 'member'].includes(newRole)) {
+        return next(new AppError('Invalid role specified', 400));
+      }
+
+      // Prevent changing owner role
+      if (previousRole === 'owner') {
+        return next(new AppError('Cannot change owner role', 400));
+      }
+
+      // Prevent users from changing their own role
+      if (req.user._id.toString() === userId.toString()) {
+        return next(new AppError('You cannot change your own role', 403));
+      }
+
+      // Only owner can promote to admin or demote from admin
+      const currentUserRole = workspace.getMemberRole(req.user._id);
+
+      // Check for promotion to admin
+      if (
+        newRole === 'admin' &&
+        previousRole !== 'admin' &&
+        currentUserRole !== 'owner'
+      ) {
+        return next(
+          new AppError('Only workspace owner can promote members to admin', 403)
+        );
+      }
+
+      // Check for demotion from admin
+      if (
+        previousRole === 'admin' &&
+        newRole !== 'admin' &&
+        currentUserRole !== 'owner'
+      ) {
+        return next(
+          new AppError('Only workspace owner can demote admins', 403)
+        );
+      }
+
+      if (newRole === 'owner') {
+        return next(new AppError('Cannot assign owner role', 400));
+      }
+
+      // Check if role actually changed
+      if (previousRole !== newRole) {
+        // Update permissions based on new role
+        let newPermissions = [];
+        switch (newRole) {
+          case 'owner':
+            newPermissions = [
+              'manage_workspace',
+              'manage_members',
+              'manage_roles',
+              'create_boards',
+              'invite_members',
+              'view_members',
+              'manage_settings',
+              'manage_permissions',
+            ];
+            break;
+          case 'admin':
+            newPermissions = [
+              'manage_members',
+              'create_boards',
+              'invite_members',
+              'view_members',
+              'manage_settings',
+            ];
+            break;
+          default:
+            newPermissions = [
+              'view_workspace',
+              'view_own_boards',
+              'view_members',
+            ];
+        }
+
+        // Use MongoDB update operator to update the specific member
+        await require('../models/workspaceModel').updateOne(
+          { _id: workspace._id, 'members.user': userId },
+          {
+            $set: {
+              'members.$.role': newRole,
+              'members.$.permissions': newPermissions,
+            },
+          }
+        );
+
+        hasMemberRoleChanged = true;
+
+        // Log activity
+        await activityService.logWorkspaceActivity(
+          workspace,
+          req.user._id,
+          'member_role_updated',
+          {
+            targetUser: userId,
+            from: previousRole,
+            to: newRole,
+          }
+        );
+      }
+    }
+  }
+
+  // Save the updated workspace (for name, description, settings changes)
+  let updatedWorkspace;
+  if (hasWorkspaceChanged || hasSettingsChanged) {
+    updatedWorkspace = await workspace.save();
+  } else {
+    updatedWorkspace = workspace;
+  }
+
+  // If member roles were updated, fetch the latest workspace data
+  if (hasMemberRoleChanged) {
+    updatedWorkspace = await require('../models/workspaceModel')
+      .findById(workspace._id)
+      .populate('members.user', 'username email avatar');
+  }
 
   // 3. Log activities if changes were made
   if (hasWorkspaceChanged) {

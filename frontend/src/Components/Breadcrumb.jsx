@@ -15,9 +15,8 @@ const Breadcrumb = ({ customLabel }) => {
   const userWorkspaces = useSelector(
     (state) => state.userWorkspaces.workspaces
   );
-  const { isWorkspaceOpen, activeWorkspaceType } = useSelector(
-    (state) => state.sidebar
-  );
+  const { isWorkspaceOpen, activeWorkspaceType, selectedWorkspace } =
+    useSelector((state) => state.sidebar);
   const [workspaceName, setWorkspaceName] = useState(null);
   const [workspaceData, setWorkspaceData] = useState(null);
   const [boardName, setBoardName] = useState(null);
@@ -135,13 +134,28 @@ const Breadcrumb = ({ customLabel }) => {
             if (data.data?.board) {
               const board = data.data.board;
               setBoardName(board.name);
-              if (board.workspace && board.workspace.name) {
-                setWorkspaceName(board.workspace.name);
-                setWorkspaceData({
-                  id: board.workspace._id,
-                  name: board.workspace.name,
-                  type: board.workspace.type,
-                });
+              if (board.workspace) {
+                // Check if this workspace is the currently selected one in Redux (for updated name)
+                const workspaceId = board.workspace._id || board.workspace.id;
+                if (
+                  selectedWorkspace &&
+                  (selectedWorkspace.id === workspaceId ||
+                    selectedWorkspace._id === workspaceId)
+                ) {
+                  setWorkspaceName(selectedWorkspace.name);
+                  setWorkspaceData({
+                    id: workspaceId,
+                    name: selectedWorkspace.name,
+                    type: board.workspace.type || selectedWorkspace.type,
+                  });
+                } else if (board.workspace.name) {
+                  setWorkspaceName(board.workspace.name);
+                  setWorkspaceData({
+                    id: workspaceId,
+                    name: board.workspace.name,
+                    type: board.workspace.type,
+                  });
+                }
               }
             }
           }
@@ -153,6 +167,17 @@ const Breadcrumb = ({ customLabel }) => {
 
     const fetchWorkspace = async () => {
       if (isWorkspaceSettings && workspaceIdFromUrl) {
+        // First check if this workspace is the currently selected one in Redux
+        if (
+          selectedWorkspace &&
+          (selectedWorkspace.id === workspaceIdFromUrl ||
+            selectedWorkspace._id === workspaceIdFromUrl)
+        ) {
+          setWorkspaceName(selectedWorkspace.name);
+          return;
+        }
+
+        // Then check userWorkspaces
         const workspace = userWorkspaces?.find(
           (ws) => ws._id === workspaceIdFromUrl || ws.id === workspaceIdFromUrl
         );
@@ -160,6 +185,8 @@ const Breadcrumb = ({ customLabel }) => {
           setWorkspaceName(workspace.name);
           return;
         }
+
+        // Finally fallback to API call
         try {
           const response = await fetch(
             `/api/v1/workspaces/${workspaceIdFromUrl}`
@@ -180,7 +207,7 @@ const Breadcrumb = ({ customLabel }) => {
     if (isBoardPage && boardIdFromUrl) {
       fetchBoardAndWorkspace();
     }
-    
+
     // Only fetch workspace data if we don't have it yet
     if (!workspaceName) {
       fetchWorkspace();
@@ -192,13 +219,57 @@ const Breadcrumb = ({ customLabel }) => {
     workspaceIdFromUrl,
     userWorkspaces,
     workspaceName,
+    selectedWorkspace,
   ]);
+
+  // Listen for selectedWorkspace changes to update workspace name immediately
+  useEffect(() => {
+    if (isWorkspaceSettings && workspaceIdFromUrl && selectedWorkspace) {
+      if (
+        selectedWorkspace.id === workspaceIdFromUrl ||
+        selectedWorkspace._id === workspaceIdFromUrl
+      ) {
+        setWorkspaceName(selectedWorkspace.name);
+      }
+    }
+  }, [selectedWorkspace, isWorkspaceSettings, workspaceIdFromUrl]);
+
+  // Listen for selectedWorkspace changes on board pages too
+  useEffect(() => {
+    if (isBoardPage && selectedWorkspace && workspaceData) {
+      if (
+        selectedWorkspace.id === workspaceData.id ||
+        selectedWorkspace._id === workspaceData.id
+      ) {
+        setWorkspaceName(selectedWorkspace.name);
+        setWorkspaceData((prev) => ({
+          ...prev,
+          name: selectedWorkspace.name,
+        }));
+      }
+    }
+  }, [selectedWorkspace, isBoardPage, workspaceData?.id]);
 
   // Reset board name when board ID changes
   useEffect(() => {
     if (isBoardPage && boardIdFromUrl) {
       setBoardName(null); // Reset to show loading state
     }
+  }, [boardIdFromUrl, isBoardPage]);
+
+  // Listen for board updates to refresh board name
+  useEffect(() => {
+    const handleBoardUpdated = (event) => {
+      const { boardId, name } = event.detail;
+      if (boardId === boardIdFromUrl && isBoardPage) {
+        setBoardName(name);
+      }
+    };
+
+    window.addEventListener("boardUpdated", handleBoardUpdated);
+    return () => {
+      window.removeEventListener("boardUpdated", handleBoardUpdated);
+    };
   }, [boardIdFromUrl, isBoardPage]);
 
   if (isWorkspaceSettings) {

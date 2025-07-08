@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { ChevronDown, Shield, Check } from "lucide-react";
+import {
+  getBoardErrorMessage,
+  logBoardError,
+} from "../utils/boardErrorHandler";
 
 const SettingsPopup = ({ onClose, boardId }) => {
   const BASE_URL = "http://localhost:3000";
@@ -66,13 +70,9 @@ const SettingsPopup = ({ onClose, boardId }) => {
               : "cardCreatorOnly",
         });
       } catch (error) {
-        console.error(
-          "[SettingsPopup] Error fetching settings:",
-          error.response?.data || error.message
-        );
-        toast.error(
-          `Failed to load settings: ${error.response?.status || error.message}`
-        );
+        logBoardError(error, "fetchSettings", { boardId });
+        const errorMessage = getBoardErrorMessage(error, "settings");
+        toast.error(errorMessage);
       } finally {
         setIsFetching(false);
       }
@@ -130,23 +130,17 @@ const SettingsPopup = ({ onClose, boardId }) => {
       toast.success("Settings updated successfully!");
       onClose();
     } catch (error) {
-      console.error(
-        "[SettingsPopup] Error updating settings:",
-        error.response?.data || error.message
-      );
-      const validationError = error.response?.data?.error?.errors;
-      if (validationError) {
-        console.log("[SettingsPopup] Validation errors:", validationError);
-        toast.error(
-          `Validation failed: ${validationError.message || error.message}`
-        );
-      } else {
-        toast.error(
-          `Failed to update settings: ${
-            error.response?.status || error.message
-          }`
-        );
-      }
+      logBoardError(error, "updateSettings", {
+        boardId,
+        payload: {
+          memberInvitation: settings.canInviteMembers ? "enabled" : "disabled",
+          cardEditing: settings.cardEditing,
+          cardMoving: settings.cardMoving,
+          memberListCreation: settings.canCreateList ? "enabled" : "disabled",
+        },
+      });
+      const errorMessage = getBoardErrorMessage(error, "settings");
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

@@ -215,6 +215,23 @@ body,
   transform-origin: left center;
 }
 
+/* Responsive styles for workspace popup */
+@media (max-width: 1024px) {
+  .workspace-popup {
+    width: calc(100% - 40px);
+    max-width: 400px;
+  }
+}
+
+@media (max-width: 768px) {
+  .workspace-popup {
+    width: 100%;
+    max-width: none;
+    border-left: none;
+    border-right: none;
+  }
+}
+
 /* Animation classes with improved timing and easing */
 .workspace-popup-entering {
   animation: slideInFromLeft 200ms ease-out forwards;
@@ -231,6 +248,14 @@ body,
   backdrop-filter: blur(0.5px);
   z-index: 40;
   will-change: opacity;
+}
+
+/* Responsive backdrop styles */
+@media (max-width: 768px) {
+  .workspace-backdrop {
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(1px);
+  }
 }
 
 .workspace-backdrop-entering {

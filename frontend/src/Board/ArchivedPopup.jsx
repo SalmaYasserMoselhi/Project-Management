@@ -159,7 +159,13 @@ const ArchivedPopup = ({
       }
     } catch (error) {
       console.error("Failed to restore list:", error);
-      toast.error("Failed to restore list");
+      if (error.response?.status === 403) {
+        toast.error("You don't have permission to restore this list");
+      } else if (error.response?.status === 404) {
+        toast.error("List not found");
+      } else {
+        toast.error("Unable to restore list. Please try again");
+      }
     }
   };
 
@@ -175,7 +181,13 @@ const ArchivedPopup = ({
       }
     } catch (error) {
       console.error("Error deleting list:", error);
-      toast.error("Failed to delete list");
+      if (error.response?.status === 403) {
+        toast.error("You don't have permission to delete this list");
+      } else if (error.response?.status === 404) {
+        toast.error("List not found");
+      } else {
+        toast.error("Unable to delete list. Please try again");
+      }
     }
   };
 
@@ -197,9 +209,13 @@ const ArchivedPopup = ({
       if (error.response?.data?.message?.includes("You should restore")) {
         // Show the specific error message from the backend
         toast.error(error.response.data.message);
+      } else if (error.response?.status === 403) {
+        toast.error("You don't have permission to restore this card");
+      } else if (error.response?.status === 404) {
+        toast.error("Card not found");
       } else {
         // Show a generic error message for other errors
-        toast.error("Failed to restore card");
+        toast.error("Unable to restore card. Please try again");
       }
 
       // Don't remove the card from the archived cards list if restoration failed
@@ -219,7 +235,13 @@ const ArchivedPopup = ({
       }
     } catch (error) {
       console.error("Error deleting card:", error);
-      toast.error("Failed to delete card");
+      if (error.response?.status === 403) {
+        toast.error("You don't have permission to delete this card");
+      } else if (error.response?.status === 404) {
+        toast.error("Card not found");
+      } else {
+        toast.error("Unable to delete card. Please try again");
+      }
     }
   };
 

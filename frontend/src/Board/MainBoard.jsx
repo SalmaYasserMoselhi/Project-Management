@@ -38,6 +38,23 @@ const MainBoard = () => {
     setRestoredCard(card);
   };
 
+  // Add callback to handle board data updates
+  const handleBoardDataUpdate = (updatedData) => {
+    if (updatedData.name !== undefined) {
+      setBoardName(updatedData.name);
+    }
+    if (updatedData.description !== undefined) {
+      setBoardDescription(updatedData.description);
+    }
+    // Update the complete board data as well if needed
+    if (boardData) {
+      setBoardData((prev) => ({
+        ...prev,
+        ...updatedData,
+      }));
+    }
+  };
+
   // Fetch board info with complete data
   useEffect(() => {
     const fetchBoardData = async () => {
@@ -138,8 +155,7 @@ const MainBoard = () => {
   return (
     <div className="min-h-screen flex bg-[#f5f5f5] overflow-hidden relative -mt-8">
       {/* Main Content */}
-      <div className="flex-1 h-screen overflow-y-auto overflow-x-hidden p-3 transition-all duration-300 w-[1115px]">
-       
+      <div className="flex-1 h-screen overflow-y-auto overflow-x-hidden p-3 transition-all duration-300 min-w-full lg:max-w-[1115px]">
         {/* Project Info and Board */}
         <ProjectInfo
           isSidebarOpen={isSidebarOpen}
@@ -150,6 +166,7 @@ const MainBoard = () => {
           onCardRestored={handleCardRestored}
           boardCreatedAt={boardCreatedAt}
           members={boardData ? boardData.members : []}
+          onBoardDataUpdate={handleBoardDataUpdate}
         />
         <Board
           isSidebarOpen={isSidebarOpen}
@@ -166,5 +183,3 @@ const MainBoard = () => {
 };
 
 export default MainBoard;
-
-

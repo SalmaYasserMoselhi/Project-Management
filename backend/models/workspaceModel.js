@@ -49,15 +49,18 @@ const workspaceSchema = new mongoose.Schema(
                   'invite_members', // Can invite new members
                   'view_members', // Can view member list
                   'manage_settings', // Can change workspace settings
+                  'manage_critical_settings', // Can change critical settings
+                  'manage_non_critical_settings', // Can change non-critical settings
                   'manage_permissions', // Can manage permission settings
                 ];
               case 'admin':
                 return [
-                  'manage_members', // Can add/remove regular members
+                  'manage_members', // Can add/remove regular members (not other admins)
                   'create_boards', // Can create new boards
                   'invite_members', // Can invite new members
                   'view_members', // Can view member list
-                  'manage_settings', // Can change workspace settings
+                  'manage_non_critical_settings', // Can change non-critical settings only
+                  // Note: Cannot promote to admin or demote admins (owner only)
                 ];
               default:
                 return [
@@ -75,7 +78,7 @@ const workspaceSchema = new mongoose.Schema(
       },
     ],
     settings: {
-      // Critical Settings (Owner Only)
+      // Critical Settings (Owner Only) - These control fundamental workspace access and permissions
       inviteRestriction: {
         type: String,
         enum: ['owner', 'admin', 'member'],
@@ -87,7 +90,7 @@ const workspaceSchema = new mongoose.Schema(
         default: 'owner',
       },
 
-      // disanbled or enabled on the member's account only
+      // Non-Critical Settings (Owner & Admin) - These can be modified by both owners and admins
       notificationsEnabled: {
         type: Boolean,
         default: true,

@@ -565,11 +565,11 @@ const Calendar = () => {
   return (
     <div className="min-h-screen flex flex-col items-center w-full overflow-y-auto bg-white rounded-xl">
       <style>{styles}</style>
-      <div className="p-2 w-full h-full flex flex-col">
+      <div className="p-3 w-full h-full flex flex-col">
         {/* Header Section with Month and Navigation */}
-        <div className="flex flex-col md:flex-row justify-between items-center mb-6">
-          <div className="flex items-center">
-            <div className="flex items-center gap-4 mb-4 md:mb-0">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-4">
+          <div className="flex items-center mb-4 lg:mb-0 sm:mb-0">
+            <div className="flex items-center gap-4">
               <button
                 className="rounded-full bg-gray-100 w-8 h-8 flex items-center justify-center button-hover"
                 onClick={() => handleViewBasedNavigation("prev")}

@@ -434,8 +434,8 @@ const ProfilePopup = ({ user }) => {
                 <input
                   type="email"
                   value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#7b4397] focus:border-[#7b4397] transition-all duration-200"
+                  readOnly
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
                 />
               </div>
             </div>

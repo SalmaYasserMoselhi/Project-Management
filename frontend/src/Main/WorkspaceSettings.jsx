@@ -217,6 +217,7 @@ export default function WorkspaceSettings() {
   );
   const hasRedirected = useRef(false);
   const [hasPermission, setHasPermission] = useState(null);
+  const [currentUserRole, setCurrentUserRole] = useState(null);
   const userCache = useRef({});
 
   // Get workspaceId from URL params or localStorage
@@ -498,6 +499,7 @@ export default function WorkspaceSettings() {
           hasRedirected.current = false;
           toast.dismiss();
           setHasPermission(true);
+          setCurrentUserRole(currentUserRole);
         }
 
         setWorkspace({
@@ -589,8 +591,12 @@ export default function WorkspaceSettings() {
           name: form.name,
           description: form.description,
           settings: {
-            inviteRestriction: form.inviteRestriction,
-            boardCreation: form.boardCreation,
+            // Only include critical settings if user is owner
+            ...(currentUserRole === "owner" && {
+              inviteRestriction: form.inviteRestriction,
+              boardCreation: form.boardCreation,
+            }),
+            // Non-critical settings for both owners and admins
             notificationsEnabled: form.notificationsEnabled,
           },
         }),
@@ -914,106 +920,158 @@ export default function WorkspaceSettings() {
               </h2>
               <p className="text-sm text-gray-500 mb-4">
                 Control who can perform actions in this workspace
+                {currentUserRole === "admin" && (
+                  <span className="block mt-2 text-[#6a3b82] text-xs font-medium bg-purple-50 p-2 rounded-md border border-purple-200">
+                    🔒 Only workspace owners can modify critical permissions
+                    (Member Invitation & Board Creation)
+                  </span>
+                )}
               </p>
               <div className="space-y-3">
-                <div className="flex items-center gap-4 mb-2">
-                  <div className="text-sm font-medium text-gray-700 min-w-[140px]">
-                    Member Invitation
+                {currentUserRole === "owner" && (
+                  <div className="flex items-center gap-4 mb-2">
+                    <div className="text-sm font-medium text-gray-700 min-w-[140px]">
+                      Member Invitation
+                    </div>
+                    <div className="relative" ref={inviteDropdownRef}>
+                      <button
+                        type="button"
+                        className="px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2 w-36 justify-between border border-gray-300"
+                        style={{
+                          backgroundColor: "#4D2D6120",
+                          color: "#6A3B82",
+                        }}
+                        onClick={() => setInviteDropdownOpen((v) => !v)}
+                      >
+                        <span className="truncate">
+                          {permissionOptions.find(
+                            (opt) => opt.value === form.inviteRestriction
+                          )?.label || "Select"}
+                        </span>
+                        <ChevronDown
+                          className={`ml-2 text-[#6a3b82] transition-transform duration-200 ${
+                            inviteDropdownOpen ? "rotate-180" : ""
+                          }`}
+                          size={18}
+                        />
+                      </button>
+                      {inviteDropdownOpen && (
+                        <div className="absolute left-0 mt-2 w-full bg-white border border-gray-300 rounded-md shadow-lg z-20">
+                          {permissionOptions.map((opt) => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${
+                                form.inviteRestriction === opt.value
+                                  ? "bg-gray-100 font-semibold"
+                                  : ""
+                              } text-[#6A3B82] hover:bg-gray-100`}
+                              onClick={() => {
+                                setForm((prev) => ({
+                                  ...prev,
+                                  inviteRestriction: opt.value,
+                                }));
+                                setInviteDropdownOpen(false);
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="relative" ref={inviteDropdownRef}>
-                    <button
-                      type="button"
-                      className="px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2 w-36 justify-between border border-gray-300"
-                      style={{ backgroundColor: "#4D2D6120", color: "#6A3B82" }}
-                      onClick={() => setInviteDropdownOpen((v) => !v)}
-                    >
-                      <span className="truncate">
+                )}
+
+                {currentUserRole === "owner" && (
+                  <div className="flex items-center gap-4 mb-2">
+                    <div className="text-sm font-medium text-gray-700 min-w-[140px]">
+                      Boards Management
+                    </div>
+                    <div className="relative" ref={boardDropdownRef}>
+                      <button
+                        type="button"
+                        className="px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2 w-36 justify-between border border-gray-300"
+                        style={{
+                          backgroundColor: "#4D2D6120",
+                          color: "#6A3B82",
+                        }}
+                        onClick={() => setBoardDropdownOpen((v) => !v)}
+                      >
+                        <span className="truncate">
+                          {permissionOptions.find(
+                            (opt) => opt.value === form.boardCreation
+                          )?.label || "Select"}
+                        </span>
+                        <ChevronDown
+                          className={`ml-2 text-[#6A3B82] transition-transform duration-200 ${
+                            boardDropdownOpen ? "rotate-180" : ""
+                          }`}
+                          size={18}
+                        />
+                      </button>
+                      {boardDropdownOpen && (
+                        <div className="absolute left-0 mt-2 w-36 bg-white border border-gray-300 rounded-md shadow-lg z-20">
+                          {permissionOptions.map((opt) => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${
+                                form.boardCreation === opt.value
+                                  ? "bg-gray-100 font-semibold"
+                                  : ""
+                              } text-[#6A3B82] hover:bg-gray-100`}
+                              onClick={() => {
+                                setForm((prev) => ({
+                                  ...prev,
+                                  boardCreation: opt.value,
+                                }));
+                                setBoardDropdownOpen(false);
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Read-only display for admins */}
+                {currentUserRole === "admin" && (
+                  <div className="space-y-3 bg-purple-50 p-4 rounded-lg border border-purple-200">
+                    <div className="text-sm font-medium text-[#6a3b82] mb-3">
+                      Current Critical Settings (Owner Only)
+                    </div>
+
+                    <div className="flex items-center gap-4 mb-2">
+                      <div className="text-sm font-medium text-gray-700 min-w-[140px]">
+                        Member Invitation
+                      </div>
+                      <div className="px-3 py-1 rounded-md text-sm bg-purple-100 text-[#6a3b82] border border-purple-200">
                         {permissionOptions.find(
                           (opt) => opt.value === form.inviteRestriction
-                        )?.label || "Select"}
-                      </span>
-                      <ChevronDown
-                        className={`ml-2 text-[#6a3b82] transition-transform duration-200 ${
-                          inviteDropdownOpen ? "rotate-180" : ""
-                        }`}
-                        size={18}
-                      />
-                    </button>
-                    {inviteDropdownOpen && (
-                      <div className="absolute left-0 mt-2 w-full bg-white border border-gray-300 rounded-md shadow-lg z-20">
-                        {permissionOptions.map((opt) => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${
-                              form.inviteRestriction === opt.value
-                                ? "bg-gray-100 font-semibold"
-                                : ""
-                            } text-[#6A3B82] hover:bg-gray-100`}
-                            onClick={() => {
-                              setForm((prev) => ({
-                                ...prev,
-                                inviteRestriction: opt.value,
-                              }));
-                              setInviteDropdownOpen(false);
-                            }}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
+                        )?.label || "Owner"}
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
 
-                <div className="flex items-center gap-4 mb-2">
-                  <div className="text-sm font-medium text-gray-700 min-w-[140px]">
-                    Boards Management
-                  </div>
-                  <div className="relative" ref={boardDropdownRef}>
-                    <button
-                      type="button"
-                      className="px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2 w-36 justify-between border border-gray-300"
-                      style={{ backgroundColor: "#4D2D6120", color: "#6A3B82" }}
-                      onClick={() => setBoardDropdownOpen((v) => !v)}
-                    >
-                      <span className="truncate">
+                    <div className="flex items-center gap-4 mb-2">
+                      <div className="text-sm font-medium text-gray-700 min-w-[140px]">
+                        Boards Management
+                      </div>
+                      <div className="px-3 py-1 rounded-md text-sm bg-purple-100 text-[#6a3b82] border border-purple-200">
                         {permissionOptions.find(
                           (opt) => opt.value === form.boardCreation
-                        )?.label || "Select"}
-                      </span>
-                      <ChevronDown
-                        className={`ml-2 text-[#6A3B82] transition-transform duration-200 ${
-                          boardDropdownOpen ? "rotate-180" : ""
-                        }`}
-                        size={18}
-                      />
-                    </button>
-                    {boardDropdownOpen && (
-                      <div className="absolute left-0 mt-2 w-36 bg-white border border-gray-300 rounded-md shadow-lg z-20">
-                        {permissionOptions.map((opt) => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${
-                              form.boardCreation === opt.value
-                                ? "bg-gray-100 font-semibold"
-                                : ""
-                            } text-[#6A3B82] hover:bg-gray-100`}
-                            onClick={() => {
-                              setForm((prev) => ({
-                                ...prev,
-                                boardCreation: opt.value,
-                              }));
-                              setBoardDropdownOpen(false);
-                            }}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
+                        )?.label || "Admin"}
                       </div>
-                    )}
+                    </div>
                   </div>
+                )}
+
+                {/* Non-critical settings for both owners and admins */}
+                <div className="space-y-3">
+                  {/* Add any non-critical settings here if needed */}
                 </div>
               </div>
             </div>

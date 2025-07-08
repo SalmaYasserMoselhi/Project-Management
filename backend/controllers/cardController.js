@@ -510,13 +510,20 @@ exports.toggleCard = catchAsync(async (req, res, next) => {
   // Get card with context and verify access
   const { card, board } = await getCardWithContext(cardId, req.user._id);
 
-  // Verify edit permission
-  permissionService.verifyCardEdit(board, card, req.user._id);
+  const currentState = card.state.current;
+  const targetState = currentState === 'completed' ? 'active' : 'completed';
+
+  // Verify completion permission - only assigned members, admins, and owners can complete cards
+  permissionService.verifyCardCompletion(
+    board,
+    card,
+    req.user._id,
+    targetState
+  );
 
   // Validate access
   // await validateListAccess(card.list, req.user._id);
 
-  const currentState = card.state.current;
   const now = new Date();
 
   // Toggle completion status
@@ -1225,7 +1232,15 @@ exports.toggleSubtask = catchAsync(async (req, res, next) => {
     card.state.completedBy = undefined;
     card.state.lastStateChange = new Date();
   } else if (allSubtasksCompleted && card.state.current === 'active') {
-    // If all subtasks are completed, mark card as completed
+    // If all subtasks are completed, check if user has permission to complete the card
+    permissionService.verifyCardCompletion(
+      board,
+      card,
+      req.user._id,
+      'completed'
+    );
+
+    // Mark card as completed
     card.state.current = 'completed';
     card.state.completedAt = new Date();
     card.state.completedBy = req.user._id;

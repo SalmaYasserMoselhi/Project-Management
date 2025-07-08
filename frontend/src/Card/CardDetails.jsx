@@ -257,7 +257,7 @@ export default function CardDetails({
     }
 
     // Store the original list ID to track if it changed
-    const originalListId = currentListId;
+    const originalListId = initialCardState?.listId || currentListId;
     const hasChangedList = originalListId !== listId;
 
     try {

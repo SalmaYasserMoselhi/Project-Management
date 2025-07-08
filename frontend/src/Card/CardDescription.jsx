@@ -34,7 +34,7 @@ export default function CardDescription({ cardId }) {
       <textarea
         className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[#4D2D61] focus:border-2 resize-y min-h-[60px]"
         rows={4}
-        placeholder="Add notes, links, files or any details about this card"
+        placeholder="Add notes, links or any details about this card"
         value={description || ""}
         onChange={handleChange}
         onFocus={() => setIsFocused(true)}

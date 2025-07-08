@@ -372,6 +372,27 @@ exports.updateBoard = catchAsync(async (req, res, next) => {
 
   const { settings, members, ...basicFields } = req.body;
 
+  // Validate basic fields
+  if (basicFields.name !== undefined) {
+    if (!basicFields.name || basicFields.name.trim() === '') {
+      return next(
+        new AppError('Board name is required and cannot be empty', 400)
+      );
+    }
+    if (basicFields.name.trim().length > 100) {
+      return next(new AppError('Board name cannot exceed 100 characters', 400));
+    }
+  }
+
+  if (
+    basicFields.description !== undefined &&
+    basicFields.description.length > 500
+  ) {
+    return next(
+      new AppError('Board description cannot exceed 500 characters', 400)
+    );
+  }
+
   let updateData = {};
 
   // Handle basic properties (name, description, etc.)
@@ -379,30 +400,100 @@ exports.updateBoard = catchAsync(async (req, res, next) => {
     const allowedBasicFields = ['name', 'description'];
     allowedBasicFields.forEach((field) => {
       if (basicFields[field] !== undefined) {
-        updateData[field] = basicFields[field];
+        updateData[field] =
+          field === 'name' ? basicFields[field].trim() : basicFields[field];
       }
     });
   }
 
   // Handle Settings Updates
   if (settings) {
+    if (!settings.general) {
+      return next(
+        new AppError(
+          'Invalid settings format: general settings object is required',
+          400
+        )
+      );
+    }
+
     updateData.settings = { ...board.settings };
+
+    // Validate settings values
+    const validMemberSettings = ['enabled', 'disabled'];
+    const validCardSettings = [
+      'all_members',
+      'card_creator_only',
+      'admins_only',
+    ];
+
+    if (
+      settings.general.memberInvitation &&
+      !validMemberSettings.includes(settings.general.memberInvitation)
+    ) {
+      return next(
+        new AppError(
+          'Invalid memberInvitation setting. Must be "enabled" or "disabled"',
+          400
+        )
+      );
+    }
+
+    if (
+      settings.general.memberListCreation &&
+      !validMemberSettings.includes(settings.general.memberListCreation)
+    ) {
+      return next(
+        new AppError(
+          'Invalid memberListCreation setting. Must be "enabled" or "disabled"',
+          400
+        )
+      );
+    }
+
+    if (
+      settings.general.cardEditing &&
+      !validCardSettings.includes(settings.general.cardEditing)
+    ) {
+      return next(
+        new AppError(
+          'Invalid cardEditing setting. Must be "all_members", "card_creator_only", or "admins_only"',
+          400
+        )
+      );
+    }
+
+    if (
+      settings.general.cardMoving &&
+      !validCardSettings.includes(settings.general.cardMoving)
+    ) {
+      return next(
+        new AppError(
+          'Invalid cardMoving setting. Must be "all_members", "card_creator_only", or "admins_only"',
+          400
+        )
+      );
+    }
 
     // Critical settings (owner only)
     if (
       settings.general &&
-      (settings.general.memberListCreation || settings.general.memberInvitation)
+      (settings.general.memberListCreation !== undefined ||
+        settings.general.memberInvitation !== undefined)
     ) {
       if (userRole !== 'owner') {
         return next(
-          new AppError('Only board owner can modify critical settings', 403)
+          new AppError(
+            'Only the board owner can modify member invitation and list creation settings',
+            403
+          )
         );
       }
 
-      if (settings.general.memberListCreation)
+      if (settings.general.memberListCreation !== undefined)
         updateData.settings.general.memberListCreation =
           settings.general.memberListCreation;
-      if (settings.general.memberInvitation)
+      if (settings.general.memberInvitation !== undefined)
         updateData.settings.general.memberInvitation =
           settings.general.memberInvitation;
     }
@@ -417,7 +508,7 @@ exports.updateBoard = catchAsync(async (req, res, next) => {
       if (!['owner', 'admin'].includes(userRole)) {
         return next(
           new AppError(
-            'Only owners and admins can modify general settings',
+            'Only board owners and administrators can modify card permission settings',
             403
           )
         );
@@ -483,8 +574,19 @@ exports.updateBoard = catchAsync(async (req, res, next) => {
     for (const update of members) {
       const { user: userId, role } = update;
 
+      if (!userId) {
+        return next(
+          new AppError('User ID is required for member updates', 400)
+        );
+      }
+
       if (!['admin', 'member'].includes(role)) {
-        return next(new AppError('Invalid role. Must be admin or member', 400));
+        return next(
+          new AppError(
+            'Invalid role. Please select a valid role (Administrator or Member)',
+            400
+          )
+        );
       }
 
       const targetMember = board.members.find(
@@ -492,11 +594,20 @@ exports.updateBoard = catchAsync(async (req, res, next) => {
       );
 
       if (!targetMember) {
-        return next(new AppError('Member not found', 404));
+        return next(
+          new AppError('The selected member was not found on this board', 404)
+        );
       }
 
       if (targetMember.role === 'owner') {
-        return next(new AppError("Cannot change board owner's role", 400));
+        return next(
+          new AppError("The board owner's role cannot be changed", 400)
+        );
+      }
+
+      // Prevent users from changing their own role
+      if (req.user._id.toString() === userId.toString()) {
+        return next(new AppError('You cannot change your own role', 403));
       }
 
       // Save the previous role before any changes
@@ -506,7 +617,10 @@ exports.updateBoard = catchAsync(async (req, res, next) => {
       if (role === 'admin' && previousRole === 'member') {
         if (userRole !== 'owner') {
           return next(
-            new AppError('Only board owner can promote to admin', 403)
+            new AppError(
+              'Only the board owner can promote members to administrator',
+              403
+            )
           );
         }
       }
@@ -515,7 +629,7 @@ exports.updateBoard = catchAsync(async (req, res, next) => {
       if (role === 'member' && previousRole === 'admin') {
         if (userRole !== 'owner') {
           return next(
-            new AppError('Only board owner can demote an admin', 403)
+            new AppError('Only the board owner can demote administrators', 403)
           );
         }
       }
@@ -718,6 +832,12 @@ exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
     return next(new AppError('You do not have access to this workspace', 403));
   }
 
+  // Get user's role in the workspace
+  const userMember = workspace.members.find(
+    (member) => member.user.toString() === userId.toString()
+  );
+  const userWorkspaceRole = userMember ? userMember.role : null;
+
   let matchQuery;
   if (workspace.type === 'collaboration') {
     const userWorkspaces = await Workspace.find({
@@ -732,10 +852,17 @@ exports.getWorkspaceBoards = catchAsync(async (req, res, next) => {
       'archivedByUsers.user': { $ne: userId },
     };
   } else {
+    // Base match query for the workspace
     matchQuery = {
       workspace: new mongoose.Types.ObjectId(workspaceId),
       'archivedByUsers.user': { $ne: userId },
     };
+
+    // If user is not the workspace owner, filter to only show boards they are a member of
+    if (userWorkspaceRole !== 'owner') {
+      matchQuery['members.user'] = userId;
+    }
+    // If user is owner, they see all boards in the workspace (no additional filtering)
   }
 
   if (search) {
@@ -1648,11 +1775,25 @@ exports.getWorkspaceArchivedBoards = catchAsync(async (req, res, next) => {
     return next(new AppError('You do not have access to this workspace', 403));
   }
 
-  // Find boards that belong to this workspace AND that the current user has archived
-  const archivedBoards = await Board.find({
+  // Get user's role in the workspace
+  const userMember = workspace.members.find(
+    (member) => member.user.toString() === userId.toString()
+  );
+  const userWorkspaceRole = userMember ? userMember.role : null;
+
+  // Build query for archived boards
+  let boardQuery = {
     workspace: workspaceId,
     'archivedByUsers.user': userId,
-  })
+  };
+
+  // If user is not the workspace owner, filter to only show boards they are a member of
+  if (userWorkspaceRole !== 'owner') {
+    boardQuery['members.user'] = userId;
+  }
+
+  // Find boards that belong to this workspace AND that the current user has archived
+  const archivedBoards = await Board.find(boardQuery)
     .populate({
       path: 'workspace',
       select: 'name type createdBy',

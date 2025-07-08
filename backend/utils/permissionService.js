@@ -83,17 +83,28 @@ const permissionService = {
 
       // Special handling for card editing and moving permissions
       if (permission === 'edit_other_cards') {
-        return generalSettings.cardEditing === 'admins_only' || generalSettings.cardEditing === 'all_members';
+        return (
+          generalSettings.cardEditing === 'admins_only' ||
+          generalSettings.cardEditing === 'all_members'
+        );
       }
       if (permission === 'move_other_cards') {
-        return generalSettings.cardMoving === 'admins_only' || generalSettings.cardMoving === 'all_members';
+        return (
+          generalSettings.cardMoving === 'admins_only' ||
+          generalSettings.cardMoving === 'all_members'
+        );
       }
 
       // For 'edit_cards' and 'move_cards', do not always return true; let canEditCard/canMoveCard handle creator-only logic
       if (permission === 'edit_cards' || permission === 'move_cards') {
         // Only allow if not card_creator_only, otherwise handled in canEditCard/canMoveCard
-        return generalSettings.cardEditing !== 'card_creator_only' && permission === 'edit_cards' ? true :
-               generalSettings.cardMoving !== 'card_creator_only' && permission === 'move_cards' ? true : false;
+        return generalSettings.cardEditing !== 'card_creator_only' &&
+          permission === 'edit_cards'
+          ? true
+          : generalSettings.cardMoving !== 'card_creator_only' &&
+            permission === 'move_cards'
+          ? true
+          : false;
       }
 
       return true;
@@ -190,7 +201,12 @@ const permissionService = {
     // For admins, allow most permissions by default
     if (member.role === 'admin') {
       // Restricted permissions for admins
-      const adminRestrictions = ['delete_workspace', 'manage_roles'];
+      const adminRestrictions = [
+        'delete_workspace',
+        'manage_roles',
+        'manage_critical_settings',
+        'manage_permissions',
+      ];
       return !adminRestrictions.includes(permission);
     }
 
@@ -316,6 +332,75 @@ const permissionService = {
   },
 
   /**
+   * Check if a user can complete a specific card
+   * Only assigned members, admins, and owners can complete cards
+   * @param {Object} board - The board object
+   * @param {Object} card - The card object
+   * @param {String} userId - The user ID
+   * @returns {Boolean} - True if the user can complete the card
+   */
+  canCompleteCard(board, card, userId) {
+    if (!board || !card || !userId) {
+      return false;
+    }
+
+    // Find the user in board members
+    const boardMember = this.findMember(board.members, userId);
+    if (!boardMember) {
+      return false;
+    }
+
+    // Board owner and admins can complete any card
+    if (boardMember.role === 'owner' || boardMember.role === 'admin') {
+      return true;
+    }
+
+    // Check if user is assigned to the card
+    const isCardMember =
+      card.members &&
+      Array.isArray(card.members) &&
+      card.members.some((m) => {
+        if (!m || !m.user) return false;
+
+        const memberId =
+          typeof m.user === 'object' && m.user !== null
+            ? m.user._id
+              ? m.user._id.toString()
+              : null
+            : m.user.toString();
+
+        return memberId === userId.toString();
+      });
+
+    return isCardMember;
+  },
+
+  /**
+   * Verify that a user can complete a card, throw error if not
+   * @param {Object} board - The board object
+   * @param {Object} card - The card object
+   * @param {String} userId - The user ID
+   * @param {String} targetState - The target state ('completed' or 'active')
+   * @throws {AppError} - If the user can't complete the card
+   */
+  verifyCardCompletion(board, card, userId, targetState = 'completed') {
+    if (!board || !card || !userId) {
+      throw new AppError(
+        'Missing required parameters for card completion verification',
+        500
+      );
+    }
+
+    if (!this.canCompleteCard(board, card, userId)) {
+      const action =
+        targetState === 'completed'
+          ? 'mark this card as completed'
+          : 'mark this card as incomplete';
+      throw new AppError(`You don't have permission to ${action}`, 403);
+    }
+  },
+
+  /**
    * Verify that a user has a specific permission, throw error if not
    * @param {Object} board - The board object
    * @param {String} userId - The user ID
@@ -427,6 +512,39 @@ const permissionService = {
     if (!this.canMoveCard(board, card, userId)) {
       throw new AppError("You don't have permission to move this card", 403);
     }
+  },
+
+  /**
+   * Check if a user can modify critical workspace settings
+   * Critical settings include: inviteRestriction, boardCreation
+   * Only workspace owners can modify these settings
+   * @param {Object} workspace - The workspace object
+   * @param {String} userId - The user ID
+   * @returns {Boolean} - True if the user can modify critical settings
+   */
+  canModifyCriticalSettings(workspace, userId) {
+    if (!workspace || !userId) {
+      return false;
+    }
+
+    // Find the member
+    let member = this.findMember(workspace.members, userId);
+    if (!member) {
+      return false;
+    }
+
+    // Only owners can modify critical settings
+    return member.role === 'owner';
+  },
+
+  /**
+   * Check if a setting is considered critical (owner-only)
+   * @param {String} settingName - The name of the setting
+   * @returns {Boolean} - True if the setting is critical
+   */
+  isCriticalSetting(settingName) {
+    const criticalSettings = ['inviteRestriction', 'boardCreation'];
+    return criticalSettings.includes(settingName);
   },
 };
 

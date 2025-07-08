@@ -36,6 +36,11 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     selectedWorkspace: popupSelectedWorkspace,
   } = useSelector((state) => state.userWorkspaces);
 
+  // Also get the selectedWorkspace from sidebar for real-time updates
+  const sidebarSelectedWorkspace = useSelector(
+    (state) => state.sidebar.selectedWorkspace
+  );
+
   // Add this at the top level
   const shouldFetch = useSelector(selectShouldFetchWorkspaces);
 
@@ -211,9 +216,13 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     }
   } catch {}
 
-  // For avatar and member count: use selected workspace from Redux, then localStorage
+  // For avatar and member count: prioritize sidebar (most up-to-date) ONLY if it's a public workspace, then userWorkspaces, then localStorage
   const selectedOrLocalWorkspace =
-    popupSelectedWorkspace || localStorageSelectedWorkspace;
+    (sidebarSelectedWorkspace && sidebarSelectedWorkspace.type === "public"
+      ? sidebarSelectedWorkspace
+      : null) ||
+    popupSelectedWorkspace ||
+    localStorageSelectedWorkspace;
   const avatarLetter = selectedOrLocalWorkspace
     ? getInitial(selectedOrLocalWorkspace.name)
     : user
@@ -221,8 +230,11 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     : "?";
   const memberCount = selectedOrLocalWorkspace?.memberCount || 0;
 
-  // Sidebar header name logic for popup
+  // Sidebar header name logic for popup - prioritize the most recent data (only public workspaces)
   const popupHeaderWorkspaceName =
+    (sidebarSelectedWorkspace &&
+      sidebarSelectedWorkspace.type === "public" &&
+      sidebarSelectedWorkspace.name) ||
     (popupSelectedWorkspace && popupSelectedWorkspace.name) ||
     (localStorageSelectedWorkspace && localStorageSelectedWorkspace.name) ||
     (ownedWorkspace && ownedWorkspace.name) ||
@@ -230,6 +242,9 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
     (user ? `${user.firstName}'s Workspace` : "Workspace");
 
   const workspaceHeader =
+    (sidebarSelectedWorkspace && sidebarSelectedWorkspace.type === "public"
+      ? sidebarSelectedWorkspace
+      : null) ||
     popupSelectedWorkspace ||
     localStorageSelectedWorkspace ||
     ownedWorkspace ||
@@ -241,6 +256,37 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
   const canEditSettings =
     selectedOrLocalWorkspace &&
     ["owner", "admin"].includes(selectedOrLocalWorkspace.userRole);
+
+  // Listen for sidebar workspace changes to keep localStorage in sync
+  useEffect(() => {
+    if (
+      sidebarSelectedWorkspace &&
+      sidebarSelectedWorkspace.type === "public"
+    ) {
+      const currentLocal = localStorage.getItem("selectedPublicWorkspace");
+      if (currentLocal) {
+        try {
+          const parsed = JSON.parse(currentLocal);
+          if (
+            parsed.id === sidebarSelectedWorkspace.id ||
+            parsed._id === sidebarSelectedWorkspace._id
+          ) {
+            // Update localStorage with the latest data from sidebar
+            localStorage.setItem(
+              "selectedPublicWorkspace",
+              JSON.stringify(sidebarSelectedWorkspace)
+            );
+          }
+        } catch {
+          // If parsing fails, just update with sidebar data
+          localStorage.setItem(
+            "selectedPublicWorkspace",
+            JSON.stringify(sidebarSelectedWorkspace)
+          );
+        }
+      }
+    }
+  }, [sidebarSelectedWorkspace]);
 
   // Close Invite Popup when main popup closes or workspace changes
   useEffect(() => {
@@ -369,12 +415,22 @@ const UserPublicSpacesPopup = ({ isOpen, onClose, currentWorkspace }) => {
             </div>
           ) : (
             workspaces.map((workspace, index) => {
-              // إذا كان هذا هو الوورك سبيس الحالي، استخدم الاسم والوصف المحدثين
+              // Use the most up-to-date name from sidebar if this workspace matches
               const isCurrent =
                 selectedOrLocalWorkspace &&
                 (workspace._id === selectedOrLocalWorkspace.id ||
                   workspace._id === selectedOrLocalWorkspace._id);
-              const displayName = isCurrent
+
+              // Check if this workspace matches the sidebar workspace (most up-to-date) AND it's a public workspace
+              const isCurrentSidebar =
+                sidebarSelectedWorkspace &&
+                sidebarSelectedWorkspace.type === "public" &&
+                (workspace._id === sidebarSelectedWorkspace.id ||
+                  workspace._id === sidebarSelectedWorkspace._id);
+
+              const displayName = isCurrentSidebar
+                ? sidebarSelectedWorkspace.name
+                : isCurrent
                 ? selectedOrLocalWorkspace.name
                 : workspace?.name;
               return (

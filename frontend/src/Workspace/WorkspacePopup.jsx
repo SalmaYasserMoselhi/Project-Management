@@ -100,8 +100,41 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
   );
 
   const getPopupPosition = useCallback(() => {
-    return { left: isSidebarOpen ? 240 : 80 };
+    const isMobile = window.innerWidth <= 768;
+    const isTablet = window.innerWidth <= 1024 && window.innerWidth > 768;
+
+    if (isSidebarOpen) {
+      return { left: 240 };
+    } else {
+      // Responsive positioning when sidebar is closed
+      if (isMobile) {
+        return { left: 0 };
+      } else if (isTablet) {
+        return { left: 20 };
+      } else {
+        return { left: 80 };
+      }
+    }
   }, [isSidebarOpen]);
+
+  // Add window resize handler
+  useEffect(() => {
+    const handleResize = () => {
+      if (popupRef.current) {
+        const { left, width } = getPopupPosition();
+        popupRef.current.style.left = `${left}px`;
+        if (width) {
+          popupRef.current.style.width = width;
+        }
+      }
+    };
+
+    // Set initial position
+    handleResize();
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [getPopupPosition]);
 
   useEffect(() => {
     const delaySearch = setTimeout(
@@ -152,8 +185,18 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
 
   useEffect(() => {
     if (popupRef.current) {
-      const { left } = getPopupPosition();
-      popupRef.current.style.left = `${left}px`;
+      const { left, width } = getPopupPosition();
+      // Small delay to ensure smooth transition when sidebar state changes
+      const timer = setTimeout(() => {
+        if (popupRef.current) {
+          popupRef.current.style.left = `${left}px`;
+          if (width) {
+            popupRef.current.style.width = width;
+          }
+        }
+      }, 50);
+
+      return () => clearTimeout(timer);
     }
   }, [isSidebarOpen, getPopupPosition]);
 
@@ -243,7 +286,10 @@ const WorkspacePopup = ({ workspaceId, workspaceName }) => {
       <div
         ref={popupRef}
         className="workspace-popup"
-        style={{ left: getPopupPosition().left }}
+        style={{
+          left: getPopupPosition().left,
+          width: getPopupPosition().width || "293px",
+        }}
       >
         <div className="p-4 space-y-4 border-b border-gray-100">
           <h1 className="text-lg font-bold text-[#4D2D61]">
